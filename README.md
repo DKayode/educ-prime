@@ -1,1 +1,3 @@
 # educ-prime
+
+Application éducative
