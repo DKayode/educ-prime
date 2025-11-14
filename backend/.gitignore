@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Compiled output
+/dist
+dist/
+build/
+**/dist
+**/build
+
+# Debug files
+*.js.map
+*.css.map
+*.d.ts.map
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+
+# Tests
+/coverage
+/.nyc_output
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.vscode/*
+
+# ENV files
+.env
+.env.local
+.env.*.local
+
+# Firebase
+firebase-adminsdk.json
+firebase-credentials.json
+config/firebase-serviceaccount.json
+firebase-serviceaccount.json
+
+# temp files
+*.swp
+*.swo
+*~
+
+# Test scripts
+scripts/
+
+# Deployment documentation (local only, sensitive info)
+AUTO_DEPLOY_SETUP.md
+QUICKSTART.md
+README.md
+
+# Uploads directory (if you have one)
+/uploads
+
+# Build files
+/build
+/.build
+/out
+/.out
