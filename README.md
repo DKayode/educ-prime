@@ -17,7 +17,7 @@ main (ou master) # branche de préproduction
 
 # Commits messages
 
-- `feat`: nouvelle fonctionnalité
+- `feat`: nouvelle fonctionnalitée
 - `fix`: correction du bug
 - `test`: ajout/modification de tests
 - `chore`: 
