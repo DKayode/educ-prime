@@ -7,13 +7,11 @@ Application éducative
 ```sh
 main (ou master) # branche de préproduction
 │
-├── develop  # branche de préproduction
-│   ├── feature # ajouter une nouvelle fonctionnalitée
-│   └── fix # corriger un bug
+├── feature  # ajouter une nouvelle fonctionnalitée
+├── fix  # corriger un bug
 ```
-- créer des nouvelles branches à partir des branches `feature` et `fix` pour de nouveau développement.
-- merger ensuite dans les branches `feature` et `fix` quand les développements sont prets.
-- merger ensuite dans la branche `develop` et enfin dans la branche `main` pour finir.
+- créer les branches `feature` et `fix` pour ajouter de nouveaux développement.
+- merger ensuite das la branche `main` quand les développment sont prets.
 
 # Commits messages
 
