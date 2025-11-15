@@ -44,7 +44,6 @@ jobs:
             DEPLOY_DIR=${{ secrets.VPS_PROJECT_PATH || '/root/educ-prime/backend' }}
 
             # Créer le répertoire de déploiement
-            mkdir -p "$DEPLOY_DIR"
             mkdir -p "$DEPLOY_DIR/config"
             cd "$DEPLOY_DIR"
 
@@ -62,7 +61,7 @@ jobs:
             echo "$COMPOSE_CONTENT" | base64 -d > docker-compose.yml
             
             # Créer le fichier schema.sql depuis le contenu du repo
-            echo "$SCHEMA_CONTENT" | base64 -d > config/schema.sql
+            echo "$SCHEMA_CONTENT" | base64 -d > ./config/schema.sql
 
             # Arrêter uniquement le backend (garder la DB si possible)
             docker-compose stop backend
