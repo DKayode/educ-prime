@@ -55,9 +55,17 @@ jobs:
             # Créer le fichier docker-compose.yml depuis le contenu du repo
             echo "$COMPOSE_CONTENT" | base64 -d > docker-compose.yml
 
-            # Pull and deploy
-            docker-compose pull
+            # Arrêter uniquement le backend (garder la DB si possible)
+            docker-compose stop backend
+            docker-compose rm -f backend
+
+            # Pull la dernière image
+            docker-compose pull backend
+
+            # Démarrer les conteneurs
             docker-compose up -d --remove-orphans
+
+            # Afficher l'état des conteneurs
             docker-compose ps
 
       - name: Notify deployment status
