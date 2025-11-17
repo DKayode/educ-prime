@@ -2,29 +2,92 @@
 
 ## Aperçu
 
-Ce document décrit l'ensemble des points d'accès REST de la plateforme Educ Prime. Toutes les routes protégées nécessitent un jeton JWT valide obtenu via le processus d'authentification.
+Ce document décrit l'ensemble des points d'accès REST de la plateforme Educ Prime. 
+
+**Important:** Tous les endpoints nécessitent une authentification JWT sauf indication contraire. Le jeton JWT doit être inclus dans l'en-tête `Authorization: Bearer <token>` de chaque requête. Pour obtenir un jeton, utilisez l'endpoint `/auth/connexion` ou créez un nouveau compte via `/utilisateurs/inscription`.
+
+### Rôles et permissions
+- **admin** : Accès complet à tous les endpoints
+- **professeur** : Peut créer/modifier/supprimer les matières, épreuves et ressources
+- **étudiant** : Accès en lecture aux ressources académiques
+- **autre** : Accès en lecture aux ressources académiques
 
 ## Points d'accès d'authentification
 
+### Lister les utilisateurs - `GET /utilisateurs`
+Obtenir la liste de tous les utilisateurs (admin uniquement).
+```http
+GET /utilisateurs
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "email": "utilisateur@exemple.com",
+        "nom": "Dupont",
+        "prenom": "Jean",
+        "pseudo": "jdupont",
+        "role": "étudiant",
+        "sexe": "M",
+        "photo": "https://...",
+        "telephone": "+33123456789",
+        "etablissement_id": 1,
+        "filiere_id": 1,
+        "niveau_etude_id": 1
+    }
+]
+```
+
+### Obtenir un utilisateur - `GET /utilisateurs/:id`
+Obtenir les détails d'un utilisateur spécifique.
+```http
+GET /utilisateurs/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "email": "utilisateur@exemple.com",
+    "nom": "Dupont",
+    "prenom": "Jean",
+    "pseudo": "jdupont",
+    "role": "étudiant",
+    "sexe": "M",
+    "photo": "https://...",
+    "telephone": "+33123456789",
+    "etablissement_id": 1,
+    "filiere_id": 1,
+    "niveau_etude_id": 1
+}
+```
+
 ### Inscription - `POST /utilisateurs/inscription`
 Créer un nouvel utilisateur.
+
+**Authentification requise:** Non (endpoint public)
+
+**Note:** Le mot de passe doit contenir au moins 8 caractères.
+
 ```http
 POST /utilisateurs/inscription
 Content-Type: application/json
 
 {
     "email": "utilisateur@exemple.com",
-    "mot_de_passe": "MotDePasse123!",
+    "mot_de_passe": "MotDePasse123!",  // Minimum 8 caractères
     "nom": "Dupont",
     "prenom": "Jean",
-    "pseudo": "jdupont",              // Facultatif
-    "role": "étudiant",              // étudiant, professeur, admin, autre
-    "sexe": "M",                     // M, F, Autre
-    "photo": "https://...",          // Facultatif, URL vers la photo de profil
-    "telephone": "+33123456789",     // Facultatif
-    "etablissement_id": 1,           // Facultatif
-    "filiere_id": 1,                 // Facultatif
-    "niveau_etude_id": 1             // Facultatif
+    "pseudo": "jdupont",                // Facultatif
+    "role": "étudiant",                 // étudiant, professeur, admin, autre
+    "sexe": "M",                        // M, F, Autre
+    "photo": "https://...",             // Facultatif, URL vers la photo de profil
+    "telephone": "+33123456789",        // Facultatif
+    "etablissement_id": 1,              // Facultatif, doit être un nombre
+    "filiere_id": 1,                    // Facultatif, doit être un nombre
+    "niveau_etude_id": 1                // Facultatif, doit être un nombre
 }
 ```
 Response (201 Created):
@@ -45,15 +108,77 @@ Response (201 Created):
 }
 ```
 
+### Mettre à jour un utilisateur - `PUT /utilisateurs/:id`
+Modifier un utilisateur existant (propriétaire ou admin).
+
+**Champs disponibles:**
+- `nom` (facultatif) : Nom de l'utilisateur
+- `prenom` (facultatif) : Prénom de l'utilisateur
+- `pseudo` (facultatif) : Pseudo de l'utilisateur
+- `photo` (facultatif) : URL de la photo de profil
+- `sexe` (facultatif) : Sexe (M, F, Autre)
+- `telephone` (facultatif) : Numéro de téléphone
+- `role` (facultatif) : Rôle (étudiant, professeur, admin, autre) - admin uniquement
+- `etablissement_id` (facultatif) : ID de l'établissement (nombre)
+- `filiere_id` (facultatif) : ID de la filière (nombre)
+- `niveau_etude_id` (facultatif) : ID du niveau d'étude (nombre)
+
+```http
+PUT /utilisateurs/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "pseudo": "jean_dupont",
+    "telephone": "+33987654321",
+    "etablissement_id": 2
+}
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "email": "utilisateur@exemple.com",
+    "nom": "Dupont",
+    "prenom": "Jean",
+    "pseudo": "jean_dupont",
+    "role": "étudiant",
+    "sexe": "M",
+    "photo": "https://...",
+    "telephone": "+33987654321",
+    "etablissement_id": 2,
+    "filiere_id": 1,
+    "niveau_etude_id": 1
+}
+```
+
+### Supprimer un utilisateur - `DELETE /utilisateurs/:id`
+Supprimer un utilisateur (propriétaire ou admin).
+```http
+DELETE /utilisateurs/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "message": "Utilisateur supprimé avec succès"
+}
+```
+
 ### Connexion - `POST /auth/connexion`
 Authentifier un utilisateur existant.
+
+**Authentification requise:** Non (endpoint public)
+
+**Note:** Le mot de passe doit contenir au moins 8 caractères.
+
 ```http
 POST /auth/connexion
 Content-Type: application/json
 
 {
     "email": "utilisateur@exemple.com",
-    "mot_de_passe": "MotDePasse123!"
+    "mot_de_passe": "MotDePasse123!"  // Minimum 8 caractères
 }
 ```
 Response (200 OK):
@@ -72,8 +197,48 @@ Authorization: Bearer <token>
 
 ## Structure académique
 
+### Lister les établissements - `GET /etablissements`
+Obtenir la liste de tous les établissements.
+```http
+GET /etablissements
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "nom": "Université Paris-Saclay",
+        "ville": "Paris",
+        "code_postal": "75000"
+    }
+]
+```
+
+### Obtenir un établissement - `GET /etablissements/:id`
+Obtenir les détails d'un établissement spécifique.
+```http
+GET /etablissements/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "nom": "Université Paris-Saclay",
+    "ville": "Paris",
+    "code_postal": "75000"
+}
+```
+
 ### Créer un établissement - `POST /etablissements`
 Créer un nouvel établissement (admin uniquement).
+
+**Champs disponibles:**
+- `nom` (requis) : Nom de l'établissement
+- `ville` (facultatif) : Ville de l'établissement
+- `code_postal` (facultatif) : Code postal de l'établissement
+
 ```http
 POST /etablissements
 Authorization: Bearer <token>
@@ -81,8 +246,8 @@ Content-Type: application/json
 
 {
     "nom": "Université Paris-Saclay",
-    "ville": "Paris",
-    "code_postal": "75000"
+    "ville": "Paris",               // Facultatif
+    "code_postal": "75000"          // Facultatif
 }
 ```
 Response (201 Created):
@@ -95,8 +260,89 @@ Response (201 Created):
 }
 ```
 
+### Mettre à jour un établissement - `PUT /etablissements/:id`
+Modifier un établissement existant (admin uniquement).
+
+**Champs disponibles:**
+- `nom` (facultatif) : Nom de l'établissement
+- `ville` (facultatif) : Ville de l'établissement
+- `code_postal` (facultatif) : Code postal de l'établissement
+
+```http
+PUT /etablissements/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "nom": "Université Paris-Saclay Updated",
+    "ville": "Gif-sur-Yvette",
+    "code_postal": "91190"
+}
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "nom": "Université Paris-Saclay Updated",
+    "ville": "Gif-sur-Yvette",
+    "code_postal": "91190"
+}
+```
+
+### Supprimer un établissement - `DELETE /etablissements/:id`
+Supprimer un établissement (admin uniquement).
+```http
+DELETE /etablissements/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "message": "Établissement supprimé avec succès"
+}
+```
+
+### Lister les filières - `GET /filieres`
+Obtenir la liste de toutes les filières.
+```http
+GET /filieres
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "nom": "Informatique",
+        "etablissement_id": 1
+    }
+]
+```
+
+### Obtenir une filière - `GET /filieres/:id`
+Obtenir les détails d'une filière spécifique.
+```http
+GET /filieres/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "nom": "Informatique",
+    "etablissement_id": 1
+}
+```
+
 ### Créer une filière - `POST /filieres`
-Créer un nouveau programme (admin uniquement).
+Créer un nouveau programme.
+
+**Permissions requises:** Utilisateur authentifié
+
+**Champs disponibles:**
+- `nom` (requis) : Nom de la filière
+- `etablissement_id` (requis) : ID de l'établissement (nombre)
+
 ```http
 POST /filieres
 Authorization: Bearer <token>
@@ -104,7 +350,7 @@ Content-Type: application/json
 
 {
     "nom": "Informatique",
-    "etablissement_id": 1
+    "etablissement_id": 1           // Doit être un nombre
 }
 ```
 Response (201 Created):
@@ -116,8 +362,94 @@ Response (201 Created):
 }
 ```
 
+### Mettre à jour une filière - `PUT /filieres/:id`
+Modifier une filière existante.
+
+**Permissions requises:** Utilisateur authentifié
+
+**Champs disponibles:**
+- `nom` (facultatif) : Nom de la filière
+- `etablissement_id` (facultatif) : ID de l'établissement (nombre)
+
+```http
+PUT /filieres/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "nom": "Informatique et Réseaux",
+    "etablissement_id": 1
+}
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "nom": "Informatique et Réseaux",
+    "etablissement_id": 1
+}
+```
+
+### Supprimer une filière - `DELETE /filieres/:id`
+Supprimer une filière.
+
+**Permissions requises:** Utilisateur authentifié
+
+```http
+DELETE /filieres/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "message": "Filière supprimée avec succès"
+}
+```
+
+### Lister les niveaux d'étude - `GET /niveau-etude`
+Obtenir la liste de tous les niveaux d'étude.
+```http
+GET /niveau-etude
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "nom": "License 3",
+        "duree_mois": 12,
+        "filiere_id": 1
+    }
+]
+```
+
+### Obtenir un niveau d'étude - `GET /niveau-etude/:id`
+Obtenir les détails d'un niveau d'étude spécifique.
+```http
+GET /niveau-etude/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "nom": "License 3",
+    "duree_mois": 12,
+    "filiere_id": 1
+}
+```
+
 ### Créer un niveau d'étude - `POST /niveau-etude`
-Créer un nouveau niveau d'étude (admin uniquement).
+Créer un nouveau niveau d'étude.
+
+**Permissions requises:** Utilisateur authentifié
+
+**Champs disponibles:**
+- `nom` (requis) : Nom du niveau d'étude
+- `duree_mois` (facultatif) : Durée en mois (nombre)
+- `filiere_id` (requis) : ID de la filière (nombre)
+
 ```http
 POST /niveau-etude
 Authorization: Bearer <token>
@@ -125,8 +457,8 @@ Content-Type: application/json
 
 {
     "nom": "License 3",
-    "duree_mois": 12,
-    "filiere_id": 1
+    "duree_mois": 12,               // Facultatif, doit être un nombre
+    "filiere_id": 1                 // Doit être un nombre
 }
 ```
 Response (201 Created):
@@ -139,93 +471,57 @@ Response (201 Created):
 }
 ```
 
+### Mettre à jour un niveau d'étude - `PUT /niveau-etude/:id`
+Modifier un niveau d'étude existant.
+
+**Permissions requises:** Utilisateur authentifié
+
+**Champs disponibles:**
+- `nom` (facultatif) : Nom du niveau d'étude
+- `duree_mois` (facultatif) : Durée en mois (nombre)
+- `filiere_id` (facultatif) : ID de la filière (nombre)
+
+```http
+PUT /niveau-etude/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "nom": "License 3 - Semestre 1",
+    "duree_mois": 6,
+    "filiere_id": 1
+}
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "nom": "License 3 - Semestre 1",
+    "duree_mois": 6,
+    "filiere_id": 1
+}
+```
+
+### Supprimer un niveau d'étude - `DELETE /niveau-etude/:id`
+Supprimer un niveau d'étude.
+
+**Permissions requises:** Utilisateur authentifié
+
+```http
+DELETE /niveau-etude/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "message": "Niveau d'étude supprimé avec succès"
+}
+```
+
 ## Gestion de contenu
 
-### Créer une matière - `POST /matieres`
-Créer une nouvelle matière (professeur uniquement).
-```http
-POST /matieres
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-    "nom": "Algorithmique",
-    "description": "Introduction aux algorithmes",
-    "niveau_etude_id": 1,
-    "filiere_id": 1
-}
-```
-Response (201 Created):
-```json
-{
-    "id": 1,
-    "nom": "Algorithmique",
-    "description": "Introduction aux algorithmes",
-    "niveau_etude_id": 1,
-    "filiere_id": 1
-}
-```
-
-### Créer une épreuve - `POST /epreuves`
-Créer une nouvelle épreuve (professeur uniquement).
-```http
-POST /epreuves
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-    "titre": "Examen Final",
-    "url": "https://exemple.com/exam.pdf",
-    "matiere_id": 1,
-    "duree_minutes": 180,
-    "date_publication": "2025-12-01T14:00:00Z"  // Optional, future publication date
-}
-```
-Response (201 Created):
-```json
-{
-    "id": 1,
-    "titre": "Examen Final",
-    "url": "https://exemple.com/exam.pdf",
-    "matiere_id": 1,
-    "professeur_id": 2,
-    "duree_minutes": 180,
-    "date_creation": "2025-11-09T10:30:00Z",
-    "date_publication": "2025-12-01T14:00:00Z"
-}
-```
-
-### Créer une ressource - `POST /ressources`
-Créer une nouvelle ressource (professeur uniquement).
-```http
-POST /ressources
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-    "titre": "Support de cours",
-    "type": "Document",              // Valeurs acceptées : Document, Quiz, Exercices
-    "url": "https://exemple.com/support.pdf",
-    "matiere_id": 1,
-    "date_publication": "2025-12-01T14:00:00Z"  // Facultatif, date de publication future
-}
-```
-Response (201 Created):
-```json
-{
-    "id": 1,
-    "titre": "Support de cours",
-    "type": "Document",
-    "url": "https://exemple.com/support.pdf",
-    "matiere_id": 1,
-    "professeur_id": 2,
-    "date_creation": "2025-11-09T10:30:00Z",
-    "date_publication": "2025-12-01T14:00:00Z"
-}
-```
-
 ### Lister les matières - `GET /matieres`
-Obtenir la liste des matières.
+Obtenir la liste de toutes les matières.
 ```http
 GET /matieres
 Authorization: Bearer <token>
@@ -243,8 +539,109 @@ Response (200 OK):
 ]
 ```
 
+### Obtenir une matière - `GET /matieres/:id`
+Obtenir les détails d'une matière spécifique.
+```http
+GET /matieres/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "nom": "Algorithmique",
+    "description": "Introduction aux algorithmes",
+    "niveau_etude_id": 1,
+    "filiere_id": 1
+}
+```
+
+### Créer une matière - `POST /matieres`
+Créer une nouvelle matière.
+
+**Permissions requises:** Admin ou Professeur
+
+**Champs disponibles:**
+- `nom` (requis) : Nom de la matière
+- `description` (facultatif) : Description de la matière
+- `niveau_etude_id` (requis) : ID du niveau d'étude (nombre)
+- `filiere_id` (requis) : ID de la filière (nombre)
+
+```http
+POST /matieres
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "nom": "Algorithmique",
+    "description": "Introduction aux algorithmes",  // Facultatif
+    "niveau_etude_id": 1,                          // Doit être un nombre
+    "filiere_id": 1                                // Doit être un nombre
+}
+```
+Response (201 Created):
+```json
+{
+    "id": 1,
+    "nom": "Algorithmique",
+    "description": "Introduction aux algorithmes",
+    "niveau_etude_id": 1,
+    "filiere_id": 1
+}
+```
+
+### Mettre à jour une matière - `PUT /matieres/:id`
+Modifier une matière existante.
+
+**Permissions requises:** Admin ou Professeur
+
+**Champs disponibles:**
+- `nom` (facultatif) : Nom de la matière
+- `description` (facultatif) : Description de la matière
+- `niveau_etude_id` (facultatif) : ID du niveau d'étude (nombre)
+- `filiere_id` (facultatif) : ID de la filière (nombre)
+
+```http
+PUT /matieres/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "nom": "Algorithmique Avancée",
+    "description": "Algorithmes avancés et structures de données",
+    "niveau_etude_id": 1,
+    "filiere_id": 1
+}
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "nom": "Algorithmique Avancée",
+    "description": "Algorithmes avancés et structures de données",
+    "niveau_etude_id": 1,
+    "filiere_id": 1
+}
+```
+
+### Supprimer une matière - `DELETE /matieres/:id`
+Supprimer une matière.
+
+**Permissions requises:** Admin ou Professeur
+
+```http
+DELETE /matieres/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "message": "Matière supprimée avec succès"
+}
+```
+
 ### Lister les épreuves - `GET /epreuves`
-Obtenir la liste des épreuves.
+Obtenir la liste de toutes les épreuves.
 ```http
 GET /epreuves
 Authorization: Bearer <token>
@@ -265,8 +662,120 @@ Response (200 OK):
 ]
 ```
 
+### Obtenir une épreuve - `GET /epreuves/:id`
+Obtenir les détails d'une épreuve spécifique.
+```http
+GET /epreuves/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "titre": "Examen Final",
+    "url": "https://exemple.com/exam.pdf",
+    "matiere_id": 1,
+    "professeur_id": 2,
+    "duree_minutes": 180,
+    "date_creation": "2025-11-09T10:30:00Z",
+    "date_publication": "2025-12-01T14:00:00Z"
+}
+```
+
+### Créer une épreuve - `POST /epreuves`
+Créer une nouvelle épreuve.
+
+**Permissions requises:** Utilisateur authentifié
+
+**Champs disponibles:**
+- `titre` (requis) : Titre de l'épreuve
+- `url` (requis) : URL du fichier de l'épreuve
+- `duree_minutes` (requis) : Durée de l'épreuve en minutes (nombre)
+- `matiere_id` (requis) : ID de la matière (nombre)
+- `date_publication` (facultatif) : Date de publication future (format ISO 8601)
+
+```http
+POST /epreuves
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "titre": "Examen Final",
+    "url": "https://exemple.com/exam.pdf",
+    "duree_minutes": 180,                        // Doit être un nombre
+    "matiere_id": 1,                             // Doit être un nombre
+    "date_publication": "2025-12-01T14:00:00Z"   // Facultatif, format date ISO 8601
+}
+```
+Response (201 Created):
+```json
+{
+    "id": 1,
+    "titre": "Examen Final",
+    "url": "https://exemple.com/exam.pdf",
+    "matiere_id": 1,
+    "professeur_id": 2,
+    "duree_minutes": 180,
+    "date_creation": "2025-11-09T10:30:00Z",
+    "date_publication": "2025-12-01T14:00:00Z"
+}
+```
+
+### Mettre à jour une épreuve - `PUT /epreuves/:id`
+Modifier une épreuve existante.
+
+**Permissions requises:** Utilisateur authentifié
+
+**Champs disponibles:**
+- `titre` (facultatif) : Titre de l'épreuve
+- `url` (facultatif) : URL du fichier de l'épreuve
+- `duree_minutes` (facultatif) : Durée de l'épreuve en minutes (nombre)
+- `matiere_id` (facultatif) : ID de la matière (nombre)
+- `date_publication` (facultatif) : Date de publication future (format ISO 8601)
+
+```http
+PUT /epreuves/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "titre": "Examen Final - Session 2",
+    "duree_minutes": 240,
+    "date_publication": "2025-12-15T14:00:00Z"
+}
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "titre": "Examen Final - Session 2",
+    "url": "https://exemple.com/exam.pdf",
+    "matiere_id": 1,
+    "professeur_id": 2,
+    "duree_minutes": 240,
+    "date_creation": "2025-11-09T10:30:00Z",
+    "date_publication": "2025-12-15T14:00:00Z"
+}
+```
+
+### Supprimer une épreuve - `DELETE /epreuves/:id`
+Supprimer une épreuve.
+
+**Permissions requises:** Utilisateur authentifié
+
+```http
+DELETE /epreuves/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "message": "Épreuve supprimée avec succès"
+}
+```
+
 ### Lister les ressources - `GET /ressources`
-Obtenir la liste des ressources.
+Obtenir la liste de toutes les ressources.
 ```http
 GET /ressources
 Authorization: Bearer <token>
@@ -285,6 +794,118 @@ Response (200 OK):
         "date_publication": "2025-12-01T14:00:00Z"
     }
 ]
+```
+
+### Obtenir une ressource - `GET /ressources/:id`
+Obtenir les détails d'une ressource spécifique.
+```http
+GET /ressources/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "titre": "Support de cours",
+    "type": "Document",
+    "url": "https://exemple.com/support.pdf",
+    "matiere_id": 1,
+    "professeur_id": 2,
+    "date_creation": "2025-11-09T10:30:00Z",
+    "date_publication": "2025-12-01T14:00:00Z"
+}
+```
+
+### Créer une ressource - `POST /ressources`
+Créer une nouvelle ressource.
+
+**Permissions requises:** Utilisateur authentifié
+
+**Champs disponibles:**
+- `titre` (requis) : Titre de la ressource
+- `type` (requis) : Type de ressource (valeurs acceptées : `Document`, `Quiz`, `Exercices`)
+- `url` (requis) : URL du fichier de la ressource
+- `matiere_id` (requis) : ID de la matière (nombre)
+- `date_publication` (facultatif) : Date de publication future (format ISO 8601)
+
+```http
+POST /ressources
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "titre": "Support de cours",
+    "type": "Document",                          // Document, Quiz, ou Exercices
+    "url": "https://exemple.com/support.pdf",
+    "matiere_id": 1,                             // Doit être un nombre
+    "date_publication": "2025-12-01T14:00:00Z"   // Facultatif, format date ISO 8601
+}
+```
+Response (201 Created):
+```json
+{
+    "id": 1,
+    "titre": "Support de cours",
+    "type": "Document",
+    "url": "https://exemple.com/support.pdf",
+    "matiere_id": 1,
+    "professeur_id": 2,
+    "date_creation": "2025-11-09T10:30:00Z",
+    "date_publication": "2025-12-01T14:00:00Z"
+}
+```
+
+### Mettre à jour une ressource - `PUT /ressources/:id`
+Modifier une ressource existante.
+
+**Permissions requises:** Utilisateur authentifié
+
+**Champs disponibles:**
+- `titre` (facultatif) : Titre de la ressource
+- `type` (facultatif) : Type de ressource (valeurs acceptées : `Document`, `Quiz`, `Exercices`)
+- `url` (facultatif) : URL du fichier de la ressource
+- `matiere_id` (facultatif) : ID de la matière (nombre)
+- `date_publication` (facultatif) : Date de publication future (format ISO 8601)
+
+```http
+PUT /ressources/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "titre": "Support de cours - Version 2",
+    "type": "Document",
+    "date_publication": "2025-12-10T14:00:00Z"
+}
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "titre": "Support de cours - Version 2",
+    "type": "Document",
+    "url": "https://exemple.com/support.pdf",
+    "matiere_id": 1,
+    "professeur_id": 2,
+    "date_creation": "2025-11-09T10:30:00Z",
+    "date_publication": "2025-12-10T14:00:00Z"
+}
+```
+
+### Supprimer une ressource - `DELETE /ressources/:id`
+Supprimer une ressource.
+
+**Permissions requises:** Utilisateur authentifié
+
+```http
+DELETE /ressources/1
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "message": "Ressource supprimée avec succès"
+}
 ```
 
 ## Gestion des fichiers
@@ -399,10 +1020,20 @@ Codes d'erreur possibles :
 ## Réponses d'erreur
 
 ### 400 Bad Request
+Les messages d'erreur de validation sont en français.
+
+**Exemples de messages d'erreur de validation:**
+- Email invalide: `"L'adresse email doit être valide"`
+- Mot de passe trop court: `"Le mot de passe doit contenir au moins 8 caractères"`
+- Rôle invalide: `"Le rôle doit être l'un des suivants: admin, étudiant, professeur, autre"`
+- Sexe invalide: `"Le sexe doit être l'un des suivants: M, F, Autre"`
+- Champ requis manquant: `"Le champ [nom] doit être une chaîne de caractères"`
+- Propriété non autorisée: `"property [nom_propriété] should not exist"`
+
 ```json
 {
     "statusCode": 400,
-    "message": ["email must be an email", "password is required"],
+    "message": ["L'adresse email doit être valide", "Le mot de passe doit contenir au moins 8 caractères"],
     "error": "Bad Request"
 }
 ```

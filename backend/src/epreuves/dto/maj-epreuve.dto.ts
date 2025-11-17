@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsDate } from 'class-validator';
 
 export class MajEpreuveDto {
   @IsOptional()
@@ -7,17 +7,17 @@ export class MajEpreuveDto {
 
   @IsOptional()
   @IsString()
-  description?: string;
+  url?: string;
 
   @IsOptional()
   @IsNumber()
-  duree?: number;
+  duree_minutes?: number;
 
   @IsOptional()
   @IsNumber()
-  total_points?: number;
+  matiere_id?: number;
 
   @IsOptional()
-  @IsString()
-  matiere_id?: string;
+  @IsDate()
+  date_publication?: Date;
 }

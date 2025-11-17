@@ -6,13 +6,9 @@ export class CreerEtablissementDto {
 
   @IsOptional()
   @IsString()
-  description?: string;
+  ville?: string;
 
   @IsOptional()
   @IsString()
-  logo?: string;
-
-  @IsOptional()
-  @IsString()
-  adresse?: string;
+  code_postal?: string;
 }

@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsNumber } from 'class-validator';
 
 export class MajMatiereDto {
   @IsOptional()
@@ -10,6 +10,10 @@ export class MajMatiereDto {
   description?: string;
 
   @IsOptional()
-  @IsString()
-  niveau_etude_id?: string;
+  @IsNumber()
+  niveau_etude_id?: number;
+
+  @IsOptional()
+  @IsNumber()
+  filiere_id?: number;
 }

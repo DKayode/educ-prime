@@ -14,11 +14,13 @@ export class NiveauEtudeController {
     return this.niveauEtudeService.create(creerNiveauEtudeDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
   async findAll() {
     return this.niveauEtudeService.findAll();
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.niveauEtudeService.findOne(id);
@@ -36,6 +38,7 @@ export class NiveauEtudeController {
     return this.niveauEtudeService.remove(id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('filiere/:id')
   async findByFiliere(@Param('id') filiereId: string) {
     return this.niveauEtudeService.findByFiliere(filiereId);

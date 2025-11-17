@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsOptional, IsEnum } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsEnum, IsNumber } from 'class-validator';
 import { RoleType, SexeType } from '../entities/utilisateur.entity';
 
 export class InscriptionDto {
@@ -35,14 +35,14 @@ export class InscriptionDto {
   role: RoleType;
 
   @IsOptional()
-  @IsString()
-  etablissement_id?: string;
+  @IsNumber()
+  etablissement_id?: number;
 
   @IsOptional()
-  @IsString()
-  filiere_id?: string;
+  @IsNumber()
+  filiere_id?: number;
 
   @IsOptional()
-  @IsString()
-  niveau_etude_id?: string;
+  @IsNumber()
+  niveau_etude_id?: number;
 }

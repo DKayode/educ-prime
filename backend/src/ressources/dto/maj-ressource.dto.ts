@@ -1,14 +1,10 @@
-import { IsString, IsEnum, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsNumber, IsDate } from 'class-validator';
 import { RessourceType } from '../entities/ressource.entity';
 
 export class MajRessourceDto {
   @IsOptional()
   @IsString()
   titre?: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
 
   @IsOptional()
   @IsString()
@@ -19,6 +15,10 @@ export class MajRessourceDto {
   type?: RessourceType;
 
   @IsOptional()
-  @IsString()
-  matiere_id?: string;
+  @IsNumber()
+  matiere_id?: number;
+
+  @IsOptional()
+  @IsDate()
+  date_publication?: Date;
 }

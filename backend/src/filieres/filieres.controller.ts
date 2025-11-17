@@ -14,11 +14,13 @@ export class FilieresController {
     return this.filieresService.create(creerFiliereDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
   async findAll() {
     return this.filieresService.findAll();
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.filieresService.findOne(id);
@@ -36,6 +38,7 @@ export class FilieresController {
     return this.filieresService.remove(id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('etablissement/:id')
   async findByEtablissement(@Param('id') etablissementId: string) {
     return this.filieresService.findByEtablissement(etablissementId);

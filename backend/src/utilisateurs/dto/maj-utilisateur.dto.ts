@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsNumber } from 'class-validator';
 import { RoleType, SexeType } from '../entities/utilisateur.entity';
 
 export class MajUtilisateurDto {
@@ -31,14 +31,14 @@ export class MajUtilisateurDto {
   role?: RoleType;
 
   @IsOptional()
-  @IsString()
-  etablissement_id?: string;
+  @IsNumber()
+  etablissement_id?: number;
 
   @IsOptional()
-  @IsString()
-  filiere_id?: string;
+  @IsNumber()
+  filiere_id?: number;
 
   @IsOptional()
-  @IsString()
-  niveau_etude_id?: string;
+  @IsNumber()
+  niveau_etude_id?: number;
 }
