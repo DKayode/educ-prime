@@ -18,23 +18,27 @@ export class EtablissementsController {
     return this.etablissementsService.create(creerEtablissementDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
   async findAll() {
     return this.etablissementsService.findAll();
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.etablissementsService.findOne(id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN)
   @Put(':id')
   async update(@Param('id') id: string, @Body() majEtablissementDto: MajEtablissementDto) {
     return this.etablissementsService.update(id, majEtablissementDto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.etablissementsService.remove(id);

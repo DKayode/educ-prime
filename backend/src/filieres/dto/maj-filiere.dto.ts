@@ -6,10 +6,6 @@ export class MajFiliereDto {
   nom?: string;
 
   @IsOptional()
-  @IsString()
-  description?: string;
-
-  @IsOptional()
   @IsNumber()
   etablissement_id?: number;
 }

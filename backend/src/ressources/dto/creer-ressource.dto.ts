@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsNumber } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsNumber, IsDate } from 'class-validator';
 import { RessourceType } from '../entities/ressource.entity';
 
 export class CreerRessourceDto {
@@ -15,5 +15,6 @@ export class CreerRessourceDto {
   matiere_id: number;
 
   @IsOptional()
+  @IsDate()
   date_publication?: Date;
 }

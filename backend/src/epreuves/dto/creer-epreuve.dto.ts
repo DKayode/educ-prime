@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsDate } from 'class-validator';
 
 export class CreerEpreuveDto {
   @IsString()
@@ -14,5 +14,6 @@ export class CreerEpreuveDto {
   matiere_id: number;
 
   @IsOptional()
+  @IsDate()
   date_publication?: Date;
 }

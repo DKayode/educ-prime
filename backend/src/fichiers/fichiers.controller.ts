@@ -20,7 +20,7 @@ export class FichiersController {
     @Body() creerFichierDto: CreerFichierDto
   ) {
     if (!req.user || !req.user.utilisateurId) {
-      throw new Error('User ID not found in JWT payload');
+      throw new Error('ID utilisateur introuvable dans le payload JWT');
     }
 
     return this.fichiersService.uploadFile(file, req.user.utilisateurId, creerFichierDto);

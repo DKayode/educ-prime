@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Epreuve } from './entities/epreuve.entity';
@@ -7,12 +7,15 @@ import { MajEpreuveDto } from './dto/maj-epreuve.dto';
 
 @Injectable()
 export class EpreuvesService {
+  private readonly logger = new Logger(EpreuvesService.name);
+
   constructor(
     @InjectRepository(Epreuve)
     private readonly epreuvesRepository: Repository<Epreuve>,
   ) {}
 
   async create(creerEpreuveDto: CreerEpreuveDto, professeurId: number) {
+    this.logger.log(`Création d'une épreuve: ${creerEpreuveDto.titre} par professeur ID: ${professeurId}`);
     const newEpreuve = new Epreuve();
     newEpreuve.titre = creerEpreuveDto.titre;
     newEpreuve.url = creerEpreuveDto.url;
@@ -20,75 +23,96 @@ export class EpreuvesService {
     newEpreuve.matiere_id = creerEpreuveDto.matiere_id;
     newEpreuve.professeur_id = professeurId;
     newEpreuve.date_publication = creerEpreuveDto.date_publication;
-    return await this.epreuvesRepository.save(newEpreuve);
+    const saved = await this.epreuvesRepository.save(newEpreuve);
+    this.logger.log(`Épreuve créée: ${saved.titre} (ID: ${saved.id}, Matière: ${saved.matiere_id})`);
+    return saved;
   }
 
   async findAll() {
-    return await this.epreuvesRepository.find({
+    this.logger.log('Récupération de toutes les épreuves');
+    const epreuves = await this.epreuvesRepository.find({
       relations: ['matiere', 'professeur'],
       order: {
         date_creation: 'DESC',
       },
     });
+    this.logger.log(`${epreuves.length} épreuve(s) trouvée(s)`);
+    return epreuves;
   }
 
   async findOne(id: string) {
+    this.logger.log(`Recherche de l'épreuve ID: ${id}`);
     const epreuve = await this.epreuvesRepository.findOne({
       where: { id: parseInt(id) },
       relations: ['matiere', 'professeur'],
     });
 
     if (!epreuve) {
+      this.logger.warn(`Épreuve ID ${id} introuvable`);
       throw new NotFoundException('Épreuve non trouvée');
     }
 
+    this.logger.log(`Épreuve trouvée: ${epreuve.titre} (ID: ${id})`);
     return epreuve;
   }
 
   async update(id: string, majEpreuveDto: MajEpreuveDto) {
+    this.logger.log(`Mise à jour de l'épreuve ID: ${id}`);
     const epreuve = await this.epreuvesRepository.findOne({
       where: { id: parseInt(id) },
       relations: ['professeur'],
     });
 
     if (!epreuve) {
+      this.logger.warn(`Mise à jour échouée: épreuve ID ${id} introuvable`);
       throw new NotFoundException('Épreuve non trouvée');
     }
 
     Object.assign(epreuve, majEpreuveDto);
-    return await this.epreuvesRepository.save(epreuve);
+    const updated = await this.epreuvesRepository.save(epreuve);
+    this.logger.log(`Épreuve mise à jour: ${updated.titre} (ID: ${id})`);
+    return updated;
   }
 
   async remove(id: string) {
+    this.logger.log(`Suppression de l'épreuve ID: ${id}`);
     const epreuve = await this.epreuvesRepository.findOne({
       where: { id: parseInt(id) },
     });
 
     if (!epreuve) {
+      this.logger.warn(`Suppression échouée: épreuve ID ${id} introuvable`);
       throw new NotFoundException('Épreuve non trouvée');
     }
 
     await this.epreuvesRepository.remove(epreuve);
+    this.logger.log(`Épreuve supprimée: ${epreuve.titre} (ID: ${id})`);
     return { message: 'Épreuve supprimée avec succès' };
   }
 
   async findByMatiere(matiereId: string) {
-    return await this.epreuvesRepository.find({
+    this.logger.log(`Recherche des épreuves pour matière ID: ${matiereId}`);
+    const epreuves = await this.epreuvesRepository.find({
       where: { matiere: { id: parseInt(matiereId) } },
       relations: ['professeur'],
       order: {
         date_creation: 'DESC',
       },
     });
+    this.logger.log(`${epreuves.length} épreuve(s) trouvée(s) pour matière ${matiereId}`);
+    return epreuves;
   }
 
   async findByProfesseur(professeurId: string) {
-    return await this.epreuvesRepository.find({
+    this.logger.log(`Recherche des épreuves du professeur ID: ${professeurId}`);
+    const epreuves = await this.epreuvesRepository.find({
       where: { professeur: { id: parseInt(professeurId) } },
       relations: ['matiere'],
       order: {
         date_creation: 'DESC',
       },
     });
+    this.logger.log(`${epreuves.length} épreuve(s) trouvée(s) pour professeur ${professeurId}`);
+    return epreuves;
   }
 }

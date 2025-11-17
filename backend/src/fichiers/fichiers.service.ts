@@ -28,7 +28,7 @@ export class FichiersService {
       where: { id: matiereId } 
     });
     if (!matiere) {
-      throw new NotFoundException(`Matiere with ID ${matiereId} not found`);
+      throw new NotFoundException(`Matière avec l'ID ${matiereId} introuvable`);
     }
     this.logger.log(`Validated matiere: ${matiere.nom} (ID: ${matiere.id})`);
   }
@@ -40,7 +40,7 @@ export class FichiersService {
         where: { id: creerFichierDto.epreuveId } 
       });
       if (!epreuve) {
-        throw new NotFoundException(`Epreuve with ID ${creerFichierDto.epreuveId} not found`);
+        throw new NotFoundException(`Épreuve avec l'ID ${creerFichierDto.epreuveId} introuvable`);
       }
       this.logger.log(`Using existing epreuve: ${epreuve.titre} (ID: ${epreuve.id})`);
       return epreuve.id;
@@ -48,7 +48,7 @@ export class FichiersService {
 
     // Create new epreuve without URL
     if (!creerFichierDto.epreuveTitre || !creerFichierDto.dureeMinutes) {
-      throw new BadRequestException('epreuveTitre and dureeMinutes are required when creating new epreuve');
+      throw new BadRequestException('epreuveTitre et dureeMinutes sont requis lors de la création d\'une nouvelle épreuve');
     }
 
     const newEpreuve = this.epreuveRepository.create({
@@ -71,7 +71,7 @@ export class FichiersService {
         where: { id: creerFichierDto.ressourceId } 
       });
       if (!ressource) {
-        throw new NotFoundException(`Ressource with ID ${creerFichierDto.ressourceId} not found`);
+        throw new NotFoundException(`Ressource avec l'ID ${creerFichierDto.ressourceId} introuvable`);
       }
       this.logger.log(`Using existing ressource: ${ressource.titre} (ID: ${ressource.id})`);
       return ressource.id;
@@ -79,7 +79,7 @@ export class FichiersService {
 
     // Create new ressource without URL
     if (!creerFichierDto.ressourceTitre || !creerFichierDto.typeRessource) {
-      throw new BadRequestException('ressourceTitre and typeRessource are required when creating new ressource');
+      throw new BadRequestException('ressourceTitre et typeRessource sont requis lors de la création d\'une nouvelle ressource');
     }
 
     const newRessource = this.ressourceRepository.create({
@@ -104,13 +104,13 @@ export class FichiersService {
       case TypeRessource.EXERCICES:
         return RessourceType.EXERCICES;
       default:
-        throw new BadRequestException(`Invalid ressource type provided: ${type}`);
+        throw new BadRequestException(`Type de ressource invalide fourni : ${type}`);
     }
   }
 
   private normalizePathSegment(value: string | number | undefined): string {
     if (value === undefined || value === null) {
-      throw new BadRequestException('Invalid path segment encountered while building storage path');
+      throw new BadRequestException('Segment de chemin invalide rencontré lors de la construction du chemin de stockage');
     }
     return String(value).trim().toLowerCase();
   }
@@ -132,7 +132,7 @@ export class FichiersService {
       // Step 1: Validate matiere and create/get epreuve or ressource
       if (creerFichierDto.type === TypeFichier.EPREUVE) {
         if (!creerFichierDto.matiereId) {
-          throw new BadRequestException('matiereId is required for epreuve');
+          throw new BadRequestException('matiereId est requis pour une épreuve');
         }
         await this.validateMatiereExists(creerFichierDto.matiereId);
         
@@ -144,7 +144,7 @@ export class FichiersService {
         }
       } else if (creerFichierDto.type === TypeFichier.RESSOURCE) {
         if (!creerFichierDto.matiereId) {
-          throw new BadRequestException('matiereId is required for ressource');
+          throw new BadRequestException('matiereId est requis pour une ressource');
         }
         await this.validateMatiereExists(creerFichierDto.matiereId);
         
@@ -159,12 +159,12 @@ export class FichiersService {
       // Step 2: Upload file to Firebase Storage
       const storage = this.firebaseConfig.getStorage();
       if (!storage) {
-        throw new Error('Storage service not available');
+        throw new Error('Service de stockage non disponible');
       }
       
       const bucket = storage.bucket();
       if (!bucket) {
-        throw new Error('Storage bucket not available');
+        throw new Error('Bucket de stockage non disponible');
       }
 
       let folderPath: string;
@@ -184,7 +184,7 @@ export class FichiersService {
           break;
         case TypeFichier.RESSOURCE:
           if (!creerFichierDto.typeRessource) {
-            throw new BadRequestException('typeRessource is required for ressources');
+            throw new BadRequestException('typeRessource est requis pour les ressources');
           }
           folderPath = [
             'ressources',
@@ -195,7 +195,7 @@ export class FichiersService {
           ].join('/');
           break;
         default:
-          throw new BadRequestException('Invalid file type');
+          throw new BadRequestException('Type de fichier invalide');
       }
 
       const fileName = folderPath;
@@ -203,7 +203,7 @@ export class FichiersService {
       
       const fileUpload = bucket.file(fileName);
       if (!fileUpload) {
-        throw new Error('Could not create file reference');
+        throw new Error('Impossible de créer la référence du fichier');
       }
 
       this.logger.log('Attempting to save file to storage...');

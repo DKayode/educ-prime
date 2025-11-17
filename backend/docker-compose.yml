@@ -4,7 +4,7 @@ services:
   # PostgreSQL Database
   db:
     image: postgres:15-alpine
-    container_name: educ_prime_db_prod
+    container_name: educ_prime_db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USERNAME}

@@ -18,28 +18,33 @@ export class MatieresController {
     return this.matieresService.create(creerMatiereDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
   async findAll() {
     return this.matieresService.findAll();
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.matieresService.findOne(id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN, RoleType.PROFESSEUR)
   @Put(':id')
   async update(@Param('id') id: string, @Body() majMatiereDto: MajMatiereDto) {
     return this.matieresService.update(id, majMatiereDto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN, RoleType.PROFESSEUR)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.matieresService.remove(id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('niveau-etude/:id')
   async findByNiveauEtude(@Param('id') niveauEtudeId: string) {
     return this.matieresService.findByNiveauEtude(niveauEtudeId);
