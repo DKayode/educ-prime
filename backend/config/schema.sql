@@ -13,6 +13,9 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ressources_type_enum') THEN
         CREATE TYPE ressources_type_enum AS ENUM ('Quiz', 'Exercices', 'Document');
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'appareil_type_enum') THEN
+        CREATE TYPE appareil_type_enum AS ENUM ('mobile', 'web');
+    END IF;
 END $$;
 
 -- ------------------------------
@@ -91,4 +94,17 @@ CREATE TABLE IF NOT EXISTS ressources (
     matiere_id INTEGER NOT NULL REFERENCES matieres(id),
     date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     date_publication TIMESTAMP WITH TIME ZONE
+);
+
+-- ------------------------------
+-- 5. CREATE REFRESH TOKEN TABLE
+-- ------------------------------
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id SERIAL PRIMARY KEY,
+    utilisateur_id INTEGER NOT NULL REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    date_expiration TIMESTAMP WITH TIME ZONE NOT NULL,
+    appareil appareil_type_enum
 );
