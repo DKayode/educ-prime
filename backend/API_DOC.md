@@ -6,6 +6,12 @@ Ce document décrit l'ensemble des points d'accès REST de la plateforme Educ Pr
 
 **Important:** Tous les endpoints nécessitent une authentification JWT sauf indication contraire. Le jeton JWT doit être inclus dans l'en-tête `Authorization: Bearer <token>` de chaque requête. Pour obtenir un jeton, utilisez l'endpoint `/auth/connexion` ou créez un nouveau compte via `/utilisateurs/inscription`.
 
+### Authentification et tokens
+- **Access Token** : Valide pendant 1 heure, utilisé pour authentifier les requêtes API
+- **Refresh Token** : Valide pendant 7 jours, utilisé pour obtenir un nouveau access token via `/auth/refresh`
+- Lorsque l'access token expire, utilisez le refresh token pour en obtenir un nouveau sans redemander les identifiants
+- Lorsque le refresh token expire, l'utilisateur doit se reconnecter via `/auth/connexion`
+
 ### Rôles et permissions
 - **admin** : Accès complet à tous les endpoints
 - **professeur** : Peut créer/modifier/supprimer les matières, épreuves et ressources
@@ -170,7 +176,10 @@ Authentifier un utilisateur existant.
 
 **Authentification requise:** Non (endpoint public)
 
-**Note:** Le mot de passe doit contenir au moins 8 caractères.
+**Notes:** 
+- Le mot de passe doit contenir au moins 8 caractères.
+- L'access token est valide pendant 1 heure.
+- Le refresh token est valide pendant 7 jours.
 
 ```http
 POST /auth/connexion
@@ -178,7 +187,31 @@ Content-Type: application/json
 
 {
     "email": "utilisateur@exemple.com",
-    "mot_de_passe": "MotDePasse123!"  // Minimum 8 caractères
+    "mot_de_passe": "MotDePasse123!",  // Minimum 8 caractères
+    "appareil": "web"                   // Facultatif: "web" ou "mobile" (défaut: "web")
+}
+```
+Response (200 OK):
+```json
+{
+    "access_token": "eyJhbGciOiJIUzI1NiIs...",
+    "refresh_token": "a1b2c3d4e5f6..."
+}
+```
+
+### Rafraîchir le token - `POST /auth/refresh`
+Obtenir un nouveau access token en utilisant un refresh token valide.
+
+**Authentification requise:** Non (utilise le refresh token)
+
+**Note:** Si le refresh token a expiré (après 7 jours), l'utilisateur doit se reconnecter via `/auth/connexion`.
+
+```http
+POST /auth/refresh
+Content-Type: application/json
+
+{
+    "refresh_token": "a1b2c3d4e5f6..."
 }
 ```
 Response (200 OK):
@@ -187,12 +220,29 @@ Response (200 OK):
     "access_token": "eyJhbGciOiJIUzI1NiIs..."
 }
 ```
+Response (401 Unauthorized) - Token expiré:
+```json
+{
+    "statusCode": 401,
+    "message": "Refresh token expiré, veuillez vous reconnecter",
+    "error": "Unauthorized"
+}
+```
 
 ### Déconnexion - `POST /auth/deconnexion`
-Invalider la session en cours.
+Invalider la session en cours et révoquer tous les refresh tokens de l'utilisateur.
+
+**Note:** Cette action révoque tous les refresh tokens de l'utilisateur sur tous les appareils.
+
 ```http
 POST /auth/deconnexion
 Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "message": "Déconnexion réussie"
+}
 ```
 
 ## Structure académique
