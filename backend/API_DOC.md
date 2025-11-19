@@ -21,7 +21,10 @@ Ce document décrit l'ensemble des points d'accès REST de la plateforme Educ Pr
 ## Points d'accès d'authentification
 
 ### Lister les utilisateurs - `GET /utilisateurs`
-Obtenir la liste de tous les utilisateurs (admin uniquement).
+Obtenir la liste de tous les utilisateurs.
+
+**Permissions requises:** Admin uniquement
+
 ```http
 GET /utilisateurs
 Authorization: Bearer <token>
@@ -46,8 +49,38 @@ Response (200 OK):
 ]
 ```
 
+### Obtenir son profil - `GET /utilisateurs/profil`
+Obtenir les détails de l'utilisateur actuellement connecté (extrait du token JWT).
+
+**Permissions requises:** Utilisateur authentifié
+
+```http
+GET /utilisateurs/profil
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "email": "utilisateur@exemple.com",
+    "nom": "Dupont",
+    "prenom": "Jean",
+    "pseudo": "jdupont",
+    "role": "étudiant",
+    "sexe": "M",
+    "photo": "https://...",
+    "telephone": "+33123456789",
+    "etablissement_id": 1,
+    "filiere_id": 1,
+    "niveau_etude_id": 1
+}
+```
+
 ### Obtenir un utilisateur - `GET /utilisateurs/:id`
-Obtenir les détails d'un utilisateur spécifique.
+Obtenir les détails d'un utilisateur spécifique par son ID.
+
+**Permissions requises:** Admin uniquement
+
 ```http
 GET /utilisateurs/1
 Authorization: Bearer <token>
@@ -115,7 +148,9 @@ Response (201 Created):
 ```
 
 ### Mettre à jour un utilisateur - `PUT /utilisateurs/:id`
-Modifier un utilisateur existant (propriétaire ou admin).
+Modifier un utilisateur existant.
+
+**Permissions requises:** Propriétaire du compte ou Admin
 
 **Champs disponibles:**
 - `nom` (facultatif) : Nom de l'utilisateur
@@ -159,7 +194,10 @@ Response (200 OK):
 ```
 
 ### Supprimer un utilisateur - `DELETE /utilisateurs/:id`
-Supprimer un utilisateur (propriétaire ou admin).
+Supprimer un utilisateur.
+
+**Permissions requises:** Propriétaire du compte ou Admin
+
 ```http
 DELETE /utilisateurs/1
 Authorization: Bearer <token>
