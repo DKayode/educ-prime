@@ -1,25 +1,89 @@
-# educ-prime
+# Plateforme Educ-Prime
 
-Application éducative
+**Educ-Prime** est une plateforme éducative complète pour la gestion et la distribution d'épreuves d'examen avec un contrôle d'accès basé sur les rôles.
 
-# Branches 
+## 🏗️ Architecture
 
-```sh
-main (ou master) # branche de préproduction
-│
-├── feature  # ajouter une nouvelle fonctionnalitée
-├── fix  # corriger un bug
+Le projet est structuré comme un monorepo :
+
+*   **[Backend](./backend/README.md)** : API NestJS avec PostgreSQL, authentification JWT et stockage Firebase.
+*   **[Frontend](./frontend/README.md)** : Tableau de bord administrateur React construit avec Vite et Shadcn/ui.
+
+## 🚀 Démarrage Rapide
+
+La façon la plus simple de lancer toute la plateforme est d'utiliser Docker.
+
+### Prérequis
+*   Docker & Docker Compose installés
+*   Git
+
+### Lancer avec Docker
+
+1.  **Cloner le dépôt :**
+    ```bash
+    git clone <url-du-depot>
+    cd educ-prime
+    ```
+
+2.  **Configurer l'environnement :**
+    Créez un fichier `.env` à la racine :
+    ```bash
+    # Créez le fichier .env
+    # Assurez-vous qu'il contient la configuration nécessaire (identifiants BDD, etc.)
+    ```
+
+3.  **Démarrer les services :**
+    ```bash
+    docker-compose -f docker-compose.dev.yml up -d
+    ```
+
+4.  **Accéder à la plateforme :**
+    *   **Frontend** : http://localhost:80
+    *   **API Backend** : http://localhost:3000
+    *   **Base de données** : localhost:5432
+
+## 📚 Documentation
+
+Pour des guides de développement détaillés, veuillez vous référer à la documentation spécifique :
+
+*   **Backend** : [backend/README.md](./backend/README.md) - Endpoints API, installation locale et configuration.
+*   **Frontend** : [frontend/README.md](./frontend/README.md) - Composants UI, gestion d'état et scripts de build.
+*   **Déploiement** : Voir la section Guide de Déploiement Docker ci-dessous.
+
+## 🗂️ Structure du Projet
+
 ```
-- créer les branches `feature` et `fix` pour ajouter de nouveaux développement.
-- merger ensuite das la branche `main` quand les développment sont prets.
+educ-prime/
+├── backend/                 # Application backend NestJS
+├── frontend/                # Application frontend React
+├── docker-compose.yml       # Docker Compose pour la production
+├── docker-compose.dev.yml   # Docker Compose pour le développement
+└── DOCKER_DEPLOYMENT.md     # Guide de déploiement (fusionné ci-dessous)
+```
 
-# Commits messages
+## 🔀 Workflow Git
 
-- `feat`: nouvelle fonctionnalitée
-- `fix`: correction du bug
-- `test`: ajout/modification de tests
-- `chore`: 
-    - mise à jour de dépendances
-    - documentation
-    - mise en forme du code
-    - ...
+### Branches
+*   `main` : Code prêt pour la production.
+*   `feature/*` : Nouvelles fonctionnalités.
+*   `fix/*` : Corrections de bugs.
+
+### Messages de Commit
+Suivez la convention "Conventional Commits" :
+*   `feat` : Nouvelle fonctionnalité
+*   `fix` : Correction de bug
+*   `chore` : Maintenance, dépendances, documentation
+
+## 🤝 Contribuer
+
+1.  Forker le dépôt
+2.  Créer une branche de fonctionnalité
+3.  Commiter vos changements
+4.  Pousser vers la branche
+5.  Ouvrir une Pull Request
+
+## 📝 Licence
+
+Ce projet est sous licence MIT.
+
+

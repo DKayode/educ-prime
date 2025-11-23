@@ -60,8 +60,6 @@ firebase-serviceaccount.json
 scripts/
 
 # Deployment documentation (local only, sensitive info)
-AUTO_DEPLOY_SETUP.md
-QUICKSTART.md
 README.md
 
 # Uploads directory (if you have one)

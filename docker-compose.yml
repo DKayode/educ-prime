@@ -12,22 +12,20 @@ services:
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./config/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/config/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     networks:
       - educ-prime-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # NestJS Backend
+  # NestJS Backend API
   backend:
-    image: ${DOCKER_IMAGE:-ghcr.io/dkayode/educ-prime-backend:latest}
+    image: ${DOCKER_IMAGE_BACKEND:-ghcr.io/dkayode/educ-prime-backend:latest}
     container_name: educ_prime_backend
     restart: unless-stopped
-    ports:
-      - "80:3000"
     environment:
       # Database
       DB_HOST: db
@@ -39,19 +37,35 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       # Node
       NODE_ENV: production
-    # Note: Firebase credentials are included in the Docker image
-    # No volume mount needed for credentials
     networks:
       - educ-prime-network
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test: [ "CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})" ]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 40s
+
+  # React Frontend Admin Dashboard
+  frontend:
+    image: ${DOCKER_IMAGE_FRONTEND:-ghcr.io/dkayode/educ-prime-frontend:latest}
+    container_name: educ_prime_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    networks:
+      - educ-prime-network
+    depends_on:
+      - backend
+
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80" ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
 
 volumes:
   postgres_data:
