@@ -108,3 +108,17 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     date_expiration TIMESTAMP WITH TIME ZONE NOT NULL,
     appareil appareil_type_enum
 );
+
+-- ------------------------------
+-- 6. CREATE DEFAULT ADMIN USER
+-- ------------------------------
+-- Install pgcrypto extension for password hashing
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Insert default admin user if not exists
+-- Password: MotDePasse123! (hashed with bcrypt)
+INSERT INTO utilisateurs (nom, prenom, email, mot_de_passe, role)
+SELECT 'Admin', 'System', 'admin@exemple.com', crypt('MotDePasse123!', gen_salt('bf')), 'admin'
+WHERE NOT EXISTS (
+    SELECT 1 FROM utilisateurs WHERE email = 'admin@exemple.com'
+);

@@ -22,7 +22,7 @@ jobs:
         id: prepare
         run: |
           # Lire le contenu du docker-compose.yml
-          COMPOSE_CONTENT=$(cat backend/docker-compose.yml | base64 -w 0)
+          COMPOSE_CONTENT=$(cat docker-compose.yml | base64 -w 0)
           echo "compose_content=$COMPOSE_CONTENT" >> $GITHUB_OUTPUT
           
           # Lire le contenu du schema.sql
@@ -53,7 +53,9 @@ jobs:
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             DB_NAME=${{ secrets.DB_NAME }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
-            DOCKER_IMAGE=ghcr.io/dkayode/educ-prime-backend:latest
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            DOCKER_IMAGE_BACKEND=ghcr.io/dkayode/educ-prime-backend:latest
+            DOCKER_IMAGE_FRONTEND=ghcr.io/dkayode/educ-prime-frontend:latest
             PORT=3000
             ENV_EOF
 
@@ -63,12 +65,12 @@ jobs:
             # Créer le fichier schema.sql depuis le contenu du repo
             echo "$SCHEMA_CONTENT" | base64 -d > ./config/schema.sql
 
-            # Arrêter uniquement le backend (garder la DB si possible)
-            docker-compose stop backend
-            docker-compose rm -f backend
+            # Arrêter les conteneurs
+            docker-compose stop backend frontend
+            docker-compose rm -f backend frontend
 
-            # Pull la dernière image
-            docker-compose pull backend
+            # Pull les dernières images
+            docker-compose pull backend frontend
 
             # Démarrer les conteneurs
             docker-compose up -d --remove-orphans

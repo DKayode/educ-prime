@@ -12,6 +12,11 @@ import { RessourcesModule } from './ressources/ressources.module';
 import { FichiersModule } from './fichiers/fichiers.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { Utilisateur } from './utilisateurs/entities/utilisateur.entity';
+import { Etablissement } from './etablissements/entities/etablissement.entity';
+import { Filiere } from './filieres/entities/filiere.entity';
+import { Matiere } from './matieres/entities/matiere.entity';
+import { Epreuve } from './epreuves/entities/epreuve.entity';
 
 @Module({
   imports: [
@@ -27,6 +32,13 @@ import { AppService } from './app.service';
       database: process.env.DB_NAME || 'educ_prime',
       autoLoadEntities: true,
     }),
+    TypeOrmModule.forFeature([
+      Utilisateur,
+      Etablissement,
+      Filiere,
+      Matiere,
+      Epreuve,
+    ]),
     AuthModule,
     UtilisateursModule,
     EtablissementsModule,

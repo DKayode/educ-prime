@@ -9,8 +9,10 @@ Ce document décrit l'ensemble des points d'accès REST de la plateforme Educ Pr
 ### Authentification et tokens
 - **Access Token** : Valide pendant 1 heure, utilisé pour authentifier les requêtes API
 - **Refresh Token** : Valide pendant 7 jours, utilisé pour obtenir un nouveau access token via `/auth/refresh`
-- Lorsque l'access token expire, utilisez le refresh token pour en obtenir un nouveau sans redemander les identifiants
-- Lorsque le refresh token expire, l'utilisateur doit se reconnecter via `/auth/connexion`
+- **Cycle de vie des tokens** :
+  - Lorsque l'access token expire, l'API retourne une erreur 401 Unauthorized
+  - Le client doit alors appeler `/auth/refresh` avec le refresh token pour obtenir un nouveau access token
+  - Si le refresh token a expiré (après 7 jours), le client doit se reconnecter via `/auth/connexion`
 
 ### Rôles et permissions
 - **admin** : Accès complet à tous les endpoints
@@ -21,7 +23,10 @@ Ce document décrit l'ensemble des points d'accès REST de la plateforme Educ Pr
 ## Points d'accès d'authentification
 
 ### Lister les utilisateurs - `GET /utilisateurs`
-Obtenir la liste de tous les utilisateurs (admin uniquement).
+Obtenir la liste de tous les utilisateurs.
+
+**Permissions requises:** Admin uniquement
+
 ```http
 GET /utilisateurs
 Authorization: Bearer <token>
@@ -46,8 +51,38 @@ Response (200 OK):
 ]
 ```
 
+### Obtenir son profil - `GET /utilisateurs/profil`
+Obtenir les détails de l'utilisateur actuellement connecté (extrait du token JWT).
+
+**Permissions requises:** Utilisateur authentifié
+
+```http
+GET /utilisateurs/profil
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "email": "utilisateur@exemple.com",
+    "nom": "Dupont",
+    "prenom": "Jean",
+    "pseudo": "jdupont",
+    "role": "étudiant",
+    "sexe": "M",
+    "photo": "https://...",
+    "telephone": "+33123456789",
+    "etablissement_id": 1,
+    "filiere_id": 1,
+    "niveau_etude_id": 1
+}
+```
+
 ### Obtenir un utilisateur - `GET /utilisateurs/:id`
-Obtenir les détails d'un utilisateur spécifique.
+Obtenir les détails d'un utilisateur spécifique par son ID.
+
+**Permissions requises:** Admin uniquement
+
 ```http
 GET /utilisateurs/1
 Authorization: Bearer <token>
@@ -115,7 +150,9 @@ Response (201 Created):
 ```
 
 ### Mettre à jour un utilisateur - `PUT /utilisateurs/:id`
-Modifier un utilisateur existant (propriétaire ou admin).
+Modifier un utilisateur existant.
+
+**Permissions requises:** Propriétaire du compte ou Admin
 
 **Champs disponibles:**
 - `nom` (facultatif) : Nom de l'utilisateur
@@ -159,7 +196,10 @@ Response (200 OK):
 ```
 
 ### Supprimer un utilisateur - `DELETE /utilisateurs/:id`
-Supprimer un utilisateur (propriétaire ou admin).
+Supprimer un utilisateur.
+
+**Permissions requises:** Propriétaire du compte ou Admin
+
 ```http
 DELETE /utilisateurs/1
 Authorization: Bearer <token>
@@ -204,7 +244,10 @@ Obtenir un nouveau access token en utilisant un refresh token valide.
 
 **Authentification requise:** Non (utilise le refresh token)
 
-**Note:** Si le refresh token a expiré (après 7 jours), l'utilisateur doit se reconnecter via `/auth/connexion`.
+**Notes:** 
+- Appelez cet endpoint lorsque vous recevez une erreur 401 avec un access token expiré
+- Si le refresh token a expiré (après 7 jours), l'endpoint retournera une erreur 401
+- Le client doit gérer les requêtes concurrentes pour éviter les appels multiples simultanés
 
 ```http
 POST /auth/refresh
@@ -242,6 +285,39 @@ Response (200 OK):
 ```json
 {
     "message": "Déconnexion réussie"
+}
+```
+
+## Statistiques
+
+### Obtenir les statistiques - `GET /stats`
+Obtenir les statistiques globales de la plateforme (compteurs).
+
+**Permissions requises:** Admin uniquement
+
+**Note:** Cet endpoint utilise des requêtes SQL optimisées (`COUNT`) pour obtenir rapidement les statistiques sans charger toutes les données.
+
+```http
+GET /stats
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+{
+    "usersCount": 42,
+    "etablissementsCount": 11,
+    "filieresCount": 21,
+    "matieresCount": 251,
+    "epreuvesCount": 0
+}
+```
+
+Response (403 Forbidden) - Non-admin user:
+```json
+{
+    "statusCode": 403,
+    "message": "Forbidden resource",
+    "error": "Forbidden"
 }
 ```
 

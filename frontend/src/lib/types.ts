@@ -1,0 +1,82 @@
+// Type definitions for API entities
+
+export interface Etablissement {
+  id: number;
+  nom: string;
+  ville?: string;
+  code_postal?: string;
+}
+
+export interface Filiere {
+  id: number;
+  nom: string;
+  etablissement?: Etablissement;
+}
+
+export interface NiveauEtude {
+  id: number;
+  nom: string;
+  duree_mois?: number;
+  filiere?: Filiere;
+}
+
+export interface Matiere {
+  id: number;
+  nom: string;
+  description?: string;
+  niveau_etude?: NiveauEtude;
+  filiere?: Filiere;
+}
+
+export interface Utilisateur {
+  id: number;
+  nom: string;
+  prenom: string;
+  pseudo?: string;
+  email: string;
+  photo?: string;
+  etablissement?: Etablissement;
+  filiere?: Filiere;
+  niveau_etude?: NiveauEtude;
+  sexe?: 'M' | 'F' | 'Autre';
+  telephone?: string;
+  role: 'admin' | 'étudiant' | 'professeur' | 'autre';
+}
+
+export interface Epreuve {
+  id: number;
+  titre: string;
+  url: string;
+  professeur?: Utilisateur;
+  matiere?: Matiere;
+  duree_minutes: number;
+  date_creation: string;
+  date_publication?: string;
+}
+
+export interface Ressource {
+  id: number;
+  titre: string;
+  type: 'Quiz' | 'Exercices' | 'Document';
+  url: string;
+  professeur?: Utilisateur;
+  matiere?: Matiere;
+  date_creation: string;
+  date_publication?: string;
+}
+
+export interface LoginCredentials {
+  email: string;
+  mot_de_passe: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  refresh_token: string;
+  utilisateur?: Utilisateur;
+}
+
+export interface ApiResponse<T> {
+  data: T;
+  message?: string;
+}

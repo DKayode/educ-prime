@@ -1,0 +1,48 @@
+# Dependencies
+node_modules
+
+# Build output (dist is needed for multi-stage build)
+# dist
+
+# Git
+.git
+.gitignore
+
+# Documentation (keep README for reference)
+*.md
+!README.md
+
+# Environment (will be passed as build args)
+.env
+.env.local
+.env.development
+.env.production
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose*.yml
+
+# Testing
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
