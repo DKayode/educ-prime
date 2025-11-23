@@ -41,10 +41,10 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           envs: COMPOSE_CONTENT,SCHEMA_CONTENT
           script: |
-            DEPLOY_DIR=${{ secrets.VPS_PROJECT_PATH || '/root/educ-prime/backend' }}
+            DEPLOY_DIR=${{ secrets.VPS_PROJECT_PATH || '/root/educ-prime' }}
 
             # Créer le répertoire de déploiement
-            mkdir -p "$DEPLOY_DIR/config"
+            mkdir -p "$DEPLOY_DIR/backend/config"
             cd "$DEPLOY_DIR"
 
             # Créer le fichier .env avec les secrets
@@ -52,7 +52,6 @@ jobs:
             DB_USERNAME=${{ secrets.DB_USERNAME }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             DB_NAME=${{ secrets.DB_NAME }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             DOCKER_IMAGE_BACKEND=ghcr.io/dkayode/educ-prime-backend:latest
             DOCKER_IMAGE_FRONTEND=ghcr.io/dkayode/educ-prime-frontend:latest
@@ -63,7 +62,7 @@ jobs:
             echo "$COMPOSE_CONTENT" | base64 -d > docker-compose.yml
             
             # Créer le fichier schema.sql depuis le contenu du repo
-            echo "$SCHEMA_CONTENT" | base64 -d > ./config/schema.sql
+            echo "$SCHEMA_CONTENT" | base64 -d > ./backend/config/schema.sql
 
             # Arrêter les conteneurs
             docker-compose stop backend frontend
