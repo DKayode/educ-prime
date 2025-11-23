@@ -37,6 +37,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       # Node
       NODE_ENV: production
+    ports:
+      - "3000:3000"
     networks:
       - educ-prime-network
     depends_on:
