@@ -4,13 +4,15 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Enable CORS for frontend access
   app.enableCors({
-    origin: ['http://localhost', 'http://localhost:80', 'http://localhost:8080'],
+    origin: process.env.NODE_ENV === 'production'
+      ? true // Allow all origins in production (or specify your domain)
+      : ['http://localhost', 'http://localhost:80', 'http://localhost:8080'],
     credentials: true,
   });
-  
+
   // Enable validation globally with French error messages
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
@@ -43,7 +45,7 @@ async function bootstrap() {
         }
         return `Erreur de validation pour ${error.property}`;
       });
-      
+
       return {
         statusCode: 400,
         message: messages,
@@ -51,7 +53,7 @@ async function bootstrap() {
       };
     }
   }));
-  
+
   await app.listen(3000);
 }
 bootstrap();
