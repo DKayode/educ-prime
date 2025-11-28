@@ -1,34 +1,49 @@
 import { TypeFichier, TypeRessource } from '../entities/fichier.entity';
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsIn } from 'class-validator';
 
+/**
+ * DTO for file upload via multipart/form-data.
+ * All numeric fields are received as strings from FormData and will be
+ * converted to numbers in the controller before passing to the service.
+ */
 export class CreerFichierDto {
-  @IsEnum(TypeFichier)
+  @IsIn(Object.values(TypeFichier), {
+    message: 'type must be one of the following values: profile, epreuve, ressource'
+  })
   readonly type: TypeFichier;
 
-  @IsEnum(TypeRessource)
+  @IsIn(Object.values(TypeRessource), {
+    message: 'typeRessource must be one of the following values: Document, Quiz, Exercices'
+  })
   @IsOptional()
   readonly typeRessource?: TypeRessource;
 
-  @IsNumber()
+  // Numeric fields received as strings from FormData
+  @IsString()
   @IsOptional()
-  readonly matiereId?: number;
+  readonly matiereId?: string;
 
-  @IsNumber()
+  @IsString()
   @IsOptional()
-  readonly epreuveId?: number;
-
-  @IsNumber()
-  @IsOptional()
-  readonly ressourceId?: number;
+  readonly epreuveId?: string;
 
   // Fields for creating new epreuve
   @IsString()
   @IsOptional()
   readonly epreuveTitre?: string;
 
-  @IsNumber()
+  // Received as string from FormData
+  @IsString()
   @IsOptional()
-  readonly dureeMinutes?: number;
+  readonly dureeMinutes?: string;
+
+  @IsString()
+  @IsOptional()
+  readonly datePublication?: string;
+
+  @IsString()
+  @IsOptional()
+  readonly ressourceId?: string;
 
   // Fields for creating new ressource
   @IsString()

@@ -139,18 +139,44 @@ export default function Matieres() {
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    // Find the selected niveau to get its filiere_id
+    const selectedNiveau = niveaux.find(n => n.id.toString() === formData.niveau_etude_id);
+    if (!selectedNiveau?.filiere?.id) {
+      toast({
+        title: "Erreur",
+        description: "Le niveau sélectionné n'a pas de filière associée",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Convert string IDs to numbers before sending to backend
+    createMutation.mutate({
+      ...formData,
+      niveau_etude_id: parseInt(formData.niveau_etude_id, 10) as any,
+      filiere_id: selectedNiveau.filiere.id as any,
+    });
   };
 
   const handleEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingMatiere) {
+      // Find the selected niveau to get its filiere_id
+      const selectedNiveau = niveaux.find(n => n.id.toString() === editingMatiere.niveau_etude_id);
+      if (!selectedNiveau?.filiere?.id) {
+        toast({
+          title: "Erreur",
+          description: "Le niveau sélectionné n'a pas de filière associée",
+          variant: "destructive",
+        });
+        return;
+      }
       updateMutation.mutate({
         id: editingMatiere.id.toString(),
         data: {
           nom: editingMatiere.nom,
           description: editingMatiere.description,
-          niveau_etude_id: editingMatiere.niveau_etude_id,
+          niveau_etude_id: parseInt(editingMatiere.niveau_etude_id, 10) as any,
+          filiere_id: selectedNiveau.filiere.id as any,
         },
       });
     }

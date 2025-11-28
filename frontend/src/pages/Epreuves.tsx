@@ -35,17 +35,17 @@ import { epreuvesService } from "@/lib/services/epreuves.service";
 import { filieresService } from "@/lib/services/filieres.service";
 import { matieresService } from "@/lib/services/matieres.service";
 import { niveauxService } from "@/lib/services/niveaux.service";
+import { fichiersService } from "@/lib/services/fichiers.service";
 
 export default function Epreuves() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     titre: "",
-    description: "",
-    annee_academique: new Date().getFullYear().toString(),
-    filiere_id: "",
+    duree_minutes: "",
     matiere_id: "",
-    niveau_etude_id: "",
+    date_publication: "",
   });
 
   const queryClient = useQueryClient();
@@ -71,19 +71,26 @@ export default function Epreuves() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => epreuvesService.create(data),
+    mutationFn: (data: { file: File; titre: string; duree_minutes: number; matiere_id: number; date_publication?: string }) =>
+      fichiersService.uploadEpreuve({
+        file: data.file,
+        type: 'epreuve',
+        matiereId: data.matiere_id,
+        epreuveTitre: data.titre,
+        dureeMinutes: data.duree_minutes,
+        datePublication: data.date_publication,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['epreuves'] });
       toast.success("Épreuve créée avec succès");
       setIsDialogOpen(false);
       setFormData({
         titre: "",
-        description: "",
-        annee_academique: new Date().getFullYear().toString(),
-        filiere_id: "",
+        duree_minutes: "",
         matiere_id: "",
-        niveau_etude_id: "",
+        date_publication: "",
       });
+      setSelectedFile(null);
     },
     onError: (error: any) => {
       toast.error(error.message || "Erreur lors de la création");
@@ -102,17 +109,23 @@ export default function Epreuves() {
   });
 
   const handleCreate = () => {
-    if (!formData.titre || !formData.annee_academique) {
-      toast.error("Veuillez remplir tous les champs obligatoires");
+    if (!formData.titre || !formData.duree_minutes || !formData.matiere_id || !selectedFile) {
+      toast.error("Veuillez remplir tous les champs requis");
       return;
     }
-    createMutation.mutate(formData);
+    // Convert to proper types before sending
+    createMutation.mutate({
+      file: selectedFile,
+      titre: formData.titre,
+      duree_minutes: parseInt(formData.duree_minutes, 10),
+      matiere_id: parseInt(formData.matiere_id, 10),
+      date_publication: formData.date_publication || undefined,
+    });
   };
 
   const filteredEpreuves = epreuves.filter(
     (epreuve) =>
       epreuve.titre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      epreuve.filiere?.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
       epreuve.matiere?.nom.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -164,46 +177,32 @@ export default function Epreuves() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="file">Fichier de l'épreuve *</Label>
                 <Input
-                  id="description"
-                  placeholder="Description de l'épreuve"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  id="file"
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                 />
+                {selectedFile && (
+                  <p className="text-sm text-muted-foreground">
+                    Fichier sélectionné : {selectedFile.name}
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="annee">Année académique *</Label>
+                  <Label htmlFor="duree">Durée (minutes) *</Label>
                   <Input
-                    id="annee"
-                    placeholder="2024"
-                    value={formData.annee_academique}
-                    onChange={(e) => setFormData({ ...formData, annee_academique: e.target.value })}
+                    id="duree"
+                    type="number"
+                    placeholder="120"
+                    value={formData.duree_minutes}
+                    onChange={(e) => setFormData({ ...formData, duree_minutes: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="filiere">Filière</Label>
-                  <Select
-                    value={formData.filiere_id}
-                    onValueChange={(value) => setFormData({ ...formData, filiere_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filieres.map((filiere) => (
-                        <SelectItem key={filiere.id} value={filiere.id}>
-                          {filiere.nom}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="matiere">Matière</Label>
+                  <Label htmlFor="matiere">Matière *</Label>
                   <Select
                     value={formData.matiere_id}
                     onValueChange={(value) => setFormData({ ...formData, matiere_id: value })}
@@ -213,31 +212,25 @@ export default function Epreuves() {
                     </SelectTrigger>
                     <SelectContent>
                       {matieres.map((matiere) => (
-                        <SelectItem key={matiere.id} value={matiere.id}>
+                        <SelectItem key={matiere.id} value={matiere.id.toString()}>
                           {matiere.nom}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="niveau">Niveau d'étude</Label>
-                  <Select
-                    value={formData.niveau_etude_id}
-                    onValueChange={(value) => setFormData({ ...formData, niveau_etude_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {niveaux.map((niveau) => (
-                        <SelectItem key={niveau.id} value={niveau.id}>
-                          {niveau.nom}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="date_publication">Date de publication (optionnel)</Label>
+                <Input
+                  id="date_publication"
+                  type="datetime-local"
+                  value={formData.date_publication}
+                  onChange={(e) => setFormData({ ...formData, date_publication: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Si vide, l'épreuve sera publiée immédiatement
+                </p>
               </div>
             </div>
             <DialogFooter>
@@ -259,7 +252,7 @@ export default function Epreuves() {
             <div className="relative mt-4">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Rechercher par titre, filière ou matière..."
+                placeholder="Rechercher par titre ou matière..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -280,11 +273,11 @@ export default function Epreuves() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Titre</TableHead>
-                  <TableHead>Filière</TableHead>
                   <TableHead>Matière</TableHead>
-                  <TableHead>Niveau</TableHead>
-                  <TableHead>Année</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead>Professeur</TableHead>
+                  <TableHead>Durée (min)</TableHead>
+                  <TableHead>Date création</TableHead>
+                  <TableHead>Date publication</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -297,14 +290,22 @@ export default function Epreuves() {
                         {epreuve.titre}
                       </div>
                     </TableCell>
-                    <TableCell>{epreuve.filiere?.nom || "-"}</TableCell>
                     <TableCell>{epreuve.matiere?.nom || "-"}</TableCell>
-                    <TableCell>{epreuve.niveau_etude?.nom || "-"}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{epreuve.annee_academique}</Badge>
+                      {epreuve.professeur
+                        ? `${epreuve.professeur.prenom} ${epreuve.professeur.nom}`
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{epreuve.duree_minutes} min</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(epreuve.created_at).toLocaleDateString("fr-FR")}
+                      {new Date(epreuve.date_creation).toLocaleDateString("fr-FR")}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {epreuve.date_publication
+                        ? new Date(epreuve.date_publication).toLocaleDateString("fr-FR")
+                        : "Immédiate"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">

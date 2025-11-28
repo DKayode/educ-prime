@@ -1,6 +1,7 @@
-import { LayoutDashboard, Users, BookOpen, Calendar, FileText, Settings, Building2, BookMarked } from "lucide-react";
+import { LayoutDashboard, Users, BookOpen, Calendar, FileText, Settings, Building2, BookMarked, FolderOpen } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+import { useLocation }
+  from "react-router-dom";
 
 import {
   Sidebar,
@@ -23,6 +24,7 @@ const menuItems = [
   { title: "Matières", url: "/matieres", icon: BookMarked },
   { title: "Niveaux d'études", url: "/annees", icon: Calendar },
   { title: "Épreuves", url: "/epreuves", icon: FileText },
+  { title: "Ressources", url: "/ressources", icon: FolderOpen },
   { title: "Paramètres", url: "/settings", icon: Settings },
 ];
 
@@ -62,8 +64,8 @@ export function AppSidebar() {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink 
-                      to={item.url} 
+                    <NavLink
+                      to={item.url}
                       end
                       className="hover:bg-sidebar-accent/50"
                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
