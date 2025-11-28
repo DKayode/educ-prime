@@ -1042,9 +1042,11 @@ Télécharger un fichier vers Firebase Storage et mettre à jour l'entité assoc
 **Remarques importantes :**
 - L'URL du fichier est automatiquement enregistrée dans la table `epreuves` ou `ressources`.
 - Si l'entité n'existe pas, elle est créée automatiquement.
-- En cas d'échec du téléversement, toute entité nouvellement créée est annulée.
+- En cas d'échec du téléversement, toute entité nouvellement créée est annulée (rollback).
 - Les chemins générés dans Firebase sont normalisés en minuscules (ex. `ressources/document/...`).
 - Le champ `typeRessource` est sensible à la casse et doit valoir `Document`, `Quiz` ou `Exercices`.
+- Le champ `type` doit être en minuscules : `profile`, `epreuve`, ou `ressource`.
+- **IMPORTANT** : Avec `multipart/form-data`, tous les champs sont envoyés comme des **strings**. Le backend les convertira automatiquement en nombres si nécessaire.
 
 ```http
 POST /fichiers
@@ -1054,68 +1056,84 @@ Content-Type: multipart/form-data
 // Pour créer une nouvelle épreuve avec un fichier :
 file: <file-data>
 type: "epreuve"
-matiereId: 1
+matiereId: "1"                    // String (sera converti en number par le backend)
 epreuveTitre: "Examen Final"
-dureeMinutes: 180
+dureeMinutes: "180"               // String (sera converti en number par le backend)
 
 // Pour ajouter un fichier à une épreuve existante :
 file: <file-data>
 type: "epreuve"
-matiereId: 1
-epreuveId: 1
+matiereId: "1"                    // String
+epreuveId: "1"                    // String
 
 // Pour créer une nouvelle ressource avec un fichier :
 file: <file-data>
 type: "ressource"
-typeRessource: "Document" | "Quiz" | "Exercices"
-matiereId: 1
+typeRessource: "Document"         // Valeurs: "Document", "Quiz", "Exercices"
+matiereId: "1"                    // String
 ressourceTitre: "Support de cours"
 
 // Pour ajouter un fichier à une ressource existante :
 file: <file-data>
 type: "ressource"
-typeRessource: "Document" | "Quiz" | "Exercices"
-matiereId: 1
-ressourceId: 1
+typeRessource: "Document"
+matiereId: "1"                    // String
+ressourceId: "1"                  // String
 
 // Pour télécharger une photo de profil :
 file: <file-data>
 type: "profile"
 ```
 
+**Exemple avec curl - Créer une épreuve :**
+```bash
+curl -X POST http://localhost:3000/fichiers \
+  -H "Authorization: Bearer <your-token>" \
+  -F "file=@/path/to/exam.pdf" \
+  -F "type=epreuve" \
+  -F "matiereId=1" \
+  -F "epreuveTitre=Examen Final Informatique" \
+  -F "dureeMinutes=120"
+```
+
+**Exemple avec curl - Créer une ressource :**
+```bash
+curl -X POST http://localhost:3000/fichiers \
+  -H "Authorization: Bearer <your-token>" \
+  -F "file=@/path/to/cours.pdf" \
+  -F "type=ressource" \
+  -F "typeRessource=Document" \
+  -F "matiereId=1" \
+  -F "ressourceTitre=Cours Chapitre 1"
+```
+
 Réponse (201 Created) - Nouvelle épreuve créée :
 ```json
 {
-    "url": "https://storage.googleapis.com/educ-prime.firebasestorage.app/epreuves/1/2/exam.pdf",
-    "type": "epreuve",
-    "entityId": 2
-}
-```
-
-Réponse (201 Created) - Épreuve existante mise à jour :
-```json
-{
+    "id": 1,
     "url": "https://storage.googleapis.com/educ-prime.firebasestorage.app/epreuves/1/1/exam.pdf",
-    "type": "epreuve",
-    "entityId": 1
+    "filename": "epreuves/1/1/exam.pdf",
+    "originalName": "exam.pdf"
 }
 ```
 
 Réponse (201 Created) - Nouvelle ressource créée :
 ```json
 {
-    "url": "https://storage.googleapis.com/educ-prime.firebasestorage.app/ressources/document/1/3/cours.pdf",
-    "type": "ressource",
-    "entityId": 3
+    "id": 1,
+    "url": "https://storage.googleapis.com/educ-prime.firebasestorage.app/ressources/document/1/1/cours.pdf",
+    "filename": "ressources/document/1/1/cours.pdf",
+    "originalName": "cours.pdf"
 }
 ```
 
 Réponse (201 Created) - Photo de profil :
 ```json
 {
+    "id": 2,
     "url": "https://storage.googleapis.com/educ-prime.firebasestorage.app/utilisateurs/2/profile.jpg",
-    "type": "profile",
-    "entityId": 2
+    "filename": "utilisateurs/2/profile.jpg",
+    "originalName": "profile.jpg"
 }
 ```
 

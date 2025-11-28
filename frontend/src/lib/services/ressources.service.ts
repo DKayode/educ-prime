@@ -1,0 +1,58 @@
+import { api } from '../api';
+
+export interface Ressource {
+    id: number;
+    titre: string;
+    type: 'Quiz' | 'Exercices' | 'Document';
+    url: string;
+    date_creation: string;
+    date_publication?: string;
+    professeur_id: number;
+    matiere_id: number;
+    matiere?: {
+        id: number;
+        nom: string;
+    };
+    professeur?: {
+        id: number;
+        nom: string;
+        prenom: string;
+    };
+}
+
+export interface CreateRessourceData {
+    titre: string;
+    url: string;
+    type: 'Quiz' | 'Exercices' | 'Document';
+    matiere_id: number;
+}
+
+export const ressourcesService = {
+    async getAll(): Promise<Ressource[]> {
+        return api.get<Ressource[]>('/ressources');
+    },
+
+    async getOne(id: string): Promise<Ressource> {
+        return api.get<Ressource>(`/ressources/${id}`);
+    },
+
+    async create(data: CreateRessourceData): Promise<Ressource> {
+        return api.post<Ressource>('/ressources', data);
+    },
+
+    async update(id: string, data: Partial<CreateRessourceData>): Promise<Ressource> {
+        return api.put<Ressource>(`/ressources/${id}`, data);
+    },
+
+    async delete(id: string): Promise<void> {
+        await api.delete(`/ressources/${id}`);
+    },
+
+    async getByMatiere(matiereId: string): Promise<Ressource[]> {
+        return api.get<Ressource[]>(`/ressources/matiere/${matiereId}`);
+    },
+
+    async getByType(type: string): Promise<Ressource[]> {
+        return api.get<Ressource[]>(`/ressources/type/${type}`);
+    },
+};

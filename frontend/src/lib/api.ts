@@ -68,10 +68,15 @@ class ApiClient {
     options: RequestInit = {},
     isRetry: boolean = false
   ): Promise<T> {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
+    const isFormData = options.body instanceof FormData;
+
+    // Don't set Content-Type for FormData - browser will set it with boundary
+    const headers: HeadersInit = isFormData
+      ? { ...options.headers }
+      : {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
 
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
@@ -138,10 +143,13 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'GET' });
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<T> {
+  async post<T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> {
+    const isFormData = data instanceof FormData;
+
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: isFormData ? data : JSON.stringify(data),
+      ...options,
     });
   }
 

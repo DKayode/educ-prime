@@ -13,6 +13,7 @@ import Filieres from "./pages/Filieres";
 import Matieres from "./pages/Matieres";
 import Annees from "./pages/Annees";
 import Epreuves from "./pages/Epreuves";
+import Ressources from "./pages/Ressources";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -41,6 +42,7 @@ const App = () => (
                       <Route path="/matieres" element={<Matieres />} />
                       <Route path="/annees" element={<Annees />} />
                       <Route path="/epreuves" element={<Epreuves />} />
+                      <Route path="/ressources" element={<Ressources />} />
                       <Route path="/settings" element={<Settings />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />

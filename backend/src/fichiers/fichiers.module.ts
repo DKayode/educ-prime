@@ -19,4 +19,4 @@ import { FirebaseConfig } from '../config/firebase.config';
   ],
   exports: [FichiersService]
 })
-export class FichiersModule {}
+export class FichiersModule { }
