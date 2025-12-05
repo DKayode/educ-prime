@@ -9,7 +9,7 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 
 @Controller('etablissements')
 export class EtablissementsController {
-  constructor(private readonly etablissementsService: EtablissementsService) {}
+  constructor(private readonly etablissementsService: EtablissementsService) { }
 
   @UseGuards(JwtAuthGuard, RoleGuard)
   @Roles(RoleType.ADMIN)
@@ -42,5 +42,53 @@ export class EtablissementsController {
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.etablissementsService.remove(id);
+  }
+
+  // Hierarchical navigation endpoints
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/filieres')
+  async findFilieres(@Param('id') id: string) {
+    return this.etablissementsService.findFilieresById(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/filieres/:filiereId/niveau-etude')
+  async findNiveauEtude(
+    @Param('id') etablissementId: string,
+    @Param('filiereId') filiereId: string,
+  ) {
+    return this.etablissementsService.findNiveauEtudeByFiliere(etablissementId, filiereId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/filieres/:filiereId/niveau-etude/:niveauId/matieres')
+  async findMatieres(
+    @Param('id') etablissementId: string,
+    @Param('filiereId') filiereId: string,
+    @Param('niveauId') niveauEtudeId: string,
+  ) {
+    return this.etablissementsService.findMatieresByNiveauEtude(etablissementId, filiereId, niveauEtudeId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/filieres/:filiereId/niveau-etude/:niveauId/matieres/:matiereId/epreuves')
+  async findEpreuves(
+    @Param('id') etablissementId: string,
+    @Param('filiereId') filiereId: string,
+    @Param('niveauId') niveauEtudeId: string,
+    @Param('matiereId') matiereId: string,
+  ) {
+    return this.etablissementsService.findEpreuvesByMatiere(etablissementId, filiereId, niveauEtudeId, matiereId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/filieres/:filiereId/niveau-etude/:niveauId/matieres/:matiereId/ressources')
+  async findRessources(
+    @Param('id') etablissementId: string,
+    @Param('filiereId') filiereId: string,
+    @Param('niveauId') niveauEtudeId: string,
+    @Param('matiereId') matiereId: string,
+  ) {
+    return this.etablissementsService.findRessourcesByMatiere(etablissementId, filiereId, niveauEtudeId, matiereId);
   }
 }

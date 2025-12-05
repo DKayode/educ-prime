@@ -9,6 +9,9 @@ export class Filiere {
   @Column()
   nom: string;
 
+  @Column()
+  etablissement_id: number;
+
   @ManyToOne(() => Etablissement)
   @JoinColumn({ name: 'etablissement_id' })
   etablissement: Etablissement;
