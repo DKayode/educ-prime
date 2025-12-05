@@ -12,7 +12,7 @@ export class MatieresService {
   constructor(
     @InjectRepository(Matiere)
     private readonly matieresRepository: Repository<Matiere>,
-  ) {}
+  ) { }
 
   async create(creerMatiereDto: CreerMatiereDto) {
     this.logger.log(`Création d'une matière: ${creerMatiereDto.nom}`);
@@ -29,17 +29,33 @@ export class MatieresService {
   async findAll() {
     this.logger.log('Récupération de toutes les matières');
     const matieres = await this.matieresRepository.find({
-      relations: ['niveau_etude', 'filiere'],
+      relations: ['niveau_etude', 'niveau_etude.filiere'],
     });
     this.logger.log(`${matieres.length} matière(s) trouvée(s)`);
-    return matieres;
+
+    // Transform to response DTO format
+    return matieres.map(matiere => ({
+      id: matiere.id,
+      nom: matiere.nom,
+      description: matiere.description,
+      niveau_etude: {
+        id: matiere.niveau_etude.id,
+        nom: matiere.niveau_etude.nom,
+        duree_mois: matiere.niveau_etude.duree_mois,
+        filiere: {
+          id: matiere.niveau_etude.filiere.id,
+          nom: matiere.niveau_etude.filiere.nom,
+          etablissement_id: matiere.niveau_etude.filiere.etablissement_id,
+        },
+      },
+    }));
   }
 
   async findOne(id: string) {
     this.logger.log(`Recherche de la matière ID: ${id}`);
     const matiere = await this.matieresRepository.findOne({
       where: { id: parseInt(id) },
-      relations: ['niveau_etude', 'filiere'],
+      relations: ['niveau_etude', 'niveau_etude.filiere'],
     });
 
     if (!matiere) {
@@ -48,7 +64,23 @@ export class MatieresService {
     }
 
     this.logger.log(`Matière trouvée: ${matiere.nom} (ID: ${id})`);
-    return matiere;
+
+    // Transform to response DTO format
+    return {
+      id: matiere.id,
+      nom: matiere.nom,
+      description: matiere.description,
+      niveau_etude: {
+        id: matiere.niveau_etude.id,
+        nom: matiere.niveau_etude.nom,
+        duree_mois: matiere.niveau_etude.duree_mois,
+        filiere: {
+          id: matiere.niveau_etude.filiere.id,
+          nom: matiere.niveau_etude.filiere.nom,
+          etablissement_id: matiere.niveau_etude.filiere.etablissement_id,
+        },
+      },
+    };
   }
 
   async update(id: string, majMatiereDto: MajMatiereDto) {

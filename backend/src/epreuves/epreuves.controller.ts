@@ -2,11 +2,12 @@ import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request } f
 import { EpreuvesService } from './epreuves.service';
 import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
 import { MajEpreuveDto } from './dto/maj-epreuve.dto';
+import { EpreuveResponseDto } from './dto/epreuve-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('epreuves')
 export class EpreuvesController {
-  constructor(private readonly epreuvesService: EpreuvesService) {}
+  constructor(private readonly epreuvesService: EpreuvesService) { }
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -16,13 +17,13 @@ export class EpreuvesController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async findAll() {
+  async findAll(): Promise<EpreuveResponseDto[]> {
     return this.epreuvesService.findAll();
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string): Promise<EpreuveResponseDto> {
     return this.epreuvesService.findOne(id);
   }
 
@@ -40,13 +41,13 @@ export class EpreuvesController {
 
   @UseGuards(JwtAuthGuard)
   @Get('matiere/:id')
-  async findByMatiere(@Param('id') matiereId: string) {
+  async findByMatiere(@Param('id') matiereId: string): Promise<EpreuveResponseDto[]> {
     return this.epreuvesService.findByMatiere(matiereId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('professeur/:id')
-  async findByProfesseur(@Param('id') professeurId: string) {
+  async findByProfesseur(@Param('id') professeurId: string): Promise<EpreuveResponseDto[]> {
     return this.epreuvesService.findByProfesseur(professeurId);
   }
 }

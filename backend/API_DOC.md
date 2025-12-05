@@ -428,6 +428,141 @@ Response (200 OK):
 }
 ```
 
+### Lister les filières d'un établissement - `GET /etablissements/:id/filieres`
+Obtenir toutes les filières associées à un établissement.
+
+**Permissions requises:** Utilisateur authentifié
+
+```http
+GET /etablissements/1/filieres
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "nom": "Informatique",
+        "etablissement_id": 1
+    },
+    {
+        "id": 2,
+        "nom": "Mathématiques",
+        "etablissement_id": 1
+    }
+]
+```
+
+### Lister les niveaux d'étude d'une filière - `GET /etablissements/:id/filieres/:filiereId/niveau-etude`
+Obtenir tous les niveaux d'étude associés à une filière spécifique d'un établissement.
+
+**Permissions requises:** Utilisateur authentifié
+
+```http
+GET /etablissements/1/filieres/2/niveau-etude
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "nom": "Licence 1",
+        "duree_mois": 12,
+        "filiere": {
+            "id": 2,
+            "nom": "Informatique",
+            "etablissement_id": 1
+        }
+    },
+    {
+        "id": 2,
+        "nom": "Licence 2",
+        "duree_mois": 12,
+        "filiere": {
+            "id": 2,
+            "nom": "Informatique",
+            "etablissement_id": 1
+        }
+    }
+]
+```
+
+### Lister les matières d'un niveau d'étude - `GET /etablissements/:id/filieres/:filiereId/niveau-etude/:niveauId/matieres`
+Obtenir toutes les matières associées à un niveau d'étude spécifique.
+
+**Permissions requises:** Utilisateur authentifié
+
+```http
+GET /etablissements/1/filieres/2/niveau-etude/3/matieres
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "nom": "Algorithmique",
+        "description": "Introduction aux algorithmes",
+        "niveau_etude": {
+            "id": 3,
+            "nom": "Licence 1",
+            "duree_mois": 12,
+            "filiere": {
+                "id": 2,
+                "nom": "Informatique",
+                "etablissement_id": 1
+            }
+        }
+    }
+]
+```
+
+### Lister les épreuves d'une matière - `GET /etablissements/:id/filieres/:filiereId/niveau-etude/:niveauId/matieres/:matiereId/epreuves`
+Obtenir toutes les épreuves associées à une matière spécifique.
+
+**Permissions requises:** Utilisateur authentifié
+
+**Note de sécurité:** Les informations du professeur sont limitées au nom, prénom et téléphone uniquement.
+
+```http
+GET /etablissements/1/filieres/2/niveau-etude/3/matieres/5/epreuves
+Authorization: Bearer <token>
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "titre": "Examen Final",
+        "url": "https://exemple.com/exam.pdf",
+        "duree_minutes": 180,
+        "date_creation": "2025-11-09T10:30:00Z",
+        "date_publication": "2025-12-01T14:00:00Z",
+        "professeur": {
+            "nom": "Dupont",
+            "prenom": "Jean",
+            "telephone": "+33123456789"
+        },
+        "matiere": {
+            "id": 5,
+            "nom": "Algorithmique",
+            "description": "Introduction aux algorithmes",
+            "niveau_etude": {
+                "id": 3,
+                "nom": "Licence 1",
+                "duree_mois": 12,
+                "filiere": {
+                    "id": 2,
+                    "nom": "Informatique",
+                    "etablissement_id": 1
+                }
+            }
+        }
+    }
+]
+```
+
 ### Lister les filières - `GET /filieres`
 Obtenir la liste de toutes les filières.
 ```http
@@ -545,7 +680,11 @@ Response (200 OK):
         "id": 1,
         "nom": "License 3",
         "duree_mois": 12,
-        "filiere_id": 1
+        "filiere": {
+            "id": 1,
+            "nom": "Informatique",
+            "etablissement_id": 1
+        }
     }
 ]
 ```
@@ -562,7 +701,11 @@ Response (200 OK):
     "id": 1,
     "nom": "License 3",
     "duree_mois": 12,
-    "filiere_id": 1
+    "filiere": {
+        "id": 1,
+        "nom": "Informatique",
+        "etablissement_id": 1
+    }
 }
 ```
 
@@ -659,8 +802,16 @@ Response (200 OK):
         "id": 1,
         "nom": "Algorithmique",
         "description": "Introduction aux algorithmes",
-        "niveau_etude_id": 1,
-        "filiere_id": 1
+        "niveau_etude": {
+            "id": 1,
+            "nom": "License 3",
+            "duree_mois": 12,
+            "filiere": {
+                "id": 1,
+                "nom": "Informatique",
+                "etablissement_id": 1
+            }
+        }
     }
 ]
 ```
@@ -677,8 +828,16 @@ Response (200 OK):
     "id": 1,
     "nom": "Algorithmique",
     "description": "Introduction aux algorithmes",
-    "niveau_etude_id": 1,
-    "filiere_id": 1
+    "niveau_etude": {
+        "id": 1,
+        "nom": "License 3",
+        "duree_mois": 12,
+        "filiere": {
+            "id": 1,
+            "nom": "Informatique",
+            "etablissement_id": 1
+        }
+    }
 }
 ```
 
@@ -768,6 +927,9 @@ Response (200 OK):
 
 ### Lister les épreuves - `GET /epreuves`
 Obtenir la liste de toutes les épreuves.
+
+**Note de sécurité:** Les informations du professeur sont limitées au nom, prénom et téléphone uniquement. Les données sensibles (email, mot de passe, etc.) ne sont jamais exposées dans les réponses API.
+
 ```http
 GET /epreuves
 Authorization: Bearer <token>
@@ -779,11 +941,29 @@ Response (200 OK):
         "id": 1,
         "titre": "Examen Final",
         "url": "https://exemple.com/exam.pdf",
-        "matiere_id": 1,
-        "professeur_id": 2,
         "duree_minutes": 180,
         "date_creation": "2025-11-09T10:30:00Z",
-        "date_publication": "2025-12-01T14:00:00Z"
+        "date_publication": "2025-12-01T14:00:00Z",
+        "professeur": {
+            "nom": "Dupont",
+            "prenom": "Jean",
+            "telephone": "+33123456789"
+        },
+        "matiere": {
+            "id": 1,
+            "nom": "Algorithmique",
+            "description": "Introduction aux algorithmes",
+            "niveau_etude": {
+                "id": 1,
+                "nom": "License 3",
+                "duree_mois": 12,
+                "filiere": {
+                    "id": 1,
+                    "nom": "Informatique",
+                    "etablissement_id": 1
+                }
+            }
+        }
     }
 ]
 ```
@@ -800,11 +980,29 @@ Response (200 OK):
     "id": 1,
     "titre": "Examen Final",
     "url": "https://exemple.com/exam.pdf",
-    "matiere_id": 1,
-    "professeur_id": 2,
     "duree_minutes": 180,
     "date_creation": "2025-11-09T10:30:00Z",
-    "date_publication": "2025-12-01T14:00:00Z"
+    "date_publication": "2025-12-01T14:00:00Z",
+    "professeur": {
+        "nom": "Dupont",
+        "prenom": "Jean",
+        "telephone": "+33123456789"
+    },
+    "matiere": {
+        "id": 1,
+        "nom": "Algorithmique",
+        "description": "Introduction aux algorithmes",
+        "niveau_etude": {
+            "id": 1,
+            "nom": "License 3",
+            "duree_mois": 12,
+            "filiere": {
+                "id": 1,
+                "nom": "Informatique",
+                "etablissement_id": 1
+            }
+        }
+    }
 }
 ```
 
@@ -902,6 +1100,9 @@ Response (200 OK):
 
 ### Lister les ressources - `GET /ressources`
 Obtenir la liste de toutes les ressources.
+
+**Note de sécurité:** Les informations du professeur sont limitées au nom, prénom et téléphone uniquement. Les données sensibles (email, mot de passe, etc.) ne sont jamais exposées dans les réponses API.
+
 ```http
 GET /ressources
 Authorization: Bearer <token>
@@ -914,10 +1115,28 @@ Response (200 OK):
         "titre": "Support de cours",
         "type": "Document",
         "url": "https://exemple.com/support.pdf",
-        "matiere_id": 1,
-        "professeur_id": 2,
         "date_creation": "2025-11-09T10:30:00Z",
-        "date_publication": "2025-12-01T14:00:00Z"
+        "date_publication": "2025-12-01T14:00:00Z",
+        "professeur": {
+            "nom": "Dupont",
+            "prenom": "Jean",
+            "telephone": "+33123456789"
+        },
+        "matiere": {
+            "id": 1,
+            "nom": "Algorithmique",
+            "description": "Introduction aux algorithmes",
+            "niveau_etude": {
+                "id": 1,
+                "nom": "License 3",
+                "duree_mois": 12,
+                "filiere": {
+                    "id": 1,
+                    "nom": "Informatique",
+                    "etablissement_id": 1
+                }
+            }
+        }
     }
 ]
 ```
@@ -935,10 +1154,28 @@ Response (200 OK):
     "titre": "Support de cours",
     "type": "Document",
     "url": "https://exemple.com/support.pdf",
-    "matiere_id": 1,
-    "professeur_id": 2,
     "date_creation": "2025-11-09T10:30:00Z",
-    "date_publication": "2025-12-01T14:00:00Z"
+    "date_publication": "2025-12-01T14:00:00Z",
+    "professeur": {
+        "nom": "Dupont",
+        "prenom": "Jean",
+        "telephone": "+33123456789"
+    },
+    "matiere": {
+        "id": 1,
+        "nom": "Algorithmique",
+        "description": "Introduction aux algorithmes",
+        "niveau_etude": {
+            "id": 1,
+            "nom": "License 3",
+            "duree_mois": 12,
+            "filiere": {
+                "id": 1,
+                "nom": "Informatique",
+                "etablissement_id": 1
+            }
+        }
+    }
 }
 ```
 

@@ -2,11 +2,12 @@ import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards } from '@nes
 import { NiveauEtudeService } from './niveau-etude.service';
 import { CreerNiveauEtudeDto } from './dto/creer-niveau-etude.dto';
 import { MajNiveauEtudeDto } from './dto/maj-niveau-etude.dto';
+import { NiveauEtudeResponseDto } from './dto/niveau-etude-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('niveau-etude')
 export class NiveauEtudeController {
-  constructor(private readonly niveauEtudeService: NiveauEtudeService) {}
+  constructor(private readonly niveauEtudeService: NiveauEtudeService) { }
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -16,13 +17,13 @@ export class NiveauEtudeController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async findAll() {
+  async findAll(): Promise<NiveauEtudeResponseDto[]> {
     return this.niveauEtudeService.findAll();
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string): Promise<NiveauEtudeResponseDto> {
     return this.niveauEtudeService.findOne(id);
   }
 

@@ -2,11 +2,12 @@ import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request } f
 import { RessourcesService } from './ressources.service';
 import { CreerRessourceDto } from './dto/creer-ressource.dto';
 import { MajRessourceDto } from './dto/maj-ressource.dto';
+import { RessourceResponseDto } from './dto/ressource-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('ressources')
 export class RessourcesController {
-  constructor(private readonly ressourcesService: RessourcesService) {}
+  constructor(private readonly ressourcesService: RessourcesService) { }
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -16,13 +17,13 @@ export class RessourcesController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async findAll() {
+  async findAll(): Promise<RessourceResponseDto[]> {
     return this.ressourcesService.findAll();
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string): Promise<RessourceResponseDto> {
     return this.ressourcesService.findOne(id);
   }
 
@@ -40,19 +41,19 @@ export class RessourcesController {
 
   @UseGuards(JwtAuthGuard)
   @Get('matiere/:id')
-  async findByMatiere(@Param('id') matiereId: string) {
+  async findByMatiere(@Param('id') matiereId: string): Promise<RessourceResponseDto[]> {
     return this.ressourcesService.findByMatiere(matiereId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('professeur/:id')
-  async findByProfesseur(@Param('id') professeurId: string) {
+  async findByProfesseur(@Param('id') professeurId: string): Promise<RessourceResponseDto[]> {
     return this.ressourcesService.findByProfesseur(professeurId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('type/:type')
-  async findByType(@Param('type') type: string) {
+  async findByType(@Param('type') type: string): Promise<RessourceResponseDto[]> {
     return this.ressourcesService.findByType(type);
   }
 }

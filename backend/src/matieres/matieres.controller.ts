@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards } from '@nes
 import { MatieresService } from './matieres.service';
 import { CreerMatiereDto } from './dto/creer-matiere.dto';
 import { MajMatiereDto } from './dto/maj-matiere.dto';
+import { MatiereResponseDto } from './dto/matiere-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -9,7 +10,7 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 
 @Controller('matieres')
 export class MatieresController {
-  constructor(private readonly matieresService: MatieresService) {}
+  constructor(private readonly matieresService: MatieresService) { }
 
   @UseGuards(JwtAuthGuard, RoleGuard)
   @Roles(RoleType.ADMIN, RoleType.PROFESSEUR)
@@ -20,13 +21,13 @@ export class MatieresController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async findAll() {
+  async findAll(): Promise<MatiereResponseDto[]> {
     return this.matieresService.findAll();
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string): Promise<MatiereResponseDto> {
     return this.matieresService.findOne(id);
   }
 

@@ -12,7 +12,7 @@ export class NiveauEtudeService {
   constructor(
     @InjectRepository(NiveauEtude)
     private readonly niveauEtudeRepository: Repository<NiveauEtude>,
-  ) {}
+  ) { }
 
   async create(creerNiveauEtudeDto: CreerNiveauEtudeDto) {
     this.logger.log(`Création d'un niveau d'étude: ${creerNiveauEtudeDto.nom} (Durée: ${creerNiveauEtudeDto.duree_mois} mois)`);
@@ -31,7 +31,18 @@ export class NiveauEtudeService {
       relations: ['filiere'],
     });
     this.logger.log(`${niveaux.length} niveau(x) d'étude trouvé(s)`);
-    return niveaux;
+
+    // Transform to response DTO format
+    return niveaux.map(niveau => ({
+      id: niveau.id,
+      nom: niveau.nom,
+      duree_mois: niveau.duree_mois,
+      filiere: {
+        id: niveau.filiere.id,
+        nom: niveau.filiere.nom,
+        etablissement_id: niveau.filiere.etablissement_id,
+      },
+    }));
   }
 
   async findOne(id: string) {
@@ -47,7 +58,18 @@ export class NiveauEtudeService {
     }
 
     this.logger.log(`Niveau d'étude trouvé: ${niveauEtude.nom} (ID: ${id})`);
-    return niveauEtude;
+
+    // Transform to response DTO format
+    return {
+      id: niveauEtude.id,
+      nom: niveauEtude.nom,
+      duree_mois: niveauEtude.duree_mois,
+      filiere: {
+        id: niveauEtude.filiere.id,
+        nom: niveauEtude.filiere.nom,
+        etablissement_id: niveauEtude.filiere.etablissement_id,
+      },
+    };
   }
 
   async update(id: string, majNiveauEtudeDto: MajNiveauEtudeDto) {

@@ -12,7 +12,7 @@ export class RessourcesService {
   constructor(
     @InjectRepository(Ressource)
     private readonly ressourcesRepository: Repository<Ressource>,
-  ) {}
+  ) { }
 
   async create(creerRessourceDto: CreerRessourceDto, professeurId: number) {
     this.logger.log(`Création d'une ressource: ${creerRessourceDto.titre} (Type: ${creerRessourceDto.type}) par professeur ID: ${professeurId}`);
@@ -31,20 +31,49 @@ export class RessourcesService {
   async findAll() {
     this.logger.log('Récupération de toutes les ressources');
     const ressources = await this.ressourcesRepository.find({
-      relations: ['matiere', 'professeur'],
+      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
       order: {
         date_creation: 'DESC',
       },
     });
     this.logger.log(`${ressources.length} ressource(s) trouvée(s)`);
-    return ressources;
+
+    // Transform to response DTO format with sanitized professeur
+    return ressources.map(ressource => ({
+      id: ressource.id,
+      titre: ressource.titre,
+      type: ressource.type,
+      url: ressource.url,
+      date_creation: ressource.date_creation,
+      date_publication: ressource.date_publication,
+      professeur: {
+        nom: ressource.professeur.nom,
+        prenom: ressource.professeur.prenom,
+        telephone: ressource.professeur.telephone,
+      },
+      matiere: {
+        id: ressource.matiere.id,
+        nom: ressource.matiere.nom,
+        description: ressource.matiere.description,
+        niveau_etude: {
+          id: ressource.matiere.niveau_etude.id,
+          nom: ressource.matiere.niveau_etude.nom,
+          duree_mois: ressource.matiere.niveau_etude.duree_mois,
+          filiere: {
+            id: ressource.matiere.niveau_etude.filiere.id,
+            nom: ressource.matiere.niveau_etude.filiere.nom,
+            etablissement_id: ressource.matiere.niveau_etude.filiere.etablissement_id,
+          },
+        },
+      },
+    }));
   }
 
   async findOne(id: string) {
     this.logger.log(`Recherche de la ressource ID: ${id}`);
     const ressource = await this.ressourcesRepository.findOne({
       where: { id: parseInt(id) },
-      relations: ['matiere', 'professeur'],
+      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
     });
 
     if (!ressource) {
@@ -53,7 +82,36 @@ export class RessourcesService {
     }
 
     this.logger.log(`Ressource trouvée: ${ressource.titre} (ID: ${id}, Type: ${ressource.type})`);
-    return ressource;
+
+    // Transform to response DTO format with sanitized professeur
+    return {
+      id: ressource.id,
+      titre: ressource.titre,
+      type: ressource.type,
+      url: ressource.url,
+      date_creation: ressource.date_creation,
+      date_publication: ressource.date_publication,
+      professeur: {
+        nom: ressource.professeur.nom,
+        prenom: ressource.professeur.prenom,
+        telephone: ressource.professeur.telephone,
+      },
+      matiere: {
+        id: ressource.matiere.id,
+        nom: ressource.matiere.nom,
+        description: ressource.matiere.description,
+        niveau_etude: {
+          id: ressource.matiere.niveau_etude.id,
+          nom: ressource.matiere.niveau_etude.nom,
+          duree_mois: ressource.matiere.niveau_etude.duree_mois,
+          filiere: {
+            id: ressource.matiere.niveau_etude.filiere.id,
+            nom: ressource.matiere.niveau_etude.filiere.nom,
+            etablissement_id: ressource.matiere.niveau_etude.filiere.etablissement_id,
+          },
+        },
+      },
+    };
   }
 
   async update(id: string, majRessourceDto: MajRessourceDto) {
@@ -94,38 +152,125 @@ export class RessourcesService {
     this.logger.log(`Recherche des ressources pour matière ID: ${matiereId}`);
     const ressources = await this.ressourcesRepository.find({
       where: { matiere: { id: parseInt(matiereId) } },
-      relations: ['professeur'],
+      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
       order: {
         date_creation: 'DESC',
       },
     });
     this.logger.log(`${ressources.length} ressource(s) trouvée(s) pour matière ${matiereId}`);
-    return ressources;
+
+    // Transform to response DTO format with sanitized professeur
+    return ressources.map(ressource => ({
+      id: ressource.id,
+      titre: ressource.titre,
+      type: ressource.type,
+      url: ressource.url,
+      date_creation: ressource.date_creation,
+      date_publication: ressource.date_publication,
+      professeur: {
+        nom: ressource.professeur.nom,
+        prenom: ressource.professeur.prenom,
+        telephone: ressource.professeur.telephone,
+      },
+      matiere: {
+        id: ressource.matiere.id,
+        nom: ressource.matiere.nom,
+        description: ressource.matiere.description,
+        niveau_etude: {
+          id: ressource.matiere.niveau_etude.id,
+          nom: ressource.matiere.niveau_etude.nom,
+          duree_mois: ressource.matiere.niveau_etude.duree_mois,
+          filiere: {
+            id: ressource.matiere.niveau_etude.filiere.id,
+            nom: ressource.matiere.niveau_etude.filiere.nom,
+            etablissement_id: ressource.matiere.niveau_etude.filiere.etablissement_id,
+          },
+        },
+      },
+    }));
   }
 
   async findByProfesseur(professeurId: string) {
     this.logger.log(`Recherche des ressources du professeur ID: ${professeurId}`);
     const ressources = await this.ressourcesRepository.find({
       where: { professeur: { id: parseInt(professeurId) } },
-      relations: ['matiere'],
+      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
       order: {
         date_creation: 'DESC',
       },
     });
     this.logger.log(`${ressources.length} ressource(s) trouvée(s) pour professeur ${professeurId}`);
-    return ressources;
+
+    // Transform to response DTO format with sanitized professeur
+    return ressources.map(ressource => ({
+      id: ressource.id,
+      titre: ressource.titre,
+      type: ressource.type,
+      url: ressource.url,
+      date_creation: ressource.date_creation,
+      date_publication: ressource.date_publication,
+      professeur: {
+        nom: ressource.professeur.nom,
+        prenom: ressource.professeur.prenom,
+        telephone: ressource.professeur.telephone,
+      },
+      matiere: {
+        id: ressource.matiere.id,
+        nom: ressource.matiere.nom,
+        description: ressource.matiere.description,
+        niveau_etude: {
+          id: ressource.matiere.niveau_etude.id,
+          nom: ressource.matiere.niveau_etude.nom,
+          duree_mois: ressource.matiere.niveau_etude.duree_mois,
+          filiere: {
+            id: ressource.matiere.niveau_etude.filiere.id,
+            nom: ressource.matiere.niveau_etude.filiere.nom,
+            etablissement_id: ressource.matiere.niveau_etude.filiere.etablissement_id,
+          },
+        },
+      },
+    }));
   }
 
   async findByType(type: string) {
     this.logger.log(`Recherche des ressources de type: ${type}`);
     const ressources = await this.ressourcesRepository.find({
       where: { type: type as RessourceType },
-      relations: ['matiere', 'professeur'],
+      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
       order: {
         date_creation: 'DESC',
       },
     });
     this.logger.log(`${ressources.length} ressource(s) de type ${type} trouvée(s)`);
-    return ressources;
+
+    // Transform to response DTO format with sanitized professeur
+    return ressources.map(ressource => ({
+      id: ressource.id,
+      titre: ressource.titre,
+      type: ressource.type,
+      url: ressource.url,
+      date_creation: ressource.date_creation,
+      date_publication: ressource.date_publication,
+      professeur: {
+        nom: ressource.professeur.nom,
+        prenom: ressource.professeur.prenom,
+        telephone: ressource.professeur.telephone,
+      },
+      matiere: {
+        id: ressource.matiere.id,
+        nom: ressource.matiere.nom,
+        description: ressource.matiere.description,
+        niveau_etude: {
+          id: ressource.matiere.niveau_etude.id,
+          nom: ressource.matiere.niveau_etude.nom,
+          duree_mois: ressource.matiere.niveau_etude.duree_mois,
+          filiere: {
+            id: ressource.matiere.niveau_etude.filiere.id,
+            nom: ressource.matiere.niveau_etude.filiere.nom,
+            etablissement_id: ressource.matiere.niveau_etude.filiere.etablissement_id,
+          },
+        },
+      },
+    }));
   }
 }

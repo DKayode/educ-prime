@@ -12,7 +12,7 @@ export class EpreuvesService {
   constructor(
     @InjectRepository(Epreuve)
     private readonly epreuvesRepository: Repository<Epreuve>,
-  ) {}
+  ) { }
 
   async create(creerEpreuveDto: CreerEpreuveDto, professeurId: number) {
     this.logger.log(`Création d'une épreuve: ${creerEpreuveDto.titre} par professeur ID: ${professeurId}`);
@@ -31,20 +31,49 @@ export class EpreuvesService {
   async findAll() {
     this.logger.log('Récupération de toutes les épreuves');
     const epreuves = await this.epreuvesRepository.find({
-      relations: ['matiere', 'professeur'],
+      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
       order: {
         date_creation: 'DESC',
       },
     });
     this.logger.log(`${epreuves.length} épreuve(s) trouvée(s)`);
-    return epreuves;
+
+    // Transform to response DTO format with sanitized professeur
+    return epreuves.map(epreuve => ({
+      id: epreuve.id,
+      titre: epreuve.titre,
+      url: epreuve.url,
+      duree_minutes: epreuve.duree_minutes,
+      date_creation: epreuve.date_creation,
+      date_publication: epreuve.date_publication,
+      professeur: {
+        nom: epreuve.professeur.nom,
+        prenom: epreuve.professeur.prenom,
+        telephone: epreuve.professeur.telephone,
+      },
+      matiere: {
+        id: epreuve.matiere.id,
+        nom: epreuve.matiere.nom,
+        description: epreuve.matiere.description,
+        niveau_etude: {
+          id: epreuve.matiere.niveau_etude.id,
+          nom: epreuve.matiere.niveau_etude.nom,
+          duree_mois: epreuve.matiere.niveau_etude.duree_mois,
+          filiere: {
+            id: epreuve.matiere.niveau_etude.filiere.id,
+            nom: epreuve.matiere.niveau_etude.filiere.nom,
+            etablissement_id: epreuve.matiere.niveau_etude.filiere.etablissement_id,
+          },
+        },
+      },
+    }));
   }
 
   async findOne(id: string) {
     this.logger.log(`Recherche de l'épreuve ID: ${id}`);
     const epreuve = await this.epreuvesRepository.findOne({
       where: { id: parseInt(id) },
-      relations: ['matiere', 'professeur'],
+      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
     });
 
     if (!epreuve) {
@@ -53,7 +82,36 @@ export class EpreuvesService {
     }
 
     this.logger.log(`Épreuve trouvée: ${epreuve.titre} (ID: ${id})`);
-    return epreuve;
+
+    // Transform to response DTO format with sanitized professeur
+    return {
+      id: epreuve.id,
+      titre: epreuve.titre,
+      url: epreuve.url,
+      duree_minutes: epreuve.duree_minutes,
+      date_creation: epreuve.date_creation,
+      date_publication: epreuve.date_publication,
+      professeur: {
+        nom: epreuve.professeur.nom,
+        prenom: epreuve.professeur.prenom,
+        telephone: epreuve.professeur.telephone,
+      },
+      matiere: {
+        id: epreuve.matiere.id,
+        nom: epreuve.matiere.nom,
+        description: epreuve.matiere.description,
+        niveau_etude: {
+          id: epreuve.matiere.niveau_etude.id,
+          nom: epreuve.matiere.niveau_etude.nom,
+          duree_mois: epreuve.matiere.niveau_etude.duree_mois,
+          filiere: {
+            id: epreuve.matiere.niveau_etude.filiere.id,
+            nom: epreuve.matiere.niveau_etude.filiere.nom,
+            etablissement_id: epreuve.matiere.niveau_etude.filiere.etablissement_id,
+          },
+        },
+      },
+    };
   }
 
   async update(id: string, majEpreuveDto: MajEpreuveDto) {
@@ -94,25 +152,83 @@ export class EpreuvesService {
     this.logger.log(`Recherche des épreuves pour matière ID: ${matiereId}`);
     const epreuves = await this.epreuvesRepository.find({
       where: { matiere: { id: parseInt(matiereId) } },
-      relations: ['professeur'],
+      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
       order: {
         date_creation: 'DESC',
       },
     });
     this.logger.log(`${epreuves.length} épreuve(s) trouvée(s) pour matière ${matiereId}`);
-    return epreuves;
+
+    // Transform to response DTO format with sanitized professeur
+    return epreuves.map(epreuve => ({
+      id: epreuve.id,
+      titre: epreuve.titre,
+      url: epreuve.url,
+      duree_minutes: epreuve.duree_minutes,
+      date_creation: epreuve.date_creation,
+      date_publication: epreuve.date_publication,
+      professeur: {
+        nom: epreuve.professeur.nom,
+        prenom: epreuve.professeur.prenom,
+        telephone: epreuve.professeur.telephone,
+      },
+      matiere: {
+        id: epreuve.matiere.id,
+        nom: epreuve.matiere.nom,
+        description: epreuve.matiere.description,
+        niveau_etude: {
+          id: epreuve.matiere.niveau_etude.id,
+          nom: epreuve.matiere.niveau_etude.nom,
+          duree_mois: epreuve.matiere.niveau_etude.duree_mois,
+          filiere: {
+            id: epreuve.matiere.niveau_etude.filiere.id,
+            nom: epreuve.matiere.niveau_etude.filiere.nom,
+            etablissement_id: epreuve.matiere.niveau_etude.filiere.etablissement_id,
+          },
+        },
+      },
+    }));
   }
 
   async findByProfesseur(professeurId: string) {
     this.logger.log(`Recherche des épreuves du professeur ID: ${professeurId}`);
     const epreuves = await this.epreuvesRepository.find({
       where: { professeur: { id: parseInt(professeurId) } },
-      relations: ['matiere'],
+      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
       order: {
         date_creation: 'DESC',
       },
     });
     this.logger.log(`${epreuves.length} épreuve(s) trouvée(s) pour professeur ${professeurId}`);
-    return epreuves;
+
+    // Transform to response DTO format with sanitized professeur
+    return epreuves.map(epreuve => ({
+      id: epreuve.id,
+      titre: epreuve.titre,
+      url: epreuve.url,
+      duree_minutes: epreuve.duree_minutes,
+      date_creation: epreuve.date_creation,
+      date_publication: epreuve.date_publication,
+      professeur: {
+        nom: epreuve.professeur.nom,
+        prenom: epreuve.professeur.prenom,
+        telephone: epreuve.professeur.telephone,
+      },
+      matiere: {
+        id: epreuve.matiere.id,
+        nom: epreuve.matiere.nom,
+        description: epreuve.matiere.description,
+        niveau_etude: {
+          id: epreuve.matiere.niveau_etude.id,
+          nom: epreuve.matiere.niveau_etude.nom,
+          duree_mois: epreuve.matiere.niveau_etude.duree_mois,
+          filiere: {
+            id: epreuve.matiere.niveau_etude.filiere.id,
+            nom: epreuve.matiere.niveau_etude.filiere.nom,
+            etablissement_id: epreuve.matiere.niveau_etude.filiere.etablissement_id,
+          },
+        },
+      },
+    }));
   }
 }
