@@ -4,7 +4,11 @@ import { Utilisateur } from '../../utilisateurs/entities/utilisateur.entity';
 export enum TypeFichier {
   PROFILE = 'profile',
   EPREUVE = 'epreuve',
-  RESSOURCE = 'ressource'
+  RESSOURCE = 'ressource',
+  PUBLICITE = 'PUBLICITE',
+  EVENEMENT = 'EVENEMENT',
+  OPPORTUNITE = 'OPPORTUNITE',
+  CONCOURS_EXAMEN = 'CONCOURS_EXAMEN'
 }
 
 export enum TypeRessource {

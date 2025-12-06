@@ -8,7 +8,7 @@ import { IsEnum, IsOptional, IsString, IsIn } from 'class-validator';
  */
 export class CreerFichierDto {
   @IsIn(Object.values(TypeFichier), {
-    message: 'type must be one of the following values: profile, epreuve, ressource'
+    message: 'type must be one of the following values: profile, epreuve, ressource, PUBLICITE, EVENEMENT, OPPORTUNITE, CONCOURS_EXAMEN'
   })
   readonly type: TypeFichier;
 
@@ -49,4 +49,13 @@ export class CreerFichierDto {
   @IsString()
   @IsOptional()
   readonly ressourceTitre?: string;
+
+  // Fields for public content modules (PUBLICITE, EVENEMENT, OPPORTUNITE, CONCOURS_EXAMEN)
+  @IsString()
+  @IsOptional()
+  readonly entityId?: string;
+
+  @IsString()
+  @IsOptional()
+  readonly entitySubtype?: string; // For Opportunites: 'bourses' or 'stages', For ConcoursExamens: 'concours' or 'examens'
 }

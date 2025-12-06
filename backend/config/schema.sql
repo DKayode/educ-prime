@@ -110,7 +110,77 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 );
 
 -- ------------------------------
--- 6. CREATE DEFAULT ADMIN USER
+-- 6. CREATE PUBLIC CONTENT TABLES
+-- ------------------------------
+
+-- Publicités table
+CREATE TABLE IF NOT EXISTS publicites (
+    id SERIAL PRIMARY KEY,
+    titre VARCHAR(255) NOT NULL,
+    image_video TEXT,
+    lien TEXT,
+    ordre INTEGER DEFAULT 0,
+    actif BOOLEAN DEFAULT true,
+    date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Événements table
+CREATE TABLE IF NOT EXISTS evenements (
+    id SERIAL PRIMARY KEY,
+    titre VARCHAR(255) NOT NULL,
+    description TEXT,
+    date_heure TIMESTAMP WITH TIME ZONE,
+    lieu VARCHAR(255),
+    lien_inscription TEXT,
+    image TEXT,
+    actif BOOLEAN DEFAULT true,
+    date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Opportunités table (Bourses, Stages)
+CREATE TABLE IF NOT EXISTS opportunites (
+    id SERIAL PRIMARY KEY,
+    titre VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL CHECK (type IN ('Bourses', 'Stages')),
+    organisme VARCHAR(255),
+    pays VARCHAR(100),
+    date_limite DATE,
+    image TEXT,
+    lien_postuler TEXT,
+    actif BOOLEAN DEFAULT true,
+    date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Concours/Examens table
+CREATE TABLE IF NOT EXISTS concours_examens (
+    id SERIAL PRIMARY KEY,
+    titre VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL CHECK (type IN ('Concours', 'Examens')),
+    pays VARCHAR(100),
+    niveau VARCHAR(100),
+    date DATE,
+    lieu VARCHAR(255),
+    image TEXT,
+    rubriques TEXT,
+    fichiers_telechargeables TEXT,
+    actif BOOLEAN DEFAULT true,
+    date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Contacts Professionnels table
+CREATE TABLE IF NOT EXISTS contacts_professionnels (
+    id SERIAL PRIMARY KEY,
+    nom VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    telephone VARCHAR(50),
+    message TEXT,
+    reseaux_sociaux JSONB,
+    actif BOOLEAN DEFAULT true,
+    date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ------------------------------
+-- 7. CREATE DEFAULT ADMIN USER
 -- ------------------------------
 -- Install pgcrypto extension for password hashing
 CREATE EXTENSION IF NOT EXISTS pgcrypto;

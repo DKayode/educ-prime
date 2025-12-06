@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, BookOpen, Calendar, FileText, Settings, Building2, BookMarked, FolderOpen } from "lucide-react";
+import { LayoutDashboard, Users, BookOpen, Calendar, FileText, Settings, Building2, BookMarked, FolderOpen, Megaphone, CalendarDays, Briefcase, GraduationCap, UserCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation }
   from "react-router-dom";
@@ -16,7 +16,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const menuItems = [
+const academicItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Utilisateurs", url: "/users", icon: Users },
   { title: "Établissements", url: "/etablissements", icon: Building2 },
@@ -25,6 +25,17 @@ const menuItems = [
   { title: "Niveaux d'études", url: "/annees", icon: Calendar },
   { title: "Épreuves", url: "/epreuves", icon: FileText },
   { title: "Ressources", url: "/ressources", icon: FolderOpen },
+];
+
+const publicContentItems = [
+  { title: "Publicités", url: "/publicites", icon: Megaphone },
+  { title: "Événements", url: "/evenements", icon: CalendarDays },
+  { title: "Opportunités", url: "/opportunites", icon: Briefcase },
+  { title: "Concours/Examens", url: "/concours-examens", icon: GraduationCap },
+  { title: "Contacts Pro", url: "/contacts-professionnels", icon: UserCheck },
+];
+
+const settingsItems = [
   { title: "Paramètres", url: "/settings", icon: Settings },
 ];
 
@@ -58,10 +69,56 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>Académique</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {academicItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                    <NavLink
+                      to={item.url}
+                      end
+                      className="hover:bg-sidebar-accent/50"
+                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {state !== "collapsed" && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Contenu Public</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {publicContentItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                    <NavLink
+                      to={item.url}
+                      end
+                      className="hover:bg-sidebar-accent/50"
+                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {state !== "collapsed" && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Système</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {settingsItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
                     <NavLink

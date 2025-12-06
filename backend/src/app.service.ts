@@ -6,6 +6,12 @@ import { Etablissement } from './etablissements/entities/etablissement.entity';
 import { Filiere } from './filieres/entities/filiere.entity';
 import { Matiere } from './matieres/entities/matiere.entity';
 import { Epreuve } from './epreuves/entities/epreuve.entity';
+import { Ressource } from './ressources/entities/ressource.entity';
+import { Publicite } from './publicites/entities/publicite.entity';
+import { Evenement } from './evenements/entities/evenement.entity';
+import { Opportunite } from './opportunites/entities/opportunite.entity';
+import { ConcoursExamen } from './concours-examens/entities/concours-examen.entity';
+import { ContactsProfessionnel } from './contacts-professionnels/entities/contacts-professionnel.entity';
 
 @Injectable()
 export class AppService {
@@ -20,7 +26,19 @@ export class AppService {
     private matieresRepository: Repository<Matiere>,
     @InjectRepository(Epreuve)
     private epreuvesRepository: Repository<Epreuve>,
-  ) {}
+    @InjectRepository(Ressource)
+    private ressourcesRepository: Repository<Ressource>,
+    @InjectRepository(Publicite)
+    private publicitesRepository: Repository<Publicite>,
+    @InjectRepository(Evenement)
+    private evenementsRepository: Repository<Evenement>,
+    @InjectRepository(Opportunite)
+    private opportunitesRepository: Repository<Opportunite>,
+    @InjectRepository(ConcoursExamen)
+    private concoursExamensRepository: Repository<ConcoursExamen>,
+    @InjectRepository(ContactsProfessionnel)
+    private contactsProfessionnelsRepository: Repository<ContactsProfessionnel>,
+  ) { }
 
   getApiInfo(): object {
     return {
@@ -37,6 +55,11 @@ export class AppService {
         epreuves: '/epreuves',
         ressources: '/ressources',
         fichiers: '/fichiers',
+        publicites: '/publicites',
+        evenements: '/evenements',
+        opportunites: '/opportunites',
+        concoursExamens: '/concours-examens',
+        contactsProfessionnels: '/contacts-professionnels',
         stats: '/stats'
       }
     };
@@ -48,15 +71,38 @@ export class AppService {
     filieresCount: number;
     matieresCount: number;
     epreuvesCount: number;
+    ressourcesCount: number;
+    publicitesCount: number;
+    evenementsCount: number;
+    opportunitesCount: number;
+    concoursExamensCount: number;
+    contactsProfessionnelsCount: number;
   }> {
-    const [usersCount, etablissementsCount, filieresCount, matieresCount, epreuvesCount] =
-      await Promise.all([
-        this.utilisateursRepository.count(),
-        this.etablissementsRepository.count(),
-        this.filieresRepository.count(),
-        this.matieresRepository.count(),
-        this.epreuvesRepository.count(),
-      ]);
+    const [
+      usersCount,
+      etablissementsCount,
+      filieresCount,
+      matieresCount,
+      epreuvesCount,
+      ressourcesCount,
+      publicitesCount,
+      evenementsCount,
+      opportunitesCount,
+      concoursExamensCount,
+      contactsProfessionnelsCount,
+    ] = await Promise.all([
+      this.utilisateursRepository.count(),
+      this.etablissementsRepository.count(),
+      this.filieresRepository.count(),
+      this.matieresRepository.count(),
+      this.epreuvesRepository.count(),
+      this.ressourcesRepository.count(),
+      this.publicitesRepository.count(),
+      this.evenementsRepository.count(),
+      this.opportunitesRepository.count(),
+      this.concoursExamensRepository.count(),
+      this.contactsProfessionnelsRepository.count(),
+    ]);
 
     return {
       usersCount,
@@ -64,6 +110,12 @@ export class AppService {
       filieresCount,
       matieresCount,
       epreuvesCount,
+      ressourcesCount,
+      publicitesCount,
+      evenementsCount,
+      opportunitesCount,
+      concoursExamensCount,
+      contactsProfessionnelsCount,
     };
   }
 }

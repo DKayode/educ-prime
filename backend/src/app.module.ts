@@ -17,6 +17,17 @@ import { Etablissement } from './etablissements/entities/etablissement.entity';
 import { Filiere } from './filieres/entities/filiere.entity';
 import { Matiere } from './matieres/entities/matiere.entity';
 import { Epreuve } from './epreuves/entities/epreuve.entity';
+import { Ressource } from './ressources/entities/ressource.entity';
+import { Publicite } from './publicites/entities/publicite.entity';
+import { Evenement } from './evenements/entities/evenement.entity';
+import { Opportunite } from './opportunites/entities/opportunite.entity';
+import { ConcoursExamen } from './concours-examens/entities/concours-examen.entity';
+import { ContactsProfessionnel } from './contacts-professionnels/entities/contacts-professionnel.entity';
+import { PublicitesModule } from './publicites/publicites.module';
+import { EvenementsModule } from './evenements/evenements.module';
+import { OpportunitesModule } from './opportunites/opportunites.module';
+import { ConcoursExamensModule } from './concours-examens/concours-examens.module';
+import { ContactsProfessionnelsModule } from './contacts-professionnels/contacts-professionnels.module';
 
 @Module({
   imports: [
@@ -38,6 +49,12 @@ import { Epreuve } from './epreuves/entities/epreuve.entity';
       Filiere,
       Matiere,
       Epreuve,
+      Ressource,
+      Publicite,
+      Evenement,
+      Opportunite,
+      ConcoursExamen,
+      ContactsProfessionnel,
     ]),
     AuthModule,
     UtilisateursModule,
@@ -48,8 +65,13 @@ import { Epreuve } from './epreuves/entities/epreuve.entity';
     EpreuvesModule,
     RessourcesModule,
     FichiersModule,
+    PublicitesModule,
+    EvenementsModule,
+    OpportunitesModule,
+    ConcoursExamensModule,
+    ContactsProfessionnelsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

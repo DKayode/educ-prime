@@ -14,4 +14,6 @@ export interface FichierUploadData {
     dureeMinutes?: number;
     datePublication?: string;
     ressourceTitre?: string;
+    entityId?: number;
+    entitySubtype?: string;
 }

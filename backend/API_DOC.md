@@ -1398,6 +1398,486 @@ Codes d'erreur possibles :
 - `400 Bad Request` – URL Firebase invalide.
 - `404 Not Found` – Fichier introuvable dans le stockage.
 
+## Points d'accès Publicités
+
+### Lister les publicités - `GET /publicites`
+Obtenir la liste de toutes les publicités (accès public).
+
+```http
+GET /publicites
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "titre": "Nouvelle formation disponible",
+        "image_video": "https://storage.googleapis.com/bucket/publicites/1/banner.jpg",
+        "lien": "https://exemple.com/formation",
+        "ordre": 1,
+        "actif": true,
+        "date_creation": "2025-12-06T01:00:00Z"
+    }
+]
+```
+
+### Obtenir une publicité - `GET /publicites/:id`
+Obtenir les détails d'une publicité spécifique (accès public).
+
+```http
+GET /publicites/1
+```
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "titre": "Nouvelle formation disponible",
+    "image_video": "https://storage.googleapis.com/bucket/publicites/1/banner.jpg",
+    "lien": "https://exemple.com/formation",
+    "ordre": 1,
+    "actif": true,
+    "date_creation": "2025-12-06T01:00:00Z"
+}
+```
+
+### Créer une publicité - `POST /publicites`
+Créer une nouvelle publicité (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+**Note:** L'image/vidéo doit d'abord être uploadée via `/fichiers` avec `type: "publicite"`.
+
+```http
+POST /publicites
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "titre": "Nouvelle formation disponible",
+    "image_video": "https://storage.googleapis.com/bucket/publicites/1/banner.jpg",
+    "lien": "https://exemple.com/formation",
+    "ordre": 1,
+    "actif": true
+}
+```
+
+### Modifier une publicité - `PUT /publicites/:id`
+Modifier une publicité existante (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+```http
+PUT /publicites/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "titre": "Formation mise à jour",
+    "actif": false
+}
+```
+
+### Supprimer une publicité - `DELETE /publicites/:id`
+Supprimer une publicité (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+```http
+DELETE /publicites/1
+Authorization: Bearer <token>
+```
+
+---
+
+## Points d'accès Événements
+
+### Lister les événements - `GET /evenements`
+Obtenir la liste de tous les événements (accès public).
+
+```http
+GET /evenements
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "titre": "Journée Portes Ouvertes",
+        "description": "Venez découvrir notre établissement",
+        "date_heure": "2025-12-15T14:00:00Z",
+        "lieu": "Campus Principal",
+        "lien_inscription": "https://exemple.com/inscription",
+        "image": "https://storage.googleapis.com/bucket/evenements/1/event.jpg",
+        "actif": true,
+        "date_creation": "2025-12-06T01:00:00Z"
+    }
+]
+```
+
+### Obtenir un événement - `GET /evenements/:id`
+Obtenir les détails d'un événement spécifique (accès public).
+
+```http
+GET /evenements/1
+```
+
+### Créer un événement - `POST /evenements`
+Créer un nouvel événement (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+**Note:** L'image doit d'abord être uploadée via `/fichiers` avec `type: "evenement"`.
+
+```http
+POST /evenements
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "titre": "Journée Portes Ouvertes",
+    "description": "Venez découvrir notre établissement",
+    "date_heure": "2025-12-15T14:00:00Z",
+    "lieu": "Campus Principal",
+    "lien_inscription": "https://exemple.com/inscription",
+    "image": "https://storage.googleapis.com/bucket/evenements/1/event.jpg",
+    "actif": true
+}
+```
+
+### Modifier un événement - `PUT /evenements/:id`
+Modifier un événement existant (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+```http
+PUT /evenements/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "titre": "Événement mis à jour",
+    "actif": false
+}
+```
+
+### Supprimer un événement - `DELETE /evenements/:id`
+Supprimer un événement (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+---
+
+## Points d'accès Opportunités
+
+### Lister les opportunités - `GET /opportunites`
+Obtenir la liste de toutes les opportunités (accès public).
+
+```http
+GET /opportunites
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "titre": "Bourse d'excellence",
+        "type": "Bourses",
+        "organisme": "Fondation XYZ",
+        "pays": "France",
+        "date_limite": "2025-12-31",
+        "image": "https://storage.googleapis.com/bucket/opportunites/bourses/1/image.jpg",
+        "lien_postuler": "https://exemple.com/postuler",
+        "actif": true,
+        "date_creation": "2025-12-06T01:00:00Z"
+    }
+]
+```
+
+### Obtenir une opportunité - `GET /opportunites/:id`
+Obtenir les détails d'une opportunité spécifique (accès public).
+
+```http
+GET /opportunites/1
+```
+
+### Créer une opportunité - `POST /opportunites`
+Créer une nouvelle opportunité (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+**Note:** L'image doit d'abord être uploadée via `/fichiers` avec `type: "opportunite"`.
+
+```http
+POST /opportunites
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "titre": "Bourse d'excellence",
+    "type": "Bourses",
+    "organisme": "Fondation XYZ",
+    "pays": "France",
+    "date_limite": "2025-12-31",
+    "image": "https://storage.googleapis.com/bucket/opportunites/bourses/1/image.jpg",
+    "lien_postuler": "https://exemple.com/postuler",
+    "actif": true
+}
+```
+
+**Types valides:** `"Bourses"`, `"Stages"`
+
+### Modifier une opportunité - `PUT /opportunites/:id`
+Modifier une opportunité existante (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+```http
+PUT /opportunites/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "titre": "Opportunité mise à jour",
+    "actif": false
+}
+```
+
+### Supprimer une opportunité - `DELETE /opportunites/:id`
+Supprimer une opportunité (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+---
+
+## Points d'accès Concours/Examens
+
+### Lister les concours/examens - `GET /concours-examens`
+Obtenir la liste de tous les concours et examens (accès public).
+
+```http
+GET /concours-examens
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "titre": "Concours d'entrée 2026",
+        "type": "Concours",
+        "pays": "France",
+        "niveau": "Licence",
+        "date": "2026-06-15",
+        "lieu": "Paris",
+        "image": "https://storage.googleapis.com/bucket/concours_examens/concours/1/image.jpg",
+        "rubriques": "Mathématiques, Physique, Français",
+        "fichiers_telechargeables": "https://exemple.com/annales.pdf",
+        "actif": true,
+        "date_creation": "2025-12-06T01:00:00Z"
+    }
+]
+```
+
+### Obtenir un concours/examen - `GET /concours-examens/:id`
+Obtenir les détails d'un concours/examen spécifique (accès public).
+
+```http
+GET /concours-examens/1
+```
+
+### Créer un concours/examen - `POST /concours-examens`
+Créer un nouveau concours/examen (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+**Note:** L'image doit d'abord être uploadée via `/fichiers` avec `type: "concours_examen"`.
+
+```http
+POST /concours-examens
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "titre": "Concours d'entrée 2026",
+    "type": "Concours",
+    "pays": "France",
+    "niveau": "Licence",
+    "date": "2026-06-15",
+    "lieu": "Paris",
+    "image": "https://storage.googleapis.com/bucket/concours_examens/concours/1/image.jpg",
+    "rubriques": "Mathématiques, Physique, Français",
+    "fichiers_telechargeables": "https://exemple.com/annales.pdf",
+    "actif": true
+}
+```
+
+**Types valides:** `"Concours"`, `"Examens"`
+
+### Modifier un concours/examen - `PUT /concours-examens/:id`
+Modifier un concours/examen existant (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+```http
+PUT /concours-examens/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "titre": "Concours mis à jour",
+    "actif": false
+}
+```
+
+### Supprimer un concours/examen - `DELETE /concours-examens/:id`
+Supprimer un concours/examen (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+---
+
+## Upload de fichiers
+
+### Upload d'image pour modules publics - `POST /fichiers`
+Uploader une image pour les modules de contenu public (Publicités, Événements, Opportunités, Concours/Examens).
+
+**Permissions requises:** Admin uniquement
+
+**Important:** 
+- L'entité (publicité, événement, etc.) doit être créée AVANT l'upload
+- Le fichier sera stocké dans Firebase Storage avec un chemin organisé par type et ID d'entité
+- L'URL retournée doit ensuite être utilisée pour mettre à jour l'entité
+
+**Chemins de stockage:**
+- Publicités: `/publicites/{publicite_id}/{filename}`
+- Événements: `/evenements/{evenement_id}/{filename}`
+- Opportunités: `/opportunites/{bourses|stages}/{opportunite_id}/{filename}`
+- Concours/Examens: `/concours-examens/{concours|examens}/{concours_examen_id}/{filename}`
+
+```http
+POST /fichiers
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+file: [fichier binaire]
+type: "PUBLICITE" | "EVENEMENT" | "OPPORTUNITE" | "CONCOURS_EXAMEN"
+entityId: 123
+entitySubtype: "bourses" | "stages" | "concours" | "examens"  // Requis pour OPPORTUNITE et CONCOURS_EXAMEN
+```
+
+**Paramètres:**
+- `file` (requis) : Le fichier à uploader (image ou vidéo pour PUBLICITE, image pour les autres)
+- `type` (requis) : Type de contenu (`PUBLICITE`, `EVENEMENT`, `OPPORTUNITE`, `CONCOURS_EXAMEN`)
+- `entityId` (requis) : ID de l'entité créée
+- `entitySubtype` (facultatif) : Sous-type pour Opportunités (`bourses`/`stages`) et Concours/Examens (`concours`/`examens`)
+
+**Exemple pour une publicité:**
+```http
+POST /fichiers
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+file: banner.jpg
+type: PUBLICITE
+entityId: 5
+```
+
+**Exemple pour une opportunité (bourse):**
+```http
+POST /fichiers
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+file: bourse.jpg
+type: OPPORTUNITE
+entityId: 12
+entitySubtype: bourses
+```
+
+Response (200 OK):
+```json
+{
+    "url": "https://storage.googleapis.com/bucket/publicites/5/banner.jpg"
+}
+```
+
+**Flux complet de création avec image:**
+1. Créer l'entité via `POST /publicites` (ou autre module) sans image
+2. Uploader le fichier via `POST /fichiers` avec l'ID de l'entité créée
+3. Mettre à jour l'entité via `PUT /publicites/:id` avec l'URL retournée
+
+**Note:** Si l'upload échoue après la création de l'entité, le frontend supprime automatiquement l'entité créée (rollback).
+
+---
+
+## Points d'accès Contacts Professionnels
+
+### Lister les contacts professionnels - `GET /contacts-professionnels`
+Obtenir la liste de tous les contacts professionnels (accès public).
+
+```http
+GET /contacts-professionnels
+```
+Response (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "nom": "Dupont",
+        "email": "contact@exemple.com",
+        "telephone": "+33123456789",
+        "message": "Demande de renseignements",
+        "reseaux_sociaux": {
+            "linkedin": "https://linkedin.com/in/dupont",
+            "twitter": "@dupont"
+        },
+        "actif": true,
+        "date_creation": "2025-12-06T01:00:00Z"
+    }
+]
+```
+
+### Obtenir un contact professionnel - `GET /contacts-professionnels/:id`
+Obtenir les détails d'un contact professionnel spécifique (accès public).
+
+```http
+GET /contacts-professionnels/1
+```
+
+### Créer un contact professionnel - `POST /contacts-professionnels`
+Créer un nouveau contact professionnel (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+```http
+POST /contacts-professionnels
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+    "nom": "Dupont",
+    "email": "contact@exemple.com",
+    "telephone": "+33123456789",
+    "message": "Demande de renseignements",
+    "reseaux_sociaux": {
+        "linkedin": "https://linkedin.com/in/dupont",
+        "twitter": "@dupont"
+    },
+    "actif": true
+}
+```
+
+### Modifier un contact professionnel - `PATCH /contacts-professionnels/:id`
+Modifier un contact professionnel existant (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+### Supprimer un contact professionnel - `DELETE /contacts-professionnels/:id`
+Supprimer un contact professionnel (admin uniquement).
+
+**Permissions requises:** Admin uniquement
+
+---
+
 ## Réponses d'erreur
 
 ### 400 Bad Request
