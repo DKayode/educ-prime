@@ -35,6 +35,8 @@ export class FichiersController {
       dureeMinutes: body.dureeMinutes ? Number(body.dureeMinutes) : undefined,
       datePublication: body.datePublication,
       ressourceTitre: body.ressourceTitre,
+      entityId: body.entityId ? Number(body.entityId) : undefined,
+      entitySubtype: body.entitySubtype,
     };
 
     return this.fichiersService.uploadFile(file, req.user.utilisateurId, uploadData);

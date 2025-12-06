@@ -14,6 +14,11 @@ import Matieres from "./pages/Matieres";
 import Annees from "./pages/Annees";
 import Epreuves from "./pages/Epreuves";
 import Ressources from "./pages/Ressources";
+import Publicites from "./pages/Publicites";
+import Evenements from "./pages/Evenements";
+import Opportunites from "./pages/Opportunites";
+import ConcoursExamens from "./pages/ConcoursExamens";
+import ContactsProfessionnels from "./pages/ContactsProfessionnels";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -43,6 +48,11 @@ const App = () => (
                       <Route path="/annees" element={<Annees />} />
                       <Route path="/epreuves" element={<Epreuves />} />
                       <Route path="/ressources" element={<Ressources />} />
+                      <Route path="/publicites" element={<Publicites />} />
+                      <Route path="/evenements" element={<Evenements />} />
+                      <Route path="/opportunites" element={<Opportunites />} />
+                      <Route path="/concours-examens" element={<ConcoursExamens />} />
+                      <Route path="/contacts-professionnels" element={<ContactsProfessionnels />} />
                       <Route path="/settings" element={<Settings />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />

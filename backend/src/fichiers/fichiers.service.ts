@@ -195,6 +195,30 @@ export class FichiersService {
             normalizedFileName,
           ].join('/');
           break;
+        case TypeFichier.PUBLICITE:
+          if (!uploadData.entityId) {
+            throw new BadRequestException('entityId est requis pour les publicités');
+          }
+          folderPath = `publicites/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
+          break;
+        case TypeFichier.EVENEMENT:
+          if (!uploadData.entityId) {
+            throw new BadRequestException('entityId est requis pour les événements');
+          }
+          folderPath = `evenements/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
+          break;
+        case TypeFichier.OPPORTUNITE:
+          if (!uploadData.entityId || !uploadData.entitySubtype) {
+            throw new BadRequestException('entityId et entitySubtype (bourses/stages) sont requis pour les opportunités');
+          }
+          folderPath = `opportunites/${this.normalizePathSegment(uploadData.entitySubtype)}/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
+          break;
+        case TypeFichier.CONCOURS_EXAMEN:
+          if (!uploadData.entityId || !uploadData.entitySubtype) {
+            throw new BadRequestException('entityId et entitySubtype (concours/examens) sont requis pour les concours/examens');
+          }
+          folderPath = `concours-examens/${this.normalizePathSegment(uploadData.entitySubtype)}/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
+          break;
         default:
           throw new BadRequestException('Type de fichier invalide');
       }

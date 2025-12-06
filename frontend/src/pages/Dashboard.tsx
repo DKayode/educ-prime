@@ -93,11 +93,51 @@ export default function Dashboard() {
           variant="primary"
         />
         <StatCard
+          title="Ressources"
+          value={stats?.ressourcesCount.toString() || "0"}
+          icon={BookOpen}
+          variant="success"
+        />
+        <StatCard
           title="Stockage"
           value={formatBytes(stats?.storageUsed || 0)}
           icon={Database}
           variant="accent"
         />
+      </div>
+
+      <div>
+        <h2 className="text-2xl font-semibold mb-4">Contenu Public</h2>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+          <StatCard
+            title="Publicités"
+            value={stats?.publicitesCount.toString() || "0"}
+            icon={FileText}
+            variant="primary"
+          />
+          <StatCard
+            title="Événements"
+            value={stats?.evenementsCount.toString() || "0"}
+            icon={FileText}
+            variant="accent"
+          />
+          <StatCard
+            title="Opportunités"
+            value={stats?.opportunitesCount.toString() || "0"}
+            icon={FileText}
+            variant="success"
+          />
+          <StatCard
+            title="Concours/Examens"
+            value={stats?.concoursExamensCount.toString() || "0"}
+            icon={FileText}
+          />
+          <StatCard
+            title="Contacts Pro"
+            value={stats?.contactsProfessionnelsCount.toString() || "0"}
+            icon={Users}
+          />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
