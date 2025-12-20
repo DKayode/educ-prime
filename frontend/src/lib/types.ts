@@ -5,6 +5,7 @@ export interface Etablissement {
   nom: string;
   ville?: string;
   code_postal?: string;
+  logo?: string;
 }
 
 export interface Filiere {
@@ -43,6 +44,8 @@ export interface Utilisateur {
   role: 'admin' | 'étudiant' | 'professeur' | 'autre';
 }
 
+export type EpreuveType = 'Interrogation' | 'Devoirs' | 'Concours' | 'Examens';
+
 export interface Epreuve {
   id: number;
   titre: string;
@@ -52,6 +55,9 @@ export interface Epreuve {
   duree_minutes: number;
   date_creation: string;
   date_publication?: string;
+  nombre_pages?: number;
+  nombre_telechargements?: number;
+  type?: EpreuveType;
 }
 
 export interface Ressource {
@@ -63,6 +69,8 @@ export interface Ressource {
   matiere?: Matiere;
   date_creation: string;
   date_publication?: string;
+  nombre_pages?: number;
+  nombre_telechargements?: number;
 }
 
 export interface LoginCredentials {

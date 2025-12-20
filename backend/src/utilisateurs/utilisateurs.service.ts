@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { Utilisateur } from './entities/utilisateur.entity';
 import { InscriptionDto } from './dto/inscription.dto';
 import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -13,7 +15,7 @@ export class UtilisateursService {
   constructor(
     @InjectRepository(Utilisateur)
     private readonly utilisateursRepository: Repository<Utilisateur>,
-  ) {}
+  ) { }
 
   async findByEmail(email: string) {
     this.logger.log(`Recherche de l'utilisateur par email: ${email}`);
@@ -24,7 +26,7 @@ export class UtilisateursService {
 
   async inscription(inscriptionDto: InscriptionDto) {
     this.logger.log(`Tentative d'inscription pour: ${inscriptionDto.email}`);
-    
+
     // Check if email already exists
     const existingUser = await this.utilisateursRepository.findOne({
       where: { email: inscriptionDto.email },
@@ -37,7 +39,7 @@ export class UtilisateursService {
 
     // Hash password before saving
     const hashedPassword = await bcrypt.hash(inscriptionDto.mot_de_passe, 10);
-    
+
     // Create new user with hashed password
     const newUser = this.utilisateursRepository.create({
       ...inscriptionDto,
@@ -47,20 +49,32 @@ export class UtilisateursService {
     // Save user
     const savedUser = await this.utilisateursRepository.save(newUser);
     this.logger.log(`Utilisateur créé avec succès: ${savedUser.email} (ID: ${savedUser.id}, Rôle: ${savedUser.role})`);
-    
+
     // Remove password from response
     delete savedUser.mot_de_passe;
     return savedUser;
   }
 
-  async findAll() {
-    this.logger.log('Récupération de tous les utilisateurs');
-    const users = await this.utilisateursRepository.find({
+  async findAll(paginationDto: PaginationDto): Promise<PaginationResponse<Utilisateur>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    this.logger.log(`Récupération des utilisateurs - Page: ${page}, Limite: ${limit}`);
+
+    const [users, total] = await this.utilisateursRepository.findAndCount({
       select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'photo', 'sexe', 'telephone', 'role'],
       relations: ['etablissement', 'filiere', 'niveau_etude'],
+      skip: (page - 1) * limit,
+      take: limit,
     });
-    this.logger.log(`${users.length} utilisateur(s) trouvé(s)`);
-    return users;
+
+    this.logger.log(`${users.length} utilisateur(s) trouvé(s) sur ${total} total`);
+
+    return {
+      data: users,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string) {
@@ -95,7 +109,7 @@ export class UtilisateursService {
     Object.assign(user, majUtilisateurDto);
     const updatedUser = await this.utilisateursRepository.save(user);
     this.logger.log(`Utilisateur mis à jour avec succès: ${updatedUser.email} (ID: ${updatedUser.id})`);
-    
+
     // Remove password from response
     delete updatedUser.mot_de_passe;
     return updatedUser;

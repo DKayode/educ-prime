@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Matiere } from './entities/matiere.entity';
 import { CreerMatiereDto } from './dto/creer-matiere.dto';
 import { MajMatiereDto } from './dto/maj-matiere.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 
 @Injectable()
 export class MatieresService {
@@ -16,25 +18,26 @@ export class MatieresService {
 
   async create(creerMatiereDto: CreerMatiereDto) {
     this.logger.log(`Création d'une matière: ${creerMatiereDto.nom}`);
-    const newMatiere = new Matiere();
-    newMatiere.nom = creerMatiereDto.nom;
-    newMatiere.description = creerMatiereDto.description;
-    newMatiere.niveau_etude_id = creerMatiereDto.niveau_etude_id;
-    newMatiere.filiere_id = creerMatiereDto.filiere_id;
+    const newMatiere = this.matieresRepository.create(creerMatiereDto);
     const saved = await this.matieresRepository.save(newMatiere);
     this.logger.log(`Matière créée: ${saved.nom} (ID: ${saved.id})`);
     return saved;
   }
 
-  async findAll() {
-    this.logger.log('Récupération de toutes les matières');
-    const matieres = await this.matieresRepository.find({
+  async findAll(paginationDto: PaginationDto): Promise<PaginationResponse<any>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    this.logger.log(`Récupération des matières - Page: ${page}, Limite: ${limit}`);
+
+    const [matieres, total] = await this.matieresRepository.findAndCount({
       relations: ['niveau_etude', 'niveau_etude.filiere'],
+      skip: (page - 1) * limit,
+      take: limit,
     });
-    this.logger.log(`${matieres.length} matière(s) trouvée(s)`);
+
+    this.logger.log(`${matieres.length} matière(s) trouvée(s) sur ${total} total`);
 
     // Transform to response DTO format
-    return matieres.map(matiere => ({
+    const data = matieres.map(matiere => ({
       id: matiere.id,
       nom: matiere.nom,
       description: matiere.description,
@@ -49,6 +52,14 @@ export class MatieresService {
         },
       },
     }));
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string) {
@@ -111,9 +122,16 @@ export class MatieresService {
       throw new NotFoundException('Matière non trouvée');
     }
 
-    await this.matieresRepository.remove(matiere);
-    this.logger.log(`Matière supprimée: ${matiere.nom} (ID: ${id})`);
-    return { message: 'Matière supprimée avec succès' };
+    try {
+      await this.matieresRepository.remove(matiere);
+      this.logger.log(`Matière supprimée: ${matiere.nom} (ID: ${id})`);
+      return { message: 'Matière supprimée avec succès' };
+    } catch (error) {
+      if (error.code === '23503') {
+        throw new ConflictException('Impossible de supprimer cette matière car des épreuves, ressources ou autres contenus y sont associés. Veuillez d\'abord supprimer ces contenus.');
+      }
+      throw error;
+    }
   }
 
   async findByNiveauEtude(niveauEtudeId: string) {

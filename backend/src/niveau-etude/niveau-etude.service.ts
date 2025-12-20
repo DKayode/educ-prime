@@ -1,9 +1,12 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like, FindOptionsWhere } from 'typeorm';
 import { NiveauEtude } from './entities/niveau-etude.entity';
 import { CreerNiveauEtudeDto } from './dto/creer-niveau-etude.dto';
 import { MajNiveauEtudeDto } from './dto/maj-niveau-etude.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
+import { FilterNiveauEtudeDto } from './dto/filter-niveau-etude.dto';
 
 @Injectable()
 export class NiveauEtudeService {
@@ -16,24 +19,33 @@ export class NiveauEtudeService {
 
   async create(creerNiveauEtudeDto: CreerNiveauEtudeDto) {
     this.logger.log(`Création d'un niveau d'étude: ${creerNiveauEtudeDto.nom} (Durée: ${creerNiveauEtudeDto.duree_mois} mois)`);
-    const newNiveauEtude = new NiveauEtude();
-    newNiveauEtude.nom = creerNiveauEtudeDto.nom;
-    newNiveauEtude.duree_mois = creerNiveauEtudeDto.duree_mois;
-    newNiveauEtude.filiere_id = creerNiveauEtudeDto.filiere_id;
+    const newNiveauEtude = this.niveauEtudeRepository.create(creerNiveauEtudeDto);
     const saved = await this.niveauEtudeRepository.save(newNiveauEtude);
     this.logger.log(`Niveau d'étude créé: ${saved.nom} (ID: ${saved.id})`);
     return saved;
   }
 
-  async findAll() {
-    this.logger.log('Récupération de tous les niveaux d\'étude');
-    const niveaux = await this.niveauEtudeRepository.find({
+  async findAll(filterDto: FilterNiveauEtudeDto): Promise<PaginationResponse<any>> {
+    const { page = 1, limit = 10, nom } = filterDto;
+    this.logger.log(`Récupération des niveaux d'étude - Page: ${page}, Limite: ${limit}, Nom: ${nom}`);
+
+    const whereCondition: FindOptionsWhere<NiveauEtude> = {};
+
+    if (nom) {
+      whereCondition.nom = Like(`%${nom}%`);
+    }
+
+    const [niveaux, total] = await this.niveauEtudeRepository.findAndCount({
+      where: whereCondition,
       relations: ['filiere'],
+      skip: (page - 1) * limit,
+      take: limit,
     });
-    this.logger.log(`${niveaux.length} niveau(x) d'étude trouvé(s)`);
+
+    this.logger.log(`${niveaux.length} niveau(x) d'étude trouvé(s) sur ${total} total`);
 
     // Transform to response DTO format
-    return niveaux.map(niveau => ({
+    const data = niveaux.map(niveau => ({
       id: niveau.id,
       nom: niveau.nom,
       duree_mois: niveau.duree_mois,
@@ -43,6 +55,14 @@ export class NiveauEtudeService {
         etablissement_id: niveau.filiere.etablissement_id,
       },
     }));
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string) {
@@ -100,9 +120,16 @@ export class NiveauEtudeService {
       throw new NotFoundException('Niveau d\'étude non trouvé');
     }
 
-    await this.niveauEtudeRepository.remove(niveauEtude);
-    this.logger.log(`Niveau d'étude supprimé: ${niveauEtude.nom} (ID: ${id})`);
-    return { message: 'Niveau d\'étude supprimé avec succès' };
+    try {
+      await this.niveauEtudeRepository.remove(niveauEtude);
+      this.logger.log(`Niveau d'étude supprimé: ${niveauEtude.nom} (ID: ${id})`);
+      return { message: 'Niveau d\'étude supprimé avec succès' };
+    } catch (error) {
+      if (error.code === '23503') {
+        throw new ConflictException('Impossible de supprimer ce niveau d\'étude car des matières y sont associées. Veuillez d\'abord supprimer les matières.');
+      }
+      throw error;
+    }
   }
 
   async findByFiliere(filiereId: string) {

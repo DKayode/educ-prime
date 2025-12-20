@@ -1,9 +1,12 @@
 import { api } from '../api';
 import type { NiveauEtude } from '../types';
+import type { PaginationResponse, PaginationParams } from '../types/pagination';
+import { buildPaginationQuery } from '../types/pagination';
 
 export const niveauxService = {
-  async getAll(): Promise<NiveauEtude[]> {
-    return api.get<NiveauEtude[]>('/niveau-etude');
+  async getAll(params?: PaginationParams & { nom?: string }): Promise<PaginationResponse<NiveauEtude>> {
+    const query = buildPaginationQuery(params);
+    return api.get<PaginationResponse<NiveauEtude>>(`/niveau-etude${query}`);
   },
 
   async getById(id: number): Promise<NiveauEtude> {

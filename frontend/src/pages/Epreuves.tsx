@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { type EpreuveType } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,9 +29,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Download, FileText, Trash2, Search, Loader2 } from "lucide-react";
+import { Upload, Download, FileText, Trash2, Search, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useDebounce } from "@/hooks/use-debounce";
 import { epreuvesService } from "@/lib/services/epreuves.service";
 import { filieresService } from "@/lib/services/filieres.service";
 import { matieresService } from "@/lib/services/matieres.service";
@@ -40,44 +42,62 @@ import { fichiersService } from "@/lib/services/fichiers.service";
 export default function Epreuves() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const [selectedType, setSelectedType] = useState<EpreuveType | "ALL">("ALL");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     titre: "",
+    type: "" as EpreuveType | "",
     duree_minutes: "",
+    nombre_pages: "",
     matiere_id: "",
     date_publication: "",
   });
 
   const queryClient = useQueryClient();
 
-  const { data: epreuves = [], isLoading, error } = useQuery({
-    queryKey: ['epreuves'],
-    queryFn: () => epreuvesService.getAll(),
-  });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewTitle, setPreviewTitle] = useState("");
 
-  const { data: filieres = [] } = useQuery({
+  const { data: epreuvesResponse, isLoading, error, isPlaceholderData } = useQuery({
+    queryKey: ['epreuves', debouncedSearchQuery, selectedType],
+    queryFn: () => epreuvesService.getAll({
+      titre: debouncedSearchQuery || undefined, // Send as undefined if empty
+      type: selectedType === "ALL" ? undefined : selectedType
+    }),
+    placeholderData: keepPreviousData,
+  });
+  const epreuves = epreuvesResponse?.data || [];
+
+  const { data: filieresResponse } = useQuery({
     queryKey: ['filieres'],
     queryFn: () => filieresService.getAll(),
   });
+  const filieres = filieresResponse?.data || [];
 
-  const { data: matieres = [] } = useQuery({
+  const { data: matieresResponse } = useQuery({
     queryKey: ['matieres'],
     queryFn: () => matieresService.getAll(),
   });
+  const matieres = matieresResponse?.data || [];
 
-  const { data: niveaux = [] } = useQuery({
+  const { data: niveauxResponse } = useQuery({
     queryKey: ['niveaux'],
     queryFn: () => niveauxService.getAll(),
   });
+  const niveaux = niveauxResponse?.data || [];
 
   const createMutation = useMutation({
-    mutationFn: (data: { file: File; titre: string; duree_minutes: number; matiere_id: number; date_publication?: string }) =>
+    mutationFn: (data: { file: File; titre: string; type?: string; duree_minutes: number; nombre_pages?: number; matiere_id: number; date_publication?: string }) =>
       fichiersService.uploadEpreuve({
         file: data.file,
         type: 'epreuve',
         matiereId: data.matiere_id,
         epreuveTitre: data.titre,
+        epreuveType: data.type,
         dureeMinutes: data.duree_minutes,
+        nombrePages: data.nombre_pages,
         datePublication: data.date_publication,
       }),
     onSuccess: () => {
@@ -86,7 +106,9 @@ export default function Epreuves() {
       setIsDialogOpen(false);
       setFormData({
         titre: "",
+        type: "",
         duree_minutes: "",
+        nombre_pages: "",
         matiere_id: "",
         date_publication: "",
       });
@@ -98,7 +120,7 @@ export default function Epreuves() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => epreuvesService.delete(id),
+    mutationFn: (id: number) => epreuvesService.delete(id.toString()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['epreuves'] });
       toast.success("Épreuve supprimée avec succès");
@@ -109,27 +131,47 @@ export default function Epreuves() {
   });
 
   const handleCreate = () => {
-    if (!formData.titre || !formData.duree_minutes || !formData.matiere_id || !selectedFile) {
-      toast.error("Veuillez remplir tous les champs requis");
+    if (!formData.titre || !formData.duree_minutes || !formData.matiere_id || !selectedFile || !formData.type) {
+      toast.error("Veuillez remplir tous les champs requis (Titre, Type, Durée, Matière, Fichier)");
       return;
     }
     // Convert to proper types before sending
     createMutation.mutate({
       file: selectedFile,
       titre: formData.titre,
+      type: formData.type || undefined,
       duree_minutes: parseInt(formData.duree_minutes, 10),
+      nombre_pages: formData.nombre_pages ? parseInt(formData.nombre_pages, 10) : undefined,
       matiere_id: parseInt(formData.matiere_id, 10),
       date_publication: formData.date_publication || undefined,
     });
   };
 
-  const filteredEpreuves = epreuves.filter(
-    (epreuve) =>
-      epreuve.titre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      epreuve.matiere?.nom.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handlePreview = async (epreuve: any) => {
+    try {
+      const blob = await epreuvesService.download(epreuve.id);
+      const url = window.URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      setPreviewTitle(epreuve.titre);
+      setIsPreviewOpen(true);
+    } catch (error) {
+      console.error("Preview error:", error);
+      toast.error("Erreur lors du chargement de l'aperçu");
+    }
+  };
 
-  if (isLoading) {
+  const closePreview = () => {
+    setIsPreviewOpen(false);
+    if (previewUrl) {
+      window.URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+  };
+
+  // Client-side filtering removed in favor of backend filtering
+  const filteredEpreuves = epreuves;
+
+  if (isLoading && !isPlaceholderData) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -190,6 +232,23 @@ export default function Epreuves() {
                   </p>
                 )}
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="type">Type d'épreuve</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) => setFormData({ ...formData, type: value as EpreuveType })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner le type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Interrogation">Interrogation</SelectItem>
+                    <SelectItem value="Devoirs">Devoirs</SelectItem>
+                    <SelectItem value="Concours">Concours</SelectItem>
+                    <SelectItem value="Examens">Examens</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="duree">Durée (minutes) *</Label>
@@ -202,24 +261,35 @@ export default function Epreuves() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="matiere">Matière *</Label>
-                  <Select
-                    value={formData.matiere_id}
-                    onValueChange={(value) => setFormData({ ...formData, matiere_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {matieres.map((matiere) => (
-                        <SelectItem key={matiere.id} value={matiere.id.toString()}>
-                          {matiere.nom}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="pages">Nombre de pages</Label>
+                  <Input
+                    id="pages"
+                    type="number"
+                    placeholder="Ex: 5"
+                    value={formData.nombre_pages}
+                    onChange={(e) => setFormData({ ...formData, nombre_pages: e.target.value })}
+                  />
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="matiere">Matière *</Label>
+                <Select
+                  value={formData.matiere_id}
+                  onValueChange={(value) => setFormData({ ...formData, matiere_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {matieres.map((matiere) => (
+                      <SelectItem key={matiere.id} value={matiere.id.toString()}>
+                        {matiere.nom}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="date_publication">Date de publication (optionnel)</Label>
                 <Input
@@ -249,14 +319,31 @@ export default function Epreuves() {
         <CardHeader>
           <CardTitle>Liste des épreuves ({epreuves.length})</CardTitle>
           <CardDescription>
-            <div className="relative mt-4">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher par titre ou matière..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex flex-col md:flex-row gap-4 mt-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher par titre..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select
+                value={selectedType}
+                onValueChange={(value) => setSelectedType(value as EpreuveType | "ALL")}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Type d'épreuve" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Tous les types</SelectItem>
+                  <SelectItem value="Interrogation">Interrogation</SelectItem>
+                  <SelectItem value="Devoirs">Devoirs</SelectItem>
+                  <SelectItem value="Concours">Concours</SelectItem>
+                  <SelectItem value="Examens">Examens</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardDescription>
         </CardHeader>
@@ -273,11 +360,12 @@ export default function Epreuves() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Titre</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Matière</TableHead>
-                  <TableHead>Professeur</TableHead>
-                  <TableHead>Durée (min)</TableHead>
+                  <TableHead>Pages</TableHead>
+                  <TableHead>Téléch.</TableHead>
+                  <TableHead>Durée</TableHead>
                   <TableHead>Date création</TableHead>
-                  <TableHead>Date publication</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -290,25 +378,31 @@ export default function Epreuves() {
                         {epreuve.titre}
                       </div>
                     </TableCell>
-                    <TableCell>{epreuve.matiere?.nom || "-"}</TableCell>
                     <TableCell>
-                      {epreuve.professeur
-                        ? `${epreuve.professeur.prenom} ${epreuve.professeur.nom}`
-                        : "-"}
+                      <Badge variant="secondary">{epreuve.type || "Autre"}</Badge>
                     </TableCell>
+                    <TableCell>{epreuve.matiere?.nom || "-"}</TableCell>
+                    <TableCell>{epreuve.nombre_pages || "-"}</TableCell>
+                    <TableCell>{epreuve.nombre_telechargements || 0}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{epreuve.duree_minutes} min</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(epreuve.date_creation).toLocaleDateString("fr-FR")}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {epreuve.date_publication
-                        ? new Date(epreuve.date_publication).toLocaleDateString("fr-FR")
-                        : "Immédiate"}
-                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={!epreuve.url}
+                          className="h-8 w-8 text-blue-500 hover:text-blue-600"
+                          onClick={() => handlePreview(epreuve)}
+                          title="Visualiser"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -327,6 +421,30 @@ export default function Epreuves() {
           )}
         </CardContent>
       </Card>
-    </div>
+
+      <Dialog open={isPreviewOpen} onOpenChange={(open) => !open && closePreview()}>
+        <DialogContent className="max-w-4xl h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>{previewTitle}</DialogTitle>
+            <DialogDescription>
+              Aperçu du fichier
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 h-full min-h-[60vh] w-full rounded-md border bg-muted/50">
+            {previewUrl ? (
+              <iframe
+                src={previewUrl}
+                className="w-full h-full rounded-md"
+                title="Aperçu du fichier"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div >
   );
 }

@@ -28,7 +28,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, Trash2, Search, Loader2, BookOpen } from "lucide-react";
+import { Upload, FileText, Trash2, Search, Loader2, BookOpen, Eye, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ressourcesService } from "@/lib/services/ressources.service";
@@ -39,32 +39,43 @@ export default function Ressources() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+
+    const queryClient = useQueryClient();
+
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [previewTitle, setPreviewTitle] = useState("");
+
+    // Update formData to include nombre_pages
     const [formData, setFormData] = useState({
         titre: "",
         type: "" as "" | "Document" | "Quiz" | "Exercices",
         matiere_id: "",
+        nombre_pages: "",
     });
 
-    const queryClient = useQueryClient();
-
-    const { data: ressources = [], isLoading, error } = useQuery({
+    const { data: ressourcesResponse, isLoading, error } = useQuery({
         queryKey: ['ressources'],
         queryFn: () => ressourcesService.getAll(),
     });
+    const ressources = ressourcesResponse?.data || [];
 
-    const { data: matieres = [] } = useQuery({
+    const { data: matieresResponse } = useQuery({
         queryKey: ['matieres'],
         queryFn: () => matieresService.getAll(),
     });
+    const matieres = matieresResponse?.data || [];
 
     const createMutation = useMutation({
-        mutationFn: (data: { file: File; titre: string; type: "Document" | "Quiz" | "Exercices"; matiere_id: number }) =>
+        mutationFn: (data: { file: File; titre: string; type: "Document" | "Quiz" | "Exercices"; matiere_id: number; nombre_pages?: string }) =>
             fichiersService.uploadRessource({
                 file: data.file,
                 type: 'ressource',
                 typeRessource: data.type,
                 matiereId: data.matiere_id,
                 ressourceTitre: data.titre,
+                nombrePages: data.nombre_pages ? parseInt(data.nombre_pages, 10) : undefined,
             }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['ressources'] });
@@ -74,6 +85,7 @@ export default function Ressources() {
                 titre: "",
                 type: "",
                 matiere_id: "",
+                nombre_pages: "",
             });
             setSelectedFile(null);
         },
@@ -103,7 +115,30 @@ export default function Ressources() {
             titre: formData.titre,
             type: formData.type,
             matiere_id: parseInt(formData.matiere_id, 10),
+            nombre_pages: formData.nombre_pages,
         });
+    };
+
+    const handlePreview = async (ressource: any) => {
+        try {
+            setPreviewTitle(ressource.titre);
+            setIsPreviewOpen(true);
+            const blob = await ressourcesService.download(ressource.id);
+            const url = window.URL.createObjectURL(blob);
+            setPreviewUrl(url);
+        } catch (error) {
+            console.error("Preview error:", error);
+            toast.error("Erreur lors du chargement de l'aperçu");
+            setIsPreviewOpen(false);
+        }
+    };
+
+    const closePreview = () => {
+        setIsPreviewOpen(false);
+        if (previewUrl) {
+            window.URL.revokeObjectURL(previewUrl);
+            setPreviewUrl(null);
+        }
     };
 
     const filteredRessources = ressources.filter(
@@ -208,23 +243,33 @@ export default function Ressources() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="matiere">Matière *</Label>
-                                    <Select
-                                        value={formData.matiere_id}
-                                        onValueChange={(value) => setFormData({ ...formData, matiere_id: value })}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Sélectionner" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {matieres.map((matiere) => (
-                                                <SelectItem key={matiere.id} value={matiere.id.toString()}>
-                                                    {matiere.nom}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Label htmlFor="pages">Nombre de pages</Label>
+                                    <Input
+                                        id="pages"
+                                        type="number"
+                                        placeholder="Ex: 5"
+                                        value={formData.nombre_pages}
+                                        onChange={(e) => setFormData({ ...formData, nombre_pages: e.target.value })}
+                                    />
                                 </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="matiere">Matière *</Label>
+                                <Select
+                                    value={formData.matiere_id}
+                                    onValueChange={(value) => setFormData({ ...formData, matiere_id: value })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Sélectionner" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {matieres.map((matiere) => (
+                                            <SelectItem key={matiere.id} value={matiere.id.toString()}>
+                                                {matiere.nom}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                         <DialogFooter>
@@ -269,6 +314,8 @@ export default function Ressources() {
                                     <TableHead>Titre</TableHead>
                                     <TableHead>Type</TableHead>
                                     <TableHead>Matière</TableHead>
+                                    <TableHead>Pages</TableHead>
+                                    <TableHead>Téléch.</TableHead>
                                     <TableHead>Date</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
@@ -288,11 +335,23 @@ export default function Ressources() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell>{ressource.matiere?.nom || "-"}</TableCell>
+                                        <TableCell>{ressource.nombre_pages || "-"}</TableCell>
+                                        <TableCell>{ressource.nombre_telechargements || 0}</TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {new Date(ressource.date_creation).toLocaleDateString("fr-FR")}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    disabled={!ressource.url}
+                                                    className="h-8 w-8 text-blue-500 hover:text-blue-600"
+                                                    onClick={() => handlePreview(ressource)}
+                                                    title="Visualiser"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -311,6 +370,30 @@ export default function Ressources() {
                     )}
                 </CardContent>
             </Card>
+
+            <Dialog open={isPreviewOpen} onOpenChange={(open) => !open && closePreview()}>
+                <DialogContent className="max-w-4xl h-[80vh]">
+                    <DialogHeader>
+                        <DialogTitle>{previewTitle}</DialogTitle>
+                        <DialogDescription>
+                            Aperçu du fichier
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex-1 h-full min-h-[60vh] w-full rounded-md border bg-muted/50">
+                        {previewUrl ? (
+                            <iframe
+                                src={previewUrl}
+                                className="w-full h-full rounded-md"
+                                title="Aperçu du fichier"
+                            />
+                        ) : (
+                            <div className="flex items-center justify-center h-full">
+                                <Loader2 className="h-8 w-8 animate-spin" />
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

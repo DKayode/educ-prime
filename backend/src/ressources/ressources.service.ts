@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
+import { FichiersService } from '../fichiers/fichiers.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like, FindOptionsWhere } from 'typeorm';
 import { Ressource, RessourceType } from './entities/ressource.entity';
 import { CreerRessourceDto } from './dto/creer-ressource.dto';
 import { MajRessourceDto } from './dto/maj-ressource.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
+import { RessourceResponseDto } from './dto/ressource-response.dto';
+import { FilterRessourceDto } from './dto/filter-ressource.dto';
 
 @Injectable()
 export class RessourcesService {
@@ -12,6 +17,7 @@ export class RessourcesService {
   constructor(
     @InjectRepository(Ressource)
     private readonly ressourcesRepository: Repository<Ressource>,
+    private readonly fichiersService: FichiersService,
   ) { }
 
   async create(creerRessourceDto: CreerRessourceDto, professeurId: number) {
@@ -23,29 +29,48 @@ export class RessourcesService {
     newRessource.matiere_id = creerRessourceDto.matiere_id;
     newRessource.professeur_id = professeurId;
     newRessource.date_publication = creerRessourceDto.date_publication;
+    newRessource.nombre_pages = creerRessourceDto.nombre_pages || 0;
+    newRessource.nombre_telechargements = 0;
     const saved = await this.ressourcesRepository.save(newRessource);
     this.logger.log(`Ressource créée: ${saved.titre} (ID: ${saved.id}, Type: ${saved.type})`);
     return saved;
   }
 
-  async findAll() {
-    this.logger.log('Récupération de toutes les ressources');
-    const ressources = await this.ressourcesRepository.find({
+  async findAll(filterDto: FilterRessourceDto): Promise<PaginationResponse<RessourceResponseDto>> {
+    const { page = 1, limit = 10, titre, type } = filterDto;
+    this.logger.log(`Récupération des ressources - Page: ${page}, Limite: ${limit}, Titre: ${titre}, Type: ${type}`);
+
+    const whereCondition: FindOptionsWhere<Ressource> = {};
+
+    if (titre) {
+      whereCondition.titre = Like(`%${titre}%`);
+    }
+
+    if (type) {
+      whereCondition.type = type;
+    }
+
+    const [ressources, total] = await this.ressourcesRepository.findAndCount({
+      where: whereCondition,
       relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
       order: {
         date_creation: 'DESC',
       },
+      skip: (page - 1) * limit,
+      take: limit,
     });
-    this.logger.log(`${ressources.length} ressource(s) trouvée(s)`);
 
-    // Transform to response DTO format with sanitized professeur
-    return ressources.map(ressource => ({
+    this.logger.log(`${ressources.length} ressource(s) trouvée(s) sur ${total} total`);
+
+    const data = ressources.map(ressource => ({
       id: ressource.id,
       titre: ressource.titre,
       type: ressource.type,
       url: ressource.url,
       date_creation: ressource.date_creation,
       date_publication: ressource.date_publication,
+      nombre_pages: ressource.nombre_pages,
+      nombre_telechargements: ressource.nombre_telechargements,
       professeur: {
         nom: ressource.professeur.nom,
         prenom: ressource.professeur.prenom,
@@ -67,6 +92,14 @@ export class RessourcesService {
         },
       },
     }));
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string) {
@@ -83,7 +116,6 @@ export class RessourcesService {
 
     this.logger.log(`Ressource trouvée: ${ressource.titre} (ID: ${id}, Type: ${ressource.type})`);
 
-    // Transform to response DTO format with sanitized professeur
     return {
       id: ressource.id,
       titre: ressource.titre,
@@ -112,6 +144,26 @@ export class RessourcesService {
         },
       },
     };
+  }
+
+  async findOneForDownload(id: string): Promise<{ url: string; titre: string }> {
+    this.logger.log(`Recherche de la ressource pour téléchargement - ID: ${id}`);
+    const ressource = await this.ressourcesRepository.findOne({
+      where: { id: parseInt(id) },
+    });
+
+    if (!ressource) {
+      this.logger.warn(`Ressource ID ${id} introuvable`);
+      throw new NotFoundException('Ressource non trouvée');
+    }
+
+    if (!ressource.url) {
+      this.logger.warn(`Ressource ID ${id} n'a pas de fichier associé`);
+      throw new BadRequestException('Cette ressource n\'a pas de fichier associé');
+    }
+
+    this.logger.log(`Ressource trouvée pour téléchargement: ${ressource.titre} (ID: ${id})`);
+    return { url: ressource.url, titre: ressource.titre };
   }
 
   async update(id: string, majRessourceDto: MajRessourceDto) {
@@ -143,30 +195,56 @@ export class RessourcesService {
       throw new NotFoundException('Ressource non trouvée');
     }
 
+    // Delete associated file from storage
+    if (ressource.url) {
+      try {
+        await this.fichiersService.deleteFile(ressource.url);
+      } catch (error) {
+        this.logger.warn(`Failed to delete file for ressource ${id}: ${error.message}`);
+        // Continue with entity deletion even if file deletion fails
+      }
+    }
+
+
+    // Delete associated file from storage
+    if (ressource.url) {
+      try {
+        await this.fichiersService.deleteFile(ressource.url);
+      } catch (error) {
+        this.logger.warn(`Failed to delete file for ressource ${id}: ${error.message}`);
+      }
+    }
+
     await this.ressourcesRepository.remove(ressource);
     this.logger.log(`Ressource supprimée: ${ressource.titre} (ID: ${id})`);
     return { message: 'Ressource supprimée avec succès' };
   }
 
-  async findByMatiere(matiereId: string) {
-    this.logger.log(`Recherche des ressources pour matière ID: ${matiereId}`);
-    const ressources = await this.ressourcesRepository.find({
+  async findByMatiere(matiereId: string, paginationDto: PaginationDto): Promise<PaginationResponse<RessourceResponseDto>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    this.logger.log(`Recherche des ressources pour matière ID: ${matiereId} - Page: ${page}, Limite: ${limit}`);
+
+    const [ressources, total] = await this.ressourcesRepository.findAndCount({
       where: { matiere: { id: parseInt(matiereId) } },
       relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
       order: {
         date_creation: 'DESC',
       },
+      skip: (page - 1) * limit,
+      take: limit,
     });
-    this.logger.log(`${ressources.length} ressource(s) trouvée(s) pour matière ${matiereId}`);
 
-    // Transform to response DTO format with sanitized professeur
-    return ressources.map(ressource => ({
+    this.logger.log(`${ressources.length} ressource(s) trouvée(s) pour matière ${matiereId} sur ${total} total`);
+
+    const data = ressources.map(ressource => ({
       id: ressource.id,
       titre: ressource.titre,
       type: ressource.type,
       url: ressource.url,
       date_creation: ressource.date_creation,
       date_publication: ressource.date_publication,
+      nombre_pages: ressource.nombre_pages,
+      nombre_telechargements: ressource.nombre_telechargements,
       professeur: {
         nom: ressource.professeur.nom,
         prenom: ressource.professeur.prenom,
@@ -188,27 +266,41 @@ export class RessourcesService {
         },
       },
     }));
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
-  async findByProfesseur(professeurId: string) {
-    this.logger.log(`Recherche des ressources du professeur ID: ${professeurId}`);
-    const ressources = await this.ressourcesRepository.find({
+  async findByProfesseur(professeurId: string, paginationDto: PaginationDto): Promise<PaginationResponse<RessourceResponseDto>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    this.logger.log(`Recherche des ressources du professeur ID: ${professeurId} - Page: ${page}, Limite: ${limit}`);
+
+    const [ressources, total] = await this.ressourcesRepository.findAndCount({
       where: { professeur: { id: parseInt(professeurId) } },
       relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
       order: {
         date_creation: 'DESC',
       },
+      skip: (page - 1) * limit,
+      take: limit,
     });
-    this.logger.log(`${ressources.length} ressource(s) trouvée(s) pour professeur ${professeurId}`);
 
-    // Transform to response DTO format with sanitized professeur
-    return ressources.map(ressource => ({
+    this.logger.log(`${ressources.length} ressource(s) trouvée(s) pour professeur ${professeurId} sur ${total} total`);
+
+    const data = ressources.map(ressource => ({
       id: ressource.id,
       titre: ressource.titre,
       type: ressource.type,
       url: ressource.url,
       date_creation: ressource.date_creation,
       date_publication: ressource.date_publication,
+      nombre_pages: ressource.nombre_pages,
+      nombre_telechargements: ressource.nombre_telechargements,
       professeur: {
         nom: ressource.professeur.nom,
         prenom: ressource.professeur.prenom,
@@ -230,47 +322,14 @@ export class RessourcesService {
         },
       },
     }));
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
-  async findByType(type: string) {
-    this.logger.log(`Recherche des ressources de type: ${type}`);
-    const ressources = await this.ressourcesRepository.find({
-      where: { type: type as RessourceType },
-      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
-      order: {
-        date_creation: 'DESC',
-      },
-    });
-    this.logger.log(`${ressources.length} ressource(s) de type ${type} trouvée(s)`);
-
-    // Transform to response DTO format with sanitized professeur
-    return ressources.map(ressource => ({
-      id: ressource.id,
-      titre: ressource.titre,
-      type: ressource.type,
-      url: ressource.url,
-      date_creation: ressource.date_creation,
-      date_publication: ressource.date_publication,
-      professeur: {
-        nom: ressource.professeur.nom,
-        prenom: ressource.professeur.prenom,
-        telephone: ressource.professeur.telephone,
-      },
-      matiere: {
-        id: ressource.matiere.id,
-        nom: ressource.matiere.nom,
-        description: ressource.matiere.description,
-        niveau_etude: {
-          id: ressource.matiere.niveau_etude.id,
-          nom: ressource.matiere.niveau_etude.nom,
-          duree_mois: ressource.matiere.niveau_etude.duree_mois,
-          filiere: {
-            id: ressource.matiere.niveau_etude.filiere.id,
-            nom: ressource.matiere.niveau_etude.filiere.nom,
-            etablissement_id: ressource.matiere.niveau_etude.filiere.etablissement_id,
-          },
-        },
-      },
-    }));
-  }
 }

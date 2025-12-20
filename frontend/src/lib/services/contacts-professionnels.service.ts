@@ -1,4 +1,6 @@
 import { api } from '../api';
+import type { PaginationResponse, PaginationParams } from '../types/pagination';
+import { buildPaginationQuery } from '../types/pagination';
 
 export interface ContactsProfessionnel {
     id: number;
@@ -12,8 +14,9 @@ export interface ContactsProfessionnel {
 }
 
 export const contactsProfessionnelsService = {
-    async getAll(): Promise<ContactsProfessionnel[]> {
-        return api.get<ContactsProfessionnel[]>('/contacts-professionnels');
+    async getAll(params?: PaginationParams): Promise<PaginationResponse<ContactsProfessionnel>> {
+        const query = buildPaginationQuery(params);
+        return api.get<PaginationResponse<ContactsProfessionnel>>(`/contacts-professionnels${query}`);
     },
 
     async getById(id: string): Promise<ContactsProfessionnel> {

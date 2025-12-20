@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Megaphone, Plus, Pencil, Trash2, Loader2, Upload } from "lucide-react";
+import { Megaphone, Plus, Pencil, Trash2, Loader2, Upload, Search, Eye } from "lucide-react";
 import { publicitesService, type Publicite } from "@/lib/services/publicites.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { Button } from "@/components/ui/button";
@@ -36,11 +36,20 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { useDebounce } from "@/hooks/use-debounce";
 
 interface PubliciteFormData {
     titre: string;
-    image_video?: string;
-    lien?: string;
+    image?: string;
+    media?: string;
+    type_media: 'Image' | 'Video';
     ordre: number;
     actif: boolean;
 }
@@ -52,21 +61,30 @@ export default function Publicites() {
     const [editingPublicite, setEditingPublicite] = useState<Publicite | null>(null);
     const [formData, setFormData] = useState<PubliciteFormData>({
         titre: "",
-        image_video: "",
-        lien: "",
+        image: "",
+        media: "",
+        type_media: "Image",
         ordre: 0,
         actif: true,
     });
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+    const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [search, setSearch] = useState("");
+    const debouncedSearch = useDebounce(search, 500);
+
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [previewTitle, setPreviewTitle] = useState("");
 
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
-    const { data: publicites = [], isLoading } = useQuery({
-        queryKey: ["publicites"],
-        queryFn: () => publicitesService.getAll(),
+    const { data: publicitesResponse, isLoading } = useQuery({
+        queryKey: ["publicites", debouncedSearch],
+        queryFn: () => publicitesService.getAll({ titre: debouncedSearch }),
     });
+    const publicites = publicitesResponse?.data || [];
 
     const createMutation = useMutation({
         mutationFn: (data: PubliciteFormData) => publicitesService.create(data),
@@ -74,8 +92,10 @@ export default function Publicites() {
             queryClient.invalidateQueries({ queryKey: ["publicites"] });
             queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
             setIsCreateDialogOpen(false);
-            setFormData({ titre: "", image_video: "", lien: "", ordre: 0, actif: true });
-            setSelectedFile(null);
+            setIsCreateDialogOpen(false);
+            setFormData({ titre: "", image: "", media: "", type_media: "Image", ordre: 0, actif: true });
+            setSelectedImageFile(null);
+            setSelectedMediaFile(null);
             toast({
                 title: "Succès",
                 description: "Publicité créée avec succès",
@@ -101,6 +121,8 @@ export default function Publicites() {
                 title: "Succès",
                 description: "Publicité mise à jour avec succès",
             });
+            setSelectedImageFile(null);
+            setSelectedMediaFile(null);
         },
         onError: (error: any) => {
             toast({
@@ -131,9 +153,15 @@ export default function Publicites() {
         },
     });
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setSelectedFile(e.target.files[0]);
+            setSelectedImageFile(e.target.files[0]);
+        }
+    };
+
+    const handleMediaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setSelectedMediaFile(e.target.files[0]);
         }
     };
 
@@ -142,46 +170,93 @@ export default function Publicites() {
         setIsUploading(true);
 
         let createdEntityId: number | null = null;
+        let uploadedImageUrl: string | null = null;
+        let uploadedMediaUrl: string | null = null;
 
         try {
             // Step 1: Create entity without image
             const createdPublicite = await publicitesService.create({
                 ...formData,
-                image_video: formData.image_video || undefined,
+                image: formData.image || undefined,
+                media: formData.media || undefined,
             });
             createdEntityId = createdPublicite.id;
 
-            // Step 2: Upload file if selected
-            if (selectedFile && createdPublicite.id) {
-                try {
-                    const uploadResult = await fichiersService.uploadImage({
-                        file: selectedFile,
-                        type: 'PUBLICITE',
-                        entityId: createdPublicite.id,
-                    });
+            // Step 2: Upload Image (Cover) if selected
+            if (selectedImageFile && createdPublicite.id) {
+                const uploadResult = await fichiersService.uploadImage({
+                    file: selectedImageFile,
+                    type: 'PUBLICITE',
+                    entityId: createdPublicite.id,
+                    entitySubtype: 'image',
+                });
+                uploadedImageUrl = uploadResult.url;
 
-                    // Step 3: Update entity with image URL
-                    await publicitesService.update(createdPublicite.id.toString(), {
-                        image_video: uploadResult.url,
-                    });
-                } catch (uploadError: any) {
-                    // Rollback: Delete the created entity
-                    await publicitesService.delete(createdPublicite.id.toString());
-                    throw new Error("Échec de l'upload de l'image: " + (uploadError.message || "Erreur inconnue"));
-                }
+                // Update with partial result immediately or wait? 
+                // Let's update progressively so we know what's saved.
+                await publicitesService.update(createdPublicite.id.toString(), {
+                    image: uploadResult.url,
+                });
+            }
+
+            // Step 3: Upload Media (Content) if selected
+            if (selectedMediaFile && createdPublicite.id) {
+                const uploadResult = await fichiersService.uploadImage({
+                    file: selectedMediaFile,
+                    type: 'PUBLICITE',
+                    entityId: createdPublicite.id,
+                    entitySubtype: 'media',
+                });
+                uploadedMediaUrl = uploadResult.url;
+
+                await publicitesService.update(createdPublicite.id.toString(), {
+                    media: uploadResult.url,
+                });
             }
 
             // Success
             queryClient.invalidateQueries({ queryKey: ["publicites"] });
             queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
             setIsCreateDialogOpen(false);
-            setFormData({ titre: "", image_video: "", lien: "", ordre: 0, actif: true });
-            setSelectedFile(null);
+            setFormData({ titre: "", image: "", media: "", type_media: "Image", ordre: 0, actif: true });
+            setSelectedImageFile(null);
+            setSelectedMediaFile(null);
             toast({
                 title: "Succès",
                 description: "Publicité créée avec succès",
             });
         } catch (error: any) {
+            console.error("Creation failed, starting rollback...", error);
+
+            // Rollback Logic
+            try {
+                // If we have an entity ID, delete it. 
+                // The backend delete (remove) logic should now handle file cleanup for files SAVED to the entity.
+                if (createdEntityId) {
+                    await publicitesService.delete(createdEntityId.toString());
+                    console.log("Rollback: Deleted created entity", createdEntityId);
+                } else {
+                    // If entity wasn't created (rare/impossible here as it's step 1), or if we are paranoid about files uploaded but not linked?
+                    // With current flow, if step 1 fails, nothing to cleanup.
+                    // If step 2 fails (upload), entity exists but has no image URL yet. We delete entity. File upload failed so no file.
+                    // If step 2 succeeds (upload) but update fails? We have file in storage, but maybe not in DB?
+                    // Actually, if update fails, the file URL is not in DB. So backend delete won't find it to delete contextually.
+                    // So we must manually delete properly uploaded files that might NOT be in the DB yet if the update call failed.
+
+                    if (uploadedImageUrl && (!createdEntityId || error.message.includes("update"))) {
+                        // Attempt manual delete if we think it might be orphaned
+                        await fichiersService.deleteFile(uploadedImageUrl);
+                        console.log("Rollback: Deleted orphaned image file");
+                    }
+                    if (uploadedMediaUrl && (!createdEntityId || error.message.includes("update"))) {
+                        await fichiersService.deleteFile(uploadedMediaUrl);
+                        console.log("Rollback: Deleted orphaned media file");
+                    }
+                }
+            } catch (rollbackError) {
+                console.error("Rollback failed", rollbackError);
+            }
+
             toast({
                 title: "Erreur",
                 description: error.message || "Échec de la création de la publicité",
@@ -192,25 +267,127 @@ export default function Publicites() {
         }
     };
 
-    const handleEdit = (e: React.FormEvent) => {
+    const handleEdit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (editingPublicite) {
-            updateMutation.mutate({
+        if (!editingPublicite) return;
+
+        setIsUploading(true);
+        let updatedImage = editingPublicite.image;
+        let updatedMedia = editingPublicite.media;
+
+        try {
+            // Upload new Cover Image if selected
+            if (selectedImageFile) {
+                try {
+                    const uploadResult = await fichiersService.uploadImage({
+                        file: selectedImageFile,
+                        type: 'PUBLICITE',
+                        entityId: editingPublicite.id,
+                        entitySubtype: 'image',
+                    });
+                    updatedImage = uploadResult.url;
+                } catch (error) {
+                    console.error("Failed to upload new cover image", error);
+                    toast({
+                        title: "Erreur Upload",
+                        description: "Échec de l'upload de la nouvelle image de couverture",
+                        variant: "destructive",
+                    });
+                    // Proceed anyway? Or stop? Let's stop to be safe.
+                    setIsUploading(false);
+                    return;
+                }
+            }
+
+            // Upload new Media File if selected
+            if (selectedMediaFile) {
+                try {
+                    const uploadResult = await fichiersService.uploadImage({
+                        file: selectedMediaFile,
+                        type: 'PUBLICITE',
+                        entityId: editingPublicite.id,
+                        entitySubtype: 'media',
+                    });
+                    updatedMedia = uploadResult.url;
+                } catch (error) {
+                    console.error("Failed to upload new media file", error);
+                    toast({
+                        title: "Erreur Upload",
+                        description: "Échec de l'upload du nouveau fichier média",
+                        variant: "destructive",
+                    });
+                    setIsUploading(false);
+                    return;
+                }
+            }
+
+            await updateMutation.mutateAsync({
                 id: editingPublicite.id.toString(),
                 data: {
                     titre: editingPublicite.titre,
-                    image_video: editingPublicite.image_video,
-                    lien: editingPublicite.lien,
+                    image: updatedImage,
+                    media: updatedMedia,
+                    type_media: editingPublicite.type_media,
                     ordre: editingPublicite.ordre,
                     actif: editingPublicite.actif,
                 },
             });
+
+            // Cleanup old files if they were replaced
+            if (selectedImageFile && editingPublicite.image && editingPublicite.image !== updatedImage) {
+                try {
+                    await fichiersService.deleteFile(editingPublicite.image);
+                    console.log("Deleted old cover image");
+                } catch (e) {
+                    console.error("Failed to delete old cover image", e);
+                }
+            }
+
+            if (selectedMediaFile && editingPublicite.media && editingPublicite.media !== updatedMedia) {
+                try {
+                    await fichiersService.deleteFile(editingPublicite.media);
+                    console.log("Deleted old media file");
+                } catch (e) {
+                    console.error("Failed to delete old media file", e);
+                }
+            }
+
+        } finally {
+            // Reset files only after success is handled by mutation, but here we are in sync logic partly.
+            // Ideally we clear files in onSuccess of mutation.
+            // But setIsUploading(false) should happen here or in mutation callbacks.
+            // Since mutation is async, we let the mutation callbacks handle global loading state if any.
+            // But we used a local 'isUploading' for the file part.
+            setIsUploading(false);
         }
     };
 
     const openEditDialog = (publicite: Publicite) => {
         setEditingPublicite(publicite);
         setIsEditDialogOpen(true);
+        setIsEditDialogOpen(true);
+    };
+
+    const handlePreview = async (item: Publicite) => {
+        try {
+            setPreviewTitle(item.titre);
+            setIsPreviewOpen(true);
+            const blob = await publicitesService.downloadMedia(item.id);
+            const url = window.URL.createObjectURL(blob);
+            setPreviewUrl(url);
+        } catch (error) {
+            console.error("Preview error:", error);
+            toast({ title: "Erreur", description: "Erreur lors du chargement de l'aperçu", variant: "destructive" });
+            setIsPreviewOpen(false);
+        }
+    };
+
+    const closePreview = () => {
+        setIsPreviewOpen(false);
+        if (previewUrl) {
+            window.URL.revokeObjectURL(previewUrl);
+            setPreviewUrl(null);
+        }
     };
 
     if (isLoading) {
@@ -231,91 +408,123 @@ export default function Publicites() {
                     </h1>
                     <p className="text-muted-foreground">Gérer les publicités de la plateforme</p>
                 </div>
-                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            Ajouter une publicité
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <form onSubmit={handleCreate}>
-                            <DialogHeader>
-                                <DialogTitle>Créer une publicité</DialogTitle>
-                                <DialogDescription>
-                                    Ajouter une nouvelle publicité
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="titre">Titre *</Label>
-                                    <Input
-                                        id="titre"
-                                        value={formData.titre}
-                                        onChange={(e) => setFormData({ ...formData, titre: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="image_video">Image/Vidéo</Label>
-                                    <div className="flex gap-2">
+                <div className="flex items-center gap-4">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Rechercher par titre..."
+                            className="pl-8 w-[250px]"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+                    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="gap-2">
+                                <Plus className="h-4 w-4" />
+                                Ajouter une publicité
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <form onSubmit={handleCreate}>
+                                <DialogHeader>
+                                    <DialogTitle>Créer une publicité</DialogTitle>
+                                    <DialogDescription>
+                                        Ajouter une nouvelle publicité
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="titre">Titre *</Label>
                                         <Input
-                                            id="file"
-                                            type="file"
-                                            accept="image/*,video/*"
-                                            onChange={handleFileChange}
-                                            className="flex-1"
+                                            id="titre"
+                                            value={formData.titre}
+                                            onChange={(e) => setFormData({ ...formData, titre: e.target.value })}
+                                            required
                                         />
-                                        {selectedFile && (
-                                            <Badge variant="secondary" className="self-center">
-                                                {selectedFile.name}
-                                            </Badge>
-                                        )}
+
+
                                     </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        Ou entrez une URL manuellement ci-dessous
-                                    </p>
-                                    <Input
-                                        id="image_video"
-                                        placeholder="https://..."
-                                        value={formData.image_video}
-                                        onChange={(e) => setFormData({ ...formData, image_video: e.target.value })}
-                                    />
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="image">Image de couverture</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id="image-file"
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleImageFileChange}
+                                                className="flex-1"
+                                            />
+                                            {selectedImageFile && (
+                                                <Badge variant="secondary" className="self-center">
+                                                    {selectedImageFile.name}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Type de média</Label>
+                                        <Select
+                                            value={formData.type_media}
+                                            onValueChange={(value: "Image" | "Video") =>
+                                                setFormData({ ...formData, type_media: value })
+                                            }
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Choisir le type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Image">Image</SelectItem>
+                                                <SelectItem value="Video">Vidéo</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="media">Fichier Média (Contenu)</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id="media-file"
+                                                type="file"
+                                                accept="image/*,video/*"
+                                                onChange={handleMediaFileChange}
+                                                className="flex-1"
+                                            />
+                                            {selectedMediaFile && (
+                                                <Badge variant="secondary" className="self-center">
+                                                    {selectedMediaFile.name}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="ordre">Ordre</Label>
+                                        <Input
+                                            id="ordre"
+                                            type="number"
+                                            value={formData.ordre}
+                                            onChange={(e) => setFormData({ ...formData, ordre: parseInt(e.target.value) })}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="lien">Lien</Label>
-                                    <Input
-                                        id="lien"
-                                        value={formData.lien}
-                                        onChange={(e) => setFormData({ ...formData, lien: e.target.value })}
-                                    />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="ordre">Ordre</Label>
-                                    <Input
-                                        id="ordre"
-                                        type="number"
-                                        value={formData.ordre}
-                                        onChange={(e) => setFormData({ ...formData, ordre: parseInt(e.target.value) })}
-                                    />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button type="submit" disabled={createMutation.isPending || isUploading}>
-                                    {createMutation.isPending || isUploading ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            {isUploading ? "Upload..." : "Création..."}
-                                        </>
-                                    ) : (
-                                        "Créer"
-                                    )}
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
+                                <DialogFooter>
+                                    <Button type="submit" disabled={createMutation.isPending || isUploading}>
+                                        {createMutation.isPending || isUploading ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                {isUploading ? "Upload..." : "Création..."}
+                                            </>
+                                        ) : (
+                                            "Créer"
+                                        )}
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
+
 
             <Card>
                 <CardHeader>
@@ -335,6 +544,7 @@ export default function Publicites() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Titre</TableHead>
+                                    <TableHead>Type</TableHead>
                                     <TableHead>Ordre</TableHead>
                                     <TableHead>Statut</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
@@ -344,6 +554,9 @@ export default function Publicites() {
                                 {publicites.map((publicite) => (
                                     <TableRow key={publicite.id}>
                                         <TableCell className="font-medium">{publicite.titre}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">{publicite.type_media || 'Image'}</Badge>
+                                        </TableCell>
                                         <TableCell>{publicite.ordre}</TableCell>
                                         <TableCell>
                                             <Badge variant={publicite.actif ? "default" : "secondary"}>
@@ -352,6 +565,15 @@ export default function Publicites() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handlePreview(publicite)}
+                                                    title="Visualiser"
+                                                    disabled={!publicite.media}
+                                                >
+                                                    <Eye className="h-4 w-4 text-blue-500" />
+                                                </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -399,28 +621,58 @@ export default function Publicites() {
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="edit-image_video">URL Image/Vidéo</Label>
-                                <Input
-                                    id="edit-image_video"
-                                    value={editingPublicite?.image_video || ""}
-                                    onChange={(e) =>
+                                <Label htmlFor="edit-type_media">Type de média</Label>
+                                <Select
+                                    value={editingPublicite?.type_media || "Image"}
+                                    onValueChange={(value: "Image" | "Video") =>
                                         setEditingPublicite(
-                                            editingPublicite ? { ...editingPublicite, image_video: e.target.value } : null
+                                            editingPublicite ? { ...editingPublicite, type_media: value } : null
                                         )
                                     }
-                                />
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Choisir le type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Image">Image</SelectItem>
+                                        <SelectItem value="Video">Vidéo</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit-image">Image de couverture</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="edit-image-file"
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleImageFileChange}
+                                        className="flex-1"
+                                    />
+                                    {selectedImageFile && (
+                                        <Badge variant="secondary" className="self-center">
+                                            {selectedImageFile.name}
+                                        </Badge>
+                                    )}
+                                </div>
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="edit-lien">Lien</Label>
-                                <Input
-                                    id="edit-lien"
-                                    value={editingPublicite?.lien || ""}
-                                    onChange={(e) =>
-                                        setEditingPublicite(
-                                            editingPublicite ? { ...editingPublicite, lien: e.target.value } : null
-                                        )
-                                    }
-                                />
+                                <Label htmlFor="edit-media">Fichier Média (Contenu)</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="edit-media-file"
+                                        type="file"
+                                        accept="image/*,video/*"
+                                        onChange={handleMediaFileChange}
+                                        className="flex-1"
+                                    />
+                                    {selectedMediaFile && (
+                                        <Badge variant="secondary" className="self-center">
+                                            {selectedMediaFile.name}
+                                        </Badge>
+                                    )}
+                                </div>
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="edit-ordre">Ordre</Label>
@@ -437,7 +689,7 @@ export default function Publicites() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button type="submit" disabled={updateMutation.isPending}>
+                            <Button type="submit" disabled={updateMutation.isPending || isUploading}>
                                 {updateMutation.isPending ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -449,6 +701,30 @@ export default function Publicites() {
                             </Button>
                         </DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isPreviewOpen} onOpenChange={(open) => !open && closePreview()}>
+                <DialogContent className="max-w-4xl h-[80vh]">
+                    <DialogHeader>
+                        <DialogTitle>{previewTitle}</DialogTitle>
+                        <DialogDescription>
+                            Aperçu du fichier
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex-1 h-full min-h-[60vh] w-full rounded-md border bg-muted/50">
+                        {previewUrl ? (
+                            <iframe
+                                src={previewUrl}
+                                className="w-full h-full rounded-md"
+                                title="Aperçu du fichier"
+                            />
+                        ) : (
+                            <div className="flex items-center justify-center h-full">
+                                <Loader2 className="h-8 w-8 animate-spin" />
+                            </div>
+                        )}
+                    </div>
                 </DialogContent>
             </Dialog>
 

@@ -5,7 +5,9 @@ export interface UploadEpreuveData {
     type: 'epreuve';
     matiereId: number;
     epreuveTitre: string;
+    epreuveType?: string;
     dureeMinutes: number;
+    nombrePages?: number;
     datePublication?: string;
 }
 
@@ -15,11 +17,12 @@ export interface UploadRessourceData {
     typeRessource: 'Document' | 'Quiz' | 'Exercices';
     matiereId: number;
     ressourceTitre: string;
+    nombrePages?: number;
 }
 
 export interface UploadImageData {
     file: File;
-    type: 'PUBLICITE' | 'EVENEMENT' | 'OPPORTUNITE' | 'CONCOURS_EXAMEN';
+    type: 'PUBLICITE' | 'EVENEMENT' | 'OPPORTUNITE' | 'CONCOURS' | 'ETABLISSEMENT';
     entityId: number;
     entitySubtype?: string; // For OPPORTUNITE: 'bourses' or 'stages', For CONCOURS_EXAMEN: 'concours' or 'examens'
 }
@@ -32,6 +35,14 @@ export const fichiersService = {
         formData.append('matiereId', data.matiereId.toString());
         formData.append('epreuveTitre', data.epreuveTitre);
         formData.append('dureeMinutes', data.dureeMinutes.toString());
+
+        if (data.nombrePages) {
+            formData.append('nombrePages', data.nombrePages.toString());
+        }
+
+        if (data.epreuveType) {
+            formData.append('epreuveType', data.epreuveType);
+        }
 
         if (data.datePublication) {
             formData.append('datePublication', data.datePublication);
@@ -49,6 +60,10 @@ export const fichiersService = {
         formData.append('matiereId', data.matiereId.toString());
         formData.append('ressourceTitre', data.ressourceTitre);
 
+        if (data.nombrePages) {
+            formData.append('nombrePages', data.nombrePages.toString());
+        }
+
         // Don't set Content-Type manually - browser will set it with boundary
         return api.post('/fichiers', formData);
     },
@@ -65,5 +80,10 @@ export const fichiersService = {
 
         // Don't set Content-Type manually - browser will set it with boundary
         return api.post<{ url: string }>('/fichiers', formData);
+    },
+
+    async deleteFile(url: string) {
+        // Use DELETE method with query param as implemented in backend
+        return api.delete(`/fichiers?url=${encodeURIComponent(url)}`);
     },
 };

@@ -65,18 +65,20 @@ export default function Matieres() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: matieres = [], isLoading } = useQuery({
+  const { data: matieresResponse, isLoading } = useQuery({
     queryKey: ["matieres"],
     queryFn: () => matieresService.getAll(),
   });
+  const matieres = matieresResponse?.data || [];
 
-  const { data: niveaux = [] } = useQuery({
+  const { data: niveauxResponse } = useQuery({
     queryKey: ["niveaux"],
     queryFn: () => niveauxService.getAll(),
   });
+  const niveaux = niveauxResponse?.data || [];
 
   const createMutation = useMutation({
-    mutationFn: (data: MatiereFormData) => matieresService.create(data),
+    mutationFn: (data: any) => matieresService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["matieres"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
@@ -97,7 +99,7 @@ export default function Matieres() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<MatiereFormData> }) =>
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
       matieresService.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["matieres"] });
@@ -129,9 +131,13 @@ export default function Matieres() {
       });
     },
     onError: (error: any) => {
+      const message = error.response?.status === 409
+        ? error.response.data.message
+        : (error.message || "Échec de la suppression de la matière");
+
       toast({
         title: "Erreur",
-        description: error.message || "Échec de la suppression de la matière",
+        description: message,
         variant: "destructive",
       });
     },
@@ -425,8 +431,8 @@ export default function Matieres() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer cette matière ? Cette action est irréversible et
-              supprimera également toutes les épreuves et ressources associées.
+              Attention : La suppression de cette matière n'est possible que si aucune épreuve ou ressource n'y est associée.
+              Si des éléments dépendants existent, la suppression sera bloquée.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

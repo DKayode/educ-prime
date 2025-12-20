@@ -15,7 +15,7 @@ export class CreerOpportuniteDto {
 
     @IsOptional()
     @IsString()
-    pays?: string;
+    lieu?: string;
 
     @IsOptional()
     @Type(() => Date)

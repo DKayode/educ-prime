@@ -21,8 +21,8 @@ const academicItems = [
   { title: "Utilisateurs", url: "/users", icon: Users },
   { title: "Établissements", url: "/etablissements", icon: Building2 },
   { title: "Filières", url: "/filieres", icon: BookOpen },
-  { title: "Matières", url: "/matieres", icon: BookMarked },
   { title: "Niveaux d'études", url: "/annees", icon: Calendar },
+  { title: "Matières", url: "/matieres", icon: BookMarked },
   { title: "Épreuves", url: "/epreuves", icon: FileText },
   { title: "Ressources", url: "/ressources", icon: FolderOpen },
 ];
@@ -31,7 +31,7 @@ const publicContentItems = [
   { title: "Publicités", url: "/publicites", icon: Megaphone },
   { title: "Événements", url: "/evenements", icon: CalendarDays },
   { title: "Opportunités", url: "/opportunites", icon: Briefcase },
-  { title: "Concours/Examens", url: "/concours-examens", icon: GraduationCap },
+  { title: "Concours", url: "/concours", icon: GraduationCap },
   { title: "Contacts Pro", url: "/contacts-professionnels", icon: UserCheck },
 ];
 
@@ -69,7 +69,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Académique</SidebarGroupLabel>
+          <SidebarGroupLabel>Contenu Académique</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {academicItems.map((item) => (
