@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Building2, Plus, Pencil, Trash2, Loader2, Search, Upload, X } from "lucide-react";
@@ -63,6 +63,23 @@ export default function Etablissements() {
     code_postal: "",
     logo: "",
   });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Safe object URL management
+  useEffect(() => {
+    if (!logoFile) {
+      setPreviewUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(logoFile);
+    setPreviewUrl(objectUrl);
+
+    // Cleanup function to revoke the URL when component unmounts or file changes
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [logoFile]);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -337,7 +354,7 @@ export default function Etablissements() {
                     {logoFile && (
                       <div className="relative h-10 w-10">
                         <img
-                          src={URL.createObjectURL(logoFile)}
+                          src={previewUrl || ""}
                           alt="Preview"
                           className="h-full w-full object-cover rounded"
                         />
@@ -516,7 +533,7 @@ export default function Etablissements() {
                 {logoFile ? (
                   <div className="relative h-16 w-16">
                     <img
-                      src={URL.createObjectURL(logoFile)}
+                      src={previewUrl || ""}
                       alt="Preview"
                       className="h-full w-full object-contain rounded-md border"
                     />
