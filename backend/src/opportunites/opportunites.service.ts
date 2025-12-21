@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
+import { FichiersService } from '../fichiers/fichiers.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Opportunite } from './entities/opportunite.entity';
+import { Opportunite, OpportuniteType } from './entities/opportunite.entity';
 import { CreerOpportuniteDto } from './dto/create-opportunite.dto';
 import { UpdateOpportuniteDto } from './dto/update-opportunite.dto';
+import { FilterOpportuniteDto } from './dto/filter-opportunite.dto';
+import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
+import { FindOptionsWhere, Like } from 'typeorm';
 
 @Injectable()
 export class OpportunitesService {
@@ -12,6 +16,7 @@ export class OpportunitesService {
   constructor(
     @InjectRepository(Opportunite)
     private readonly opportuniteRepository: Repository<Opportunite>,
+    private readonly fichiersService: FichiersService,
   ) { }
 
   async create(creerOpportuniteDto: CreerOpportuniteDto) {
@@ -22,14 +27,34 @@ export class OpportunitesService {
     return saved;
   }
 
-  async findAll() {
-    this.logger.log('Récupération de toutes les opportunités');
-    const opportunites = await this.opportuniteRepository.find({
+  async findAll(filterDto: FilterOpportuniteDto): Promise<PaginationResponse<Opportunite>> {
+    const { page = 1, limit = 10, titre, type, lieu, organisme } = filterDto;
+    this.logger.log(`Récupération des opportunités - filtres: ${JSON.stringify(filterDto)}`);
+
+    const where: FindOptionsWhere<Opportunite> = {};
+    if (titre) where.titre = Like(`%${titre}%`);
+    if (type) where.type = type;
+    if (lieu) where.lieu = Like(`%${lieu}%`);
+    if (organisme) where.organisme = Like(`%${organisme}%`);
+
+    const [opportunites, total] = await this.opportuniteRepository.findAndCount({
+      where,
       order: { date_limite: 'ASC', date_creation: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
-    this.logger.log(`${opportunites.length} opportunité(s) trouvée(s)`);
-    return opportunites;
+
+    this.logger.log(`${opportunites.length} opportunité(s) trouvée(s) sur ${total} total`);
+
+    return {
+      data: opportunites,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
+
 
   async findOne(id: number) {
     this.logger.log(`Recherche de l'opportunité ID: ${id}`);
@@ -44,6 +69,26 @@ export class OpportunitesService {
 
     this.logger.log(`Opportunité trouvée: ${opportunite.titre} (ID: ${id})`);
     return opportunite;
+  }
+
+  async findOneForDownload(id: number): Promise<{ url: string; titre: string }> {
+    this.logger.log(`Recherche de l'opportunité pour téléchargement - ID: ${id}`);
+    const opportunite = await this.opportuniteRepository.findOne({
+      where: { id },
+    });
+
+    if (!opportunite) {
+      this.logger.warn(`Opportunité ID ${id} introuvable`);
+      throw new NotFoundException('Opportunité non trouvée');
+    }
+
+    if (!opportunite.image) {
+      this.logger.warn(`Opportunité ID ${id} n'a pas de fichier associé`);
+      throw new BadRequestException('Cette opportunité n\'a pas de fichier associé');
+    }
+
+    this.logger.log(`Opportunité trouvée pour téléchargement: ${opportunite.titre} (ID: ${id})`);
+    return { url: opportunite.image, titre: opportunite.titre };
   }
 
   async update(id: number, updateOpportuniteDto: UpdateOpportuniteDto) {
@@ -72,6 +117,15 @@ export class OpportunitesService {
     if (!opportunite) {
       this.logger.warn(`Suppression échouée: opportunité ID ${id} introuvable`);
       throw new NotFoundException('Opportunité non trouvée');
+    }
+
+
+    if (opportunite.image) {
+      try {
+        await this.fichiersService.deleteFile(opportunite.image);
+      } catch (error) {
+        this.logger.warn(`Failed to delete file for opportunite ${id}: ${error.message}`);
+      }
     }
 
     await this.opportuniteRepository.remove(opportunite);

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { MatieresService } from './matieres.service';
 import { CreerMatiereDto } from './dto/creer-matiere.dto';
 import { MajMatiereDto } from './dto/maj-matiere.dto';
@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller('matieres')
 export class MatieresController {
@@ -21,8 +22,8 @@ export class MatieresController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async findAll(): Promise<MatiereResponseDto[]> {
-    return this.matieresService.findAll();
+  async findAll(@Query() paginationDto: PaginationDto) {
+    return this.matieresService.findAll(paginationDto);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -20,6 +20,33 @@ Ce document décrit l'ensemble des points d'accès REST de la plateforme Educ Pr
 - **étudiant** : Accès en lecture aux ressources académiques
 - **autre** : Accès en lecture aux ressources académiques
 
+### Pagination
+
+Tous les endpoints qui retournent des listes supportent la pagination via les paramètres de requête `page` et `limit`.
+
+**Paramètres de pagination:**
+- `page` (optionnel, défaut: 1) : Numéro de la page à récupérer (minimum: 1)
+- `limit` (optionnel, défaut: 10) : Nombre d'éléments par page (minimum: 1)
+
+**Format de réponse paginée:**
+```json
+{
+  "data": [...],           // Tableau des éléments de la page actuelle
+  "total": 50,            // Nombre total d'éléments
+  "page": 1,              // Page actuelle
+  "limit": 10,            // Nombre d'éléments par page
+  "totalPages": 5         // Nombre total de pages
+}
+```
+
+**Exemple d'utilisation:**
+```http
+GET /epreuves?page=2&limit=20
+Authorization: Bearer <token>
+```
+
+**Note:** Si les paramètres de pagination ne sont pas fournis, les valeurs par défaut (page=1, limit=10) sont utilisées.
+
 ## Points d'accès d'authentification
 
 ### Lister les utilisateurs - `GET /utilisateurs`
@@ -324,21 +351,38 @@ Response (403 Forbidden) - Non-admin user:
 ## Structure académique
 
 ### Lister les établissements - `GET /etablissements`
-Obtenir la liste de tous les établissements.
+Obtenir la liste de tous les établissements avec pagination.
+
+**Permissions requises:** Utilisateur authentifié
+
+**Paramètres de requête:**
+- `page` (optionnel, défaut: 1) : Numéro de la page
+- `limit` (optionnel, défaut: 10) : Nombre d'éléments par page
+- `nom` (optionnel) : Filtrer par nom
+- `ville` (optionnel) : Filtrer par ville
+
 ```http
-GET /etablissements
+GET /etablissements?page=1&limit=10&ville=Paris
 Authorization: Bearer <token>
 ```
 Response (200 OK):
 ```json
-[
-    {
-        "id": 1,
-        "nom": "Université Paris-Saclay",
-        "ville": "Paris",
-        "code_postal": "75000"
-    }
-]
+{
+    "data": [
+        {
+            "id": 1,
+            "nom": "Université de Paris",
+            "adresse": "123 Rue de la Sorbonne",
+            "ville": "Paris",
+            "pays": "France",
+            "logo": "https://storage.googleapis.com/..."
+        }
+    ],
+    "total": 50,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 5
+}
 ```
 
 ### Obtenir un établissement - `GET /etablissements/:id`
@@ -353,9 +397,30 @@ Response (200 OK):
     "id": 1,
     "nom": "Université Paris-Saclay",
     "ville": "Paris",
-    "code_postal": "75000"
+    "code_postal": "75000",
+    "logo": "https://storage.googleapis.com/..."
 }
 ```
+
+### Télécharger le logo - `GET /etablissements/:id/logo`
+Télécharger le logo associé à un établissement.
+
+**Permissions requises:** Utilisateur authentifié
+
+```http
+GET /etablissements/1/logo
+Authorization: Bearer <token>
+```
+
+Response (200 OK): Contenu binaire de l'image
+
+En-têtes de réponse:
+- `Content-Type`: Type MIME de l'image (ex: `image/png`)
+- `Content-Disposition`: `attachment; filename="logo.png"`
+
+Codes d'erreur possibles:
+- `404 Not Found` – Établissement introuvable
+- `400 Bad Request` – L'établissement n'a pas de logo associé
 
 ### Créer un établissement - `POST /etablissements`
 Créer un nouvel établissement (admin uniquement).
@@ -428,85 +493,13 @@ Response (200 OK):
 }
 ```
 
-### Lister les filières d'un établissement - `GET /etablissements/:id/filieres`
-Obtenir toutes les filières associées à un établissement.
-
-**Permissions requises:** Utilisateur authentifié
-
-```http
-GET /etablissements/1/filieres
-Authorization: Bearer <token>
-```
-Response (200 OK):
-```json
-[
-    {
-        "id": 1,
-        "nom": "Informatique",
-        "etablissement_id": 1
-    },
-    {
-        "id": 2,
-        "nom": "Mathématiques",
-        "etablissement_id": 1
-    }
-]
-```
-
-### Lister les niveaux d'étude d'une filière - `GET /etablissements/:id/filieres/:filiereId/niveau-etude`
-Obtenir tous les niveaux d'étude associés à une filière spécifique d'un établissement.
-
-**Permissions requises:** Utilisateur authentifié
-
-```http
-GET /etablissements/1/filieres/2/niveau-etude
-Authorization: Bearer <token>
-```
-Response (200 OK):
-```json
-[
-    {
-        "id": 1,
-        "nom": "Licence 1",
-        "duree_mois": 12,
-        "filiere": {
+                "nom": "Informatique",
+                "etablissement_id": 1
+            }
+        },
+        {
             "id": 2,
-            "nom": "Informatique",
-            "etablissement_id": 1
-        }
-    },
-    {
-        "id": 2,
-        "nom": "Licence 2",
-        "duree_mois": 12,
-        "filiere": {
-            "id": 2,
-            "nom": "Informatique",
-            "etablissement_id": 1
-        }
-    }
-]
-```
-
-### Lister les matières d'un niveau d'étude - `GET /etablissements/:id/filieres/:filiereId/niveau-etude/:niveauId/matieres`
-Obtenir toutes les matières associées à un niveau d'étude spécifique.
-
-**Permissions requises:** Utilisateur authentifié
-
-```http
-GET /etablissements/1/filieres/2/niveau-etude/3/matieres
-Authorization: Bearer <token>
-```
-Response (200 OK):
-```json
-[
-    {
-        "id": 1,
-        "nom": "Algorithmique",
-        "description": "Introduction aux algorithmes",
-        "niveau_etude": {
-            "id": 3,
-            "nom": "Licence 1",
+            "nom": "Licence 2",
             "duree_mois": 12,
             "filiere": {
                 "id": 2,
@@ -514,38 +507,33 @@ Response (200 OK):
                 "etablissement_id": 1
             }
         }
-    }
-]
+    ],
+    "total": 2,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+}
 ```
 
-### Lister les épreuves d'une matière - `GET /etablissements/:id/filieres/:filiereId/niveau-etude/:niveauId/matieres/:matiereId/epreuves`
-Obtenir toutes les épreuves associées à une matière spécifique.
+### Lister les matières d'un niveau d'étude - `GET /etablissements/:id/filieres/:filiereId/niveau-etude/:niveauId/matieres`
+Obtenir toutes les matières associées à un niveau d'étude spécifique avec pagination.
 
 **Permissions requises:** Utilisateur authentifié
 
-**Note de sécurité:** Les informations du professeur sont limitées au nom, prénom et téléphone uniquement.
+**Paramètres de requête:**
+- `page` (optionnel, défaut: 1) : Numéro de la page
+- `limit` (optionnel, défaut: 10) : Nombre d'éléments par page
 
 ```http
-GET /etablissements/1/filieres/2/niveau-etude/3/matieres/5/epreuves
+GET /etablissements/1/filieres/2/niveau-etude/3/matieres?page=1&limit=10
 Authorization: Bearer <token>
 ```
 Response (200 OK):
 ```json
-[
-    {
-        "id": 1,
-        "titre": "Examen Final",
-        "url": "https://exemple.com/exam.pdf",
-        "duree_minutes": 180,
-        "date_creation": "2025-11-09T10:30:00Z",
-        "date_publication": "2025-12-01T14:00:00Z",
-        "professeur": {
-            "nom": "Dupont",
-            "prenom": "Jean",
-            "telephone": "+33123456789"
-        },
-        "matiere": {
-            "id": 5,
+{
+    "data": [
+        {
+            "id": 1,
             "nom": "Algorithmique",
             "description": "Introduction aux algorithmes",
             "niveau_etude": {
@@ -559,9 +547,32 @@ Response (200 OK):
                 }
             }
         }
-    }
-]
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+}
 ```
+
+
+### Lister les ressources d'un niveau d'étude - `GET /etablissements/:id/filieres/:filiereId/niveau-etude/:niveauId/ressources`
+Obtenir toutes les ressources associées à un niveau d'étude avec filtrage optionnel.
+
+**Permissions requises:** Utilisateur authentifié
+
+**Paramètres de requête:**
+- `page` (optionnel, défaut: 1) : Numéro de la page
+- `limit` (optionnel, défaut: 10) : Nombre d'éléments par page
+- `titre` (optionnel) : Filtrer par titre
+- `type` (optionnel) : Filtrer par type (Document, Quiz, Exercices)
+- `matiere` (optionnel) : Filtrer par nom de la matière
+
+```http
+GET /etablissements/1/filieres/2/niveau-etude/3/ressources?page=1&limit=10&type=Document
+Authorization: Bearer <token>
+```
+Response (200 OK): Format identique à `GET /ressources` (réponse paginée)
 
 ### Lister les filières - `GET /filieres`
 Obtenir la liste de toutes les filières.
@@ -926,47 +937,81 @@ Response (200 OK):
 ```
 
 ### Lister les épreuves - `GET /epreuves`
-Obtenir la liste de toutes les épreuves.
+Obtenir la liste de toutes les épreuves avec pagination et filtres optionnels.
 
-**Note de sécurité:** Les informations du professeur sont limitées au nom, prénom et téléphone uniquement. Les données sensibles (email, mot de passe, etc.) ne sont jamais exposées dans les réponses API.
+**Paramètres de requête:**
+- `page` (optionnel, défaut: 1) : Numéro de la page
+- `limit` (optionnel, défaut: 10) : Nombre d'éléments par page
+- `titre` (optionnel) : Filtrer par titre (recherche partielle)
+- `type` (optionnel) : Filtrer par type (`Interrogation`, `Devoirs`, `Concours`, `Examens`)
+- `matiere` (optionnel) : Filtrer par nom de la matière
 
 ```http
-GET /epreuves
+GET /epreuves?page=1&limit=10&titre=math&type=Examens
 Authorization: Bearer <token>
 ```
 Response (200 OK):
 ```json
-[
-    {
-        "id": 1,
-        "titre": "Examen Final",
-        "url": "https://exemple.com/exam.pdf",
-        "duree_minutes": 180,
-        "date_creation": "2025-11-09T10:30:00Z",
-        "date_publication": "2025-12-01T14:00:00Z",
-        "professeur": {
-            "nom": "Dupont",
-            "prenom": "Jean",
-            "telephone": "+33123456789"
-        },
-        "matiere": {
+{
+    "data": [
+        {
             "id": 1,
-            "nom": "Algorithmique",
-            "description": "Introduction aux algorithmes",
-            "niveau_etude": {
+            "titre": "Épreuve de Mathématiques",
+            "url": "https://exemple.com/fichier.pdf",
+            "duree_minutes": 120,
+            "date_creation": "2024-03-20T10:00:00Z",
+            "date_publication": "2024-03-21T08:00:00Z",
+            "nombre_pages": 5,
+            "nombre_telechargements": 12,
+            "type": "Examens",
+            "professeur": {
+                "nom": "Dupont",
+                "prenom": "Jean",
+                "telephone": "+33612345678"
+            },
+            "matiere": {
                 "id": 1,
-                "nom": "License 3",
-                "duree_mois": 12,
-                "filiere": {
+                "nom": "Mathématiques",
+                "description": "Cours de mathématiques niveau lycée",
+                "niveau_etude": {
                     "id": 1,
-                    "nom": "Informatique",
-                    "etablissement_id": 1
+                    "nom": "Terminale C",
+                    "duree_mois": 9,
+                    "filiere": {
+                        "id": 1,
+                        "nom": "Enseignement Général",
+                        "etablissement_id": 1
+                    }
                 }
             }
         }
-    }
-]
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+}
 ```
+
+### Télécharger une épreuve - `GET /epreuves/:id/telechargement`
+Télécharger le fichier associé à une épreuve.
+
+**Permissions requises:** Utilisateur authentifié
+
+```http
+GET /epreuves/1/telechargement
+Authorization: Bearer <token>
+```
+
+Response (200 OK): Contenu binaire du fichier
+
+En-têtes de réponse:
+- `Content-Type`: Type MIME du fichier (ex: `application/pdf`)
+- `Content-Disposition`: `attachment; filename="exam.pdf"`
+
+Codes d'erreur possibles:
+- `404 Not Found` – Épreuve introuvable
+- `400 Bad Request` – L'épreuve n'a pas de fichier associé
 
 ### Obtenir une épreuve - `GET /epreuves/:id`
 Obtenir les détails d'une épreuve spécifique.
@@ -1017,6 +1062,8 @@ Créer une nouvelle épreuve.
 - `duree_minutes` (requis) : Durée de l'épreuve en minutes (nombre)
 - `matiere_id` (requis) : ID de la matière (nombre)
 - `date_publication` (facultatif) : Date de publication future (format ISO 8601)
+- `nombre_pages` (facultatif) : Nombre de pages (nombre)
+- `type` (facultatif) : Type d'épreuve (valeurs: `Interrogation`, `Devoirs`, `Concours`, `Examens`)
 
 ```http
 POST /epreuves
@@ -1028,7 +1075,9 @@ Content-Type: application/json
     "url": "https://exemple.com/exam.pdf",
     "duree_minutes": 180,                        // Doit être un nombre
     "matiere_id": 1,                             // Doit être un nombre
-    "date_publication": "2025-12-01T14:00:00Z"   // Facultatif, format date ISO 8601
+    "date_publication": "2025-12-01T14:00:00Z",   // Facultatif, format date ISO 8601
+    "nombre_pages": 5,                           // Facultatif
+    "type": "Examens"                            // Facultatif
 }
 ```
 Response (201 Created):
@@ -1056,6 +1105,8 @@ Modifier une épreuve existante.
 - `duree_minutes` (facultatif) : Durée de l'épreuve en minutes (nombre)
 - `matiere_id` (facultatif) : ID de la matière (nombre)
 - `date_publication` (facultatif) : Date de publication future (format ISO 8601)
+- `nombre_pages` (facultatif) : Nombre de pages (nombre)
+- `type` (facultatif) : Type d'épreuve (valeurs: `Interrogation`, `Devoirs`, `Concours`, `Examens`)
 
 ```http
 PUT /epreuves/1
@@ -1099,47 +1150,83 @@ Response (200 OK):
 ```
 
 ### Lister les ressources - `GET /ressources`
-Obtenir la liste de toutes les ressources.
+Obtenir la liste de toutes les ressources avec pagination.
 
 **Note de sécurité:** Les informations du professeur sont limitées au nom, prénom et téléphone uniquement. Les données sensibles (email, mot de passe, etc.) ne sont jamais exposées dans les réponses API.
 
+**Paramètres de requête:**
+- `page` (optionnel, défaut: 1) : Numéro de la page
+- `limit` (optionnel, défaut: 10) : Nombre d'éléments par page
+- `titre` (optionnel) : Filtrer par titre de la ressource
+- `type` (optionnel) : Filtrer par type (Document, Quiz, Exercices)
+- `matiere` (optionnel) : Filtrer par nom de la matière
+
 ```http
-GET /ressources
+GET /ressources?page=1&limit=10&type=Document
 Authorization: Bearer <token>
 ```
 Response (200 OK):
 ```json
-[
-    {
-        "id": 1,
-        "titre": "Support de cours",
-        "type": "Document",
-        "url": "https://exemple.com/support.pdf",
-        "date_creation": "2025-11-09T10:30:00Z",
-        "date_publication": "2025-12-01T14:00:00Z",
-        "professeur": {
-            "nom": "Dupont",
-            "prenom": "Jean",
-            "telephone": "+33123456789"
-        },
-        "matiere": {
+{
+    "data": [
+        {
             "id": 1,
-            "nom": "Algorithmique",
-            "description": "Introduction aux algorithmes",
-            "niveau_etude": {
+            "titre": "Support de cours",
+            "type": "Document",
+            "url": "https://exemple.com/support.pdf",
+            "nombre_pages": 15,
+            "nombre_telechargements": 102,
+            "date_creation": "2025-11-09T10:30:00Z",
+            "date_publication": "2025-12-01T14:00:00Z",
+            "professeur": {
+                "nom": "Dupont",
+                "prenom": "Jean",
+                "telephone": "+33123456789"
+            },
+            "matiere": {
                 "id": 1,
-                "nom": "License 3",
-                "duree_mois": 12,
-                "filiere": {
+                "nom": "Algorithmique",
+                "description": "Introduction aux algorithmes",
+                "niveau_etude": {
                     "id": 1,
-                    "nom": "Informatique",
-                    "etablissement_id": 1
+                    "nom": "License 3",
+                    "duree_mois": 12,
+                    "filiere": {
+                        "id": 1,
+                        "nom": "Informatique",
+                        "etablissement_id": 1
+                    }
                 }
             }
         }
-    }
-]
+    ],
+    "total": 50,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 5
+}
 ```
+
+### Télécharger une ressource - `GET /ressources/:id/telechargement`
+Télécharger le fichier associé à une ressource.
+
+**Permissions requises:** Utilisateur authentifié
+
+```http
+GET /ressources/1/telechargement
+Authorization: Bearer <token>
+```
+
+Response (200 OK): Contenu binaire du fichier
+
+En-têtes de réponse:
+- `Content-Type`: Type MIME du fichier (ex: `application/pdf`)
+- `Content-Disposition`: `attachment; filename="support.pdf"`
+
+Codes d'erreur possibles:
+- `404 Not Found` – Ressource introuvable
+- `400 Bad Request` – La ressource n'a pas de fichier associé
+
 
 ### Obtenir une ressource - `GET /ressources/:id`
 Obtenir les détails d'une ressource spécifique.
@@ -1189,6 +1276,7 @@ Créer une nouvelle ressource.
 - `type` (requis) : Type de ressource (valeurs acceptées : `Document`, `Quiz`, `Exercices`)
 - `url` (requis) : URL du fichier de la ressource
 - `matiere_id` (requis) : ID de la matière (nombre)
+- `nombre_pages` (facultatif) : Nombre de pages (nombre)
 - `date_publication` (facultatif) : Date de publication future (format ISO 8601)
 
 ```http
@@ -1201,6 +1289,7 @@ Content-Type: application/json
     "type": "Document",                          // Document, Quiz, ou Exercices
     "url": "https://exemple.com/support.pdf",
     "matiere_id": 1,                             // Doit être un nombre
+    "nombre_pages": 15,                          // Facultatif
     "date_publication": "2025-12-01T14:00:00Z"   // Facultatif, format date ISO 8601
 }
 ```
@@ -1228,6 +1317,7 @@ Modifier une ressource existante.
 - `type` (facultatif) : Type de ressource (valeurs acceptées : `Document`, `Quiz`, `Exercices`)
 - `url` (facultatif) : URL du fichier de la ressource
 - `matiere_id` (facultatif) : ID de la matière (nombre)
+- `nombre_pages` (facultatif) : Nombre de pages (nombre)
 - `date_publication` (facultatif) : Date de publication future (format ISO 8601)
 
 ```http
@@ -1238,6 +1328,7 @@ Content-Type: application/json
 {
     "titre": "Support de cours - Version 2",
     "type": "Document",
+    "nombre_pages": 20,
     "date_publication": "2025-12-10T14:00:00Z"
 }
 ```
@@ -1401,39 +1492,78 @@ Codes d'erreur possibles :
 ## Points d'accès Publicités
 
 ### Lister les publicités - `GET /publicites`
-Obtenir la liste de toutes les publicités (accès public).
+Obtenir la liste des publicités avec pagination et filtrage.
+
+**Paramètres de requête:**
+- `page` (optionnel, défaut: 1) : Numéro de la page
+- `limit` (optionnel, défaut: 10) : Nombre d'éléments par page
+- `titre` (optionnel) : Filtrer par titre (recherche partielle)
 
 ```http
-GET /publicites
+GET /publicites?page=1&limit=10&titre=Promo
+Authorization: Bearer <token>
 ```
+
 Response (200 OK):
 ```json
-[
-    {
-        "id": 1,
-        "titre": "Nouvelle formation disponible",
-        "image_video": "https://storage.googleapis.com/bucket/publicites/1/banner.jpg",
-        "lien": "https://exemple.com/formation",
-        "ordre": 1,
-        "actif": true,
-        "date_creation": "2025-12-06T01:00:00Z"
-    }
-]
+{
+    "data": [
+        {
+            "id": 1,
+            "titre": "Publicité 1",
+            "image": "https://storage.googleapis.com/...",
+            "media": "https://promo.com/video.mp4",
+            "type_media": "Video",
+            "ordre": 1,
+            "actif": true
+        }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+}
 ```
+
+### Télécharger le média publicitaire - `GET /publicites/:id/media`
+Télécharger le fichier média (vidéo ou image principale) associé à une publicité.
+
+```http
+GET /publicites/1/media
+```
+
+### Télécharger l'image de couverture - `GET /publicites/:id/image`
+Télécharger l'image de couverture associée à une publicité.
+
+```http
+GET /publicites/1/image
+```
+
+Response (200 OK): Contenu binaire du fichier
+
+En-têtes de réponse:
+- `Content-Type`: Type MIME du fichier (ex: `image/jpeg`, `video/mp4`)
+- `Content-Disposition`: `attachment; filename="banner.jpg"`
+
+Codes d'erreur possibles:
+- `404 Not Found` – Publicité introuvable
+- `400 Bad Request` – La publicité n'a pas de fichier associé
 
 ### Obtenir une publicité - `GET /publicites/:id`
 Obtenir les détails d'une publicité spécifique (accès public).
 
 ```http
 GET /publicites/1
+Authorization: Bearer <token>
 ```
 Response (200 OK):
 ```json
 {
     "id": 1,
     "titre": "Nouvelle formation disponible",
-    "image_video": "https://storage.googleapis.com/bucket/publicites/1/banner.jpg",
-    "lien": "https://exemple.com/formation",
+    "image": "https://storage.googleapis.com/...",
+    "media": "https://exemple.com/formation.mp4",
+    "type_media": "Video",
     "ordre": 1,
     "actif": true,
     "date_creation": "2025-12-06T01:00:00Z"
@@ -1445,21 +1575,22 @@ Créer une nouvelle publicité (admin uniquement).
 
 **Permissions requises:** Admin uniquement
 
-**Note:** L'image/vidéo doit d'abord être uploadée via `/fichiers` avec `type: "publicite"`.
-
 ```http
 POST /publicites
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-    "titre": "Nouvelle formation disponible",
-    "image_video": "https://storage.googleapis.com/bucket/publicites/1/banner.jpg",
-    "lien": "https://exemple.com/formation",
+    "titre": "Nouvelle Publicité",
+    "image": "https://storage.googleapis.com/...",
+    "media": "https://example.com/video.mp4",
+    "type_media": "Video",
     "ordre": 1,
     "actif": true
 }
 ```
+
+**Types de média valides:** `"Image"`, `"Video"`
 
 ### Modifier une publicité - `PUT /publicites/:id`
 Modifier une publicité existante (admin uniquement).
@@ -1492,27 +1623,54 @@ Authorization: Bearer <token>
 ## Points d'accès Événements
 
 ### Lister les événements - `GET /evenements`
-Obtenir la liste de tous les événements (accès public).
+Obtenir la liste de tous les événements avec pagination (accès public).
+
+**Paramètres de requête:**
+- `page` (optionnel, défaut: 1) : Numéro de la page
+- `limit` (optionnel, défaut: 10) : Nombre d'éléments par page
 
 ```http
-GET /evenements
+GET /evenements?page=1&limit=10
 ```
 Response (200 OK):
 ```json
-[
-    {
-        "id": 1,
-        "titre": "Journée Portes Ouvertes",
-        "description": "Venez découvrir notre établissement",
-        "date_heure": "2025-12-15T14:00:00Z",
-        "lieu": "Campus Principal",
-        "lien_inscription": "https://exemple.com/inscription",
-        "image": "https://storage.googleapis.com/bucket/evenements/1/event.jpg",
-        "actif": true,
-        "date_creation": "2025-12-06T01:00:00Z"
-    }
-]
+{
+    "data": [
+        {
+            "id": 1,
+            "titre": "Journée Portes Ouvertes",
+            "description": "Venez découvrir notre établissement",
+            "date_heure": "2025-12-15T14:00:00Z",
+            "lieu": "Campus Principal",
+            "lien_inscription": "https://exemple.com/inscription",
+            "image": "https://storage.googleapis.com/bucket/evenements/1/event.jpg",
+            "actif": true,
+            "date_creation": "2025-12-06T01:00:00Z"
+        }
+    ],
+    "total": 50,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 5
+}
 ```
+
+### Télécharger une image d'événement - `GET /evenements/:id/telechargement`
+Télécharger l'image associée à un événement (accès public).
+
+```http
+GET /evenements/1/telechargement
+```
+
+Response (200 OK): Contenu binaire du fichier
+
+En-têtes de réponse:
+- `Content-Type`: Type MIME du fichier (ex: `image/jpeg`)
+- `Content-Disposition`: `attachment; filename="event.jpg"`
+
+Codes d'erreur possibles:
+- `404 Not Found` – Événement introuvable
+- `400 Bad Request` – L'événement n'a pas de fichier associé
 
 ### Obtenir un événement - `GET /evenements/:id`
 Obtenir les détails d'un événement spécifique (accès public).
@@ -1569,29 +1727,72 @@ Supprimer un événement (admin uniquement).
 
 ## Points d'accès Opportunités
 
-### Lister les opportunités - `GET /opportunites`
-Obtenir la liste de toutes les opportunités (accès public).
+### Récupérer les opportunités
+`GET /opportunites`
+
+**Paramètres de requête :**
+- `page` (number, optionnel): Numéro de la page (défaut: 1).
+- `limit` (number, optionnel): Nombre d'éléments par page (défaut: 10).
+- `titre` (string, optionnel): Filtrer par titre (recherche partielle).
+- `type` (string, optionnel): Filtrer par type ('Bourses' ou 'Stages').
+- `lieu` (string, optionnel): Filtrer par lieu (recherche partielle).
+- `organisme` (string, optionnel): Filtrer par organisme (recherche partielle).
+
+**Réponse (200 OK) :**
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "titre": "Bourse d'étude au Canada",
+      "type": "Bourses",
+      "organisme": "Université de Montréal",
+      "lieu": "Canada",
+      "date_limite": "2023-12-31",
+      "image": "https://example.com/image.jpg",
+      "lien_postuler": "https://university.ca/apply",
+      "actif": true,
+      "date_creation": "2023-01-01T12:00:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 10,
+  "totalPages": 1
+}
+```
+
+### Télécharger une image d'opportunité - `GET /opportunites/:id/telechargement`
+Télécharger l'image associée à une opportunité (accès public).
 
 ```http
-GET /opportunites
+GET /opportunites/1/telechargement
 ```
-Response (200 OK):
-```json
-[
-    {
-        "id": 1,
-        "titre": "Bourse d'excellence",
-        "type": "Bourses",
-        "organisme": "Fondation XYZ",
-        "pays": "France",
-        "date_limite": "2025-12-31",
-        "image": "https://storage.googleapis.com/bucket/opportunites/bourses/1/image.jpg",
-        "lien_postuler": "https://exemple.com/postuler",
-        "actif": true,
-        "date_creation": "2025-12-06T01:00:00Z"
-    }
-]
+
+Response (200 OK): Contenu binaire du fichier
+
+En-têtes de réponse:
+- `Content-Type`: Type MIME du fichier (ex: `image/jpeg`)
+- `Content-Disposition`: `attachment; filename="image.jpg"`
+
+Codes d'erreur possibles:
+- `404 Not Found` – Opportunité introuvable
+- `400 Bad Request` – L'opportunité n'a pas de fichier associé
+
+### Lister les opportunités par type - `GET /opportunites/type/:type`
+Obtenir la liste des opportunités filtrées par type avec pagination (accès public).
+
+**Types valides:** `Bourses`, `Stages`
+
+**Paramètres de requête:**
+- `page` (optionnel, défaut: 1) : Numéro de la page
+- `limit` (optionnel, défaut: 10) : Nombre d'éléments par page
+
+```http
+GET /opportunites/type/Bourses?page=1&limit=10
 ```
+
+Response (200 OK): Format identique à `GET /opportunites` (réponse paginée)
 
 ### Obtenir une opportunité - `GET /opportunites/:id`
 Obtenir les détails d'une opportunité spécifique (accès public).
@@ -1649,89 +1850,173 @@ Supprimer une opportunité (admin uniquement).
 
 ---
 
-## Points d'accès Concours/Examens
+Response (200 OK): Contenu binaire du fichier
 
-### Lister les concours/examens - `GET /concours-examens`
-Obtenir la liste de tous les concours et examens (accès public).
+En-têtes de réponse:
+- `Content-Type`: Type MIME du fichier (ex: `application/pdf`)
+- `Content-Disposition`: `attachment; filename="annales.pdf"`
+
+Codes d'erreur possibles:
+- `404 Not Found` – Concours/examen introuvable
+- `400 Bad Request` – Le concours/examen n'a pas de fichier associé
+
+## Concours
+
+### Lister les concours - `GET /concours`
+Obtenir la liste de tous les concours avec filtrage et pagination.
+
+**Paramètres de requête:**
+- `page` (optionnel, défaut: 1) : Numéro de la page
+- `limit` (optionnel, défaut: 10) : Nombre d'éléments par page
+- `titre` (optionnel) : Filtrer par titre (recherche partielle)
+- `lieu` (optionnel) : Filtrer par lieu (recherche partielle)
+- `annee` (optionnel) : Filtrer par année (nombre exact)
 
 ```http
-GET /concours-examens
+GET /concours?page=1&limit=10&lieu=Paris
+Authorization: Bearer <token>
 ```
+
 Response (200 OK):
 ```json
-[
-    {
-        "id": 1,
-        "titre": "Concours d'entrée 2026",
-        "type": "Concours",
-        "pays": "France",
-        "niveau": "Licence",
-        "date": "2026-06-15",
-        "lieu": "Paris",
-        "image": "https://storage.googleapis.com/bucket/concours_examens/concours/1/image.jpg",
-        "rubriques": "Mathématiques, Physique, Français",
-        "fichiers_telechargeables": "https://exemple.com/annales.pdf",
-        "actif": true,
-        "date_creation": "2025-12-06T01:00:00Z"
-    }
-]
+{
+    "data": [
+        {
+            "id": 1,
+            "titre": "Concours d'entrée 2026",
+            "annee": 2026,
+            "lieu": "Paris",
+            "url": "https://storage.googleapis.com/...",
+            "nombre_page": 10,
+            "nombre_telechargements": 0
+        }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+}
 ```
 
-### Obtenir un concours/examen - `GET /concours-examens/:id`
-Obtenir les détails d'un concours/examen spécifique (accès public).
+### Lister les années - `GET /concours/annee`
+Obtenir la liste unique des années disponibles.
+Note: `/concours/annees` est également disponible comme alias.
 
 ```http
-GET /concours-examens/1
+GET /concours/annee
+Authorization: Bearer <token>
 ```
 
-### Créer un concours/examen - `POST /concours-examens`
-Créer un nouveau concours/examen (admin uniquement).
+Response (200 OK):
+```json
+[2024, 2025, 2026]
+```
+
+### Obtenir un concours - `GET /concours/:id`
+Obtenir les détails d'un concours spécifique.
+
+```http
+GET /concours/1
+Authorization: Bearer <token>
+```
+
+Response (200 OK):
+```json
+{
+    "id": 1,
+    "titre": "Concours d'entrée 2026",
+    "annee": 2026,
+    "lieu": "Paris",
+    "url": "https://storage.googleapis.com/...",
+    "nombre_page": 10,
+    "nombre_telechargements": 5
+}
+```
+
+
+### Télécharger un concours - `GET /concours/:id/telechargement`
+Télécharger le fichier associé à un concours.
+
+```http
+GET /concours/1/telechargement
+Authorization: Bearer <token>
+```
+
+Response (200 OK): Contenu binaire du fichier
+
+En-têtes de réponse:
+- `Content-Type`: Type MIME du fichier (ex: `application/pdf`)
+- `Content-Disposition`: `attachment; filename="concours.pdf"`
+
+Codes d'erreur possibles:
+- `404 Not Found` – Concours introuvable
+- `400 Bad Request` – Le concours n'a pas de fichier associé
+
+### Créer un concours - `POST /concours`
+Créer un nouveau concours (admin uniquement).
 
 **Permissions requises:** Admin uniquement
 
-**Note:** L'image doit d'abord être uploadée via `/fichiers` avec `type: "concours_examen"`.
-
 ```http
-POST /concours-examens
+POST /concours
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
     "titre": "Concours d'entrée 2026",
-    "type": "Concours",
-    "pays": "France",
-    "niveau": "Licence",
-    "date": "2026-06-15",
+    "annee": 2026,
     "lieu": "Paris",
-    "image": "https://storage.googleapis.com/bucket/concours_examens/concours/1/image.jpg",
-    "rubriques": "Mathématiques, Physique, Français",
-    "fichiers_telechargeables": "https://exemple.com/annales.pdf",
-    "actif": true
+    "url": "https://storage.googleapis.com/...",
+    "nombre_page": 12
 }
 ```
 
-**Types valides:** `"Concours"`, `"Examens"`
+Response (201 Created):
+```json
+{
+    "id": 1,
+    "titre": "Concours d'entrée 2026",
+    "annee": 2026,
+    "lieu": "Paris",
+    "url": "https://storage.googleapis.com/...",
+    "nombre_page": 12,
+    "nombre_telechargements": 0
+}
+```
 
-### Modifier un concours/examen - `PUT /concours-examens/:id`
-Modifier un concours/examen existant (admin uniquement).
+### Modifier un concours - `PUT /concours/:id`
+Modifier un concours existant (admin uniquement).
 
 **Permissions requises:** Admin uniquement
 
 ```http
-PUT /concours-examens/1
+PUT /concours/1
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
     "titre": "Concours mis à jour",
-    "actif": false
+    "nombre_page": 15
 }
 ```
 
-### Supprimer un concours/examen - `DELETE /concours-examens/:id`
-Supprimer un concours/examen (admin uniquement).
+### Supprimer un concours - `DELETE /concours/:id`
+Supprimer un concours (admin uniquement).
 
 **Permissions requises:** Admin uniquement
+
+```http
+DELETE /concours/1
+Authorization: Bearer <token>
+```
+
+Response (200 OK):
+```json
+{
+    "message": "Concours supprimé avec succès"
+}
+```
+
 
 ---
 
@@ -1877,6 +2162,63 @@ Supprimer un contact professionnel (admin uniquement).
 **Permissions requises:** Admin uniquement
 
 ---
+
+## Téléchargements de fichiers
+
+### Télécharger le logo d'un établissement - `GET /etablissements/:id/logo`
+Télécharger le logo.
+```http
+GET /etablissements/1/logo
+Authorization: Bearer <token>
+```
+
+### Télécharger le fichier d'une épreuve - `GET /epreuves/:id/telechargement`
+Télécharger le fichier associé à l'épreuve.
+```http
+GET /epreuves/1/telechargement
+Authorization: Bearer <token>
+```
+
+### Télécharger le fichier d'une ressource - `GET /ressources/:id/telechargement`
+Télécharger le fichier associé à la ressource.
+```http
+GET /ressources/1/telechargement
+Authorization: Bearer <token>
+```
+
+### Télécharger le fichier d'un concours - `GET /concours/:id/telechargement`
+Télécharger le fichier associé au concours.
+```http
+GET /concours/1/telechargement
+Authorization: Bearer <token>
+```
+
+### Télécharger l'image d'un événement - `GET /evenements/:id/telechargement`
+Télécharger l'image/fichier associé à l'événement.
+```http
+GET /evenements/1/telechargement
+Authorization: Bearer <token>
+```
+
+### Télécharger l'image d'une opportunité - `GET /opportunites/:id/telechargement`
+Télécharger l'image associée à l'opportunité.
+```http
+GET /opportunites/1/telechargement
+Authorization: Bearer <token>
+```
+
+### Télécharger les fichiers d'une publicité
+**Média (Contenu principal):**
+```http
+GET /publicites/1/media
+Authorization: Bearer <token>
+```
+
+**Image (Couverture):**
+```http
+GET /publicites/1/image
+Authorization: Bearer <token>
+```
 
 ## Réponses d'erreur
 

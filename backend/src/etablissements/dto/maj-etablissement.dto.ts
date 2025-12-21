@@ -12,4 +12,8 @@ export class MajEtablissementDto {
   @IsOptional()
   @IsString()
   code_postal?: string;
+
+  @IsOptional()
+  @IsString()
+  logo?: string;
 }

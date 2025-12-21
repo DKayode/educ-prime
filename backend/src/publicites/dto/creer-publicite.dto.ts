@@ -6,11 +6,15 @@ export class CreerPubliciteDto {
 
     @IsOptional()
     @IsUrl()
-    image_video?: string;
+    image?: string;
+
+    @IsOptional()
+    @IsString()
+    type_media?: 'Image' | 'Video';
 
     @IsOptional()
     @IsUrl()
-    lien?: string;
+    media?: string;
 
     @IsOptional()
     @IsInt()

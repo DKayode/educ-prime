@@ -33,7 +33,7 @@ export class FichiersService {
     this.logger.log(`Validated matiere: ${matiere.nom} (ID: ${matiere.id})`);
   }
 
-  private async createOrGetEpreuve(uploadData: FichierUploadData, professeurId: number): Promise<number> {
+  private async createOrGetEpreuve(uploadData: FichierUploadData, professeurId: number): Promise<Epreuve> {
     // If epreuveId is provided, validate it exists
     if (uploadData.epreuveId) {
       const epreuve = await this.epreuveRepository.findOne({
@@ -43,7 +43,7 @@ export class FichiersService {
         throw new NotFoundException(`Épreuve avec l'ID ${uploadData.epreuveId} introuvable`);
       }
       this.logger.log(`Using existing epreuve: ${epreuve.titre} (ID: ${epreuve.id})`);
-      return epreuve.id;
+      return epreuve;
     }
 
     // Create new epreuve without URL
@@ -53,8 +53,10 @@ export class FichiersService {
 
     const newEpreuve = this.epreuveRepository.create({
       titre: uploadData.epreuveTitre,
+      type: uploadData.epreuveType, // Set the type from upload data
       url: '', // Will be updated after successful upload
       duree_minutes: uploadData.dureeMinutes,
+      nombre_pages: uploadData.nombrePages || 0,
       professeur_id: professeurId,
       matiere_id: uploadData.matiereId,
       date_publication: uploadData.datePublication ? new Date(uploadData.datePublication) : null,
@@ -62,10 +64,10 @@ export class FichiersService {
 
     const savedEpreuve = await this.epreuveRepository.save(newEpreuve);
     this.logger.log(`Created new epreuve: ${savedEpreuve.titre} (ID: ${savedEpreuve.id})`);
-    return savedEpreuve.id;
+    return savedEpreuve;
   }
 
-  private async createOrGetRessource(uploadData: FichierUploadData, professeurId: number): Promise<number> {
+  private async createOrGetRessource(uploadData: FichierUploadData, professeurId: number): Promise<Ressource> {
     // If ressourceId is provided, validate it exists
     if (uploadData.ressourceId) {
       const ressource = await this.ressourceRepository.findOne({
@@ -75,7 +77,7 @@ export class FichiersService {
         throw new NotFoundException(`Ressource avec l'ID ${uploadData.ressourceId} introuvable`);
       }
       this.logger.log(`Using existing ressource: ${ressource.titre} (ID: ${ressource.id})`);
-      return ressource.id;
+      return ressource;
     }
 
     // Create new ressource without URL
@@ -89,11 +91,12 @@ export class FichiersService {
       url: '',
       professeur_id: professeurId,
       matiere_id: uploadData.matiereId,
+      nombre_pages: uploadData.nombrePages || 0,
     });
 
     const savedRessource = await this.ressourceRepository.save(newRessource);
     this.logger.log(`Created new ressource: ${savedRessource.titre} (ID: ${savedRessource.id})`);
-    return savedRessource.id;
+    return savedRessource;
   }
 
   private mapToRessourceType(type: TypeRessource): RessourceType {
@@ -135,21 +138,31 @@ export class FichiersService {
         if (!uploadData.matiereId) {
           throw new BadRequestException('matiereId est requis pour une épreuve');
         }
+        if (!uploadData.epreuveId && !uploadData.epreuveType) {
+          throw new BadRequestException('epreuveType (Interrogation, Devoirs, etc.) est requis pour créer une épreuve');
+        }
         await this.validateMatiereExists(uploadData.matiereId);
 
-        actualEpreuveId = await this.createOrGetEpreuve(uploadData, utilisateurId);
+        const epreuve = await this.createOrGetEpreuve(uploadData, utilisateurId);
+        actualEpreuveId = epreuve.id;
+
         if (!uploadData.epreuveId) {
           // We created a new epreuve, track it for rollback
           createdEntityId = actualEpreuveId;
           createdEntityType = 'epreuve';
         }
+
+        // Store reference to type for path generation
+        uploadData.epreuveType = epreuve.type;
       } else if (uploadData.type === TypeFichier.RESSOURCE) {
         if (!uploadData.matiereId) {
           throw new BadRequestException('matiereId est requis pour une ressource');
         }
         await this.validateMatiereExists(uploadData.matiereId);
 
-        actualRessourceId = await this.createOrGetRessource(uploadData, utilisateurId);
+        const ressource = await this.createOrGetRessource(uploadData, utilisateurId);
+        actualRessourceId = ressource.id;
+
         if (!uploadData.ressourceId) {
           // We created a new ressource, track it for rollback
           createdEntityId = actualRessourceId;
@@ -178,28 +191,32 @@ export class FichiersService {
         case TypeFichier.EPREUVE:
           folderPath = [
             'epreuves',
-            this.normalizePathSegment(uploadData.matiereId),
+            this.normalizePathSegment(uploadData.epreuveType),
             this.normalizePathSegment(actualEpreuveId),
             normalizedFileName,
           ].join('/');
           break;
         case TypeFichier.RESSOURCE:
           if (!uploadData.typeRessource) {
+            // fallback if typeRessource is missing but needed
+            // In createOrGetRessource we validated/mapped it. 
+            // Ideally we should have it in uploadData. If not (update case), we might need to fetch it?
+            // But for now, require it or rely on what's passed.
+            // If uploadData.typeRessource is missing here, path generation fails. 
             throw new BadRequestException('typeRessource est requis pour les ressources');
           }
           folderPath = [
             'ressources',
             this.normalizePathSegment(uploadData.typeRessource),
-            this.normalizePathSegment(uploadData.matiereId),
             this.normalizePathSegment(actualRessourceId),
             normalizedFileName,
           ].join('/');
           break;
         case TypeFichier.PUBLICITE:
-          if (!uploadData.entityId) {
-            throw new BadRequestException('entityId est requis pour les publicités');
+          if (!uploadData.entityId || !uploadData.entitySubtype) {
+            throw new BadRequestException('entityId et entitySubtype sont requis pour les publicités');
           }
-          folderPath = `publicites/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
+          folderPath = `publicites/${this.normalizePathSegment(uploadData.entityId)}/${this.normalizePathSegment(uploadData.entitySubtype)}/${normalizedFileName}`;
           break;
         case TypeFichier.EVENEMENT:
           if (!uploadData.entityId) {
@@ -213,11 +230,17 @@ export class FichiersService {
           }
           folderPath = `opportunites/${this.normalizePathSegment(uploadData.entitySubtype)}/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
           break;
-        case TypeFichier.CONCOURS_EXAMEN:
-          if (!uploadData.entityId || !uploadData.entitySubtype) {
-            throw new BadRequestException('entityId et entitySubtype (concours/examens) sont requis pour les concours/examens');
+        case TypeFichier.CONCOURS:
+          if (!uploadData.entityId) {
+            throw new BadRequestException('entityId est requis pour les concours/examens');
           }
-          folderPath = `concours-examens/${this.normalizePathSegment(uploadData.entitySubtype)}/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
+          folderPath = `concours/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
+          break;
+        case TypeFichier.ETABLISSEMENT:
+          if (!uploadData.entityId) {
+            throw new BadRequestException('entityId est requis pour les établissements');
+          }
+          folderPath = `etablissements/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
           break;
         default:
           throw new BadRequestException('Type de fichier invalide');
@@ -248,7 +271,6 @@ export class FichiersService {
         await this.epreuveRepository.update({ id: actualEpreuveId }, { url: fileUrl });
         this.logger.log(`Updated epreuve ${actualEpreuveId} with URL: ${fileUrl}`);
 
-        // Return the updated epreuve as a Fichier-like object for compatibility
         const epreuve = await this.epreuveRepository.findOne({ where: { id: actualEpreuveId } });
         return {
           id: epreuve.id,
@@ -260,7 +282,6 @@ export class FichiersService {
         await this.ressourceRepository.update({ id: actualRessourceId }, { url: fileUrl });
         this.logger.log(`Updated ressource ${actualRessourceId} with URL: ${fileUrl}`);
 
-        // Return the updated ressource as a Fichier-like object for compatibility
         const ressource = await this.ressourceRepository.findOne({ where: { id: actualRessourceId } });
         return {
           id: ressource.id,
@@ -334,6 +355,39 @@ export class FichiersService {
     } catch (error) {
       this.logger.error('Error downloading file:', error);
       throw error;
+    }
+  }
+
+  async deleteFile(fileUrl: string): Promise<void> {
+    try {
+      if (!fileUrl) return;
+
+      const bucket = this.firebaseConfig.getBucket();
+      const bucketName = bucket.name;
+      const urlPattern = new RegExp(`https://storage\\.googleapis\\.com/${bucketName}/(.+)`);
+      const match = fileUrl.match(urlPattern);
+
+      if (!match) {
+        this.logger.warn(`Skipping delete: Invalid Firebase Storage URL format: ${fileUrl}`);
+        return;
+      }
+
+      const filePath = decodeURIComponent(match[1]);
+      const file = bucket.file(filePath);
+
+      this.logger.log(`Attempting to delete file: ${filePath}`);
+
+      const [exists] = await file.exists();
+      if (!exists) {
+        this.logger.warn(`File not found in storage, skipping delete: ${filePath}`);
+        return;
+      }
+
+      await file.delete();
+      this.logger.log(`File successfully deleted: ${filePath}`);
+    } catch (error) {
+      this.logger.error(`Error deleting file: ${fileUrl}`, error);
+      // We don't throw here to ensure one failure doesn't block other cleanup tasks
     }
   }
 }

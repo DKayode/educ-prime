@@ -10,7 +10,7 @@ import { Ressource } from './ressources/entities/ressource.entity';
 import { Publicite } from './publicites/entities/publicite.entity';
 import { Evenement } from './evenements/entities/evenement.entity';
 import { Opportunite } from './opportunites/entities/opportunite.entity';
-import { ConcoursExamen } from './concours-examens/entities/concours-examen.entity';
+import { Concours } from './concours/entities/concours.entity';
 import { ContactsProfessionnel } from './contacts-professionnels/entities/contacts-professionnel.entity';
 
 @Injectable()
@@ -34,8 +34,8 @@ export class AppService {
     private evenementsRepository: Repository<Evenement>,
     @InjectRepository(Opportunite)
     private opportunitesRepository: Repository<Opportunite>,
-    @InjectRepository(ConcoursExamen)
-    private concoursExamensRepository: Repository<ConcoursExamen>,
+    @InjectRepository(Concours)
+    private concoursRepository: Repository<Concours>,
     @InjectRepository(ContactsProfessionnel)
     private contactsProfessionnelsRepository: Repository<ContactsProfessionnel>,
   ) { }
@@ -58,7 +58,7 @@ export class AppService {
         publicites: '/publicites',
         evenements: '/evenements',
         opportunites: '/opportunites',
-        concoursExamens: '/concours-examens',
+        concours: '/concours',
         contactsProfessionnels: '/contacts-professionnels',
         stats: '/stats'
       }
@@ -75,7 +75,7 @@ export class AppService {
     publicitesCount: number;
     evenementsCount: number;
     opportunitesCount: number;
-    concoursExamensCount: number;
+    concoursCount: number;
     contactsProfessionnelsCount: number;
   }> {
     const [
@@ -88,7 +88,7 @@ export class AppService {
       publicitesCount,
       evenementsCount,
       opportunitesCount,
-      concoursExamensCount,
+      concoursCount,
       contactsProfessionnelsCount,
     ] = await Promise.all([
       this.utilisateursRepository.count(),
@@ -100,7 +100,7 @@ export class AppService {
       this.publicitesRepository.count(),
       this.evenementsRepository.count(),
       this.opportunitesRepository.count(),
-      this.concoursExamensRepository.count(),
+      this.concoursRepository.count(),
       this.contactsProfessionnelsRepository.count(),
     ]);
 
@@ -114,7 +114,7 @@ export class AppService {
       publicitesCount,
       evenementsCount,
       opportunitesCount,
-      concoursExamensCount,
+      concoursCount,
       contactsProfessionnelsCount,
     };
   }

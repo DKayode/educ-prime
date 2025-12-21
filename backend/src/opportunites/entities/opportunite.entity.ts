@@ -20,7 +20,7 @@ export class Opportunite {
     organisme: string;
 
     @Column({ nullable: true })
-    pays: string;
+    lieu: string;
 
     @Column({ type: 'date', nullable: true })
     date_limite: Date;

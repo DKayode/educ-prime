@@ -1,9 +1,12 @@
 import { api } from '../api';
 import type { Filiere } from '../types';
+import type { PaginationResponse, PaginationParams } from '../types/pagination';
+import { buildPaginationQuery } from '../types/pagination';
 
 export const filieresService = {
-  async getAll(): Promise<Filiere[]> {
-    return api.get<Filiere[]>('/filieres');
+  async getAll(params?: PaginationParams & { nom?: string }): Promise<PaginationResponse<Filiere>> {
+    const query = buildPaginationQuery(params);
+    return api.get<PaginationResponse<Filiere>>(`/filieres${query}`);
   },
 
   async getById(id: number): Promise<Filiere> {

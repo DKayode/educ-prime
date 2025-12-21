@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useDebounce } from "@/hooks/use-debounce";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,37 +21,61 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { Plus, Edit, Trash2, Loader2, Search } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { filieresService } from "@/lib/services/filieres.service";
 import { etablissementsService } from "@/lib/services/etablissements.service";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Filieres() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [formData, setFormData] = useState({ nom: "", etablissement_id: "" });
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const { data: filieres = [], isLoading } = useQuery({
-    queryKey: ['filieres'],
-    queryFn: () => filieresService.getAll(),
+  const { data: filieresResponse, isLoading, isPlaceholderData } = useQuery({
+    queryKey: ['filieres', debouncedSearchQuery],
+    queryFn: () => filieresService.getAll({ nom: debouncedSearchQuery || undefined }),
+    placeholderData: keepPreviousData,
   });
+  const filieres = filieresResponse?.data || [];
 
-  const { data: etablissements = [] } = useQuery({
+  const { data: etablissementsResponse } = useQuery({
     queryKey: ['etablissements'],
     queryFn: () => etablissementsService.getAll(),
   });
+  const etablissements = etablissementsResponse?.data || [];
 
   const createMutation = useMutation({
-    mutationFn: (data: { nom: string; etablissement_id: number }) => 
+    mutationFn: (data: { nom: string; etablissement_id: number }) =>
       filieresService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['filieres'] });
-      toast.success("Filière ajoutée avec succès");
+      toast({
+        title: "Succès",
+        description: "Filière ajoutée avec succès",
+      });
       setIsDialogOpen(false);
       setFormData({ nom: "", etablissement_id: "" });
     },
     onError: () => {
-      toast.error("Erreur lors de l'ajout de la filière");
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de l'ajout de la filière",
+        variant: "destructive",
+      });
     },
   });
 
@@ -58,16 +83,33 @@ export default function Filieres() {
     mutationFn: (id: number) => filieresService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['filieres'] });
-      toast.success("Filière supprimée avec succès");
+      queryClient.invalidateQueries({ queryKey: ['filieres'] });
+      toast({
+        title: "Succès",
+        description: "Filière supprimée avec succès",
+      });
+      setDeleteId(null);
     },
-    onError: () => {
-      toast.error("Erreur lors de la suppression");
+    onError: (error: any) => {
+      const message = error.response?.status === 409
+        ? error.response.data.message
+        : "Erreur lors de la suppression";
+
+      toast({
+        title: "Erreur",
+        description: message,
+        variant: "destructive",
+      });
     },
   });
 
   const handleAddFiliere = () => {
     if (!formData.nom || !formData.etablissement_id) {
-      toast.error("Veuillez remplir tous les champs");
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs",
+        variant: "destructive",
+      });
       return;
     }
     createMutation.mutate({
@@ -100,8 +142,8 @@ export default function Filieres() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nom de la filière</Label>
-                <Input 
-                  id="name" 
+                <Input
+                  id="name"
                   placeholder="Ex: Informatique"
                   value={formData.nom}
                   onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
@@ -109,8 +151,8 @@ export default function Filieres() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="etablissement">Établissement</Label>
-                <Select 
-                  value={formData.etablissement_id} 
+                <Select
+                  value={formData.etablissement_id}
                   onValueChange={(value) => setFormData({ ...formData, etablissement_id: value })}
                 >
                   <SelectTrigger>
@@ -145,7 +187,17 @@ export default function Filieres() {
         </Dialog>
       </div>
 
-      {isLoading ? (
+      <div className="relative w-full md:w-1/3">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Rechercher une filière..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {isLoading && !isPlaceholderData ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -169,7 +221,7 @@ export default function Filieres() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => deleteMutation.mutate(filiere.id)}
+                        onClick={() => setDeleteId(filiere.id)}
                         disabled={deleteMutation.isPending}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -193,6 +245,35 @@ export default function Filieres() {
           )}
         </div>
       )}
-    </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Attention : La suppression de cette filière n'est possible que si aucun niveau d'étude n'y est associé.
+              Si des éléments dépendants existent, la suppression sera bloquée.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Suppression...
+                </>
+              ) : (
+                "Supprimer"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div >
   );
 }

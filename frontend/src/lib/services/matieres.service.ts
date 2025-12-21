@@ -1,9 +1,12 @@
 import { api } from '../api';
 import type { Matiere } from '../types';
+import type { PaginationResponse, PaginationParams } from '../types/pagination';
+import { buildPaginationQuery } from '../types/pagination';
 
 export const matieresService = {
-  async getAll(): Promise<Matiere[]> {
-    return api.get<Matiere[]>('/matieres');
+  async getAll(params?: PaginationParams): Promise<PaginationResponse<Matiere>> {
+    const query = buildPaginationQuery(params);
+    return api.get<PaginationResponse<Matiere>>(`/matieres${query}`);
   },
 
   async getById(id: string): Promise<Matiere> {

@@ -13,4 +13,7 @@ export class Etablissement {
 
   @Column({ nullable: true })
   code_postal: string;
+
+  @Column({ nullable: true })
+  logo: string;
 }

@@ -15,6 +15,10 @@ export class CreerRessourceDto {
   matiere_id: number;
 
   @IsOptional()
+  @IsNumber()
+  nombre_pages?: number;
+
+  @IsOptional()
   @IsDate()
   date_publication?: Date;
 }
