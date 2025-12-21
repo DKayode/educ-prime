@@ -4,7 +4,7 @@
 .env.production
 
 #Docker Image Orchestration
-docker-comose.dev.yml
+docker-compose.yml
 
 # Docker volumes
 postgres_data/
