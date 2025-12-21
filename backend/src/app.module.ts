@@ -18,15 +18,16 @@ import { Filiere } from './filieres/entities/filiere.entity';
 import { Matiere } from './matieres/entities/matiere.entity';
 import { Epreuve } from './epreuves/entities/epreuve.entity';
 import { Ressource } from './ressources/entities/ressource.entity';
+import { Concours } from './concours/entities/concours.entity';
 import { Publicite } from './publicites/entities/publicite.entity';
 import { Evenement } from './evenements/entities/evenement.entity';
 import { Opportunite } from './opportunites/entities/opportunite.entity';
-import { ConcoursExamen } from './concours-examens/entities/concours-examen.entity';
+
 import { ContactsProfessionnel } from './contacts-professionnels/entities/contacts-professionnel.entity';
 import { PublicitesModule } from './publicites/publicites.module';
 import { EvenementsModule } from './evenements/evenements.module';
 import { OpportunitesModule } from './opportunites/opportunites.module';
-import { ConcoursExamensModule } from './concours-examens/concours-examens.module';
+import { ConcoursModule } from './concours/concours.module';
 import { ContactsProfessionnelsModule } from './contacts-professionnels/contacts-professionnels.module';
 import { ParcoursModule } from './parcours/parcours.module';
 import { FavorisModule } from './favoris/favoris.module';
@@ -61,7 +62,7 @@ import { Favori } from './favoris/entities/favoris.entity';
       Publicite,
       Evenement,
       Opportunite,
-      ConcoursExamen,
+      Concours,
       ContactsProfessionnel,
       Parcour,
       Commentaire,
@@ -80,7 +81,7 @@ import { Favori } from './favoris/entities/favoris.entity';
     PublicitesModule,
     EvenementsModule,
     OpportunitesModule,
-    ConcoursExamensModule,
+    ConcoursModule,
     ContactsProfessionnelsModule,
     ParcoursModule,
     CommentairesModule,

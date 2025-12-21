@@ -12,7 +12,7 @@ export class CreerEvenementDto {
     @IsOptional()
     @Type(() => Date)
     @IsDate()
-    date_heure?: Date;
+    date?: Date;
 
     @IsOptional()
     @IsString()

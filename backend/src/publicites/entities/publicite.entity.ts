@@ -9,10 +9,17 @@ export class Publicite {
     titre: string;
 
     @Column({ type: 'text', nullable: true })
-    image_video: string;
+    image: string;
+
+    @Column({
+        type: 'enum',
+        enum: ['Image', 'Video'],
+        nullable: true
+    })
+    type_media: 'Image' | 'Video';
 
     @Column({ type: 'text', nullable: true })
-    lien: string;
+    media: string;
 
     @Column({ default: 0 })
     ordre: number;

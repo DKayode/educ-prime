@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { NiveauEtudeService } from './niveau-etude.service';
 import { CreerNiveauEtudeDto } from './dto/creer-niveau-etude.dto';
 import { MajNiveauEtudeDto } from './dto/maj-niveau-etude.dto';
 import { NiveauEtudeResponseDto } from './dto/niveau-etude-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { FilterNiveauEtudeDto } from './dto/filter-niveau-etude.dto';
 
 @Controller('niveau-etude')
 export class NiveauEtudeController {
@@ -17,8 +19,8 @@ export class NiveauEtudeController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async findAll(): Promise<NiveauEtudeResponseDto[]> {
-    return this.niveauEtudeService.findAll();
+  async findAll(@Query() filterDto: FilterNiveauEtudeDto) {
+    return this.niveauEtudeService.findAll(filterDto);
   }
 
   @UseGuards(JwtAuthGuard)

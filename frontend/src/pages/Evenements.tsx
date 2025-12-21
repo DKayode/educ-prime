@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Calendar, Plus, Pencil, Trash2, Loader2, Eye } from "lucide-react";
 import { evenementsService, type Evenement } from "@/lib/services/evenements.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ import { Badge } from "@/components/ui/badge";
 interface EvenementFormData {
     titre: string;
     description?: string;
-    date_heure?: string;
+    date?: string;
     lieu?: string;
     lien_inscription?: string;
     image?: string;
@@ -56,7 +56,7 @@ export default function Evenements() {
     const [formData, setFormData] = useState<EvenementFormData>({
         titre: "",
         description: "",
-        date_heure: "",
+        date: "",
         lieu: "",
         lien_inscription: "",
         image: "",
@@ -65,13 +65,18 @@ export default function Evenements() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
 
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [previewTitle, setPreviewTitle] = useState("");
+
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
-    const { data: evenements = [], isLoading } = useQuery({
+    const { data: evenementsResponse, isLoading } = useQuery({
         queryKey: ["evenements"],
         queryFn: () => evenementsService.getAll(),
     });
+    const evenements = evenementsResponse?.data || [];
 
     const createMutation = useMutation({
         mutationFn: (data: EvenementFormData) => evenementsService.create(data),
@@ -79,7 +84,7 @@ export default function Evenements() {
             queryClient.invalidateQueries({ queryKey: ["evenements"] });
             queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
             setIsCreateDialogOpen(false);
-            setFormData({ titre: "", description: "", date_heure: "", lieu: "", lien_inscription: "", image: "", actif: true });
+            setFormData({ titre: "", description: "", date: "", lieu: "", lien_inscription: "", image: "", actif: true });
             setSelectedFile(null);
             toast({ title: "Succès", description: "Événement créé avec succès" });
         },
@@ -130,6 +135,7 @@ export default function Evenements() {
             const createdEvenement = await evenementsService.create({
                 ...formData,
                 image: formData.image || undefined,
+                lien_inscription: formData.lien_inscription || undefined,
             });
 
             // Step 2: Upload file if selected
@@ -156,7 +162,7 @@ export default function Evenements() {
             queryClient.invalidateQueries({ queryKey: ["evenements"] });
             queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
             setIsCreateDialogOpen(false);
-            setFormData({ titre: "", description: "", date_heure: "", lieu: "", lien_inscription: "", image: "", actif: true });
+            setFormData({ titre: "", description: "", date: "", lieu: "", lien_inscription: "", image: "", actif: true });
             setSelectedFile(null);
             toast({ title: "Succès", description: "Événement créé avec succès" });
         } catch (error: any) {
@@ -166,13 +172,85 @@ export default function Evenements() {
         }
     };
 
-    const handleEdit = (e: React.FormEvent) => {
+
+
+    const handleEditSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (editingEvenement) {
-            updateMutation.mutate({
-                id: editingEvenement.id.toString(),
-                data: editingEvenement,
+        if (!editingEvenement) return;
+        setIsUploading(true);
+
+        try {
+            // Step 1: Update entity fields
+            await evenementsService.update(editingEvenement.id.toString(), {
+                titre: editingEvenement.titre,
+                description: editingEvenement.description,
+                date: editingEvenement.date,
+                lieu: editingEvenement.lieu,
+                actif: editingEvenement.actif,
+                image: editingEvenement.image || undefined,
+                lien_inscription: editingEvenement.lien_inscription || undefined,
             });
+
+            // Step 2: Upload file if selected
+            if (selectedFile) {
+                // Keep track of old image URL for deletion
+                const oldImageUrl = editingEvenement.image;
+
+                const uploadResult = await fichiersService.uploadImage({
+                    file: selectedFile,
+                    type: 'EVENEMENT',
+                    entityId: editingEvenement.id,
+                });
+
+                // Step 3: Update with new image URL
+                await evenementsService.update(editingEvenement.id.toString(), {
+                    image: uploadResult.url
+                });
+
+                // Step 4: Delete old file if it existed
+                if (oldImageUrl) {
+                    try {
+                        await fichiersService.deleteFile(oldImageUrl);
+                        console.log("Deleted old file:", oldImageUrl);
+                    } catch (deleteError) {
+                        console.error("Failed to delete old file:", deleteError);
+                        // Non-blocking error
+                    }
+                }
+            }
+
+            // Success
+            queryClient.invalidateQueries({ queryKey: ["evenements"] });
+            setIsEditDialogOpen(false);
+            setEditingEvenement(null);
+            setSelectedFile(null); // Clear file
+            toast({ title: "Succès", description: "Événement mis à jour avec succès" });
+        } catch (error: any) {
+            toast({ title: "Erreur", description: error.message || "Échec de la mise à jour", variant: "destructive" });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handlePreview = async (item: Evenement) => {
+        try {
+            setPreviewTitle(item.titre);
+            setIsPreviewOpen(true);
+            const blob = await evenementsService.download(item.id);
+            const url = window.URL.createObjectURL(blob);
+            setPreviewUrl(url);
+        } catch (error) {
+            console.error("Preview error:", error);
+            toast({ title: "Erreur", description: "Erreur lors du chargement de l'aperçu", variant: "destructive" });
+            setIsPreviewOpen(false);
+        }
+    };
+
+    const closePreview = () => {
+        setIsPreviewOpen(false);
+        if (previewUrl) {
+            window.URL.revokeObjectURL(previewUrl);
+            setPreviewUrl(null);
         }
     };
 
@@ -227,12 +305,12 @@ export default function Evenements() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="date_heure">Date et heure</Label>
+                                        <Label htmlFor="date">Date et heure</Label>
                                         <Input
-                                            id="date_heure"
+                                            id="date"
                                             type="datetime-local"
-                                            value={formData.date_heure}
-                                            onChange={(e) => setFormData({ ...formData, date_heure: e.target.value })}
+                                            value={formData.date}
+                                            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                                         />
                                     </div>
                                     <div className="grid gap-2">
@@ -268,15 +346,6 @@ export default function Evenements() {
                                             </Badge>
                                         )}
                                     </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        Ou entrez une URL manuellement ci-dessous
-                                    </p>
-                                    <Input
-                                        id="image"
-                                        placeholder="https://..."
-                                        value={formData.image}
-                                        onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                                    />
                                 </div>
                             </div>
                             <DialogFooter>
@@ -323,7 +392,7 @@ export default function Evenements() {
                                 {evenements.map((evenement) => (
                                     <TableRow key={evenement.id}>
                                         <TableCell className="font-medium">{evenement.titre}</TableCell>
-                                        <TableCell>{evenement.date_heure ? new Date(evenement.date_heure).toLocaleDateString('fr-FR') : "—"}</TableCell>
+                                        <TableCell>{evenement.date ? new Date(evenement.date).toLocaleDateString('fr-FR') : "—"}</TableCell>
                                         <TableCell>{evenement.lieu || "—"}</TableCell>
                                         <TableCell>
                                             <Badge variant={evenement.actif ? "default" : "secondary"}>
@@ -332,6 +401,15 @@ export default function Evenements() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handlePreview(evenement)}
+                                                    title="Visualiser"
+                                                    disabled={!evenement.image}
+                                                >
+                                                    <Eye className="h-4 w-4 text-blue-500" />
+                                                </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -359,10 +437,9 @@ export default function Evenements() {
                 </CardContent>
             </Card>
 
-            {/* Edit Dialog - Similar structure */}
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent className="max-w-2xl">
-                    <form onSubmit={handleEdit}>
+                    <form onSubmit={handleEditSubmit}>
                         <DialogHeader>
                             <DialogTitle>Modifier l'événement</DialogTitle>
                         </DialogHeader>
@@ -371,9 +448,7 @@ export default function Evenements() {
                                 <Label>Titre *</Label>
                                 <Input
                                     value={editingEvenement?.titre || ""}
-                                    onChange={(e) =>
-                                        setEditingEvenement(editingEvenement ? { ...editingEvenement, titre: e.target.value } : null)
-                                    }
+                                    onChange={(e) => setEditingEvenement(editingEvenement ? { ...editingEvenement, titre: e.target.value } : null)}
                                     required
                                 />
                             </div>
@@ -381,15 +456,63 @@ export default function Evenements() {
                                 <Label>Description</Label>
                                 <Textarea
                                     value={editingEvenement?.description || ""}
-                                    onChange={(e) =>
-                                        setEditingEvenement(editingEvenement ? { ...editingEvenement, description: e.target.value } : null)
-                                    }
+                                    onChange={(e) => setEditingEvenement(editingEvenement ? { ...editingEvenement, description: e.target.value } : null)}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="grid gap-2">
+                                    <Label>Date et heure</Label>
+                                    <Input
+                                        type="datetime-local"
+                                        value={editingEvenement?.date ? new Date(editingEvenement.date).toISOString().slice(0, 16) : ""}
+                                        onChange={(e) => setEditingEvenement(editingEvenement ? { ...editingEvenement, date: e.target.value } : null)}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>Lieu</Label>
+                                    <Input
+                                        value={editingEvenement?.lieu || ""}
+                                        onChange={(e) => setEditingEvenement(editingEvenement ? { ...editingEvenement, lieu: e.target.value } : null)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Lien d'inscription</Label>
+                                <Input
+                                    value={editingEvenement?.lien_inscription || ""}
+                                    onChange={(e) => setEditingEvenement(editingEvenement ? { ...editingEvenement, lien_inscription: e.target.value } : null)}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Image (Laisser vide pour conserver l'actuelle)</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleFileChange}
+                                        className="flex-1"
+                                    />
+                                    {selectedFile && (
+                                        <Badge variant="secondary" className="self-center">
+                                            {selectedFile.name}
+                                        </Badge>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="edit-actif">Actif</Label>
+                                <input
+                                    type="checkbox"
+                                    id="edit-actif"
+                                    checked={editingEvenement?.actif || false}
+                                    onChange={(e) => setEditingEvenement(editingEvenement ? { ...editingEvenement, actif: e.target.checked } : null)}
+                                    className="h-4 w-4"
                                 />
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button type="submit" disabled={updateMutation.isPending}>
-                                {updateMutation.isPending ? (
+                            <Button type="submit" disabled={isUploading}>
+                                {isUploading ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                         Mise à jour...
@@ -430,6 +553,29 @@ export default function Evenements() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+            <Dialog open={isPreviewOpen} onOpenChange={(open) => !open && closePreview()}>
+                <DialogContent className="max-w-4xl h-[80vh]">
+                    <DialogHeader>
+                        <DialogTitle>{previewTitle}</DialogTitle>
+                        <DialogDescription>
+                            Aperçu du fichier
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex-1 h-full min-h-[60vh] w-full rounded-md border bg-muted/50">
+                        {previewUrl ? (
+                            <iframe
+                                src={previewUrl}
+                                className="w-full h-full rounded-md"
+                                title="Aperçu du fichier"
+                            />
+                        ) : (
+                            <div className="flex items-center justify-center h-full">
+                                <Loader2 className="h-8 w-8 animate-spin" />
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

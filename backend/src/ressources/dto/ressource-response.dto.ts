@@ -5,6 +5,8 @@ export class RessourceResponseDto {
     url: string;
     date_creation: Date;
     date_publication: Date;
+    nombre_pages: number;
+    nombre_telechargements: number;
     professeur: {
         nom: string;
         prenom: string;

@@ -9,8 +9,13 @@ import { Matiere } from '../matieres/entities/matiere.entity';
 import { Epreuve } from '../epreuves/entities/epreuve.entity';
 import { Ressource } from '../ressources/entities/ressource.entity';
 
+import { FichiersModule } from '../fichiers/fichiers.module';
+
 @Module({
-  imports: [TypeOrmModule.forFeature([Etablissement, Filiere, NiveauEtude, Matiere, Epreuve, Ressource])],
+  imports: [
+    TypeOrmModule.forFeature([Etablissement, Filiere, NiveauEtude, Matiere, Epreuve, Ressource]),
+    FichiersModule
+  ],
   controllers: [EtablissementsController],
   providers: [EtablissementsService],
 })

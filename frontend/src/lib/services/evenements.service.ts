@@ -1,10 +1,12 @@
 import { api } from '../api';
+import type { PaginationResponse, PaginationParams } from '../types/pagination';
+import { buildPaginationQuery } from '../types/pagination';
 
 export interface Evenement {
     id: number;
     titre: string;
     description?: string;
-    date_heure?: string;
+    date?: string;
     lieu?: string;
     lien_inscription?: string;
     image?: string;
@@ -13,8 +15,9 @@ export interface Evenement {
 }
 
 export const evenementsService = {
-    async getAll(): Promise<Evenement[]> {
-        return api.get<Evenement[]>('/evenements');
+    async getAll(params?: PaginationParams): Promise<PaginationResponse<Evenement>> {
+        const query = buildPaginationQuery(params);
+        return api.get<PaginationResponse<Evenement>>(`/evenements${query}`);
     },
 
     async getById(id: string): Promise<Evenement> {
@@ -24,7 +27,7 @@ export const evenementsService = {
     async create(data: {
         titre: string;
         description?: string;
-        date_heure?: string;
+        date?: string;
         lieu?: string;
         lien_inscription?: string;
         image?: string;
@@ -36,13 +39,17 @@ export const evenementsService = {
     async update(id: string, data: Partial<{
         titre: string;
         description: string;
-        date_heure: string;
+        date: string;
         lieu: string;
         lien_inscription: string;
         image: string;
         actif: boolean;
     }>): Promise<Evenement> {
         return api.put<Evenement>(`/evenements/${id}`, data);
+    },
+
+    async download(id: number | string): Promise<Blob> {
+        return api.download(`/evenements/${id}/telechargement`);
     },
 
     async delete(id: string): Promise<void> {

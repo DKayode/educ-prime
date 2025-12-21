@@ -1,3 +1,5 @@
+import { EpreuveType } from '../entities/epreuve.entity';
+
 export class EpreuveResponseDto {
     id: number;
     titre: string;
@@ -5,6 +7,9 @@ export class EpreuveResponseDto {
     duree_minutes: number;
     date_creation: Date;
     date_publication: Date;
+    nombre_pages: number;
+    nombre_telechargements: number;
+    type: EpreuveType;
     professeur: {
         nom: string;
         prenom: string;

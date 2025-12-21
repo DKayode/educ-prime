@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { ContactsProfessionnel } from './entities/contacts-professionnel.entity';
 import { CreerContactsProfessionnelDto } from './dto/create-contacts-professionnel.dto';
 import { UpdateContactsProfessionnelDto } from './dto/update-contacts-professionnel.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 
 @Injectable()
 export class ContactsProfessionnelsService {
@@ -22,13 +24,25 @@ export class ContactsProfessionnelsService {
     return saved;
   }
 
-  async findAll() {
-    this.logger.log('Récupération de tous les contacts professionnels');
-    const contacts = await this.contactsProfessionnelRepository.find({
+  async findAll(paginationDto: PaginationDto): Promise<PaginationResponse<ContactsProfessionnel>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    this.logger.log(`Récupération des contacts professionnels - Page: ${page}, Limite: ${limit}`);
+
+    const [contacts, total] = await this.contactsProfessionnelRepository.findAndCount({
       order: { date_creation: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
-    this.logger.log(`${contacts.length} contact(s) professionnel(s) trouvé(s)`);
-    return contacts;
+
+    this.logger.log(`${contacts.length} contact(s) professionnel(s) trouvé(s) sur ${total} total`);
+
+    return {
+      data: contacts,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: number) {

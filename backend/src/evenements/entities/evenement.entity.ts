@@ -12,7 +12,7 @@ export class Evenement {
     description: string;
 
     @Column({ type: 'timestamp with time zone', nullable: true })
-    date_heure: Date;
+    date: Date;
 
     @Column({ nullable: true })
     lieu: string;

@@ -10,7 +10,7 @@ export interface DashboardStats {
   publicitesCount: number;
   evenementsCount: number;
   opportunitesCount: number;
-  concoursExamensCount: number;
+  concoursCount: number;
   contactsProfessionnelsCount: number;
   storageUsed: number; // in bytes
 }

@@ -17,7 +17,7 @@ import Ressources from "./pages/Ressources";
 import Publicites from "./pages/Publicites";
 import Evenements from "./pages/Evenements";
 import Opportunites from "./pages/Opportunites";
-import ConcoursExamens from "./pages/ConcoursExamens";
+import Concours from "./pages/Concours";
 import ContactsProfessionnels from "./pages/ContactsProfessionnels";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
@@ -51,7 +51,7 @@ const App = () => (
                       <Route path="/publicites" element={<Publicites />} />
                       <Route path="/evenements" element={<Evenements />} />
                       <Route path="/opportunites" element={<Opportunites />} />
-                      <Route path="/concours-examens" element={<ConcoursExamens />} />
+                      <Route path="/concours" element={<Concours />} />
                       <Route path="/contacts-professionnels" element={<ContactsProfessionnels />} />
                       <Route path="/settings" element={<Settings />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -16,6 +16,12 @@ export class Ressource {
   @Column()
   titre: string;
 
+  @Column()
+  nombre_pages: number;
+
+  @Column()
+  nombre_telechargements: number;
+
   @Column({ type: 'enum', enum: RessourceType })
   type: RessourceType;
 

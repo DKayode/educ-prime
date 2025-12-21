@@ -1,4 +1,5 @@
 import { TypeFichier, TypeRessource } from '../entities/fichier.entity';
+import { EpreuveType } from '../../epreuves/entities/epreuve.entity';
 import { IsEnum, IsOptional, IsString, IsIn } from 'class-validator';
 
 /**
@@ -8,7 +9,7 @@ import { IsEnum, IsOptional, IsString, IsIn } from 'class-validator';
  */
 export class CreerFichierDto {
   @IsIn(Object.values(TypeFichier), {
-    message: 'type must be one of the following values: profile, epreuve, ressource, PUBLICITE, EVENEMENT, OPPORTUNITE, CONCOURS_EXAMEN'
+    message: 'type must be one of the following values: profile, epreuve, ressource, PUBLICITE, EVENEMENT, OPPORTUNITE, CONCOURS, ETABLISSEMENT'
   })
   readonly type: TypeFichier;
 
@@ -30,12 +31,24 @@ export class CreerFichierDto {
   // Fields for creating new epreuve
   @IsString()
   @IsOptional()
+  @IsString()
+  @IsOptional()
   readonly epreuveTitre?: string;
+
+  @IsEnum(EpreuveType, {
+    message: 'epreuveType must be a valid EpreuveType value'
+  })
+  @IsOptional()
+  readonly epreuveType?: EpreuveType;
 
   // Received as string from FormData
   @IsString()
   @IsOptional()
   readonly dureeMinutes?: string;
+
+  @IsString()
+  @IsOptional()
+  readonly nombrePages?: string;
 
   @IsString()
   @IsOptional()

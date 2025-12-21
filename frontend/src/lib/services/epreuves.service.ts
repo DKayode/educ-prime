@@ -1,41 +1,38 @@
 import { api } from '../api';
 import type { Epreuve } from '../types';
+import type { PaginationResponse, PaginationParams } from '../types/pagination';
+import { buildPaginationQuery } from '../types/pagination';
 
 export const epreuvesService = {
-  async getAll(): Promise<Epreuve[]> {
-    return api.get<Epreuve[]>('/epreuves');
+  async getAll(params?: PaginationParams & { titre?: string; type?: string }): Promise<PaginationResponse<Epreuve>> {
+    const query = buildPaginationQuery(params);
+    return api.get<PaginationResponse<Epreuve>>(`/epreuves${query}`);
   },
 
   async getById(id: string): Promise<Epreuve> {
     return api.get<Epreuve>(`/epreuves/${id}`);
   },
 
-  async getByFiliere(filiereId: string): Promise<Epreuve[]> {
-    return api.get<Epreuve[]>(`/epreuves/filiere/${filiereId}`);
+  async getByFiliere(filiereId: string, params?: PaginationParams): Promise<PaginationResponse<Epreuve>> {
+    const query = buildPaginationQuery(params);
+    return api.get<PaginationResponse<Epreuve>>(`/epreuves/filiere/${filiereId}${query}`);
   },
 
-  async getByMatiere(matiereId: string): Promise<Epreuve[]> {
-    return api.get<Epreuve[]>(`/epreuves/matiere/${matiereId}`);
+  async getByMatiere(matiereId: string, params?: PaginationParams): Promise<PaginationResponse<Epreuve>> {
+    const query = buildPaginationQuery(params);
+    return api.get<PaginationResponse<Epreuve>>(`/epreuves/matiere/${matiereId}${query}`);
   },
 
   async create(data: {
     titre: string;
-    description?: string;
-    annee_academique: string;
-    filiere_id?: string;
-    matiere_id?: string;
-    niveau_etude_id?: string;
+    matiere_id: number;
   }): Promise<Epreuve> {
     return api.post<Epreuve>('/epreuves', data);
   },
 
   async update(id: string, data: {
     titre?: string;
-    description?: string;
-    annee_academique?: string;
-    filiere_id?: string;
-    matiere_id?: string;
-    niveau_etude_id?: string;
+    matiere_id?: number;
   }): Promise<Epreuve> {
     return api.put<Epreuve>(`/epreuves/${id}`, data);
   },
@@ -47,11 +44,15 @@ export const epreuvesService = {
   async uploadFile(epreuveId: string, file: File): Promise<{ url: string }> {
     const formData = new FormData();
     formData.append('file', file);
-    
+
     return api.post<{ url: string }>(`/fichiers/epreuve/${epreuveId}`, formData);
   },
 
   async deleteFile(fileId: string): Promise<void> {
     return api.delete(`/fichiers/${fileId}`);
+  },
+
+  async download(id: number | string): Promise<Blob> {
+    return api.download(`/epreuves/${id}/telechargement`);
   },
 };

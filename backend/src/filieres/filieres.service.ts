@@ -1,9 +1,12 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like, FindOptionsWhere } from 'typeorm';
 import { Filiere } from './entities/filiere.entity';
 import { CreerFiliereDto } from './dto/creer-filiere.dto';
 import { MajFiliereDto } from './dto/maj-filiere.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
+import { FilterFiliereDto } from './dto/filter-filiere.dto';
 
 @Injectable()
 export class FilieresService {
@@ -12,7 +15,7 @@ export class FilieresService {
   constructor(
     @InjectRepository(Filiere)
     private readonly filieresRepository: Repository<Filiere>,
-  ) {}
+  ) { }
 
   async create(creerFiliereDto: CreerFiliereDto) {
     this.logger.log(`Création d'une filière: ${creerFiliereDto.nom} (Établissement ID: ${creerFiliereDto.etablissement_id})`);
@@ -25,13 +28,32 @@ export class FilieresService {
     return saved;
   }
 
-  async findAll() {
-    this.logger.log('Récupération de toutes les filières');
-    const filieres = await this.filieresRepository.find({
+  async findAll(filterDto: FilterFiliereDto): Promise<PaginationResponse<Filiere>> {
+    const { page = 1, limit = 10, nom } = filterDto;
+    this.logger.log(`Récupération des filières - Page: ${page}, Limite: ${limit}, Nom: ${nom}`);
+
+    const whereCondition: FindOptionsWhere<Filiere> = {};
+
+    if (nom) {
+      whereCondition.nom = Like(`%${nom}%`);
+    }
+
+    const [filieres, total] = await this.filieresRepository.findAndCount({
+      where: whereCondition,
       relations: ['etablissement'],
+      skip: (page - 1) * limit,
+      take: limit,
     });
-    this.logger.log(`${filieres.length} filière(s) trouvée(s)`);
-    return filieres;
+
+    this.logger.log(`${filieres.length} filière(s) trouvée(s) sur ${total} total`);
+
+    return {
+      data: filieres,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string) {
@@ -85,9 +107,16 @@ export class FilieresService {
       throw new NotFoundException('Filière non trouvée');
     }
 
-    await this.filieresRepository.remove(filiere);
-    this.logger.log(`Filière supprimée: ${filiere.nom} (ID: ${id})`);
-    return { message: 'Filière supprimée avec succès' };
+    try {
+      await this.filieresRepository.remove(filiere);
+      this.logger.log(`Filière supprimée: ${filiere.nom} (ID: ${id})`);
+      return { message: 'Filière supprimée avec succès' };
+    } catch (error) {
+      if (error.code === '23503') {
+        throw new ConflictException('Impossible de supprimer cette filière car des niveaux d\'étude y sont associés. Veuillez d\'abord supprimer les niveaux d\'étude.');
+      }
+      throw error;
+    }
   }
 
   async findByEtablissement(etablissementId: string) {

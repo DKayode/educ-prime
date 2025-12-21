@@ -28,11 +28,12 @@ export default function Dashboard() {
     staleTime: 30000, // Cache for 30 seconds
   });
 
-  const { data: filieres = [], isLoading: filieresLoading } = useQuery({
+  const { data: filieresResponse, isLoading: filieresLoading } = useQuery({
     queryKey: ['filieres'],
     queryFn: () => filieresService.getAll(),
     staleTime: 30000, // Cache for 30 seconds
   });
+  const filieres = filieresResponse?.data || [];
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -59,56 +60,56 @@ export default function Dashboard() {
         <p className="text-muted-foreground">Vue d'ensemble de votre plateforme</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Utilisateurs"
-          value={stats?.usersCount.toString() || "0"}
-          icon={Users}
-          variant="primary"
-        />
-        <StatCard
-          title="Établissements"
-          value={stats?.etablissementsCount.toString() || "0"}
-          icon={Building2}
-          variant="accent"
-        />
-        <StatCard
-          title="Filières"
-          value={stats?.filieresCount.toString() || "0"}
-          icon={BookOpen}
-          variant="success"
-        />
-        <StatCard
-          title="Matières"
-          value={stats?.matieresCount.toString() || "0"}
-          icon={BookMarked}
-        />
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Épreuves"
-          value={stats?.epreuvesCount.toString() || "0"}
-          icon={FileText}
-          variant="primary"
-        />
-        <StatCard
-          title="Ressources"
-          value={stats?.ressourcesCount.toString() || "0"}
-          icon={BookOpen}
-          variant="success"
-        />
-        <StatCard
-          title="Stockage"
-          value={formatBytes(stats?.storageUsed || 0)}
-          icon={Database}
-          variant="accent"
-        />
+      <div>
+        <h2 className="text-2xl font-semibold mb-4">Contenu Académique</h2>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Utilisateurs"
+            value={stats?.usersCount.toString() || "0"}
+            icon={Users}
+            variant="primary"
+          />
+          <StatCard
+            title="Établissements"
+            value={stats?.etablissementsCount.toString() || "0"}
+            icon={Building2}
+            variant="accent"
+          />
+          <StatCard
+            title="Filières"
+            value={stats?.filieresCount.toString() || "0"}
+            icon={BookOpen}
+            variant="success"
+          />
+          <StatCard
+            title="Matières"
+            value={stats?.matieresCount.toString() || "0"}
+            icon={BookMarked}
+          />
+          <StatCard
+            title="Épreuves"
+            value={stats?.epreuvesCount.toString() || "0"}
+            icon={FileText}
+            variant="primary"
+          />
+          <StatCard
+            title="Ressources"
+            value={stats?.ressourcesCount.toString() || "0"}
+            icon={BookOpen}
+            variant="success"
+          />
+          <StatCard
+            title="Stockage"
+            value={formatBytes(stats?.storageUsed || 0)}
+            icon={Database}
+            variant="accent"
+          />
+        </div>
       </div>
 
       <div>
         <h2 className="text-2xl font-semibold mb-4">Contenu Public</h2>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Publicités"
             value={stats?.publicitesCount.toString() || "0"}
@@ -128,8 +129,8 @@ export default function Dashboard() {
             variant="success"
           />
           <StatCard
-            title="Concours/Examens"
-            value={stats?.concoursExamensCount.toString() || "0"}
+            title="Concours"
+            value={stats?.concoursCount.toString() || "0"}
             icon={FileText}
           />
           <StatCard

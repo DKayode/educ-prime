@@ -2,6 +2,13 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 't
 import { Matiere } from '../../matieres/entities/matiere.entity';
 import { Utilisateur } from '../../utilisateurs/entities/utilisateur.entity';
 
+export enum EpreuveType {
+  INTERROGATION = 'Interrogation',
+  DEVOIRS = 'Devoirs',
+  CONCOURS = 'Concours',
+  EXAMENS = 'Examens',
+}
+
 @Entity('epreuves')
 export class Epreuve {
   @PrimaryGeneratedColumn()
@@ -10,11 +17,20 @@ export class Epreuve {
   @Column()
   titre: string;
 
+  @Column({ type: 'enum', enum: EpreuveType, nullable: true })
+  type: EpreuveType;
+
   @Column()
   url: string;
 
   @Column()
   duree_minutes: number;
+
+  @Column({ type: 'int', default: 0 })
+  nombre_pages: number;
+
+  @Column({ type: 'int', default: 0 })
+  nombre_telechargements: number;
 
   @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
   date_creation: Date;

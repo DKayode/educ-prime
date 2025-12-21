@@ -18,10 +18,11 @@ import { usersService } from "@/lib/services/users.service";
 export default function Users() {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: users = [], isLoading, error } = useQuery({
+  const { data: usersResponse, isLoading, error } = useQuery({
     queryKey: ['users'],
     queryFn: () => usersService.getAll(),
   });
+  const users = usersResponse?.data || [];
 
   const filteredUsers = users.filter(
     (user) =>

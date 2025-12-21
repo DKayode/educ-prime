@@ -1,4 +1,4 @@
-import { Controller, Post, Get, UseGuards, UseInterceptors, UploadedFile, Request, Body, Query, Res, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Delete, UseGuards, UseInterceptors, UploadedFile, Request, Body, Query, Res, HttpStatus } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import * as multer from 'multer';
@@ -32,7 +32,9 @@ export class FichiersController {
       epreuveId: body.epreuveId ? Number(body.epreuveId) : undefined,
       ressourceId: body.ressourceId ? Number(body.ressourceId) : undefined,
       epreuveTitre: body.epreuveTitre,
+      epreuveType: body.epreuveType,
       dureeMinutes: body.dureeMinutes ? Number(body.dureeMinutes) : undefined,
+      nombrePages: body.nombrePages ? Number(body.nombrePages) : undefined,
       datePublication: body.datePublication,
       ressourceTitre: body.ressourceTitre,
       entityId: body.entityId ? Number(body.entityId) : undefined,
@@ -53,5 +55,27 @@ export class FichiersController {
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.status(HttpStatus.OK).send(buffer);
+  }
+
+  @Delete('')
+  @UseGuards(JwtAuthGuard)
+  async deleteFile(@Query('url') fileUrl: string) {
+    if (!fileUrl) {
+      throw new Error('URL is required');
+    }
+    await this.fichiersService.deleteFile(fileUrl);
+    return { message: 'File deleted successfully' };
+  }
+
+  @Post('delete')
+  // @Delete() // issue sending body with delete in some clients/proxies, using POST for safety or query param with DELETE
+  // Let's use standard DELETE with query param for simple URL
+  // @Delete()
+  // But wait, user plan said DELETE / ?url=...
+  // Let's explicitly map it.
+  async deleteFileAndReturn(@Query('url') fileUrl: string) {
+    // Temporary method for internal testing or manual cleanup if needed
+    // Actually, per plan: "Add DELETE / endpoint... taking url in query".
+    return { message: 'Use the dedicated delete method via service interactions' };
   }
 }

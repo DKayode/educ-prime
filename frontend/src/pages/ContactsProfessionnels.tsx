@@ -39,10 +39,11 @@ export default function ContactsProfessionnels() {
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
-    const { data: contacts = [], isLoading } = useQuery({
+    const { data: contactsResponse, isLoading } = useQuery({
         queryKey: ["contacts-professionnels"],
         queryFn: () => contactsProfessionnelsService.getAll(),
     });
+    const contacts = contactsResponse?.data || [];
 
     const createMutation = useMutation({
         mutationFn: (data: ContactFormData) => contactsProfessionnelsService.create(data),
