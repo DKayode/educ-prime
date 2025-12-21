@@ -3,6 +3,9 @@
 .env.local
 .env.production
 
+#Docker Image Orchestration
+docker-comose.dev.yml
+
 # Docker volumes
 postgres_data/
 postgres_data_dev/

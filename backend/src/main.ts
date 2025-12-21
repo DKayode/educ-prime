@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -53,6 +54,20 @@ async function bootstrap() {
       };
     }
   }));
+
+  // Configuration Swagger
+  const config = new DocumentBuilder()
+    .setTitle('API Blog - Parcours')
+    .setDescription('API pour la gestion des parcours, commentaires, likes et favoris')
+    .setVersion('1.0')
+    .addTag('parcours')
+    .addTag('commentaires')
+    .addTag('likes')
+    .addTag('favoris')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
 
   await app.listen(3000);
 }

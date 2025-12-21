@@ -53,12 +53,21 @@ export class FirebaseConfig {
     }
   }
 
-  getBucket() {
+  getBucket(): any {
     try {
-      return admin.storage().bucket();
+      return this.getStorage().bucket();
     } catch (error) {
       this.logger.error('Failed to get Firebase bucket:', error);
       throw error;
     }
   }
+
+  // getBucket() {
+  //   try {
+  //     return admin.storage().bucket();
+  //   } catch (error) {
+  //     this.logger.error('Failed to get Firebase bucket:', error);
+  //     throw error;
+  //   }
+  // }
 }

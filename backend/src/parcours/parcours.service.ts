@@ -1,0 +1,158 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Like as TypeOrmLike, FindOptionsWhere, ILike } from 'typeorm';
+import { CreateParcourDto } from './dto/create-parcour.dto';
+import { UpdateParcourDto } from './dto/update-parcour.dto';
+import { Parcour } from './entities/parcour.entity';
+import { ParcourQueryDto } from './dto/parcour-query.dto';
+
+@Injectable()
+export class ParcoursService {
+  constructor(
+    @InjectRepository(Parcour)
+    private parcoursRepository: Repository<Parcour>,
+  ) { }
+
+  /**
+   * Crée un nouveau parcours
+   * @param createParcoursDto - Données pour créer le parcours
+   * @returns Le parcours créé
+   */
+  async create(createParcoursDto: CreateParcourDto): Promise<Parcour> {
+    const parcours = this.parcoursRepository.create(createParcoursDto);
+    return await this.parcoursRepository.save(parcours);
+  }
+
+  /**
+   * Récupère tous les parcours avec pagination et filtres
+   * @param query - Paramètres de requête (pagination, filtres)
+   * @returns Liste paginée des parcours avec métadonnées
+   */
+  async findAll(query: ParcourQueryDto): Promise<{
+    data: Parcour[];
+    meta: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const { page, limit, ...filters } = query;
+    const skip = (page - 1) * limit;
+
+    // Construction de la clause WHERE
+    const where: FindOptionsWhere<Parcour> = {};
+
+    if (filters.titre) {
+      where.titre = ILike(`%${filters.titre}%`);
+    }
+
+    if (filters.categorie) {
+      where.categorie = ILike(`%${filters.categorie}%`);
+    }
+
+    if (filters.type_media) {
+      where.type_media = filters.type_media;
+    }
+
+    // Recherche globale sur plusieurs champs
+    if (filters.search) {
+      where.titre = ILike(`%${filters.search}%`);
+      // Note: Pour rechercher sur plusieurs champs, on peut utiliser OR
+    }
+
+    // Exécution de la requête
+    const [data, total] = await this.parcoursRepository.findAndCount({
+      where,
+      order: { [filters.sortBy]: filters.order },
+      skip,
+      take: limit,
+      relations: ['commentaires', 'likes', 'favoris'],
+    });
+
+    // Ajout des compteurs
+    const parcoursWithCounts = data.map(parcours => ({
+      ...parcours,
+      commentairesCount: parcours.commentaires?.length || 0,
+      likesCount: parcours.likes?.length || 0,
+      favorisCount: parcours.favoris?.length || 0,
+    }));
+
+    return {
+      data: parcoursWithCounts,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Récupère un parcours par son ID
+   * @param id - ID du parcours
+   * @returns Le parcours trouvé
+   * @throws NotFoundException si le parcours n'existe pas
+   */
+  async findOne(id: number): Promise<Parcour> {
+    const parcours = await this.parcoursRepository.findOne({
+      where: { id },
+      relations: ['commentaires', 'likes', 'favoris'],
+    });
+
+    if (!parcours) {
+      throw new NotFoundException(`Parcours avec l'ID ${id} non trouvé`);
+    }
+
+    // Ajout des compteurs
+    return {
+      ...parcours,
+      commentairesCount: parcours.commentaires?.length || 0,
+      likesCount: parcours.likes?.length || 0,
+      favorisCount: parcours.favoris?.length || 0,
+    };
+  }
+
+  /**
+   * Met à jour un parcours existant
+   * @param id - ID du parcours à mettre à jour
+   * @param updateParcoursDto - Données de mise à jour
+   * @returns Le parcours mis à jour
+   * @throws NotFoundException si le parcours n'existe pas
+   */
+  async update(id: number, updateParcoursDto: UpdateParcourDto): Promise<Parcour> {
+    const parcours = await this.findOne(id);
+    Object.assign(parcours, updateParcoursDto);
+    return await this.parcoursRepository.save(parcours);
+  }
+
+  /**
+   * Supprime un parcours
+   * @param id - ID du parcours à supprimer
+   * @throws NotFoundException si le parcours n'existe pas
+   */
+  async remove(id: number): Promise<void> {
+    const result = await this.parcoursRepository.delete(id);
+    if (result.affected === 0) {
+      throw new NotFoundException(`Parcours avec l'ID ${id} non trouvé`);
+    }
+  }
+
+  /**
+   * Recherche des parcours par terme de recherche
+   * @param search - Terme de recherche
+   * @param limit - Nombre maximum de résultats
+   * @returns Liste des parcours correspondants
+   */
+  async search(search: string, limit: number = 10): Promise<Parcour[]> {
+    return await this.parcoursRepository.find({
+      where: [
+        { titre: ILike(`%${search}%`) },
+        { description: ILike(`%${search}%`) },
+        { categorie: ILike(`%${search}%`) },
+      ],
+      take: limit,
+    });
+  }
+}
