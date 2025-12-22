@@ -12,6 +12,7 @@ import { Evenement } from './evenements/entities/evenement.entity';
 import { Opportunite } from './opportunites/entities/opportunite.entity';
 import { Concours } from './concours/entities/concours.entity';
 import { ContactsProfessionnel } from './contacts-professionnels/entities/contacts-professionnel.entity';
+import { Parcour } from './parcours/entities/parcour.entity';
 
 @Injectable()
 export class AppService {
@@ -38,6 +39,8 @@ export class AppService {
     private concoursRepository: Repository<Concours>,
     @InjectRepository(ContactsProfessionnel)
     private contactsProfessionnelsRepository: Repository<ContactsProfessionnel>,
+    @InjectRepository(Parcour)
+    private parcoursRepository: Repository<Parcour>,
   ) { }
 
   getApiInfo(): object {
@@ -60,6 +63,7 @@ export class AppService {
         opportunites: '/opportunites',
         concours: '/concours',
         contactsProfessionnels: '/contacts-professionnels',
+        parcours: '/parcours',
         stats: '/stats'
       }
     };
@@ -77,6 +81,7 @@ export class AppService {
     opportunitesCount: number;
     concoursCount: number;
     contactsProfessionnelsCount: number;
+    parcoursCount: number
   }> {
     const [
       usersCount,
@@ -90,6 +95,7 @@ export class AppService {
       opportunitesCount,
       concoursCount,
       contactsProfessionnelsCount,
+      parcoursCount,
     ] = await Promise.all([
       this.utilisateursRepository.count(),
       this.etablissementsRepository.count(),
@@ -102,6 +108,7 @@ export class AppService {
       this.opportunitesRepository.count(),
       this.concoursRepository.count(),
       this.contactsProfessionnelsRepository.count(),
+      this.parcoursRepository.count()
     ]);
 
     return {
@@ -116,6 +123,7 @@ export class AppService {
       opportunitesCount,
       concoursCount,
       contactsProfessionnelsCount,
+      parcoursCount
     };
   }
 }

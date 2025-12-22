@@ -29,6 +29,14 @@ import { EvenementsModule } from './evenements/evenements.module';
 import { OpportunitesModule } from './opportunites/opportunites.module';
 import { ConcoursModule } from './concours/concours.module';
 import { ContactsProfessionnelsModule } from './contacts-professionnels/contacts-professionnels.module';
+import { ParcoursModule } from './parcours/parcours.module';
+import { FavorisModule } from './favoris/favoris.module';
+import { LikesModule } from './likes/likes.module';
+import { CommentairesModule } from './commentaires/commentaires.module';
+import { Parcour } from './parcours/entities/parcour.entity';
+import { Commentaire } from './commentaires/entities/commentaire.entity';
+import { Like } from './likes/entities/like.entity';
+import { Favori } from './favoris/entities/favoris.entity';
 
 @Module({
   imports: [
@@ -56,6 +64,10 @@ import { ContactsProfessionnelsModule } from './contacts-professionnels/contacts
       Opportunite,
       Concours,
       ContactsProfessionnel,
+      Parcour,
+      Commentaire,
+      Like,
+      Favori
     ]),
     AuthModule,
     UtilisateursModule,
@@ -71,6 +83,10 @@ import { ContactsProfessionnelsModule } from './contacts-professionnels/contacts
     OpportunitesModule,
     ConcoursModule,
     ContactsProfessionnelsModule,
+    ParcoursModule,
+    CommentairesModule,
+    LikesModule,
+    FavorisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

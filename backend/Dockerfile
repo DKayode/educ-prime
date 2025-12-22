@@ -8,7 +8,10 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including dev dependencies needed for build)
-RUN npm ci && npm cache clean --force
+# RUN npm ci && npm cache clean --force
+RUN npm install && npm cache clean --force
+
+
 
 # Copy source code
 COPY . .
@@ -29,7 +32,9 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
+# RUN npm ci --only=production && npm cache clean --force
+RUN npm install --only=production && npm cache clean --force
+
 
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
@@ -39,8 +44,8 @@ COPY --from=builder /app/config ./config
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001 && \
-    chown -R nestjs:nodejs /app
+  adduser -S nestjs -u 1001 && \
+  chown -R nestjs:nodejs /app
 
 # Switch to non-root user
 USER nestjs

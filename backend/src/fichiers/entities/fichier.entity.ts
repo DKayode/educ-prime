@@ -8,6 +8,8 @@ export enum TypeFichier {
   PUBLICITE = 'PUBLICITE',
   EVENEMENT = 'EVENEMENT',
   OPPORTUNITE = 'OPPORTUNITE',
+  CONCOURS_EXAMEN = 'CONCOURS_EXAMEN',
+  PARCOURS = 'PARCOURS',
   CONCOURS = 'CONCOURS',
   ETABLISSEMENT = 'ETABLISSEMENT'
 }
@@ -56,6 +58,9 @@ export class Fichier {
 
   @Column({ nullable: true })
   ressourceId?: number;
+
+  @Column({ nullable: true })
+  parcourId?: number;
 
   @ManyToOne(() => Utilisateur, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'utilisateurId' })
