@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDate, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsDate, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class CommentaireQueryDto {
     @ApiProperty({ required: false, default: 1 })
@@ -19,17 +19,17 @@ export class CommentaireQueryDto {
 
     @ApiProperty({ required: false })
     @IsOptional()
-    @IsUUID()
+    @IsInt()
     parcours_id?: number;
 
     @ApiProperty({ required: false })
     @IsOptional()
-    @IsUUID()
+    @IsInt()
     utilisateur_id?: number;
 
     @ApiProperty({ required: false })
     @IsOptional()
-    @IsUUID()
+    @IsInt()
     parent_id?: number;
 
     @ApiProperty({ required: false })
