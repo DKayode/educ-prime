@@ -12,15 +12,15 @@ export class Like {
     id: number;
 
     @ApiProperty({ description: 'ID du parcours', nullable: true })
-    @Column({ name: 'parcours_id', type: 'number', nullable: true })
+    @Column({ name: 'parcours_id', type: 'integer', nullable: true })
     parcours_id: number;
 
     @ApiProperty({ description: 'ID du commentaire', nullable: true })
-    @Column({ name: 'commentaire_id', type: 'number', nullable: true })
+    @Column({ name: 'commentaire_id', type: 'integer', nullable: true })
     commentaire_id: number;
 
     @ApiProperty({ description: 'ID de l\'utilisateur' })
-    @Column({ name: 'utilisateur_id', type: 'number' })
+    @Column({ name: 'utilisateur_id', type: 'integer' })
     utilisateur_id: number;
 
     @ApiProperty({ description: 'Date du like' })

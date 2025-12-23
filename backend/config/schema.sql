@@ -22,6 +22,12 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'publicites_type_media_enum') THEN
         CREATE TYPE publicites_type_media_enum AS ENUM ('Image', 'Video');
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'parcours_media_type_enum') THEN
+        CREATE TYPE parcours_media_type_enum AS ENUM ('image', 'video');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'likes_type_enum') THEN
+        CREATE TYPE likes_type_enum AS ENUM ('like', 'dislike');
+    END IF;
 END $$;
 
 -- ------------------------------
@@ -185,6 +191,51 @@ CREATE TABLE IF NOT EXISTS contacts_professionnels (
     reseaux_sociaux JSONB,
     actif BOOLEAN DEFAULT true,
     date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ------------------------------
+-- 8. CREATE INTERACTIVE/SOCIAL TABLES
+-- ------------------------------
+
+CREATE TABLE IF NOT EXISTS parcours (
+    id SERIAL PRIMARY KEY,
+    titre VARCHAR(255) NOT NULL,
+    image_couverture VARCHAR(500),
+    lien_video VARCHAR(500),
+    type_media parcours_media_type_enum NOT NULL,
+    categorie VARCHAR(100) NOT NULL,
+    description TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS commentaires (
+    id SERIAL PRIMARY KEY,
+    parcours_id INTEGER NOT NULL REFERENCES parcours(id),
+    utilisateur_id INTEGER NOT NULL REFERENCES utilisateurs(id),
+    contenu TEXT NOT NULL,
+    date_commentaire TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    parent_id INTEGER REFERENCES commentaires(id)
+);
+
+CREATE TABLE IF NOT EXISTS likes (
+    id SERIAL PRIMARY KEY,
+    parcours_id INTEGER REFERENCES parcours(id),
+    commentaire_id INTEGER REFERENCES commentaires(id),
+    utilisateur_id INTEGER NOT NULL REFERENCES utilisateurs(id),
+    date_like TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    date_dislike TIMESTAMP WITH TIME ZONE,
+    type likes_type_enum DEFAULT 'like',
+    UNIQUE(parcours_id, utilisateur_id),
+    UNIQUE(commentaire_id, utilisateur_id)
+);
+
+CREATE TABLE IF NOT EXISTS favoris (
+    id SERIAL PRIMARY KEY,
+    parcours_id INTEGER NOT NULL REFERENCES parcours(id) ON DELETE CASCADE,
+    utilisateur_id INTEGER NOT NULL REFERENCES utilisateurs(id),
+    date_favoris TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(parcours_id, utilisateur_id)
 );
 
 -- ------------------------------

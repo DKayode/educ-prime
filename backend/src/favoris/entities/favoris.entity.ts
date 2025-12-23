@@ -10,11 +10,11 @@ export class Favori {
     id: number;
 
     @ApiProperty({ description: 'ID du parcours' })
-    @Column({ name: 'parcours_id', type: 'number' })
+    @Column({ name: 'parcours_id', type: 'integer' })
     parcours_id: number;
 
     @ApiProperty({ description: 'ID de l\'utilisateur' })
-    @Column({ name: 'utilisateur_id', type: 'number' })
+    @Column({ name: 'utilisateur_id', type: 'integer' })
     utilisateur_id: number;
 
     @ApiProperty({ description: 'Date d\'ajout aux favoris' })
