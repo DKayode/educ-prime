@@ -12,16 +12,13 @@ export interface DashboardStats {
   opportunitesCount: number;
   concoursCount: number;
   contactsProfessionnelsCount: number;
-  storageUsed: number; // in bytes
+  parcoursCount: number;
 }
 
 export const statsService = {
   async getDashboardStats(): Promise<DashboardStats> {
-    const stats = await api.get<Omit<DashboardStats, 'storageUsed'>>('/stats');
+    const stats = await api.get<DashboardStats>('/stats');
 
-    return {
-      ...stats,
-      storageUsed: 0, // Would need a dedicated endpoint for accurate storage
-    };
+    return stats;
   },
 };

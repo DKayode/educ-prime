@@ -7,7 +7,7 @@ import { RoleType } from './utilisateurs/entities/utilisateur.entity';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly appService: AppService) { }
 
   @Get()
   getApiInfo(): object {
@@ -16,7 +16,6 @@ export class AppController {
 
   @Get('stats')
   @UseGuards(JwtAuthGuard, RoleGuard)
-  @Roles(RoleType.ADMIN)
   async getStats() {
     return this.appService.getStats();
   }

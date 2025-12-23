@@ -19,6 +19,7 @@ import Evenements from "./pages/Evenements";
 import Opportunites from "./pages/Opportunites";
 import Concours from "./pages/Concours";
 import ContactsProfessionnels from "./pages/ContactsProfessionnels";
+import Parcours from "./pages/Parcours";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -52,6 +53,7 @@ const App = () => (
                       <Route path="/evenements" element={<Evenements />} />
                       <Route path="/opportunites" element={<Opportunites />} />
                       <Route path="/concours" element={<Concours />} />
+                      <Route path="/parcours" element={<Parcours />} />
                       <Route path="/contacts-professionnels" element={<ContactsProfessionnels />} />
                       <Route path="/settings" element={<Settings />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

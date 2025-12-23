@@ -167,6 +167,20 @@ export default function Publicites() {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validate YouTube URL if type is Video
+        if (formData.type_media === 'Video' && formData.media) {
+            const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/;
+            if (!youtubeRegex.test(formData.media)) {
+                toast({
+                    title: "URL Invalide",
+                    description: "Veuillez entrer une URL YouTube valide (youtube.com ou youtu.be)",
+                    variant: "destructive"
+                });
+                return;
+            }
+        }
+
         setIsUploading(true);
 
         let createdEntityId: number | null = null;
@@ -192,26 +206,45 @@ export default function Publicites() {
                 });
                 uploadedImageUrl = uploadResult.url;
 
-                // Update with partial result immediately or wait? 
-                // Let's update progressively so we know what's saved.
                 await publicitesService.update(createdPublicite.id.toString(), {
                     image: uploadResult.url,
                 });
             }
 
-            // Step 3: Upload Media (Content) if selected
-            if (selectedMediaFile && createdPublicite.id) {
-                const uploadResult = await fichiersService.uploadImage({
-                    file: selectedMediaFile,
-                    type: 'PUBLICITE',
-                    entityId: createdPublicite.id,
-                    entitySubtype: 'media',
-                });
-                uploadedMediaUrl = uploadResult.url;
+            // Step 3: Upload Media (Content) if selected and type is Image
+            if (formData.type_media === 'Image' && createdPublicite.id) {
+                let mediaUrlToUpdate = undefined;
 
-                await publicitesService.update(createdPublicite.id.toString(), {
-                    media: uploadResult.url,
-                });
+                if (selectedMediaFile) {
+                    // Start upload for specific media file
+                    const uploadResult = await fichiersService.uploadImage({
+                        file: selectedMediaFile,
+                        type: 'PUBLICITE',
+                        entityId: createdPublicite.id,
+                        entitySubtype: 'media',
+                    });
+                    mediaUrlToUpdate = uploadResult.url;
+                    uploadedMediaUrl = uploadResult.url;
+                } else if (selectedImageFile) {
+                    // Reuse Cover Image file if no specific media file provided
+                    // We must upload it again as 'media' subtype to satisfy path requirement: /publicite/:id/media/:filename
+                    const uploadResult = await fichiersService.uploadImage({
+                        file: selectedImageFile,
+                        type: 'PUBLICITE',
+                        entityId: createdPublicite.id,
+                        entitySubtype: 'media',
+                    });
+                    mediaUrlToUpdate = uploadResult.url;
+                    uploadedMediaUrl = uploadResult.url;
+                }
+
+                if (mediaUrlToUpdate) {
+                    await publicitesService.update(createdPublicite.id.toString(), {
+                        media: mediaUrlToUpdate,
+                    });
+                }
+            } else if (formData.type_media === 'Video') {
+                // Video URL already handled in Step 1
             }
 
             // Success
@@ -271,6 +304,19 @@ export default function Publicites() {
         e.preventDefault();
         if (!editingPublicite) return;
 
+        // Validate YouTube URL if type is Video
+        if (editingPublicite.type_media === 'Video' && editingPublicite.media) {
+            const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/;
+            if (!youtubeRegex.test(editingPublicite.media)) {
+                toast({
+                    title: "URL Invalide",
+                    description: "Veuillez entrer une URL YouTube valide (youtube.com ou youtu.be)",
+                    variant: "destructive"
+                });
+                return;
+            }
+        }
+
         setIsUploading(true);
         let updatedImage = editingPublicite.image;
         let updatedMedia = editingPublicite.media;
@@ -299,8 +345,8 @@ export default function Publicites() {
                 }
             }
 
-            // Upload new Media File if selected
-            if (selectedMediaFile) {
+            // Upload new Media File if selected and type is Image
+            if (editingPublicite.type_media === 'Image' && selectedMediaFile) {
                 try {
                     const uploadResult = await fichiersService.uploadImage({
                         file: selectedMediaFile,
@@ -319,6 +365,9 @@ export default function Publicites() {
                     setIsUploading(false);
                     return;
                 }
+            } else if (editingPublicite.type_media === 'Video') {
+                // If Video, updatedMedia should be the URL from input (editingPublicite.media)
+                updatedMedia = editingPublicite.media;
             }
 
             await updateMutation.mutateAsync({
@@ -371,10 +420,26 @@ export default function Publicites() {
     const handlePreview = async (item: Publicite) => {
         try {
             setPreviewTitle(item.titre);
-            setIsPreviewOpen(true);
-            const blob = await publicitesService.downloadMedia(item.id);
-            const url = window.URL.createObjectURL(blob);
-            setPreviewUrl(url);
+            setPreviewUrl(null);
+
+            if (item.type_media === 'Video' && item.media) {
+                let url = item.media;
+                // Robust regex to extract YouTube Video ID
+                // Handles: https://www.youtube.com/watch?v=ID, https://youtu.be/ID, https://youtube.com/embed/ID etc.
+                const videoIdMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+
+                if (videoIdMatch && videoIdMatch[1]) {
+                    url = `https://www.youtube.com/embed/${videoIdMatch[1]}`;
+                }
+                setPreviewUrl(url);
+                setIsPreviewOpen(true);
+            } else {
+                // Assume Image or file download
+                setIsPreviewOpen(true);
+                const blob = await publicitesService.downloadMedia(item.id);
+                const url = window.URL.createObjectURL(blob);
+                setPreviewUrl(url);
+            }
         } catch (error) {
             console.error("Preview error:", error);
             toast({ title: "Erreur", description: "Erreur lors du chargement de l'aperçu", variant: "destructive" });
@@ -481,21 +546,33 @@ export default function Publicites() {
 
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="media">Fichier Média (Contenu)</Label>
-                                        <div className="flex gap-2">
+                                        <Label htmlFor="media">
+                                            {formData.type_media === 'Video' ? 'Lien Vidéo' : 'Fichier Média (Contenu)'}
+                                        </Label>
+                                        {formData.type_media === 'Video' ? (
                                             <Input
-                                                id="media-file"
-                                                type="file"
-                                                accept="image/*,video/*"
-                                                onChange={handleMediaFileChange}
-                                                className="flex-1"
+                                                id="media-url"
+                                                type="url"
+                                                placeholder="https://youtu.be/..."
+                                                value={formData.media || ''}
+                                                onChange={(e) => setFormData({ ...formData, media: e.target.value })}
                                             />
-                                            {selectedMediaFile && (
-                                                <Badge variant="secondary" className="self-center">
-                                                    {selectedMediaFile.name}
-                                                </Badge>
-                                            )}
-                                        </div>
+                                        ) : (
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    id="media-file"
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleMediaFileChange}
+                                                    className="flex-1"
+                                                />
+                                                {selectedMediaFile && (
+                                                    <Badge variant="secondary" className="self-center">
+                                                        {selectedMediaFile.name}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="grid gap-2">
                                         <Label htmlFor="ordre">Ordre</Label>
@@ -504,6 +581,16 @@ export default function Publicites() {
                                             type="number"
                                             value={formData.ordre}
                                             onChange={(e) => setFormData({ ...formData, ordre: parseInt(e.target.value) })}
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="actif">Actif</Label>
+                                        <input
+                                            type="checkbox"
+                                            id="actif"
+                                            checked={formData.actif}
+                                            onChange={(e) => setFormData({ ...formData, actif: e.target.checked })}
+                                            className="h-4 w-4"
                                         />
                                     </div>
                                 </div>
@@ -658,21 +745,33 @@ export default function Publicites() {
                                 </div>
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="edit-media">Fichier Média (Contenu)</Label>
-                                <div className="flex gap-2">
+                                <Label htmlFor="edit-media">
+                                    {editingPublicite?.type_media === 'Video' ? 'Lien Vidéo' : 'Fichier Média (Contenu)'}
+                                </Label>
+                                {editingPublicite?.type_media === 'Video' ? (
                                     <Input
-                                        id="edit-media-file"
-                                        type="file"
-                                        accept="image/*,video/*"
-                                        onChange={handleMediaFileChange}
-                                        className="flex-1"
+                                        id="edit-media-url"
+                                        type="url"
+                                        placeholder="https://youtu.be/..."
+                                        value={editingPublicite.media || ''}
+                                        onChange={(e) => setEditingPublicite({ ...editingPublicite, media: e.target.value })}
                                     />
-                                    {selectedMediaFile && (
-                                        <Badge variant="secondary" className="self-center">
-                                            {selectedMediaFile.name}
-                                        </Badge>
-                                    )}
-                                </div>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <Input
+                                            id="edit-media-file"
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleMediaFileChange}
+                                            className="flex-1"
+                                        />
+                                        {selectedMediaFile && (
+                                            <Badge variant="secondary" className="self-center">
+                                                {selectedMediaFile.name}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="edit-ordre">Ordre</Label>
@@ -685,6 +784,21 @@ export default function Publicites() {
                                             editingPublicite ? { ...editingPublicite, ordre: parseInt(e.target.value) } : null
                                         )
                                     }
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="edit-actif">Actif</Label>
+                                <input
+                                    type="checkbox"
+                                    id="edit-actif"
+                                    checked={editingPublicite?.actif || false}
+                                    onChange={(e) =>
+                                        setEditingPublicite(
+                                            editingPublicite ? { ...editingPublicite, actif: e.target.checked } : null
+                                        )
+                                    }
+                                    className="h-4 w-4"
                                 />
                             </div>
                         </div>
@@ -755,6 +869,6 @@ export default function Publicites() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div>
+        </div >
     );
 }

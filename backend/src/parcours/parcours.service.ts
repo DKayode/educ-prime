@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like as TypeOrmLike, FindOptionsWhere, ILike } from 'typeorm';
 import { CreateParcourDto } from './dto/create-parcour.dto';
@@ -154,5 +154,40 @@ export class ParcoursService {
       ],
       take: limit,
     });
+  }
+  async findOneForDownloadImage(id: number): Promise<{ url: string; titre: string }> {
+    const parcours = await this.findOne(id);
+    if (!parcours.image_couverture) {
+      throw new NotFoundException('Parcours n\'a pas d\'image de couverture');
+    }
+    return { url: parcours.image_couverture, titre: parcours.titre };
+  }
+
+  async findOneForDownloadMedia(id: number): Promise<{ url: string; titre: string }> {
+    const parcours = await this.findOne(id);
+    if (!parcours) {
+      throw new NotFoundException('Parcours introuvable');
+    }
+    if (parcours.type_media !== 'image') {
+      throw new BadRequestException('Ce parcours n\'est pas de type Image');
+    }
+    if (!parcours.lien_video) { // In Image mode, lien_video holds the image URL
+      throw new NotFoundException('Ce parcours n\'a pas de contenu image associé');
+    }
+    return { url: parcours.lien_video, titre: parcours.titre };
+  }
+
+  async findOneForLink(id: number): Promise<{ link: string }> {
+    const parcours = await this.findOne(id);
+    if (!parcours) {
+      throw new NotFoundException('Parcours introuvable');
+    }
+    if (parcours.type_media !== 'video') {
+      throw new BadRequestException('Ce parcours n\'est pas de type Vidéo');
+    }
+    if (!parcours.lien_video) {
+      throw new NotFoundException('Ce parcours n\'a pas de lien vidéo associé');
+    }
+    return { link: parcours.lien_video };
   }
 }
