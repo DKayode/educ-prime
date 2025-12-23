@@ -11,11 +11,11 @@ export class Commentaire {
     id: number;
 
     @ApiProperty({ description: 'ID du parcours' })
-    @Column({ name: 'parcours_id', type: 'number' })
+    @Column({ name: 'parcours_id', type: 'integer' })
     parcours_id: number;
 
     @ApiProperty({ description: 'ID de l\'utilisateur' })
-    @Column({ name: 'utilisateur_id', type: 'number' })
+    @Column({ name: 'utilisateur_id', type: 'integer' })
     utilisateur_id: number;
 
     @ApiProperty({ description: 'Contenu du commentaire' })
@@ -27,7 +27,7 @@ export class Commentaire {
     date_commentaire: Date;
 
     @ApiProperty({ description: 'ID du commentaire parent', nullable: true })
-    @Column({ name: 'parent_id', type: 'number', nullable: true })
+    @Column({ name: 'parent_id', type: 'integer', nullable: true })
     parent_id?: number;
 
     // Relations
