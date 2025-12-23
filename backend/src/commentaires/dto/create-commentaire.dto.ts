@@ -1,15 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
 
 export class CreateCommentaireDto {
     @ApiProperty({ description: 'ID du parcours' })
     @IsNotEmpty()
-    @IsUUID()
+    @IsInt()
     parcours_id: number;
 
     @ApiProperty({ description: 'ID de l\'utilisateur' })
     @IsNotEmpty()
-    @IsUUID()
+    @IsInt()
     utilisateur_id: number;
 
     @ApiProperty({ description: 'Contenu du commentaire' })
@@ -18,6 +18,6 @@ export class CreateCommentaireDto {
 
     @ApiProperty({ description: 'ID du commentaire parent', required: false })
     @IsOptional()
-    @IsUUID()
+    @IsInt()
     parent_id?: number;
 }
