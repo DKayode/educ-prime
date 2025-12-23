@@ -1,15 +1,20 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { ParcoursService } from './parcours.service';
 import { CreateParcourDto } from './dto/create-parcour.dto';
 import { UpdateParcourDto } from './dto/update-parcour.dto';
 import { ParcourQueryDto } from './dto/parcour-query.dto';
 import { Parcour } from './entities/parcour.entity';
+import { FichiersService } from 'src/fichiers/fichiers.service';
 
 @ApiTags('parcours')
 @Controller('parcours')
 export class ParcoursController {
-  constructor(private readonly parcoursService: ParcoursService) { }
+  constructor(
+    private readonly parcoursService: ParcoursService,
+    private readonly fichiersService: FichiersService,
+  ) { }
 
   @Post()
   @ApiOperation({ summary: 'Créer un nouveau parcours' })
@@ -74,5 +79,49 @@ export class ParcoursController {
     @Query('limit') limit?: number,
   ) {
     return await this.parcoursService.search(term, limit);
+  }
+  @Get(':id/image')
+  @ApiOperation({ summary: 'Télécharger l\'image de couverture' })
+  @ApiParam({ name: 'id', description: 'ID du parcours' })
+  @ApiResponse({ status: 200, description: 'Fichier téléchargé avec succès' })
+  @ApiResponse({ status: 404, description: 'Image non trouvée' })
+  async downloadImage(
+    @Param('id') id: number,
+    @Res() res: Response
+  ) {
+    const { url } = await this.parcoursService.findOneForDownloadImage(id);
+    const { buffer, contentType, filename } = await this.fichiersService.downloadFile(url);
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(HttpStatus.OK).send(buffer);
+  }
+
+  @Get(':id/media')
+  @ApiOperation({ summary: 'Télécharger le contenu média (Image uniquement)' })
+  @ApiParam({ name: 'id', description: 'ID du parcours' })
+  @ApiResponse({ status: 200, description: 'Fichier téléchargé avec succès' })
+  @ApiResponse({ status: 400, description: 'Type de média incompatible' })
+  @ApiResponse({ status: 404, description: 'Média non trouvé' })
+  async downloadMedia(
+    @Param('id') id: number,
+    @Res() res: Response
+  ) {
+    const { url } = await this.parcoursService.findOneForDownloadMedia(id);
+    const { buffer, contentType, filename } = await this.fichiersService.downloadFile(url);
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(HttpStatus.OK).send(buffer);
+  }
+
+  @Get(':id/lien')
+  @ApiOperation({ summary: 'Récupérer le lien vidéo' })
+  @ApiParam({ name: 'id', description: 'ID du parcours' })
+  @ApiResponse({ status: 200, description: 'Lien récupéré avec succès' })
+  @ApiResponse({ status: 400, description: 'Type de média incompatible' })
+  @ApiResponse({ status: 404, description: 'Lien non trouvé' })
+  async getLink(@Param('id') id: number) {
+    return await this.parcoursService.findOneForLink(id);
   }
 }

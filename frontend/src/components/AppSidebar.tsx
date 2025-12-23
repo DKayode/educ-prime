@@ -28,6 +28,7 @@ const academicItems = [
 ];
 
 const publicContentItems = [
+  { title: "Parcours", url: "/parcours", icon: BookOpen },
   { title: "Publicités", url: "/publicites", icon: Megaphone },
   { title: "Événements", url: "/evenements", icon: CalendarDays },
   { title: "Opportunités", url: "/opportunites", icon: Briefcase },

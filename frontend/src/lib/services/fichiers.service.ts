@@ -22,7 +22,7 @@ export interface UploadRessourceData {
 
 export interface UploadImageData {
     file: File;
-    type: 'PUBLICITE' | 'EVENEMENT' | 'OPPORTUNITE' | 'CONCOURS' | 'ETABLISSEMENT';
+    type: 'PUBLICITE' | 'EVENEMENT' | 'OPPORTUNITE' | 'CONCOURS' | 'ETABLISSEMENT' | 'PARCOURS';
     entityId: number;
     entitySubtype?: string; // For OPPORTUNITE: 'bourses' or 'stages', For CONCOURS_EXAMEN: 'concours' or 'examens'
 }

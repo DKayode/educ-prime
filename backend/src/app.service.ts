@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Utilisateur } from './utilisateurs/entities/utilisateur.entity';
+import { Repository, Not } from 'typeorm';
+import { Utilisateur, RoleType } from './utilisateurs/entities/utilisateur.entity';
 import { Etablissement } from './etablissements/entities/etablissement.entity';
 import { Filiere } from './filieres/entities/filiere.entity';
 import { Matiere } from './matieres/entities/matiere.entity';
@@ -97,7 +97,7 @@ export class AppService {
       contactsProfessionnelsCount,
       parcoursCount,
     ] = await Promise.all([
-      this.utilisateursRepository.count(),
+      this.utilisateursRepository.count({ where: { role: Not(RoleType.ADMIN) } }),
       this.etablissementsRepository.count(),
       this.filieresRepository.count(),
       this.matieresRepository.count(),

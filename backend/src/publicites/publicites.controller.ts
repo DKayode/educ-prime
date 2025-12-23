@@ -32,7 +32,6 @@ export class PublicitesController {
     }
 
     @UseGuards(JwtAuthGuard)
-    @UseGuards(JwtAuthGuard)
     @Get(':id/media')
     async downloadMedia(
         @Param('id') id: string,
@@ -44,6 +43,12 @@ export class PublicitesController {
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.status(HttpStatus.OK).send(buffer);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Get(':id/lien')
+    async getLink(@Param('id') id: string) {
+        return this.publicitesService.findOneForLink(id);
     }
 
     @UseGuards(JwtAuthGuard)

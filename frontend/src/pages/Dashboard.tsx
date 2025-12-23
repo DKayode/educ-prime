@@ -1,4 +1,4 @@
-import { Users, BookOpen, FileText, Database, Loader2, Building2, BookMarked } from "lucide-react";
+import { Users, BookOpen, FileText, Loader2, Building2, BookMarked } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -35,13 +35,7 @@ export default function Dashboard() {
   });
   const filieres = filieresResponse?.data || [];
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
+
 
   const isLoading = statsLoading || filieresLoading;
 
@@ -98,18 +92,19 @@ export default function Dashboard() {
             icon={BookOpen}
             variant="success"
           />
-          <StatCard
-            title="Stockage"
-            value={formatBytes(stats?.storageUsed || 0)}
-            icon={Database}
-            variant="accent"
-          />
+
         </div>
       </div>
 
       <div>
         <h2 className="text-2xl font-semibold mb-4">Contenu Public</h2>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Parcours"
+            value={stats?.parcoursCount.toString() || "0"}
+            icon={BookOpen}
+            variant="accent"
+          />
           <StatCard
             title="Publicités"
             value={stats?.publicitesCount.toString() || "0"}
