@@ -58,8 +58,9 @@ async function bootstrap() {
   // Configuration Swagger
   const config = new DocumentBuilder()
     .setTitle('API Blog - Parcours')
-    .setDescription('API pour la gestion des parcours, commentaires, likes et favoris')
+    .setDescription('API pour la gestion des categories, parcours, commentaires, likes et favoris')
     .setVersion('1.0')
+    .addTag('categories')
     .addTag('parcours')
     .addTag('commentaires')
     .addTag('likes')

@@ -13,6 +13,7 @@ import { Opportunite } from './opportunites/entities/opportunite.entity';
 import { Concours } from './concours/entities/concours.entity';
 import { ContactsProfessionnel } from './contacts-professionnels/entities/contacts-professionnel.entity';
 import { Parcour } from './parcours/entities/parcour.entity';
+import { Category } from './categories/entities/category.entity';
 
 @Injectable()
 export class AppService {
@@ -41,6 +42,8 @@ export class AppService {
     private contactsProfessionnelsRepository: Repository<ContactsProfessionnel>,
     @InjectRepository(Parcour)
     private parcoursRepository: Repository<Parcour>,
+    @InjectRepository(Category)
+    private categoriesRepository: Repository<Category>,
   ) { }
 
   getApiInfo(): object {
@@ -64,6 +67,7 @@ export class AppService {
         concours: '/concours',
         contactsProfessionnels: '/contacts-professionnels',
         parcours: '/parcours',
+        categories: '/categories',
         stats: '/stats'
       }
     };
@@ -81,7 +85,8 @@ export class AppService {
     opportunitesCount: number;
     concoursCount: number;
     contactsProfessionnelsCount: number;
-    parcoursCount: number
+    parcoursCount: number;
+    categoriesCount: number;
   }> {
     const [
       usersCount,
@@ -96,6 +101,7 @@ export class AppService {
       concoursCount,
       contactsProfessionnelsCount,
       parcoursCount,
+      categoriesCount,
     ] = await Promise.all([
       this.utilisateursRepository.count({ where: { role: Not(RoleType.ADMIN) } }),
       this.etablissementsRepository.count(),
@@ -108,7 +114,9 @@ export class AppService {
       this.opportunitesRepository.count(),
       this.concoursRepository.count(),
       this.contactsProfessionnelsRepository.count(),
-      this.parcoursRepository.count()
+      this.parcoursRepository.count(),
+      this.categoriesRepository.count()
+
     ]);
 
     return {
@@ -123,7 +131,8 @@ export class AppService {
       opportunitesCount,
       concoursCount,
       contactsProfessionnelsCount,
-      parcoursCount
+      parcoursCount,
+      categoriesCount
     };
   }
 }

@@ -35,23 +35,6 @@ export class CategoriesController {
     return await this.categoriesService.create(createCategoryDto);
   }
 
-  @Get(':id/image')
-  @ApiOperation({ summary: 'Télécharger l\'image de couverture' })
-  @ApiParam({ name: 'id', description: 'ID du parcours' })
-  @ApiResponse({ status: 200, description: 'Fichier téléchargé avec succès' })
-  @ApiResponse({ status: 404, description: 'Image non trouvée' })
-  async downloadImage(
-    @Param('id') id: number,
-    @Res() res: Response
-  ) {
-    const { url } = await this.categoriesService.findOneForDownloadImage(id);
-    const { buffer, contentType, filename } = await this.fichiersService.downloadFile(url);
-
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.status(HttpStatus.OK).send(buffer);
-  }
-
   @Get()
   @ApiOperation({ summary: 'Récupérer toutes les catégories' })
   @ApiResponse({ status: 200, description: 'Catégories récupérées avec succès' })
