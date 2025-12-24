@@ -218,6 +218,20 @@ CREATE TABLE IF NOT EXISTS commentaires (
     parent_id INTEGER REFERENCES commentaires(id)
 );
 
+
+CREATE TABLE commentaires_closure (
+    id_ancestor INTEGER NOT NULL,
+    id_descendant INTEGER NOT NULL,
+    depth INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id_ancestor, id_descendant),
+    FOREIGN KEY (id_ancestor) REFERENCES commentaires(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_descendant) REFERENCES commentaires(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_commentaires_closure_ancestor ON commentaires_closure(id_ancestor);
+CREATE INDEX idx_commentaires_closure_descendant ON commentaires_closure(id_descendant);
+CREATE INDEX idx_commentaires_closure_depth ON commentaires_closure(depth);
+
 CREATE TABLE IF NOT EXISTS likes (
     id SERIAL PRIMARY KEY,
     parcours_id INTEGER REFERENCES parcours(id),

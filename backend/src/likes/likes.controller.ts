@@ -1,25 +1,30 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { LikesService } from './likes.service';
 import { CreateLikeDto } from './dto/create-like.dto';
 import { UpdateLikeDto } from './dto/update-like.dto';
 import { LikeQueryDto, LikeType } from './dto/like-query.dto';
 import { Like } from './entities/like.entity';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { GetUser } from 'src/auth/guards/get-user.guard';
 
 @ApiTags('likes')
 @Controller('likes')
 export class LikesController {
   constructor(private readonly likesService: LikesService) { }
 
+  @UseGuards(JwtAuthGuard)
   @Post()
   @ApiOperation({ summary: 'Ajouter un like/dislike' })
   @ApiResponse({ status: 201, description: 'Like ajouté avec succès', type: Like })
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 404, description: 'Ressource non trouvée' })
-  async create(@Body() createLikeDto: CreateLikeDto): Promise<Like> {
-    return await this.likesService.like(createLikeDto);
+  async create(@Body() createLikeDto: CreateLikeDto, @GetUser() user: any): Promise<Like> {
+    const userId = user.userId;
+    return await this.likesService.like(createLikeDto, userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
   @ApiOperation({ summary: 'Récupérer tous les likes avec pagination et filtres' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
@@ -33,6 +38,7 @@ export class LikesController {
     return await this.likesService.findAll(query);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('check')
   @ApiOperation({ summary: 'Vérifier si un utilisateur a liké une ressource' })
   @ApiQuery({ name: 'user_id', required: true, type: Number, description: 'ID de l\'utilisateur' })
@@ -47,6 +53,7 @@ export class LikesController {
     return await this.likesService.checkUserLike(userId, parcoursId, commentaireId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('parcours/:parcoursId/stats')
   @ApiOperation({ summary: 'Récupérer les statistiques de likes d\'un parcours' })
   @ApiParam({ name: 'parcoursId', description: 'ID du parcours' })
@@ -55,6 +62,7 @@ export class LikesController {
     return await this.likesService.getParcoursStats(parcoursId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('parcours/:parcoursId/likers')
   @ApiOperation({ summary: 'Récupérer les utilisateurs qui ont liké un parcours' })
   @ApiParam({ name: 'parcoursId', description: 'ID du parcours' })
@@ -70,6 +78,7 @@ export class LikesController {
     return await this.likesService.getLikers(parcoursId, undefined, type, query);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('commentaire/:commentaireId/likers')
   @ApiOperation({ summary: 'Récupérer les utilisateurs qui ont liké un commentaire' })
   @ApiParam({ name: 'commentaireId', description: 'ID du commentaire' })
@@ -85,6 +94,7 @@ export class LikesController {
     return await this.likesService.getLikers(undefined, commentaireId, type, query);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('user/:userId')
   @ApiOperation({ summary: 'Récupérer les likes d\'un utilisateur' })
   @ApiParam({ name: 'userId', description: 'ID de l\'utilisateur' })
@@ -98,6 +108,7 @@ export class LikesController {
     return await this.likesService.findByUser(userId, query);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un like par son ID' })
   @ApiParam({ name: 'id', description: 'ID du like' })
@@ -107,19 +118,24 @@ export class LikesController {
     return await this.likesService.findOne(id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   @ApiOperation({ summary: 'Mettre à jour un like' })
   @ApiParam({ name: 'id', description: 'ID du like à mettre à jour' })
   @ApiResponse({ status: 200, description: 'Like mis à jour avec succès', type: Like })
+  @ApiResponse({ status: 403, description: 'Non autorisé à modifier ce like' })
   @ApiResponse({ status: 404, description: 'Like non trouvé' })
   @ApiResponse({ status: 400, description: 'Données invalides' })
   async update(
     @Param('id') id: number,
     @Body() updateLikeDto: UpdateLikeDto,
+    @GetUser() user: any,
   ): Promise<Like> {
-    return await this.likesService.update(id, updateLikeDto);
+    const userId = user.userId;
+    return await this.likesService.update(id, updateLikeDto, userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Supprimer un like' })

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDate, IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsDate, IsEnum, IsNumber, IsOptional, IsString, IsInt, Min } from 'class-validator';
 
 export enum LikeType {
     LIKE = 'like',
@@ -24,17 +24,17 @@ export class LikeQueryDto {
 
     @ApiProperty({ required: false })
     @IsOptional()
-    @IsUUID()
+    @IsInt()
     parcours_id?: number;
 
     @ApiProperty({ required: false })
     @IsOptional()
-    @IsUUID()
+    @IsInt()
     commentaire_id?: number;
 
     @ApiProperty({ required: false })
     @IsOptional()
-    @IsUUID()
+    @IsInt()
     utilisateur_id?: number;
 
     @ApiProperty({ enum: LikeType, required: false })

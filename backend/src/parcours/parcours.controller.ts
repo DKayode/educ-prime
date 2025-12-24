@@ -1,16 +1,18 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { ParcoursService } from './parcours.service';
 import { CreateParcourDto } from './dto/create-parcour.dto';
 import { UpdateParcourDto } from './dto/update-parcour.dto';
 import { ParcourQueryDto } from './dto/parcour-query.dto';
 import { Parcour } from './entities/parcour.entity';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @ApiTags('parcours')
 @Controller('parcours')
 export class ParcoursController {
   constructor(private readonly parcoursService: ParcoursService) { }
 
+  @UseGuards(JwtAuthGuard)
   @Post()
   @ApiOperation({ summary: 'Créer un nouveau parcours' })
   @ApiResponse({ status: 201, description: 'Parcours créé avec succès', type: Parcour })
@@ -19,6 +21,7 @@ export class ParcoursController {
     return await this.parcoursService.create(createParcoursDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
   @ApiOperation({ summary: 'Récupérer tous les parcours avec pagination et filtres' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
@@ -32,6 +35,7 @@ export class ParcoursController {
     return await this.parcoursService.findAll(query);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un parcours par son ID' })
   @ApiParam({ name: 'id', description: 'ID du parcours' })
@@ -41,6 +45,7 @@ export class ParcoursController {
     return await this.parcoursService.findOne(id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   @ApiOperation({ summary: 'Mettre à jour un parcours' })
   @ApiParam({ name: 'id', description: 'ID du parcours à mettre à jour' })
@@ -54,6 +59,7 @@ export class ParcoursController {
     return await this.parcoursService.update(id, updateParcoursDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Supprimer un parcours' })
@@ -64,6 +70,7 @@ export class ParcoursController {
     await this.parcoursService.remove(id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('search/:term')
   @ApiOperation({ summary: 'Rechercher des parcours' })
   @ApiParam({ name: 'term', description: 'Terme de recherche' })
