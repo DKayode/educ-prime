@@ -6,8 +6,7 @@ import { NiveauEtude } from '../../niveau-etude/entities/niveau-etude.entity';
 export enum RoleType {
   ADMIN = 'admin',
   ETUDIANT = 'étudiant',
-  PROFESSEUR = 'professeur',
-  AUTRE = 'autre'
+  PROFESSEUR = 'professeur'
 }
 
 export enum SexeType {

@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { Response } from 'express';
 import { EvenementsService } from './evenements.service';
 import { CreerEvenementDto } from './dto/create-evenement.dto';
@@ -10,6 +11,7 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 
+@ApiTags('evenements')
 @Controller('evenements')
 export class EvenementsController {
   constructor(
@@ -26,6 +28,10 @@ export class EvenementsController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
+  @ApiOperation({ summary: 'Récupérer la liste des événements' })
+  @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
   findAll(@Query() paginationDto: PaginationDto) {
     return this.evenementsService.findAll(paginationDto);
   }

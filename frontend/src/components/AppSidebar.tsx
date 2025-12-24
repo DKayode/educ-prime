@@ -21,7 +21,7 @@ const academicItems = [
   { title: "Utilisateurs", url: "/users", icon: Users },
   { title: "Établissements", url: "/etablissements", icon: Building2 },
   { title: "Filières", url: "/filieres", icon: BookOpen },
-  { title: "Niveaux d'études", url: "/annees", icon: Calendar },
+  { title: "Niveaux d'études", url: "/niveaux", icon: Calendar },
   { title: "Matières", url: "/matieres", icon: BookMarked },
   { title: "Épreuves", url: "/epreuves", icon: FileText },
   { title: "Ressources", url: "/ressources", icon: FolderOpen },

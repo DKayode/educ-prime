@@ -4,21 +4,13 @@ import type { PaginationResponse, PaginationParams } from '../types/pagination';
 import { buildPaginationQuery } from '../types/pagination';
 
 export const matieresService = {
-  async getAll(params?: PaginationParams): Promise<PaginationResponse<Matiere>> {
+  async getAll(params?: PaginationParams & { search?: string; filiere?: string; niveau_etude?: string }): Promise<PaginationResponse<Matiere>> {
     const query = buildPaginationQuery(params);
     return api.get<PaginationResponse<Matiere>>(`/matieres${query}`);
   },
 
   async getById(id: string): Promise<Matiere> {
     return api.get<Matiere>(`/matieres/${id}`);
-  },
-
-  async getByFiliere(filiereId: string): Promise<Matiere[]> {
-    return api.get<Matiere[]>(`/matieres/filiere/${filiereId}`);
-  },
-
-  async getByNiveau(niveauId: string): Promise<Matiere[]> {
-    return api.get<Matiere[]>(`/matieres/niveau/${niveauId}`);
   },
 
   async create(data: {

@@ -20,4 +20,8 @@ export class FilterEpreuveDto extends PaginationDto {
     @IsOptional()
     @IsString()
     matiere?: string;
+
+    @IsOptional()
+    @IsString()
+    search?: string;
 }

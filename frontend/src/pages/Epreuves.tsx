@@ -29,7 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Download, FileText, Trash2, Search, Loader2, Eye } from "lucide-react";
+import { Upload, Download, FileText, Trash2, Search, Loader2, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -59,11 +59,15 @@ export default function Epreuves() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewTitle, setPreviewTitle] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
 
   const { data: epreuvesResponse, isLoading, error, isPlaceholderData } = useQuery({
-    queryKey: ['epreuves', debouncedSearchQuery, selectedType],
+    queryKey: ['epreuves', page, limit, debouncedSearchQuery, selectedType],
     queryFn: () => epreuvesService.getAll({
-      titre: debouncedSearchQuery || undefined, // Send as undefined if empty
+      page,
+      limit,
+      search: debouncedSearchQuery || undefined, // Send as undefined if empty
       type: selectedType === "ALL" ? undefined : selectedType
     }),
     placeholderData: keepPreviousData,
@@ -323,7 +327,7 @@ export default function Epreuves() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Rechercher par titre..."
+                  placeholder="Rechercher par titre ou matière..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -356,68 +360,93 @@ export default function Epreuves() {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Titre</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Matière</TableHead>
-                  <TableHead>Pages</TableHead>
-                  <TableHead>Téléch.</TableHead>
-                  <TableHead>Durée</TableHead>
-                  <TableHead>Date création</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredEpreuves.map((epreuve) => (
-                  <TableRow key={epreuve.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        {epreuve.titre}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{epreuve.type || "Autre"}</Badge>
-                    </TableCell>
-                    <TableCell>{epreuve.matiere?.nom || "-"}</TableCell>
-                    <TableCell>{epreuve.nombre_pages || "-"}</TableCell>
-                    <TableCell>{epreuve.nombre_telechargements || 0}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{epreuve.duree_minutes} min</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(epreuve.date_creation).toLocaleDateString("fr-FR")}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled={!epreuve.url}
-                          className="h-8 w-8 text-blue-500 hover:text-blue-600"
-                          onClick={() => handlePreview(epreuve)}
-                          title="Visualiser"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => deleteMutation.mutate(epreuve.id)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Titre</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Matière</TableHead>
+                    <TableHead>Pages</TableHead>
+                    <TableHead>Téléch.</TableHead>
+                    <TableHead>Durée</TableHead>
+                    <TableHead>Date création</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredEpreuves.map((epreuve) => (
+                    <TableRow key={epreuve.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          {epreuve.titre}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{epreuve.type || "Autre"}</Badge>
+                      </TableCell>
+                      <TableCell>{epreuve.matiere?.nom || "-"}</TableCell>
+                      <TableCell>{epreuve.nombre_pages || "-"}</TableCell>
+                      <TableCell>{epreuve.nombre_telechargements || 0}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{epreuve.duree_minutes} min</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {new Date(epreuve.date_creation).toLocaleDateString("fr-FR")}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={!epreuve.url}
+                            className="h-8 w-8 text-blue-500 hover:text-blue-600"
+                            onClick={() => handlePreview(epreuve)}
+                            title="Visualiser"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => deleteMutation.mutate(epreuve.id)}
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {epreuvesResponse?.totalPages !== undefined && epreuvesResponse.totalPages > 1 && (
+                <div className="flex items-center justify-center space-x-2 py-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    Page {page} sur {epreuvesResponse.totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(epreuvesResponse.totalPages, p + 1))}
+                    disabled={page === epreuvesResponse.totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

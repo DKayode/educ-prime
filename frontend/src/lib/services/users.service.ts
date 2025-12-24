@@ -4,17 +4,15 @@ import type { PaginationResponse, PaginationParams } from '../types/pagination';
 import { buildPaginationQuery } from '../types/pagination';
 
 export const usersService = {
-  async getAll(params?: PaginationParams): Promise<PaginationResponse<Utilisateur>> {
+  async getAll(params?: PaginationParams & { search?: string; role?: string }): Promise<PaginationResponse<Utilisateur>> {
     const query = buildPaginationQuery(params);
     return api.get<PaginationResponse<Utilisateur>>(`/utilisateurs${query}`);
   },
 
-  async getById(id: number): Promise<Utilisateur> {
-    return api.get<Utilisateur>(`/utilisateurs/${id}`);
-  },
+
 
   async create(data: Partial<Utilisateur> & { mot_de_passe: string }): Promise<Utilisateur> {
-    return api.post<Utilisateur>('/utilisateurs/inscription/admin', data);
+    return api.post<Utilisateur>('/utilisateurs', data);
   },
 
   async update(id: number, data: Partial<Utilisateur>): Promise<Utilisateur> {
