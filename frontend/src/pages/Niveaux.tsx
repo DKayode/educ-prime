@@ -319,6 +319,29 @@ export default function Niveaux() {
                         <CommandList>
                           <CommandEmpty>Aucune filière trouvée.</CommandEmpty>
                           <CommandGroup>
+                            {!editId && (
+                              <CommandItem
+                                value="Tout sélectionner"
+                                onSelect={() => {
+                                  const allIds = dialogFilieres.map(f => f.id.toString());
+                                  const areAllSelected = allIds.every(id => formData.filiere_ids.includes(id));
+
+                                  if (areAllSelected) {
+                                    setFormData({ ...formData, filiere_ids: [] });
+                                  } else {
+                                    setFormData({ ...formData, filiere_ids: allIds });
+                                  }
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    (dialogFilieres.length > 0 && formData.filiere_ids.length === dialogFilieres.length) ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                Tout sélectionner
+                              </CommandItem>
+                            )}
                             {dialogFilieres.map((filiere) => (
                               <CommandItem
                                 key={filiere.id}
