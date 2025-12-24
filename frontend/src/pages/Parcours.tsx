@@ -250,6 +250,20 @@ export default function Parcours() {
         let newImage = editingParcour.image_couverture;
         let newVideo = editingParcour.lien_video;
 
+        // Validate YouTube URL if type is video
+        if (editingParcour.type_media === 'video' && editingParcour.lien_video) {
+            const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/;
+            if (!youtubeRegex.test(editingParcour.lien_video)) {
+                toast({
+                    title: "URL Invalide",
+                    description: "Veuillez entrer une URL YouTube valide (youtube.com ou youtu.be)",
+                    variant: "destructive"
+                });
+                setIsUploading(false);
+                return;
+            }
+        }
+
         try {
             if (selectedImageFile) {
                 const upload = await fichiersService.uploadImage({

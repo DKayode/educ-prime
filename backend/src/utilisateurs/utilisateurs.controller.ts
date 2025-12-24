@@ -1,4 +1,6 @@
 import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Query } from '@nestjs/common';
+import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { UtilisateursService } from './utilisateurs.service';
 import { InscriptionDto } from './dto/inscription.dto';
 import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
@@ -9,6 +11,7 @@ import { RoleType } from './entities/utilisateur.entity';
 import { OwnerOrAdminGuard } from '../auth/guards/owner-or-admin.guard';
 import { PaginationDto } from '../common/dto/pagination.dto';
 
+@ApiTags('utilisateurs')
 @Controller('utilisateurs')
 export class UtilisateursController {
   constructor(private readonly utilisateursService: UtilisateursService) { }
@@ -18,11 +21,19 @@ export class UtilisateursController {
     return this.utilisateursService.inscription(inscriptionDto);
   }
 
+
+
   @UseGuards(JwtAuthGuard, RoleGuard)
   @Roles(RoleType.ADMIN)
   @Get()
-  async findAll(@Query() paginationDto: PaginationDto) {
-    return this.utilisateursService.findAll(paginationDto);
+  @ApiOperation({ summary: 'Récupérer la liste des utilisateurs' })
+  @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (nom ou email)' })
+  @ApiQuery({ name: 'role', required: false, enum: RoleType, description: 'Filtrer par rôle' })
+  async findAll(@Query() filterDto: FilterUtilisateurDto) {
+    return this.utilisateursService.findAll(filterDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -36,9 +47,11 @@ export class UtilisateursController {
 
   @UseGuards(JwtAuthGuard, RoleGuard)
   @Roles(RoleType.ADMIN)
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.utilisateursService.findOne(id);
+  @Post()
+  @ApiOperation({ summary: 'Créer un nouvel utilisateur (Admin)' })
+  @ApiResponse({ status: 201, description: 'Utilisateur créé avec succès' })
+  async create(@Body() inscriptionDto: InscriptionDto) {
+    return this.utilisateursService.inscription(inscriptionDto);
   }
 
   @UseGuards(JwtAuthGuard, OwnerOrAdminGuard)

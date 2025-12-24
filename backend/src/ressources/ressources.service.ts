@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere } from 'typeorm';
+import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { Ressource, RessourceType } from './entities/ressource.entity';
 import { CreerRessourceDto } from './dto/creer-ressource.dto';
 import { MajRessourceDto } from './dto/maj-ressource.dto';
@@ -37,28 +37,38 @@ export class RessourcesService {
   }
 
   async findAll(filterDto: FilterRessourceDto): Promise<PaginationResponse<RessourceResponseDto>> {
-    const { page = 1, limit = 10, titre, type } = filterDto;
-    this.logger.log(`Récupération des ressources - Page: ${page}, Limite: ${limit}, Titre: ${titre}, Type: ${type}`);
+    const { page = 1, limit = 10, search, type, matiere } = filterDto;
+    this.logger.log(`Récupération des ressources - Page: ${page}, Limite: ${limit}, Search: ${search}, Type: ${type}, Matière: ${matiere}`);
 
-    const whereCondition: FindOptionsWhere<Ressource> = {};
-
-    if (titre) {
-      whereCondition.titre = Like(`%${titre}%`);
-    }
+    const queryBuilder = this.ressourcesRepository.createQueryBuilder('ressource')
+      .leftJoinAndSelect('ressource.matiere', 'matiere')
+      .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
+      .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .leftJoinAndSelect('ressource.professeur', 'professeur')
+      .orderBy('ressource.date_creation', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
 
     if (type) {
-      whereCondition.type = type;
+      queryBuilder.andWhere('ressource.type = :type', { type });
     }
 
-    const [ressources, total] = await this.ressourcesRepository.findAndCount({
-      where: whereCondition,
-      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
-      order: {
-        date_creation: 'DESC',
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    if (matiere) {
+      queryBuilder.andWhere('matiere.nom = :matiere', { matiere });
+    }
+
+    if (filterDto.search) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('ressource.titre ILIKE :search', { search: `%${filterDto.search}%` })
+            .orWhere('matiere.nom ILIKE :search', { search: `%${filterDto.search}%` });
+        }),
+      );
+    }
+
+
+    const [ressources, total] = await queryBuilder.getManyAndCount();
+
 
     this.logger.log(`${ressources.length} ressource(s) trouvée(s) sur ${total} total`);
 
@@ -220,116 +230,6 @@ export class RessourcesService {
     return { message: 'Ressource supprimée avec succès' };
   }
 
-  async findByMatiere(matiereId: string, paginationDto: PaginationDto): Promise<PaginationResponse<RessourceResponseDto>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    this.logger.log(`Recherche des ressources pour matière ID: ${matiereId} - Page: ${page}, Limite: ${limit}`);
 
-    const [ressources, total] = await this.ressourcesRepository.findAndCount({
-      where: { matiere: { id: parseInt(matiereId) } },
-      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
-      order: {
-        date_creation: 'DESC',
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    this.logger.log(`${ressources.length} ressource(s) trouvée(s) pour matière ${matiereId} sur ${total} total`);
-
-    const data = ressources.map(ressource => ({
-      id: ressource.id,
-      titre: ressource.titre,
-      type: ressource.type,
-      url: ressource.url,
-      date_creation: ressource.date_creation,
-      date_publication: ressource.date_publication,
-      nombre_pages: ressource.nombre_pages,
-      nombre_telechargements: ressource.nombre_telechargements,
-      professeur: {
-        nom: ressource.professeur.nom,
-        prenom: ressource.professeur.prenom,
-        telephone: ressource.professeur.telephone,
-      },
-      matiere: {
-        id: ressource.matiere.id,
-        nom: ressource.matiere.nom,
-        description: ressource.matiere.description,
-        niveau_etude: {
-          id: ressource.matiere.niveau_etude.id,
-          nom: ressource.matiere.niveau_etude.nom,
-          duree_mois: ressource.matiere.niveau_etude.duree_mois,
-          filiere: {
-            id: ressource.matiere.niveau_etude.filiere.id,
-            nom: ressource.matiere.niveau_etude.filiere.nom,
-            etablissement_id: ressource.matiere.niveau_etude.filiere.etablissement_id,
-          },
-        },
-      },
-    }));
-
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
-  async findByProfesseur(professeurId: string, paginationDto: PaginationDto): Promise<PaginationResponse<RessourceResponseDto>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    this.logger.log(`Recherche des ressources du professeur ID: ${professeurId} - Page: ${page}, Limite: ${limit}`);
-
-    const [ressources, total] = await this.ressourcesRepository.findAndCount({
-      where: { professeur: { id: parseInt(professeurId) } },
-      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
-      order: {
-        date_creation: 'DESC',
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    this.logger.log(`${ressources.length} ressource(s) trouvée(s) pour professeur ${professeurId} sur ${total} total`);
-
-    const data = ressources.map(ressource => ({
-      id: ressource.id,
-      titre: ressource.titre,
-      type: ressource.type,
-      url: ressource.url,
-      date_creation: ressource.date_creation,
-      date_publication: ressource.date_publication,
-      nombre_pages: ressource.nombre_pages,
-      nombre_telechargements: ressource.nombre_telechargements,
-      professeur: {
-        nom: ressource.professeur.nom,
-        prenom: ressource.professeur.prenom,
-        telephone: ressource.professeur.telephone,
-      },
-      matiere: {
-        id: ressource.matiere.id,
-        nom: ressource.matiere.nom,
-        description: ressource.matiere.description,
-        niveau_etude: {
-          id: ressource.matiere.niveau_etude.id,
-          nom: ressource.matiere.niveau_etude.nom,
-          duree_mois: ressource.matiere.niveau_etude.duree_mois,
-          filiere: {
-            id: ressource.matiere.niveau_etude.filiere.id,
-            nom: ressource.matiere.niveau_etude.filiere.nom,
-            etablissement_id: ressource.matiere.niveau_etude.filiere.etablissement_id,
-          },
-        },
-      },
-    }));
-
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
 
 }

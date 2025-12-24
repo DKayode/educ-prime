@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Query, Res, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { EpreuvesService } from './epreuves.service';
 import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
 import { MajEpreuveDto } from './dto/maj-epreuve.dto';
@@ -9,6 +10,7 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterEpreuveDto } from './dto/filter-epreuve.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 
+@ApiTags('epreuves')
 @Controller('epreuves')
 export class EpreuvesController {
   constructor(
@@ -24,6 +26,13 @@ export class EpreuvesController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
+  @ApiOperation({ summary: 'Récupérer la liste des épreuves' })
+  @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (titre ou matière)' })
+  @ApiQuery({ name: 'type', required: false, type: String, description: 'Filtrer par type (Interrogation, Devoirs, Concours, Examens)' })
+  @ApiQuery({ name: 'matiere', required: false, type: String, description: 'Filtrer par nom de matière' })
   async findAll(@Query() filterDto: FilterEpreuveDto) {
     return this.epreuvesService.findAll(filterDto);
   }
@@ -40,18 +49,6 @@ export class EpreuvesController {
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.status(HttpStatus.OK).send(buffer);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('matiere/:id')
-  async findByMatiere(@Param('id') matiereId: string, @Query() paginationDto: PaginationDto) {
-    return this.epreuvesService.findByMatiere(matiereId, paginationDto);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('professeur/:id')
-  async findByProfesseur(@Param('id') professeurId: string, @Query() paginationDto: PaginationDto) {
-    return this.epreuvesService.findByProfesseur(professeurId, paginationDto);
   }
 
   @UseGuards(JwtAuthGuard)

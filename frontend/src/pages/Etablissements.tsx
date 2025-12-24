@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Building2, Plus, Pencil, Trash2, Loader2, Search, Upload, X } from "lucide-react";
+import { Building2, Plus, Pencil, Trash2, Loader2, Search, Upload, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { etablissementsService } from "@/lib/services/etablissements.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { API_URL } from "@/lib/api";
@@ -50,12 +50,12 @@ export default function Etablissements() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingEtablissement, setEditingEtablissement] = useState<{ id: number } & EtablissementFormData | null>(null);
-  const [nomFilter, setNomFilter] = useState("");
-  const [villeFilter, setVilleFilter] = useState("");
-  const debouncedNomFilter = useDebounce(nomFilter, 500);
-  const debouncedVilleFilter = useDebounce(villeFilter, 500);
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
 
   const [formData, setFormData] = useState<EtablissementFormData>({
     nom: "",
@@ -85,10 +85,11 @@ export default function Etablissements() {
   const queryClient = useQueryClient();
 
   const { data: etablissementsResponse, isLoading, isPlaceholderData } = useQuery({
-    queryKey: ["etablissements", debouncedNomFilter, debouncedVilleFilter],
+    queryKey: ["etablissements", page, limit, debouncedSearchQuery],
     queryFn: () => etablissementsService.getAll({
-      nom: debouncedNomFilter || undefined,
-      ville: debouncedVilleFilter || undefined
+      page,
+      limit,
+      search: debouncedSearchQuery || undefined
     }),
     placeholderData: keepPreviousData,
   });
@@ -395,25 +396,14 @@ export default function Etablissements() {
           <CardDescription>
             {etablissements.length} établissement{etablissements.length > 1 ? "s" : ""} enregistré
             {etablissements.length > 1 ? "s" : ""}
-            <div className="flex flex-col md:flex-row gap-4 mt-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher par nom..."
-                  value={nomFilter}
-                  onChange={(e) => setNomFilter(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher par ville..."
-                  value={villeFilter}
-                  onChange={(e) => setVilleFilter(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+            <div className="relative mt-4">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher par nom ou ville..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
           </CardDescription>
         </CardHeader>
@@ -423,57 +413,82 @@ export default function Etablissements() {
               Aucun établissement trouvé. Créez-en un pour commencer.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Logo</TableHead>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Ville</TableHead>
-                  <TableHead>Code postal</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {etablissements.map((etablissement) => (
-                  <TableRow key={etablissement.id}>
-                    <TableCell>
-                      {etablissement.logo ? (
-                        <img
-                          src={`${API_URL}/etablissements/${etablissement.id}/logo`}
-                          alt={`Logo ${etablissement.nom}`}
-                          className="h-10 w-10 object-contain rounded-md"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center">
-                          <Building2 className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">{etablissement.nom}</TableCell>
-                    <TableCell>{etablissement.ville || "—"}</TableCell>
-                    <TableCell>{etablissement.code_postal || "—"}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(etablissement)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteId(etablissement.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Logo</TableHead>
+                    <TableHead>Nom</TableHead>
+                    <TableHead>Ville</TableHead>
+                    <TableHead>Code postal</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {etablissements.map((etablissement) => (
+                    <TableRow key={etablissement.id}>
+                      <TableCell>
+                        {etablissement.logo ? (
+                          <img
+                            src={`${API_URL}/etablissements/${etablissement.id}/logo`}
+                            alt={`Logo ${etablissement.nom}`}
+                            className="h-10 w-10 object-contain rounded-md"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center">
+                            <Building2 className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-medium">{etablissement.nom}</TableCell>
+                      <TableCell>{etablissement.ville || "—"}</TableCell>
+                      <TableCell>{etablissement.code_postal || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDialog(etablissement)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteId(etablissement.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {etablissementsResponse?.totalPages !== undefined && etablissementsResponse.totalPages > 1 && (
+                <div className="flex items-center justify-center space-x-2 py-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    Page {page} sur {etablissementsResponse.totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(etablissementsResponse.totalPages, p + 1))}
+                    disabled={page === etablissementsResponse.totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

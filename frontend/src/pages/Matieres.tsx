@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { BookMarked, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { useDebounce } from "@/hooks/use-debounce";
+import { BookMarked, Plus, Pencil, Trash2, Loader2, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { matieresService } from "@/lib/services/matieres.service";
 import { niveauxService } from "@/lib/services/niveaux.service";
+import { filieresService } from "@/lib/services/filieres.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -22,6 +24,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,13 +78,45 @@ export default function Matieres() {
     description: "",
     niveau_etude_id: "",
   });
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const [selectedFiliereName, setSelectedFiliereName] = useState<string | null>(null);
+  const [openCombobox, setOpenCombobox] = useState(false);
+  const [filiereSearch, setFiliereSearch] = useState("");
+  const debouncedFiliereSearch = useDebounce(filiereSearch, 300);
+
+  // Dialog state for combobox
+  const [openDialogCombobox, setOpenDialogCombobox] = useState(false);
+  const [dialogNiveauSearch, setDialogNiveauSearch] = useState("");
+
+  // Dialog state for edit combobox
+  const [openEditDialogCombobox, setOpenEditDialogCombobox] = useState(false);
+  const [editDialogNiveauSearch, setEditDialogNiveauSearch] = useState("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch Filieres for Main Filter
+  const { data: filieresResponse } = useQuery({
+    queryKey: ['filieres_filter', debouncedFiliereSearch],
+    queryFn: () => filieresService.getAll({
+      page: 1,
+      limit: 50,
+      search: debouncedFiliereSearch || undefined
+    }),
+  });
+  const filieres = filieresResponse?.data || [];
+
   const { data: matieresResponse, isLoading } = useQuery({
-    queryKey: ["matieres"],
-    queryFn: () => matieresService.getAll(),
+    queryKey: ["matieres", page, limit, debouncedSearchQuery, selectedFiliereName],
+    queryFn: () => matieresService.getAll({
+      page,
+      limit,
+      search: debouncedSearchQuery || undefined,
+      filiere: selectedFiliereName || undefined
+    }),
   });
   const matieres = matieresResponse?.data || [];
 
@@ -250,22 +299,57 @@ export default function Matieres() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="niveau">Niveau d'étude *</Label>
-                  <Select
-                    value={formData.niveau_etude_id}
-                    onValueChange={(value) => setFormData({ ...formData, niveau_etude_id: value })}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un niveau d'étude" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {niveaux.map((niveau) => (
-                        <SelectItem key={niveau.id} value={niveau.id.toString()}>
-                          {niveau.nom} - {niveau.filiere?.nom}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+                  <Popover open={openDialogCombobox} onOpenChange={setOpenDialogCombobox}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openDialogCombobox}
+                        className="w-full justify-between"
+                      >
+                        {formData.niveau_etude_id
+                          ? niveaux.find((n) => n.id.toString() === formData.niveau_etude_id)?.nom
+                          : "Sélectionner un niveau d'étude"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                      <Command shouldFilter={false}>
+                        <CommandInput
+                          placeholder="Rechercher un niveau..."
+                          value={dialogNiveauSearch}
+                          onValueChange={setDialogNiveauSearch}
+                        />
+                        <CommandList>
+                          <CommandEmpty>Aucun niveau trouvé.</CommandEmpty>
+                          <CommandGroup>
+                            {niveaux.filter(n =>
+                              n.nom.toLowerCase().includes(dialogNiveauSearch.toLowerCase()) ||
+                              n.filiere?.nom.toLowerCase().includes(dialogNiveauSearch.toLowerCase())
+                            ).map((niveau) => (
+                              <CommandItem
+                                key={niveau.id}
+                                value={`${niveau.nom} - ${niveau.filiere?.nom || ""}`}
+                                onSelect={() => {
+                                  setFormData({ ...formData, niveau_etude_id: niveau.id.toString() });
+                                  setOpenDialogCombobox(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    formData.niveau_etude_id === niveau.id.toString() ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {niveau.nom} - {niveau.filiere?.nom}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
               <DialogFooter>
@@ -291,6 +375,79 @@ export default function Matieres() {
           <CardDescription>
             {matieres.length} matière{matieres.length > 1 ? "s" : ""} enregistrée
             {matieres.length > 1 ? "s" : ""}
+            <div className="flex flex-col md:flex-row gap-4 mt-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher une matière..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openCombobox}
+                    className="w-full md:w-[250px] justify-between"
+                  >
+                    {selectedFiliereName
+                      ? selectedFiliereName
+                      : "Toutes les filières"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-0">
+                  <Command shouldFilter={false}>
+                    <CommandInput
+                      placeholder="Rechercher une filière..."
+                      value={filiereSearch}
+                      onValueChange={setFiliereSearch}
+                    />
+                    <CommandList>
+                      <CommandEmpty>Aucune filière trouvée.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="ALL"
+                          onSelect={() => {
+                            setSelectedFiliereName(null);
+                            setOpenCombobox(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              !selectedFiliereName ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          Toutes les filières
+                        </CommandItem>
+                        {filieres.map((filiere) => (
+                          <CommandItem
+                            key={filiere.id}
+                            value={filiere.nom}
+                            onSelect={(currentValue) => {
+                              setSelectedFiliereName(currentValue === selectedFiliereName ? null : currentValue);
+                              setOpenCombobox(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedFiliereName === filiere.nom ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {filiere.nom}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -299,53 +456,76 @@ export default function Matieres() {
               Aucune matière trouvée. Créez-en une pour commencer.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Niveau</TableHead>
-                  <TableHead>Filière</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {matieres.map((matiere) => (
-                  <TableRow key={matiere.id}>
-                    <TableCell className="font-medium">{matiere.id}</TableCell>
-                    <TableCell className="font-medium">{matiere.nom}</TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {matiere.description || "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{matiere.niveau_etude?.nom || "—"}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{matiere.filiere?.nom || "—"}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(matiere)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteId(matiere.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nom</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Niveau</TableHead>
+                    <TableHead>Filière</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {matieres.map((matiere) => (
+                    <TableRow key={matiere.id}>
+                      <TableCell className="font-medium">{matiere.nom}</TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {matiere.description || "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{matiere.niveau_etude?.nom || "—"}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{matiere.niveau_etude?.filiere?.nom || "—"}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDialog(matiere)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteId(matiere.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {matieresResponse?.totalPages !== undefined && matieresResponse.totalPages > 1 && (
+                <div className="flex items-center justify-center space-x-2 py-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    Page {page} sur {matieresResponse.totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(matieresResponse.totalPages, p + 1))}
+                    disabled={page === matieresResponse.totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -387,26 +567,56 @@ export default function Matieres() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-niveau">Niveau d'étude *</Label>
-                <Select
-                  value={editingMatiere?.niveau_etude_id || ""}
-                  onValueChange={(value) =>
-                    setEditingMatiere(
-                      editingMatiere ? { ...editingMatiere, niveau_etude_id: value } : null
-                    )
-                  }
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un niveau d'étude" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {niveaux.map((niveau) => (
-                      <SelectItem key={niveau.id} value={niveau.id.toString()}>
-                        {niveau.nom} - {niveau.filiere?.nom}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={openEditDialogCombobox} onOpenChange={setOpenEditDialogCombobox}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openEditDialogCombobox}
+                      className="w-full justify-between"
+                    >
+                      {editingMatiere?.niveau_etude_id
+                        ? niveaux.find((n) => n.id.toString() === editingMatiere.niveau_etude_id)?.nom
+                        : "Sélectionner un niveau d'étude"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Rechercher un niveau..."
+                        value={editDialogNiveauSearch}
+                        onValueChange={setEditDialogNiveauSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>Aucun niveau trouvé.</CommandEmpty>
+                        <CommandGroup>
+                          {niveaux.filter(n =>
+                            n.nom.toLowerCase().includes(editDialogNiveauSearch.toLowerCase()) ||
+                            n.filiere?.nom.toLowerCase().includes(editDialogNiveauSearch.toLowerCase())
+                          ).map((niveau) => (
+                            <CommandItem
+                              key={niveau.id}
+                              value={`${niveau.nom} - ${niveau.filiere?.nom || ""}`}
+                              onSelect={() => {
+                                setEditingMatiere(editingMatiere ? { ...editingMatiere, niveau_etude_id: niveau.id.toString() } : null);
+                                setOpenEditDialogCombobox(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  editingMatiere?.niveau_etude_id === niveau.id.toString() ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {niveau.nom} - {niveau.filiere?.nom}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             <DialogFooter>
@@ -453,6 +663,6 @@ export default function Matieres() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </div >
   );
 }

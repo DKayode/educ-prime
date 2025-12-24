@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { NiveauEtudeService } from './niveau-etude.service';
 import { CreerNiveauEtudeDto } from './dto/creer-niveau-etude.dto';
 import { MajNiveauEtudeDto } from './dto/maj-niveau-etude.dto';
@@ -7,6 +8,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterNiveauEtudeDto } from './dto/filter-niveau-etude.dto';
 
+@ApiTags('niveau-etude')
 @Controller('niveau-etude')
 export class NiveauEtudeController {
   constructor(private readonly niveauEtudeService: NiveauEtudeService) { }
@@ -19,6 +21,12 @@ export class NiveauEtudeController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
+  @ApiOperation({ summary: 'Récupérer la liste des niveaux d\'étude' })
+  @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (nom niveau, nom filière)' })
+  @ApiQuery({ name: 'filiere', required: false, type: String, description: 'Filtrer par nom de filière' })
   async findAll(@Query() filterDto: FilterNiveauEtudeDto) {
     return this.niveauEtudeService.findAll(filterDto);
   }
@@ -41,9 +49,5 @@ export class NiveauEtudeController {
     return this.niveauEtudeService.remove(id);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Get('filiere/:id')
-  async findByFiliere(@Param('id') filiereId: string) {
-    return this.niveauEtudeService.findByFiliere(filiereId);
-  }
+
 }

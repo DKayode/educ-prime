@@ -28,17 +28,22 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, Trash2, Search, Loader2, BookOpen, Eye, Download } from "lucide-react";
+import { Upload, FileText, Trash2, Search, Loader2, BookOpen, Eye, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ressourcesService } from "@/lib/services/ressources.service";
 import { matieresService } from "@/lib/services/matieres.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
+import { useDebounce } from "@/hooks/use-debounce";
 
 export default function Ressources() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const debouncedSearchQuery = useDebounce(searchQuery, 500);
+    const [selectedType, setSelectedType] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [page, setPage] = useState(1);
+    const [limit] = useState(10);
 
 
     const queryClient = useQueryClient();
@@ -56,8 +61,13 @@ export default function Ressources() {
     });
 
     const { data: ressourcesResponse, isLoading, error } = useQuery({
-        queryKey: ['ressources'],
-        queryFn: () => ressourcesService.getAll(),
+        queryKey: ['ressources', page, limit, debouncedSearchQuery, selectedType],
+        queryFn: () => ressourcesService.getAll({
+            page,
+            limit,
+            search: debouncedSearchQuery || undefined,
+            type: selectedType === "ALL" ? undefined : selectedType || undefined
+        }),
     });
     const ressources = ressourcesResponse?.data || [];
 
@@ -141,12 +151,7 @@ export default function Ressources() {
         }
     };
 
-    const filteredRessources = ressources.filter(
-        (ressource) =>
-            ressource.titre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            ressource.matiere?.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            ressource.type.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredRessources = ressources;
 
     const getTypeBadgeVariant = (type: string) => {
         switch (type) {
@@ -288,14 +293,30 @@ export default function Ressources() {
                 <CardHeader>
                     <CardTitle>Liste des ressources ({ressources.length})</CardTitle>
                     <CardDescription>
-                        <div className="relative mt-4">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                placeholder="Rechercher par titre, matière ou type..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10"
-                            />
+                        <div className="flex flex-col md:flex-row gap-4 mt-4">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    placeholder="Rechercher par titre ou matière..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-10"
+                                />
+                            </div>
+                            <Select
+                                value={selectedType || "ALL"}
+                                onValueChange={(value) => setSelectedType(value === "ALL" ? null : value)}
+                            >
+                                <SelectTrigger className="w-full md:w-[200px]">
+                                    <SelectValue placeholder="Tous les types" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">Tous les types</SelectItem>
+                                    <SelectItem value="Document">Document</SelectItem>
+                                    <SelectItem value="Quiz">Quiz</SelectItem>
+                                    <SelectItem value="Exercices">Exercices</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </CardDescription>
                 </CardHeader>
@@ -308,65 +329,91 @@ export default function Ressources() {
                             </p>
                         </div>
                     ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Titre</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>Matière</TableHead>
-                                    <TableHead>Pages</TableHead>
-                                    <TableHead>Téléch.</TableHead>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredRessources.map((ressource) => (
-                                    <TableRow key={ressource.id}>
-                                        <TableCell className="font-medium">
-                                            <div className="flex items-center gap-2">
-                                                <FileText className="h-4 w-4 text-muted-foreground" />
-                                                {ressource.titre}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={getTypeBadgeVariant(ressource.type) as any}>
-                                                {ressource.type}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>{ressource.matiere?.nom || "-"}</TableCell>
-                                        <TableCell>{ressource.nombre_pages || "-"}</TableCell>
-                                        <TableCell>{ressource.nombre_telechargements || 0}</TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {new Date(ressource.date_creation).toLocaleDateString("fr-FR")}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex items-center justify-end gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    disabled={!ressource.url}
-                                                    className="h-8 w-8 text-blue-500 hover:text-blue-600"
-                                                    onClick={() => handlePreview(ressource)}
-                                                    title="Visualiser"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-destructive hover:text-destructive"
-                                                    onClick={() => deleteMutation.mutate(ressource.id.toString())}
-                                                    disabled={deleteMutation.isPending}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
+                        <>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Titre</TableHead>
+                                        <TableHead>Type</TableHead>
+                                        <TableHead>Matière</TableHead>
+                                        <TableHead>Pages</TableHead>
+                                        <TableHead>Téléch.</TableHead>
+                                        <TableHead>Date</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredRessources.map((ressource) => (
+                                        <TableRow key={ressource.id}>
+                                            <TableCell className="font-medium">
+                                                <div className="flex items-center gap-2">
+                                                    <FileText className="h-4 w-4 text-muted-foreground" />
+                                                    {ressource.titre}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={getTypeBadgeVariant(ressource.type) as any}>
+                                                    {ressource.type}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>{ressource.matiere?.nom || "-"}</TableCell>
+                                            <TableCell>{ressource.nombre_pages || "-"}</TableCell>
+                                            <TableCell>{ressource.nombre_telechargements || 0}</TableCell>
+                                            <TableCell className="text-muted-foreground">
+                                                {new Date(ressource.date_creation).toLocaleDateString("fr-FR")}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        disabled={!ressource.url}
+                                                        className="h-8 w-8 text-blue-500 hover:text-blue-600"
+                                                        onClick={() => handlePreview(ressource)}
+                                                        title="Visualiser"
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-destructive hover:text-destructive"
+                                                        onClick={() => deleteMutation.mutate(ressource.id.toString())}
+                                                        disabled={deleteMutation.isPending}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+
+                            {ressourcesResponse?.totalPages !== undefined && ressourcesResponse.totalPages > 1 && (
+                                <div className="flex items-center justify-center space-x-2 py-4">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={page === 1}
+                                    >
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </Button>
+                                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                        Page {page} sur {ressourcesResponse.totalPages}
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage(p => Math.min(ressourcesResponse.totalPages, p + 1))}
+                                        disabled={page === ressourcesResponse.totalPages}
+                                    >
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            )}
+                        </>
                     )}
                 </CardContent>
             </Card>
@@ -394,6 +441,6 @@ export default function Ressources() {
                     </div>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     );
 }

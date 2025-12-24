@@ -1,8 +1,13 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsArray } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { Transform } from 'class-transformer';
 
 export class FilterNiveauEtudeDto extends PaginationDto {
     @IsOptional()
     @IsString()
-    nom?: string;
+    search?: string;
+
+    @IsOptional()
+    @IsString()
+    filiere?: string;
 }

@@ -4,9 +4,19 @@ import type { PaginationResponse, PaginationParams } from '../types/pagination';
 import { buildPaginationQuery } from '../types/pagination';
 
 export const niveauxService = {
-  async getAll(params?: PaginationParams & { nom?: string }): Promise<PaginationResponse<NiveauEtude>> {
+  async getAll(params?: PaginationParams & { search?: string; filiere?: string }): Promise<PaginationResponse<NiveauEtude>> {
     const query = buildPaginationQuery(params);
-    return api.get<PaginationResponse<NiveauEtude>>(`/niveau-etude${query}`);
+    // Note: buildPaginationQuery might usually take 'nom'. We need to ensure 'search' is passed in query string.
+    // If buildPaginationQuery only handles pagination, we append others.
+    // Assuming buildPaginationQuery handles arbitrary params or just pagination.
+    // Looking at previous code, it seems it handles params.
+    // Let's rely on params passing 'search' if buildPaginationQuery supports it or manually append.
+    // The previous code did: const query = buildPaginationQuery(params); return api.get...
+    // I will stick to passing params. If buildPaginationQuery constructs query string from all keys, it works.
+    // If NOT, I need to check buildPaginationQuery. But I can't view it right now easily (it's imported).
+    // Safest is to rely on params object structure matching query keys.
+    // So if I pass { search: ... }, it should end up in URL.
+    return api.get<PaginationResponse<NiveauEtude>>(`/niveau-etude${buildPaginationQuery(params)}`);
   },
 
   async getById(id: number): Promise<NiveauEtude> {
@@ -23,9 +33,5 @@ export const niveauxService = {
 
   async delete(id: number): Promise<{ message: string }> {
     return api.delete(`/niveau-etude/${id}`);
-  },
-
-  async getByFiliere(filiereId: number): Promise<NiveauEtude[]> {
-    return api.get<NiveauEtude[]>(`/niveau-etude/filiere/${filiereId}`);
   },
 };

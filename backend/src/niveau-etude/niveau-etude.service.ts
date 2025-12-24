@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere } from 'typeorm';
+import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { NiveauEtude } from './entities/niveau-etude.entity';
 import { CreerNiveauEtudeDto } from './dto/creer-niveau-etude.dto';
 import { MajNiveauEtudeDto } from './dto/maj-niveau-etude.dto';
@@ -26,21 +26,29 @@ export class NiveauEtudeService {
   }
 
   async findAll(filterDto: FilterNiveauEtudeDto): Promise<PaginationResponse<any>> {
-    const { page = 1, limit = 10, nom } = filterDto;
-    this.logger.log(`Récupération des niveaux d'étude - Page: ${page}, Limite: ${limit}, Nom: ${nom}`);
+    const { page = 1, limit = 10, search, filiere } = filterDto;
+    this.logger.log(`Récupération des niveaux d'étude - Page: ${page}, Limite: ${limit}, Search: ${search}, Filière: ${filiere}`);
 
-    const whereCondition: FindOptionsWhere<NiveauEtude> = {};
+    const queryBuilder = this.niveauEtudeRepository.createQueryBuilder('niveau')
+      .leftJoinAndSelect('niveau.filiere', 'filiere')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .orderBy('niveau.id', 'DESC');
 
-    if (nom) {
-      whereCondition.nom = Like(`%${nom}%`);
+    if (filiere) {
+      queryBuilder.andWhere('filiere.nom = :filiere', { filiere });
     }
 
-    const [niveaux, total] = await this.niveauEtudeRepository.findAndCount({
-      where: whereCondition,
-      relations: ['filiere'],
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    if (search) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('niveau.nom ILIKE :search', { search: `%${search}%` })
+            .orWhere('filiere.nom ILIKE :search', { search: `%${search}%` });
+        }),
+      );
+    }
+
+    const [niveaux, total] = await queryBuilder.getManyAndCount();
 
     this.logger.log(`${niveaux.length} niveau(x) d'étude trouvé(s) sur ${total} total`);
 
@@ -99,30 +107,35 @@ export class NiveauEtudeService {
     });
 
     if (!niveauEtude) {
-      this.logger.warn(`Mise à jour échouée: niveau d'étude ID ${id} introuvable`);
+      this.logger.warn(`Niveau d'étude ID ${id} introuvable pour mise à jour`);
       throw new NotFoundException('Niveau d\'étude non trouvé');
     }
 
-    Object.assign(niveauEtude, majNiveauEtudeDto);
-    const updated = await this.niveauEtudeRepository.save(niveauEtude);
-    this.logger.log(`Niveau d'étude mis à jour: ${updated.nom} (ID: ${id})`);
+    // Si on met à jour la filière
+    let filiere = niveauEtude.filiere;
+    if (majNiveauEtudeDto.filiere_id) {
+      filiere = { id: majNiveauEtudeDto.filiere_id } as any;
+    }
+
+    const updated = await this.niveauEtudeRepository.save({
+      ...niveauEtude,
+      ...majNiveauEtudeDto,
+      filiere,
+    });
+
+    this.logger.log(`Niveau d'étude mis à jour: ${updated.nom}`);
     return updated;
   }
 
   async remove(id: string) {
     this.logger.log(`Suppression du niveau d'étude ID: ${id}`);
-    const niveauEtude = await this.niveauEtudeRepository.findOne({
-      where: { id: parseInt(id) },
-    });
-
-    if (!niveauEtude) {
-      this.logger.warn(`Suppression échouée: niveau d'étude ID ${id} introuvable`);
-      throw new NotFoundException('Niveau d\'étude non trouvé');
-    }
-
     try {
-      await this.niveauEtudeRepository.remove(niveauEtude);
-      this.logger.log(`Niveau d'étude supprimé: ${niveauEtude.nom} (ID: ${id})`);
+      const result = await this.niveauEtudeRepository.delete(id);
+      if (result.affected === 0) {
+        this.logger.warn(`Niveau d'étude ID ${id} introuvable pour suppression`);
+        throw new NotFoundException('Niveau d\'étude non trouvé');
+      }
+      this.logger.log(`Niveau d'étude supprimé`);
       return { message: 'Niveau d\'étude supprimé avec succès' };
     } catch (error) {
       if (error.code === '23503') {
@@ -131,7 +144,6 @@ export class NiveauEtudeService {
       throw error;
     }
   }
-
   async findByFiliere(filiereId: string) {
     this.logger.log(`Recherche des niveaux d'étude pour filière ID: ${filiereId}`);
     const niveaux = await this.niveauEtudeRepository.find({

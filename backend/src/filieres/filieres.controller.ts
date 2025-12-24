@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { FilieresService } from './filieres.service';
 import { CreerFiliereDto } from './dto/creer-filiere.dto';
 import { MajFiliereDto } from './dto/maj-filiere.dto';
@@ -6,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterFiliereDto } from './dto/filter-filiere.dto';
 
+@ApiTags('filieres')
 @Controller('filieres')
 export class FilieresController {
   constructor(private readonly filieresService: FilieresService) { }
@@ -18,6 +20,12 @@ export class FilieresController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
+  @ApiOperation({ summary: 'Récupérer la liste des filières' })
+  @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (nom filière, nom établissement, ville établissement)' })
+  @ApiQuery({ name: 'etablissement', required: false, type: String, description: 'Filtrer par nom d\'établissement' })
   async findAll(@Query() filterDto: FilterFiliereDto) {
     return this.filieresService.findAll(filterDto);
   }
@@ -38,11 +46,5 @@ export class FilieresController {
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.filieresService.remove(id);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('etablissement/:id')
-  async findByEtablissement(@Param('id') etablissementId: string) {
-    return this.filieresService.findByEtablissement(etablissementId);
   }
 }

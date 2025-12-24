@@ -1,7 +1,8 @@
 import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Brackets } from 'typeorm';
 import { Utilisateur } from './entities/utilisateur.entity';
+import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
 import { InscriptionDto } from './dto/inscription.dto';
 import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -55,16 +56,34 @@ export class UtilisateursService {
     return savedUser;
   }
 
-  async findAll(paginationDto: PaginationDto): Promise<PaginationResponse<Utilisateur>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    this.logger.log(`Récupération des utilisateurs - Page: ${page}, Limite: ${limit}`);
 
-    const [users, total] = await this.utilisateursRepository.findAndCount({
-      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'photo', 'sexe', 'telephone', 'role'],
-      relations: ['etablissement', 'filiere', 'niveau_etude'],
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+
+  async findAll(filterDto: FilterUtilisateurDto): Promise<PaginationResponse<Utilisateur>> {
+    const { page = 1, limit = 10, search, role } = filterDto;
+    this.logger.log(`Récupération des utilisateurs - Page: ${page}, Limite: ${limit}, Search: ${search}, Role: ${role}`);
+
+    const queryBuilder = this.utilisateursRepository.createQueryBuilder('utilisateur')
+      .leftJoinAndSelect('utilisateur.etablissement', 'etablissement')
+      .leftJoinAndSelect('utilisateur.filiere', 'filiere')
+      .leftJoinAndSelect('utilisateur.niveau_etude', 'niveau_etude')
+      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.photo', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'etablissement', 'filiere', 'niveau_etude'])
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (role) {
+      queryBuilder.andWhere('utilisateur.role = :role', { role });
+    }
+
+    if (search) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('utilisateur.nom ILIKE :search', { search: `%${search}%` })
+            .orWhere('utilisateur.email ILIKE :search', { search: `%${search}%` });
+        }),
+      );
+    }
+
+    const [users, total] = await queryBuilder.getManyAndCount();
 
     this.logger.log(`${users.length} utilisateur(s) trouvé(s) sur ${total} total`);
 
