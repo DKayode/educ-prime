@@ -252,6 +252,22 @@ CREATE TABLE IF NOT EXISTS favoris (
     UNIQUE(parcours_id, utilisateur_id)
 );
 
+CREATE TABLE categories (
+  id SERIAL PRIMARY KEY,
+  nom VARCHAR(100) NOT NULL UNIQUE,
+  slug VARCHAR(100) NOT NULL UNIQUE,
+  description TEXT,
+  couleur VARCHAR(7),
+  icone VARCHAR(50),
+  is_active BOOLEAN DEFAULT true,
+  ordre INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE parcours ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL;
+
 -- ------------------------------
 -- 7. CREATE DEFAULT ADMIN USER
 -- ------------------------------

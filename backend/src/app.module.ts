@@ -37,6 +37,8 @@ import { Parcour } from './parcours/entities/parcour.entity';
 import { Commentaire } from './commentaires/entities/commentaire.entity';
 import { Like } from './likes/entities/like.entity';
 import { Favori } from './favoris/entities/favoris.entity';
+import { CategoriesModule } from './categories/categories.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -87,6 +89,7 @@ import { Favori } from './favoris/entities/favoris.entity';
     CommentairesModule,
     LikesModule,
     FavorisModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
