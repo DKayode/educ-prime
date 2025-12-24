@@ -22,7 +22,7 @@ export class CommentairesService {
    * @throws NotFoundException si le parcours n'existe pas
    * @throws NotFoundException si le commentaire parent n'existe pas
    */
-  async create(createCommentaireDto: CreateCommentaireDto): Promise<Commentaire> {
+  async create(createCommentaireDto: CreateCommentaireDto, userId: number): Promise<Commentaire> {
     // Vérifier que le parcours existe
     await this.parcoursService.findOne(createCommentaireDto.parcours_id);
 
@@ -41,13 +41,18 @@ export class CommentairesService {
       }
     }
 
-    const commentaire = this.commentaireRepository.create(createCommentaireDto);
+    // Créer le commentaire avec l'ID de l'utilisateur
+    const commentaire = this.commentaireRepository.create({
+      ...createCommentaireDto,
+      utilisateur_id: userId,
+    });
+
     const savedCommentaire = await this.commentaireRepository.save(commentaire);
 
-    // Charger les relations
+    // Charger les relations (ajouter 'user' si nécessaire)
     return await this.commentaireRepository.findOne({
       where: { id: savedCommentaire.id },
-      relations: ['parcours', 'parent', 'enfants'],
+      relations: ['parcours', 'parent', 'enfants'],  // Ajouter 'user' aux relations
     });
   }
 
@@ -280,7 +285,7 @@ export class CommentairesService {
    * @param query - Paramètres de pagination
    * @returns Commentaires de l'utilisateur
    */
-  async findByUser(usersId: number, query: CommentaireQueryDto): Promise<{
+  async findByUser(userId: number, query: CommentaireQueryDto): Promise<{
     data: Commentaire[];
     meta: {
       page: number;
@@ -291,7 +296,7 @@ export class CommentairesService {
   }> {
     return await this.findAll({
       ...query,
-      utilisateur_id: usersId,
+      utilisateur_id: userId,
     });
   }
 

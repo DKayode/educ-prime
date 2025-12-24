@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { CreateLikeDto } from './dto/create-like.dto';
@@ -20,12 +20,13 @@ export class LikesService {
   /**
    * Ajoute un like/dislike
    * @param createLikeDto - Données du like/dislike
+   * @param userId - ID de l'utilisateur authentifié
    * @returns Le like créé ou mis à jour
    * @throws BadRequestException si ni parcours_id ni commentaire_id n'est fourni
    * @throws NotFoundException si la ressource n'existe pas
    * @throws ConflictException si la combinaison existe déjà
    */
-  async like(createLikeDto: CreateLikeDto): Promise<Like> {
+  async like(createLikeDto: CreateLikeDto, userId: number): Promise<Like> {
     // Vérifier que soit parcours_id soit commentaire_id est fourni (mais pas les deux)
     if (!createLikeDto.parcours_id && !createLikeDto.commentaire_id) {
       throw new BadRequestException('Soit parcours_id soit commentaire_id doit être fourni');
@@ -44,10 +45,10 @@ export class LikesService {
       await this.commentairesService.findOne(createLikeDto.commentaire_id);
     }
 
-    // Vérifier si un like existe déjà pour cette combinaison
+    // Vérifier si un like existe déjà pour cette combinaison utilisateur + ressource
     const existingLike = await this.likeRepository.findOne({
       where: {
-        utilisateur_id: createLikeDto.utilisateur_id,
+        utilisateur_id: userId, // Utiliser le userId passé en paramètre
         parcours_id: createLikeDto.parcours_id || null,
         commentaire_id: createLikeDto.commentaire_id || null,
       },
@@ -66,9 +67,10 @@ export class LikesService {
       return await this.likeRepository.save(existingLike);
     }
 
-    // Créer un nouveau like
+    // Créer un nouveau like avec l'ID de l'utilisateur
     const like = this.likeRepository.create({
       ...createLikeDto,
+      utilisateur_id: userId, // Ajouter l'ID de l'utilisateur
       type: LikeType.LIKE,
     });
 
@@ -164,14 +166,25 @@ export class LikesService {
    * @returns Le like mis à jour
    * @throws NotFoundException si le like n'existe pas
    */
-  async update(id: number, updateLikeDto: UpdateLikeDto): Promise<Like> {
+  async update(id: number, updateLikeDto: UpdateLikeDto, userId: number): Promise<Like> {
     const like = await this.findOne(id);
+
+    // Vérifier que l'utilisateur est propriétaire du like
+    if (like.utilisateur_id !== userId) {
+      throw new ForbiddenException('Vous ne pouvez pas modifier un like qui ne vous appartient pas');
+    }
+
+    // Empêcher la modification de utilisateur_id via le DTO
+    if (updateLikeDto.utilisateur_id) {
+      throw new BadRequestException('Vous ne pouvez pas modifier l\'utilisateur d\'un like');
+    }
 
     // Vérifier les contraintes
     if (updateLikeDto.parcours_id && updateLikeDto.commentaire_id) {
       throw new BadRequestException('Vous ne pouvez pas liker à la fois un parcours et un commentaire');
     }
 
+    // Si un nouveau parcours ou commentaire est spécifié, vérifier son existence
     if (updateLikeDto.parcours_id) {
       await this.parcoursService.findOne(updateLikeDto.parcours_id);
     }
@@ -180,21 +193,36 @@ export class LikesService {
       await this.commentairesService.findOne(updateLikeDto.commentaire_id);
     }
 
-    // Vérifier l'unicité si utilisateur_id, parcours_id ou commentaire_id change
-    if (updateLikeDto.utilisateur_id || updateLikeDto.parcours_id || updateLikeDto.commentaire_id) {
+    // Vérifier l'unicité si parcours_id ou commentaire_id change
+    // (un utilisateur ne peut avoir qu'un seul like par ressource)
+    if (updateLikeDto.parcours_id || updateLikeDto.commentaire_id) {
+      const whereCondition: any = {
+        utilisateur_id: userId,
+      };
+
+      // Déterminer quelle ressource est concernée
+      if (updateLikeDto.parcours_id) {
+        whereCondition.parcours_id = updateLikeDto.parcours_id;
+        whereCondition.commentaire_id = null;
+      } else if (updateLikeDto.commentaire_id) {
+        whereCondition.commentaire_id = updateLikeDto.commentaire_id;
+        whereCondition.parcours_id = null;
+      } else {
+        // Si aucun changement, utiliser les valeurs existantes
+        whereCondition.parcours_id = like.parcours_id;
+        whereCondition.commentaire_id = like.commentaire_id;
+      }
+
       const existingLike = await this.likeRepository.findOne({
-        where: {
-          utilisateur_id: updateLikeDto.utilisateur_id || like.utilisateur_id,
-          parcours_id: updateLikeDto.parcours_id || like.parcours_id,
-          commentaire_id: updateLikeDto.commentaire_id || like.commentaire_id,
-        },
+        where: whereCondition,
       });
 
       if (existingLike && existingLike.id !== id) {
-        throw new ConflictException('Un like existe déjà pour cette combinaison utilisateur/ressource');
+        throw new ConflictException('Vous avez déjà un like pour cette ressource');
       }
     }
 
+    // Mettre à jour le like
     Object.assign(like, updateLikeDto);
     return await this.likeRepository.save(like);
   }

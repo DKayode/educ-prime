@@ -1,8 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Category } from 'src/categories/entities/category.entity';
 import { Commentaire } from 'src/commentaires/entities/commentaire.entity';
 import { Favori } from 'src/favoris/entities/favoris.entity';
 import { Like } from 'src/likes/entities/like.entity';
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
 export enum MediaType {
   IMAGE = 'image',
@@ -34,6 +35,15 @@ export class Parcour {
   @ApiProperty({ description: 'Catégorie du parcours' })
   @Column({ type: 'varchar', length: 100 })
   categorie: string;
+
+  @ApiProperty({ description: 'ID de la catégorie', required: false })
+  @Column({ name: 'category_id', type: 'integer', nullable: true })
+  category_id?: number;
+
+  @ApiProperty({ description: 'Catégorie du parcours', type: () => Category, required: false })
+  @ManyToOne(() => Category, category => category.parcours, { nullable: true })
+  @JoinColumn({ name: 'category_id' })
+  category: Category;
 
   @ApiProperty({ description: 'Description détaillée' })
   @Column({ type: 'text' })

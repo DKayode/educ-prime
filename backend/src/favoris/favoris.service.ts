@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { CreateFavoriDto } from './dto/create-favoris.dto';
@@ -22,15 +22,15 @@ export class FavorisService {
    * @throws NotFoundException si le parcours n'existe pas
    * @throws ConflictException si le favori existe déjà
    */
-  async create(createFavoriDto: CreateFavoriDto): Promise<Favori> {
+  async create(createFavoriDto: CreateFavoriDto, userId: number): Promise<Favori> {
     // Vérifier que le parcours existe
     await this.parcoursService.findOne(createFavoriDto.parcours_id);
 
-    // Vérifier si le favori existe déjà
+    // Vérifier si le favori existe déjà pour cet utilisateur
     const existingFavori = await this.favoriRepository.findOne({
       where: {
         parcours_id: createFavoriDto.parcours_id,
-        utilisateur_id: createFavoriDto.utilisateur_id,
+        utilisateur_id: userId, // Utiliser le userId passé en paramètre
       },
     });
 
@@ -38,7 +38,12 @@ export class FavorisService {
       throw new ConflictException('Ce parcours est déjà dans vos favoris');
     }
 
-    const favori = this.favoriRepository.create(createFavoriDto);
+    // Créer le favori avec l'ID de l'utilisateur
+    const favori = this.favoriRepository.create({
+      ...createFavoriDto,
+      utilisateur_id: userId, // Ajouter l'ID de l'utilisateur
+    });
+
     const savedFavori = await this.favoriRepository.save(favori);
 
     // Charger les relations
@@ -129,18 +134,34 @@ export class FavorisService {
    * @returns Le favori mis à jour
    * @throws NotFoundException si le favori n'existe pas
    */
-  async update(id: number, updateFavoriDto: UpdateFavorisDto): Promise<Favori> {
-    const favori = await this.findOne(id);
+  async update(id: number, updateFavoriDto: UpdateFavorisDto, userId: number): Promise<Favori> {
+    const favori = await this.favoriRepository.findOne({
+      where: { id },
+    });
 
-    // Si parcours_id change, vérifier l'existence
+    if (!favori) {
+      throw new NotFoundException(`Favori avec l'ID ${id} non trouvé`);
+    }
+
+    // Vérifier que l'utilisateur est propriétaire du favori
+    if (favori.utilisateur_id !== userId) {
+      throw new ForbiddenException('Vous ne pouvez pas modifier un favori qui ne vous appartient pas');
+    }
+
+    // Empêcher la modification de utilisateur_id
+    if (userId) {
+      throw new BadRequestException('Vous ne pouvez pas modifier l\'utilisateur d\'un favori');
+    }
+
+    // Si parcours_id est modifié, vérifier que le nouveau parcours existe
     if (updateFavoriDto.parcours_id && updateFavoriDto.parcours_id !== favori.parcours_id) {
       await this.parcoursService.findOne(updateFavoriDto.parcours_id);
 
-      // Vérifier l'unicité
+      // Vérifier si l'utilisateur a déjà ce parcours dans ses favoris
       const existingFavori = await this.favoriRepository.findOne({
         where: {
+          utilisateur_id: userId,
           parcours_id: updateFavoriDto.parcours_id,
-          utilisateur_id: updateFavoriDto.utilisateur_id || favori.utilisateur_id,
         },
       });
 
@@ -149,8 +170,15 @@ export class FavorisService {
       }
     }
 
+    // Mettre à jour le favori
     Object.assign(favori, updateFavoriDto);
-    return await this.favoriRepository.save(favori);
+    const updatedFavori = await this.favoriRepository.save(favori);
+
+    // Charger les relations
+    return await this.favoriRepository.findOne({
+      where: { id: updatedFavori.id },
+      relations: ['parcours'],
+    });
   }
 
   /**

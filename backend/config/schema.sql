@@ -218,6 +218,20 @@ CREATE TABLE IF NOT EXISTS commentaires (
     parent_id INTEGER REFERENCES commentaires(id)
 );
 
+
+CREATE TABLE commentaires_closure (
+    id_ancestor INTEGER NOT NULL,
+    id_descendant INTEGER NOT NULL,
+    depth INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id_ancestor, id_descendant),
+    FOREIGN KEY (id_ancestor) REFERENCES commentaires(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_descendant) REFERENCES commentaires(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_commentaires_closure_ancestor ON commentaires_closure(id_ancestor);
+CREATE INDEX idx_commentaires_closure_descendant ON commentaires_closure(id_descendant);
+CREATE INDEX idx_commentaires_closure_depth ON commentaires_closure(depth);
+
 CREATE TABLE IF NOT EXISTS likes (
     id SERIAL PRIMARY KEY,
     parcours_id INTEGER REFERENCES parcours(id),
@@ -237,6 +251,22 @@ CREATE TABLE IF NOT EXISTS favoris (
     date_favoris TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(parcours_id, utilisateur_id)
 );
+
+CREATE TABLE categories (
+  id SERIAL PRIMARY KEY,
+  nom VARCHAR(100) NOT NULL UNIQUE,
+  slug VARCHAR(100) NOT NULL UNIQUE,
+  description TEXT,
+  couleur VARCHAR(7),
+  icone VARCHAR(50),
+  is_active BOOLEAN DEFAULT true,
+  ordre INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE parcours ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL;
 
 -- ------------------------------
 -- 7. CREATE DEFAULT ADMIN USER

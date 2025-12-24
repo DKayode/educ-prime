@@ -1,25 +1,31 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { CommentairesService } from './commentaires.service';
 import { CreateCommentaireDto } from './dto/create-commentaire.dto';
 import { UpdateCommentaireDto } from './dto/update-commentaire.dto';
 import { CommentaireQueryDto } from './dto/commentaire-query.dto';
 import { Commentaire } from './entities/commentaire.entity';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { OwnerOrAdminGuard } from 'src/auth/guards/owner-or-admin.guard';
+import { GetUser } from 'src/auth/guards/get-user.guard';
 
 @ApiTags('commentaires')
 @Controller('commentaires')
 export class CommentairesController {
   constructor(private readonly commentairesService: CommentairesService) { }
 
+  @UseGuards(JwtAuthGuard)
   @Post()
   @ApiOperation({ summary: 'Créer un nouveau commentaire' })
   @ApiResponse({ status: 201, description: 'Commentaire créé avec succès', type: Commentaire })
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 404, description: 'Parcours ou commentaire parent non trouvé' })
-  async create(@Body() createCommentaireDto: CreateCommentaireDto): Promise<Commentaire> {
-    return await this.commentairesService.create(createCommentaireDto);
+  async create(@Body() createCommentaireDto: CreateCommentaireDto, @GetUser() user: any): Promise<Commentaire> {
+    const userId = user.userId
+    return await this.commentairesService.create(createCommentaireDto, userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
   @ApiOperation({ summary: 'Récupérer tous les commentaires avec pagination et filtres' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
@@ -35,6 +41,7 @@ export class CommentairesController {
     return await this.commentairesService.findAll(query);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('stats')
   @ApiOperation({ summary: 'Récupérer les statistiques des commentaires' })
   @ApiQuery({ name: 'parcours_id', required: false, type: String, description: 'ID du parcours pour les statistiques' })
@@ -43,6 +50,7 @@ export class CommentairesController {
     return await this.commentairesService.getStats(parcoursId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un commentaire par son ID' })
   @ApiParam({ name: 'id', description: 'ID du commentaire' })
@@ -52,6 +60,7 @@ export class CommentairesController {
     return await this.commentairesService.findOne(id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id/replies')
   @ApiOperation({ summary: 'Récupérer les réponses d\'un commentaire' })
   @ApiParam({ name: 'id', description: 'ID du commentaire parent' })
@@ -65,6 +74,7 @@ export class CommentairesController {
     return await this.commentairesService.findReplies(id, query);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('parcours/:parcoursId')
   @ApiOperation({ summary: 'Récupérer les commentaires d\'un parcours' })
   @ApiParam({ name: 'parcoursId', description: 'ID du parcours' })
@@ -78,19 +88,21 @@ export class CommentairesController {
     return await this.commentairesService.findByParcours(parcoursId, query);
   }
 
-  @Get('user/:userId')
-  @ApiOperation({ summary: 'Récupérer les commentaires d\'un utilisateur' })
-  @ApiParam({ name: 'userId', description: 'ID de l\'utilisateur' })
+  @UseGuards(JwtAuthGuard)
+  @Get('user')
+  @ApiOperation({ summary: 'Récupérer les commentaires de l\'utilisateur connecté' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Commentaires de l\'utilisateur récupérés avec succès' })
   async findByUser(
-    @Param('userId') userId: number,
+    @GetUser() user: any,
     @Query() query: CommentaireQueryDto,
   ) {
+    const userId = user.userId;
     return await this.commentairesService.findByUser(userId, query);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   @ApiOperation({ summary: 'Mettre à jour un commentaire' })
   @ApiParam({ name: 'id', description: 'ID du commentaire à mettre à jour' })
@@ -104,6 +116,7 @@ export class CommentairesController {
     return await this.commentairesService.update(id, updateCommentaireDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Supprimer un commentaire' })

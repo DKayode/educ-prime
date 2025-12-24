@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Like } from 'src/likes/entities/like.entity';
 import { Parcour } from 'src/parcours/entities/parcour.entity';
+import { Utilisateur } from 'src/utilisateurs/entities/utilisateur.entity';
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Tree, TreeChildren, TreeParent } from 'typeorm';
 
 @Entity('commentaires')
@@ -39,7 +40,7 @@ export class Commentaire {
     @JoinColumn({ name: 'parent_id' })
     parent: Commentaire;
 
-    @OneToMany(() => Like, like => like.parcours)
+    @OneToMany(() => Like, like => like.commentaire)
     likes: Like[];
 
     @TreeChildren()
