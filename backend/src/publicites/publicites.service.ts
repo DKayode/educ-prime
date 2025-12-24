@@ -89,7 +89,48 @@ export class PublicitesService {
     }
 
     async findOneForDownloadMedia(id: string): Promise<{ url: string; titre: string }> {
-        return this.findOneForDownload(id);
+        this.logger.log(`Recherche du média de la publicité pour téléchargement - ID: ${id}`);
+        const publicite = await this.publiciteRepository.findOne({
+            where: { id: parseInt(id) },
+        });
+
+        if (!publicite) {
+            this.logger.warn(`Publicité ID ${id} introuvable`);
+            throw new NotFoundException('Publicité non trouvée');
+        }
+
+        if (publicite.type_media !== 'Image') {
+            throw new BadRequestException('Cette publicité n\'est pas de type Image');
+        }
+
+        if (!publicite.media) {
+            this.logger.warn(`Publicité ID ${id} n'a pas de fichier média associé`);
+            throw new NotFoundException('Cette publicité n\'a pas de fichier média associé');
+        }
+
+        this.logger.log(`Média trouvé pour téléchargement: ${publicite.titre} (ID: ${id})`);
+        return { url: publicite.media, titre: publicite.titre };
+    }
+
+    async findOneForLink(id: string): Promise<{ link: string }> {
+        this.logger.log(`Recherche du lien vidéo de la publicité - ID: ${id}`);
+        const publicite = await this.publiciteRepository.findOne({
+            where: { id: parseInt(id) },
+        });
+
+        if (!publicite) {
+            throw new NotFoundException('Publicité non trouvée');
+        }
+
+        if (publicite.type_media !== 'Video') {
+            throw new BadRequestException('Cette publicité n\'est pas de type Vidéo');
+        }
+
+        if (!publicite.media) {
+            throw new NotFoundException('Cette publicité n\'a pas de lien vidéo associé');
+        }
+
+        return { link: publicite.media };
     }
 
     async findOneForDownloadImage(id: string): Promise<{ url: string; titre: string }> {

@@ -127,6 +127,10 @@ class ApiClient {
         throw error;
       }
 
+      if (response.status === 204) {
+        return null as T;
+      }
+
       const data = await response.json();
       const count = Array.isArray(data) ? ` (${data.length} items)` : '';
       console.log(`[API] ${method} ${endpoint} - ${response.status}${count}`);
@@ -156,6 +160,13 @@ class ApiClient {
   async put<T>(endpoint: string, data?: any): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async patch<T>(endpoint: string, data?: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   }

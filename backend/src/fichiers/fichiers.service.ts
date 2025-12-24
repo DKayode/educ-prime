@@ -242,6 +242,14 @@ export class FichiersService {
           }
           folderPath = `etablissements/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
           break;
+        case TypeFichier.PARCOURS:
+          if (!uploadData.entityId) {
+            throw new BadRequestException('entityId est requis pour les parcours');
+          }
+          // Use subtype if provided (image/video), otherwise just entity folder
+          const parcoursSubPath = uploadData.entitySubtype ? `/${this.normalizePathSegment(uploadData.entitySubtype)}` : '';
+          folderPath = `parcours/${this.normalizePathSegment(uploadData.entityId)}${parcoursSubPath}/${normalizedFileName}`;
+          break;
         default:
           throw new BadRequestException('Type de fichier invalide');
       }
