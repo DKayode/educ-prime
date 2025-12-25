@@ -4,7 +4,7 @@ import type { PaginationResponse, PaginationParams } from '../types/pagination';
 import { buildPaginationQuery } from '../types/pagination';
 
 export const filieresService = {
-  async getAll(params?: PaginationParams & { nom?: string }): Promise<PaginationResponse<Filiere>> {
+  async getAll(params?: PaginationParams & { search?: string; etablissement?: string }): Promise<PaginationResponse<Filiere>> {
     const query = buildPaginationQuery(params);
     return api.get<PaginationResponse<Filiere>>(`/filieres${query}`);
   },
@@ -23,9 +23,5 @@ export const filieresService = {
 
   async delete(id: number): Promise<{ message: string }> {
     return api.delete(`/filieres/${id}`);
-  },
-
-  async getByEtablissement(etablissementId: number): Promise<Filiere[]> {
-    return api.get<Filiere[]>(`/filieres/etablissement/${etablissementId}`);
   },
 };

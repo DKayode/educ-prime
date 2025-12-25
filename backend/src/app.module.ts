@@ -37,6 +37,7 @@ import { Parcour } from './parcours/entities/parcour.entity';
 import { Commentaire } from './commentaires/entities/commentaire.entity';
 import { Like } from './likes/entities/like.entity';
 import { Favori } from './favoris/entities/favoris.entity';
+import { Category } from './categories/entities/category.entity';
 import { CategoriesModule } from './categories/categories.module';
 
 @Module({
@@ -68,7 +69,8 @@ import { CategoriesModule } from './categories/categories.module';
       Parcour,
       Commentaire,
       Like,
-      Favori
+      Favori,
+      Category
     ]),
     AuthModule,
     UtilisateursModule,

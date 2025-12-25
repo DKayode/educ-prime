@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { Response } from 'express';
 import { OpportunitesService } from './opportunites.service';
 import { CreerOpportuniteDto } from './dto/create-opportunite.dto';
@@ -10,6 +11,7 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { FilterOpportuniteDto } from './dto/filter-opportunite.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 
+@ApiTags('opportunites')
 @Controller('opportunites')
 export class OpportunitesController {
   constructor(
@@ -26,6 +28,14 @@ export class OpportunitesController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
+  @ApiOperation({ summary: 'Récupérer la liste des opportunités' })
+  @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
+  @ApiQuery({ name: 'titre', required: false, type: String, description: 'Filtrer par titre' })
+  @ApiQuery({ name: 'type', required: false, type: String, description: 'Filtrer par type (Stage, Emploi, Bourse, Concours)' })
+  @ApiQuery({ name: 'lieu', required: false, type: String, description: 'Filtrer par lieu' })
+  @ApiQuery({ name: 'organisme', required: false, type: String, description: 'Filtrer par organisme' })
   findAll(@Query() filterDto: FilterOpportuniteDto) {
     return this.opportunitesService.findAll(filterDto);
   }

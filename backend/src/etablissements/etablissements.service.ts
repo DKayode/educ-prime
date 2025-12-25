@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere } from 'typeorm';
+import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { Etablissement } from './entities/etablissement.entity';
 import { Filiere } from '../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../niveau-etude/entities/niveau-etude.entity';
@@ -14,6 +14,9 @@ import { PaginationResponse } from '../common/interfaces/pagination-response.int
 import { FilterEtablissementDto } from './dto/filter-etablissement.dto';
 import { FilterFiliereDto } from '../filieres/dto/filter-filiere.dto';
 import { FilterNiveauEtudeDto } from '../niveau-etude/dto/filter-niveau-etude.dto';
+import { FilterMatiereDto } from '../matieres/dto/filter-matiere.dto';
+import { FilterEpreuveDto } from '../epreuves/dto/filter-epreuve.dto';
+import { FilterRessourceDto } from '../ressources/dto/filter-ressource.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 
 @Injectable()
@@ -45,24 +48,24 @@ export class EtablissementsService {
   }
 
   async findAll(filterDto: FilterEtablissementDto): Promise<PaginationResponse<Etablissement>> {
-    const { page = 1, limit = 10, nom, ville } = filterDto;
-    this.logger.log(`Récupération des établissements - Page: ${page}, Limite: ${limit}, Nom: ${nom}, Ville: ${ville}`);
+    const { page = 1, limit = 10, search } = filterDto;
+    this.logger.log(`Récupération des établissements - Page: ${page}, Limite: ${limit}, Search: ${search}`);
 
-    const whereCondition: FindOptionsWhere<Etablissement> = {};
+    const queryBuilder = this.etablissementsRepository.createQueryBuilder('etablissement');
 
-    if (nom) {
-      whereCondition.nom = Like(`%${nom}%`);
+    if (search) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('etablissement.nom ILIKE :search', { search: `%${search}%` })
+            .orWhere('etablissement.ville ILIKE :search', { search: `%${search}%` });
+        }),
+      );
     }
 
-    if (ville) {
-      whereCondition.ville = Like(`%${ville}%`);
-    }
-
-    const [etablissements, total] = await this.etablissementsRepository.findAndCount({
-      where: whereCondition,
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    const [etablissements, total] = await queryBuilder
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
 
     this.logger.log(`${etablissements.length} établissement(s) trouvé(s) sur ${total} total`);
 
@@ -148,16 +151,16 @@ export class EtablissementsService {
 
   // Hierarchical navigation methods
   async findFilieresById(id: string, filterDto: FilterFiliereDto): Promise<PaginationResponse<Filiere>> {
-    const { page = 1, limit = 10, nom } = filterDto;
-    this.logger.log(`Récupération des filières pour établissement ID: ${id} - Page: ${page}, Limite: ${limit}, Nom: ${nom}`);
+    const { page = 1, limit = 10, search } = filterDto;
+    this.logger.log(`Récupération des filières pour établissement ID: ${id} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
     await this.findOne(id); // Verify etablissement exists
 
     const whereCondition: FindOptionsWhere<Filiere> = {
       etablissement: { id: parseInt(id) },
     };
 
-    if (nom) {
-      whereCondition.nom = Like(`%${nom}%`);
+    if (search) {
+      whereCondition.nom = Like(`%${search}%`);
     }
 
     const [filieres, total] = await this.filieresRepository.findAndCount({
@@ -178,8 +181,8 @@ export class EtablissementsService {
   }
 
   async findNiveauEtudeByFiliere(etablissementId: string, filiereId: string, filterDto: FilterNiveauEtudeDto): Promise<PaginationResponse<NiveauEtude>> {
-    const { page = 1, limit = 10, nom } = filterDto;
-    this.logger.log(`Récupération des niveaux d'étude pour filière ID: ${filiereId} - Page: ${page}, Limite: ${limit}, Nom: ${nom}`);
+    const { page = 1, limit = 10, search } = filterDto;
+    this.logger.log(`Récupération des niveaux d'étude pour filière ID: ${filiereId} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
 
     // Verify filiere belongs to etablissement
     const filiere = await this.filieresRepository.findOne({
@@ -197,8 +200,8 @@ export class EtablissementsService {
       filiere: { id: parseInt(filiereId) },
     };
 
-    if (nom) {
-      whereCondition.nom = Like(`%${nom}%`);
+    if (search) {
+      whereCondition.nom = Like(`%${search}%`);
     }
 
     const [niveaux, total] = await this.niveauEtudeRepository.findAndCount({
@@ -228,9 +231,9 @@ export class EtablissementsService {
     };
   }
 
-  async findMatieresByNiveauEtude(etablissementId: string, filiereId: string, niveauEtudeId: string, paginationDto: PaginationDto = {}): Promise<PaginationResponse<Matiere>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    this.logger.log(`Récupération des matières pour niveau d'étude ID: ${niveauEtudeId} - Page: ${page}, Limite: ${limit}`);
+  async findMatieresByNiveauEtude(etablissementId: string, filiereId: string, niveauEtudeId: string, filterDto: FilterMatiereDto): Promise<PaginationResponse<Matiere>> {
+    const { page = 1, limit = 10, search } = filterDto;
+    this.logger.log(`Récupération des matières pour niveau d'étude ID: ${niveauEtudeId} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
 
     // Verify niveau_etude belongs to filiere and etablissement
     const niveauEtude = await this.niveauEtudeRepository.findOne({
@@ -247,12 +250,23 @@ export class EtablissementsService {
       throw new NotFoundException('Niveau d\'étude non trouvé pour cette filière');
     }
 
-    const [matieres, total] = await this.matieresRepository.findAndCount({
-      where: { niveau_etude: { id: parseInt(niveauEtudeId) } },
-      relations: ['niveau_etude', 'niveau_etude.filiere'],
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    const queryBuilder = this.matieresRepository.createQueryBuilder('matiere')
+      .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
+      .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .where('niveau_etude.id = :niveauEtudeId', { niveauEtudeId });
+
+    if (search) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('matiere.nom ILIKE :search', { search: `%${search}%` });
+        }),
+      );
+    }
+
+    const [matieres, total] = await queryBuilder
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
 
     this.logger.log(`${matieres.length} matière(s) trouvée(s) pour niveau d'étude ${niveauEtudeId} sur ${total} total`);
 
@@ -283,13 +297,10 @@ export class EtablissementsService {
     etablissementId: string,
     filiereId: string,
     niveauEtudeId: string,
-    titre?: string,
-    type?: string,
-    matiereNom?: string,
-    paginationDto: PaginationDto = {}
+    filterDto: FilterEpreuveDto
   ): Promise<PaginationResponse<Epreuve>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    this.logger.log(`Recherche des épreuves pour niveau ID: ${niveauEtudeId} - Titre: ${titre}, Type: ${type}, Matière: ${matiereNom}`);
+    const { page = 1, limit = 10, search, type, matiere } = filterDto;
+    this.logger.log(`Recherche des épreuves pour niveau ID: ${niveauEtudeId} - Search: ${search}, Type: ${type}, Matière: ${matiere}`);
 
     // Verify niveau_etude belongs to filiere and etablissement
     const niveauEtude = await this.niveauEtudeRepository.findOne({
@@ -306,34 +317,34 @@ export class EtablissementsService {
       throw new NotFoundException('Niveau d\'étude non trouvé pour cet établissement');
     }
 
-    const whereCondition: FindOptionsWhere<Epreuve> = {
-      matiere: {
-        niveau_etude: { id: parseInt(niveauEtudeId) }
-      }
-    };
-
-    if (titre) {
-      whereCondition.titre = Like(`%${titre}%`);
-    }
+    const queryBuilder = this.epreuvesRepository.createQueryBuilder('epreuve')
+      .leftJoinAndSelect('epreuve.matiere', 'matiere')
+      .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
+      .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .leftJoinAndSelect('epreuve.professeur', 'professeur')
+      .where('niveau_etude.id = :niveauEtudeId', { niveauEtudeId })
+      .orderBy('epreuve.date_creation', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
 
     if (type) {
-      whereCondition.type = type as any;
+      queryBuilder.andWhere('epreuve.type = :type', { type });
     }
 
-    if (matiereNom) {
-      whereCondition.matiere = {
-        ...whereCondition.matiere as any,
-        nom: Like(`%${matiereNom}%`)
-      };
+    if (matiere) {
+      queryBuilder.andWhere('matiere.nom = :matiere', { matiere });
     }
 
-    const [epreuves, total] = await this.epreuvesRepository.findAndCount({
-      where: whereCondition,
-      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
-      order: { date_creation: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    if (search) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('epreuve.titre ILIKE :search', { search: `%${search}%` })
+            .orWhere('matiere.nom ILIKE :search', { search: `%${search}%` });
+        }),
+      );
+    }
+
+    const [epreuves, total] = await queryBuilder.getManyAndCount();
 
     this.logger.log(`${epreuves.length} épreuve(s) trouvée(s) pour niveau ${niveauEtudeId} sur ${total} total`);
 
@@ -380,13 +391,10 @@ export class EtablissementsService {
     etablissementId: string,
     filiereId: string,
     niveauEtudeId: string,
-    titre?: string,
-    type?: string,
-    matiereNom?: string,
-    paginationDto: PaginationDto = {}
+    filterDto: FilterRessourceDto
   ): Promise<PaginationResponse<Ressource>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    this.logger.log(`Recherche des ressources pour niveau ID: ${niveauEtudeId} - Titre: ${titre}, Type: ${type}, Matière: ${matiereNom}`);
+    const { page = 1, limit = 10, search, type, matiere } = filterDto;
+    this.logger.log(`Recherche des ressources pour niveau ID: ${niveauEtudeId} - Search: ${search}, Type: ${type}, Matière: ${matiere}`);
 
     // Verify niveau_etude belongs to filiere and etablissement
     const niveauEtude = await this.niveauEtudeRepository.findOne({
@@ -403,34 +411,34 @@ export class EtablissementsService {
       throw new NotFoundException('Niveau d\'étude non trouvé pour cet établissement');
     }
 
-    const whereCondition: FindOptionsWhere<Ressource> = {
-      matiere: {
-        niveau_etude: { id: parseInt(niveauEtudeId) }
-      }
-    };
-
-    if (titre) {
-      whereCondition.titre = Like(`%${titre}%`);
-    }
+    const queryBuilder = this.ressourcesRepository.createQueryBuilder('ressource')
+      .leftJoinAndSelect('ressource.matiere', 'matiere')
+      .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
+      .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .leftJoinAndSelect('ressource.professeur', 'professeur')
+      .where('niveau_etude.id = :niveauEtudeId', { niveauEtudeId })
+      .orderBy('ressource.date_creation', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
 
     if (type) {
-      whereCondition.type = type as any;
+      queryBuilder.andWhere('ressource.type = :type', { type });
     }
 
-    if (matiereNom) {
-      whereCondition.matiere = {
-        ...whereCondition.matiere as any,
-        nom: Like(`%${matiereNom}%`)
-      };
+    if (matiere) {
+      queryBuilder.andWhere('matiere.nom = :matiere', { matiere });
     }
 
-    const [ressources, total] = await this.ressourcesRepository.findAndCount({
-      where: whereCondition,
-      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
-      order: { date_creation: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    if (search) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('ressource.titre ILIKE :search', { search: `%${search}%` })
+            .orWhere('matiere.nom ILIKE :search', { search: `%${search}%` });
+        }),
+      );
+    }
+
+    const [ressources, total] = await queryBuilder.getManyAndCount();
 
     this.logger.log(`${ressources.length} ressource(s) trouvée(s) pour niveau ${niveauEtudeId} sur ${total} total`);
 

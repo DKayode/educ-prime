@@ -5,7 +5,7 @@ import { buildPaginationQuery } from '../types/pagination';
 import { Ressource } from "./ressources.service";
 
 export const etablissementsService = {
-  async getAll(params?: PaginationParams & { nom?: string; ville?: string }): Promise<PaginationResponse<Etablissement>> {
+  async getAll(params?: PaginationParams & { search?: string }): Promise<PaginationResponse<Etablissement>> {
     const query = buildPaginationQuery(params);
     return api.get<PaginationResponse<Etablissement>>(`/etablissements${query}`);
   },

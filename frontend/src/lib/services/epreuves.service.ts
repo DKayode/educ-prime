@@ -4,23 +4,13 @@ import type { PaginationResponse, PaginationParams } from '../types/pagination';
 import { buildPaginationQuery } from '../types/pagination';
 
 export const epreuvesService = {
-  async getAll(params?: PaginationParams & { titre?: string; type?: string }): Promise<PaginationResponse<Epreuve>> {
+  async getAll(params?: PaginationParams & { search?: string; type?: string; matiere?: string }): Promise<PaginationResponse<Epreuve>> {
     const query = buildPaginationQuery(params);
     return api.get<PaginationResponse<Epreuve>>(`/epreuves${query}`);
   },
 
   async getById(id: string): Promise<Epreuve> {
     return api.get<Epreuve>(`/epreuves/${id}`);
-  },
-
-  async getByFiliere(filiereId: string, params?: PaginationParams): Promise<PaginationResponse<Epreuve>> {
-    const query = buildPaginationQuery(params);
-    return api.get<PaginationResponse<Epreuve>>(`/epreuves/filiere/${filiereId}${query}`);
-  },
-
-  async getByMatiere(matiereId: string, params?: PaginationParams): Promise<PaginationResponse<Epreuve>> {
-    const query = buildPaginationQuery(params);
-    return api.get<PaginationResponse<Epreuve>>(`/epreuves/matiere/${matiereId}${query}`);
   },
 
   async create(data: {

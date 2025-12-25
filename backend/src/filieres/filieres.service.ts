@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere } from 'typeorm';
+import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { Filiere } from './entities/filiere.entity';
 import { CreerFiliereDto } from './dto/creer-filiere.dto';
 import { MajFiliereDto } from './dto/maj-filiere.dto';
@@ -29,21 +29,29 @@ export class FilieresService {
   }
 
   async findAll(filterDto: FilterFiliereDto): Promise<PaginationResponse<Filiere>> {
-    const { page = 1, limit = 10, nom } = filterDto;
-    this.logger.log(`Récupération des filières - Page: ${page}, Limite: ${limit}, Nom: ${nom}`);
+    const { page = 1, limit = 10, search, etablissement } = filterDto;
+    this.logger.log(`Récupération des filières - Page: ${page}, Limite: ${limit}, Search: ${search}, Etablissement: ${etablissement}`);
 
-    const whereCondition: FindOptionsWhere<Filiere> = {};
+    const queryBuilder = this.filieresRepository.createQueryBuilder('filiere')
+      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
+      .skip((page - 1) * limit)
+      .take(limit);
 
-    if (nom) {
-      whereCondition.nom = Like(`%${nom}%`);
+    if (etablissement) {
+      queryBuilder.andWhere('etablissement.nom = :etablissement', { etablissement });
     }
 
-    const [filieres, total] = await this.filieresRepository.findAndCount({
-      where: whereCondition,
-      relations: ['etablissement'],
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    if (search) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('filiere.nom ILIKE :search', { search: `%${search}%` })
+            .orWhere('etablissement.nom ILIKE :search', { search: `%${search}%` })
+            .orWhere('etablissement.ville ILIKE :search', { search: `%${search}%` });
+        }),
+      );
+    }
+
+    const [filieres, total] = await queryBuilder.getManyAndCount();
 
     this.logger.log(`${filieres.length} filière(s) trouvée(s) sur ${total} total`);
 

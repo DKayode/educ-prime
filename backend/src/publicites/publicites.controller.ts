@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { PublicitesService } from './publicites.service';
 import { CreerPubliciteDto } from './dto/creer-publicite.dto';
 import { MajPubliciteDto } from './dto/maj-publicite.dto';
@@ -11,6 +12,7 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterPubliciteDto } from './dto/filter-publicite.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 
+@ApiTags('publicites')
 @Controller('publicites')
 export class PublicitesController {
     constructor(
@@ -27,6 +29,11 @@ export class PublicitesController {
 
     @UseGuards(JwtAuthGuard)
     @Get()
+    @ApiOperation({ summary: 'Récupérer la liste des publicités' })
+    @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
+    @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
+    @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
+    @ApiQuery({ name: 'titre', required: false, type: String, description: 'Filtrer par titre' })
     async findAll(@Query() filterDto: FilterPubliciteDto) {
         return this.publicitesService.findAll(filterDto);
     }

@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Brackets } from 'typeorm';
 import { Matiere } from './entities/matiere.entity';
 import { CreerMatiereDto } from './dto/creer-matiere.dto';
 import { MajMatiereDto } from './dto/maj-matiere.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
+import { FilterMatiereDto } from './dto/filter-matiere.dto';
 
 @Injectable()
 export class MatieresService {
@@ -24,15 +25,32 @@ export class MatieresService {
     return saved;
   }
 
-  async findAll(paginationDto: PaginationDto): Promise<PaginationResponse<any>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    this.logger.log(`Récupération des matières - Page: ${page}, Limite: ${limit}`);
+  async findAll(filterDto: FilterMatiereDto): Promise<PaginationResponse<any>> {
+    const { page = 1, limit = 10, search } = filterDto;
+    this.logger.log(`Récupération des matières - Page: ${page}, Limite: ${limit}, Search: ${search}`);
 
-    const [matieres, total] = await this.matieresRepository.findAndCount({
-      relations: ['niveau_etude', 'niveau_etude.filiere'],
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    const queryBuilder = this.matieresRepository.createQueryBuilder('matiere')
+      .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
+      .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .orderBy('matiere.id', 'DESC');
+
+    if (search) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('matiere.nom ILIKE :search', { search: `%${search}%` })
+            .orWhere('niveau_etude.nom ILIKE :search', { search: `%${search}%` })
+            .orWhere('filiere.nom ILIKE :search', { search: `%${search}%` });
+        }),
+      );
+    }
+
+    if (filterDto.filiere) {
+      queryBuilder.andWhere('filiere.nom = :filiere', { filiere: filterDto.filiere });
+    }
+
+    const [matieres, total] = await queryBuilder.getManyAndCount();
 
     this.logger.log(`${matieres.length} matière(s) trouvée(s) sur ${total} total`);
 
@@ -42,13 +60,13 @@ export class MatieresService {
       nom: matiere.nom,
       description: matiere.description,
       niveau_etude: {
-        id: matiere.niveau_etude.id,
-        nom: matiere.niveau_etude.nom,
-        duree_mois: matiere.niveau_etude.duree_mois,
+        id: matiere?.niveau_etude?.id,
+        nom: matiere?.niveau_etude?.nom,
+        duree_mois: matiere?.niveau_etude?.duree_mois,
         filiere: {
-          id: matiere.niveau_etude.filiere.id,
-          nom: matiere.niveau_etude.filiere.nom,
-          etablissement_id: matiere.niveau_etude.filiere.etablissement_id,
+          id: matiere?.niveau_etude?.filiere?.id,
+          nom: matiere?.niveau_etude?.filiere?.nom,
+          etablissement_id: matiere?.niveau_etude?.filiere?.etablissement_id,
         },
       },
     }));

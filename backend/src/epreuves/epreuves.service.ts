@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, Logger, BadRequestException } from '@nestjs/common';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere } from 'typeorm';
+import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { Epreuve } from './entities/epreuve.entity';
 import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
 import { MajEpreuveDto } from './dto/maj-epreuve.dto';
@@ -37,28 +37,38 @@ export class EpreuvesService {
   }
 
   async findAll(filterDto: FilterEpreuveDto): Promise<PaginationResponse<EpreuveResponseDto>> {
-    const { page = 1, limit = 10, titre, type } = filterDto;
-    this.logger.log(`Récupération des épreuves - Page: ${page}, Limite: ${limit}, Titre: ${titre}, Type: ${type}`);
+    const { page = 1, limit = 10, search, type, matiere } = filterDto;
+    this.logger.log(`Récupération des épreuves - Page: ${page}, Limite: ${limit}, Search: ${search}, Type: ${type}, Matière: ${matiere}`);
 
-    const whereCondition: FindOptionsWhere<Epreuve> = {};
-
-    if (titre) {
-      whereCondition.titre = Like(`%${titre}%`);
-    }
+    const queryBuilder = this.epreuvesRepository.createQueryBuilder('epreuve')
+      .leftJoinAndSelect('epreuve.matiere', 'matiere')
+      .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
+      .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .leftJoinAndSelect('epreuve.professeur', 'professeur')
+      .orderBy('epreuve.date_publication', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
 
     if (type) {
-      whereCondition.type = type;
+      queryBuilder.andWhere('epreuve.type = :type', { type });
     }
 
-    const [epreuves, total] = await this.epreuvesRepository.findAndCount({
-      where: whereCondition,
-      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
-      order: {
-        date_creation: 'DESC',
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    if (matiere) {
+      queryBuilder.andWhere('matiere.nom = :matiere', { matiere });
+    }
+
+    if (search) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('epreuve.titre ILIKE :search', { search: `%${search}%` })
+            .orWhere('matiere.nom ILIKE :search', { search: `%${search}%` });
+        }),
+      );
+    }
+
+
+    const [epreuves, total] = await queryBuilder.getManyAndCount();
+
 
     this.logger.log(`${epreuves.length} épreuve(s) trouvée(s) sur ${total} total`);
 
@@ -221,119 +231,4 @@ export class EpreuvesService {
     return { message: 'Épreuve supprimée avec succès' };
   }
 
-  async findByMatiere(matiereId: string, paginationDto: PaginationDto): Promise<PaginationResponse<EpreuveResponseDto>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    this.logger.log(`Recherche des épreuves pour matière ID: ${matiereId} - Page: ${page}, Limite: ${limit}`);
-
-    const [epreuves, total] = await this.epreuvesRepository.findAndCount({
-      where: { matiere: { id: parseInt(matiereId) } },
-      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
-      order: {
-        date_creation: 'DESC',
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    this.logger.log(`${epreuves.length} épreuve(s) trouvée(s) pour matière ${matiereId} sur ${total} total`);
-
-    // Transform to response DTO format with sanitized professeur
-    const data = epreuves.map(epreuve => ({
-      id: epreuve.id,
-      titre: epreuve.titre,
-      url: epreuve.url,
-      duree_minutes: epreuve.duree_minutes,
-      date_creation: epreuve.date_creation,
-      date_publication: epreuve.date_publication,
-      nombre_pages: epreuve.nombre_pages,
-      nombre_telechargements: epreuve.nombre_telechargements,
-      type: epreuve.type,
-      professeur: {
-        nom: epreuve.professeur.nom,
-        prenom: epreuve.professeur.prenom,
-        telephone: epreuve.professeur.telephone,
-      },
-      matiere: {
-        id: epreuve.matiere.id,
-        nom: epreuve.matiere.nom,
-        description: epreuve.matiere.description,
-        niveau_etude: {
-          id: epreuve.matiere.niveau_etude.id,
-          nom: epreuve.matiere.niveau_etude.nom,
-          duree_mois: epreuve.matiere.niveau_etude.duree_mois,
-          filiere: {
-            id: epreuve.matiere.niveau_etude.filiere.id,
-            nom: epreuve.matiere.niveau_etude.filiere.nom,
-            etablissement_id: epreuve.matiere.niveau_etude.filiere.etablissement_id,
-          },
-        },
-      },
-    }));
-
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
-  async findByProfesseur(professeurId: string, paginationDto: PaginationDto): Promise<PaginationResponse<EpreuveResponseDto>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    this.logger.log(`Recherche des épreuves du professeur ID: ${professeurId} - Page: ${page}, Limite: ${limit}`);
-
-    const [epreuves, total] = await this.epreuvesRepository.findAndCount({
-      where: { professeur: { id: parseInt(professeurId) } },
-      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
-      order: {
-        date_creation: 'DESC',
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    this.logger.log(`${epreuves.length} épreuve(s) trouvée(s) pour professeur ${professeurId} sur ${total} total`);
-
-    // Transform to response DTO format with sanitized professeur
-    const data = epreuves.map(epreuve => ({
-      id: epreuve.id,
-      titre: epreuve.titre,
-      url: epreuve.url,
-      duree_minutes: epreuve.duree_minutes,
-      date_creation: epreuve.date_creation,
-      date_publication: epreuve.date_publication,
-      nombre_pages: epreuve.nombre_pages,
-      nombre_telechargements: epreuve.nombre_telechargements,
-      type: epreuve.type,
-      professeur: {
-        nom: epreuve.professeur.nom,
-        prenom: epreuve.professeur.prenom,
-        telephone: epreuve.professeur.telephone,
-      },
-      matiere: {
-        id: epreuve.matiere.id,
-        nom: epreuve.matiere.nom,
-        description: epreuve.matiere.description,
-        niveau_etude: {
-          id: epreuve.matiere.niveau_etude.id,
-          nom: epreuve.matiere.niveau_etude.nom,
-          duree_mois: epreuve.matiere.niveau_etude.duree_mois,
-          filiere: {
-            id: epreuve.matiere.niveau_etude.filiere.id,
-            nom: epreuve.matiere.niveau_etude.filiere.nom,
-            etablissement_id: epreuve.matiere.niveau_etude.filiere.etablissement_id,
-          },
-        },
-      },
-    }));
-
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
 }

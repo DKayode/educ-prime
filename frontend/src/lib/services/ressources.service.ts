@@ -7,6 +7,7 @@ export interface Ressource {
     titre: string;
     type: 'Quiz' | 'Exercices' | 'Document';
     nombre_pages?: number;
+    nombre_telechargements?: number;
     url: string;
     date_creation: string;
     date_publication?: string;
@@ -31,7 +32,7 @@ export interface CreateRessourceData {
 }
 
 export const ressourcesService = {
-    async getAll(params?: PaginationParams): Promise<PaginationResponse<Ressource>> {
+    async getAll(params?: PaginationParams & { search?: string; type?: string; matiere?: string }): Promise<PaginationResponse<Ressource>> {
         const query = buildPaginationQuery(params);
         return api.get<PaginationResponse<Ressource>>(`/ressources${query}`);
     },
@@ -52,15 +53,7 @@ export const ressourcesService = {
         await api.delete(`/ressources/${id}`);
     },
 
-    async getByMatiere(matiereId: string, params?: PaginationParams): Promise<PaginationResponse<Ressource>> {
-        const query = buildPaginationQuery(params);
-        return api.get<PaginationResponse<Ressource>>(`/ressources/matiere/${matiereId}${query}`);
-    },
 
-    async getByType(type: string, params?: PaginationParams): Promise<PaginationResponse<Ressource>> {
-        const query = buildPaginationQuery(params);
-        return api.get<PaginationResponse<Ressource>>(`/ressources/type/${type}${query}`);
-    },
 
     async download(id: number | string): Promise<Blob> {
         return api.download(`/ressources/${id}/telechargement`);

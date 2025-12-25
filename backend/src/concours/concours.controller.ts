@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ConcoursService } from './concours.service';
 import { CreateConcoursDto } from './dto/create-concours.dto';
 import { UpdateConcoursDto } from './dto/update-concours.dto';
@@ -10,6 +11,7 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { FilterConcoursDto } from './dto/filter-concours.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 
+@ApiTags('concours')
 @Controller('concours')
 export class ConcoursController {
   constructor(
@@ -26,6 +28,13 @@ export class ConcoursController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
+  @ApiOperation({ summary: 'Récupérer la liste des concours' })
+  @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
+  @ApiQuery({ name: 'titre', required: false, type: String, description: 'Filtrer par titre' })
+  @ApiQuery({ name: 'lieu', required: false, type: String, description: 'Filtrer par lieu' })
+  @ApiQuery({ name: 'annee', required: false, type: Number, description: 'Filtrer par année' })
   findAll(@Query() filterDto: FilterConcoursDto) {
     return this.concoursService.findAll(filterDto);
   }
