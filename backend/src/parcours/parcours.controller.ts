@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { Res } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { ParcoursService } from './parcours.service';
 import { CreateParcourDto } from './dto/create-parcour.dto';
 import { UpdateParcourDto } from './dto/update-parcour.dto';
@@ -20,6 +20,7 @@ export class ParcoursController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
+  @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Créer un nouveau parcours' })
   @ApiResponse({ status: 201, description: 'Parcours créé avec succès', type: Parcour })
   @ApiResponse({ status: 400, description: 'Données invalides' })
@@ -53,6 +54,7 @@ export class ParcoursController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
+  @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Mettre à jour un parcours' })
   @ApiParam({ name: 'id', description: 'ID du parcours à mettre à jour' })
   @ApiResponse({ status: 200, description: 'Parcours mis à jour avec succès', type: Parcour })

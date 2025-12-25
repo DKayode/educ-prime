@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, ParseUUIDPipe, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, ParseUUIDPipe, UseGuards, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { LikesService } from './likes.service';
 import { CreateLikeDto } from './dto/create-like.dto';
 import { UpdateLikeDto } from './dto/update-like.dto';
@@ -15,12 +15,13 @@ export class LikesController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
+  @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Ajouter un like/dislike' })
   @ApiResponse({ status: 201, description: 'Like ajouté avec succès', type: Like })
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 404, description: 'Ressource non trouvée' })
-  async create(@Body() createLikeDto: CreateLikeDto, @GetUser() user: any): Promise<Like> {
-    const userId = user.userId;
+  async create(@Body() createLikeDto: CreateLikeDto, @Request() req: any,): Promise<Like> {
+    const userId = req.user;
     return await this.likesService.like(createLikeDto, userId);
   }
 
@@ -120,6 +121,7 @@ export class LikesController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
+  @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Mettre à jour un like' })
   @ApiParam({ name: 'id', description: 'ID du like à mettre à jour' })
   @ApiResponse({ status: 200, description: 'Like mis à jour avec succès', type: Like })
@@ -129,9 +131,9 @@ export class LikesController {
   async update(
     @Param('id') id: number,
     @Body() updateLikeDto: UpdateLikeDto,
-    @GetUser() user: any,
+    @Request() req: any,
   ): Promise<Like> {
-    const userId = user.userId;
+    const userId = req.user;
     return await this.likesService.update(id, updateLikeDto, userId);
   }
 
