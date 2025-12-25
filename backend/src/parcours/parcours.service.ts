@@ -48,7 +48,7 @@ export class ParcoursService {
     }
 
     if (filters.categorie) {
-      where.categorie = ILike(`%${filters.categorie}%`);
+      where.category = ILike(`%${filters.categorie}%`);
     }
 
     if (filters.type_media) {
@@ -150,7 +150,7 @@ export class ParcoursService {
       where: [
         { titre: ILike(`%${search}%`) },
         { description: ILike(`%${search}%`) },
-        { categorie: ILike(`%${search}%`) },
+        { category: ILike(`%${search}%`) },
       ],
       take: limit,
     });

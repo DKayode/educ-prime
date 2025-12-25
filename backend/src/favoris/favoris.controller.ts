@@ -22,7 +22,7 @@ export class FavorisController {
   @ApiResponse({ status: 404, description: 'Parcours non trouvé' })
   @ApiResponse({ status: 409, description: 'Parcours déjà dans les favoris' })
   async create(@Body() createFavoriDto: CreateFavoriDto, @Request() req: any): Promise<Favori> {
-    const userId = req.user;
+    const userId = req.user.utilisateurId;
     return await this.favorisService.create(createFavoriDto, userId);
   }
 
@@ -125,7 +125,7 @@ export class FavorisController {
     @Body() updateFavoriDto: UpdateFavorisDto,
     @Request() req: any,
   ): Promise<Favori> {
-    const userId = req.user;
+    const userId = req.user.utilisateurId;
     return await this.favorisService.update(id, updateFavoriDto, userId);
   }
 

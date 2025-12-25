@@ -21,7 +21,7 @@ export class LikesController {
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 404, description: 'Ressource non trouvée' })
   async create(@Body() createLikeDto: CreateLikeDto, @Request() req: any,): Promise<Like> {
-    const userId = req.user;
+    const userId = req.user.utilisateurId;
     return await this.likesService.like(createLikeDto, userId);
   }
 
@@ -133,7 +133,7 @@ export class LikesController {
     @Body() updateLikeDto: UpdateLikeDto,
     @Request() req: any,
   ): Promise<Like> {
-    const userId = req.user;
+    const userId = req.user.utilisateurId;
     return await this.likesService.update(id, updateLikeDto, userId);
   }
 

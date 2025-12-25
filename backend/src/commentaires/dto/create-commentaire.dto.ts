@@ -1,10 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class CreateCommentaireDto {
     @ApiProperty({ description: 'ID du parcours' })
     @IsNotEmpty()
     @IsInt()
+    @Type(() => Number)
     parcours_id: number;
 
     @ApiProperty({ description: 'Contenu du commentaire' })
@@ -14,5 +16,6 @@ export class CreateCommentaireDto {
     @ApiProperty({ description: 'ID du commentaire parent', required: false })
     @IsOptional()
     @IsInt()
+    @Type(() => Number)
     parent_id?: number;
 }
