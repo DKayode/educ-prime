@@ -5,7 +5,7 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { Category } from './entities/category.entity';
 import { CategoryQueryDto } from './dto/category-query.dto';
-import { slugify } from 'utils/slugify';
+import { slugify } from '../utils/slugify';
 
 @Injectable()
 export class CategoriesService {
