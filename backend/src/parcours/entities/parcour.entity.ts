@@ -24,21 +24,13 @@ export class Parcour {
   @Column({ type: 'varchar', length: 500, nullable: true })
   image_couverture: string;
 
-  @ApiProperty({ description: 'URL de la vidéo', nullable: true })
+  @ApiProperty({ description: 'URL du média', nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })
   lien_video: string;
 
   @ApiProperty({ enum: MediaType, description: 'Type de média' })
   @Column({ type: 'enum', enum: MediaType })
   type_media: MediaType;
-
-  @ApiProperty({ description: 'Catégorie du parcours' })
-  @Column({ type: 'varchar', length: 100 })
-  categorie: string;
-
-  @ApiProperty({ description: 'ID de la catégorie', required: false })
-  @Column({ name: 'category_id', type: 'integer', nullable: true })
-  category_id?: number;
 
   @ApiProperty({ description: 'Catégorie du parcours', type: () => Category, required: false })
   @ManyToOne(() => Category, category => category.parcours, { nullable: true })

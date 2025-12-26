@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, UseGuards, Req, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { CommentairesService } from './commentaires.service';
 import { CreateCommentaireDto } from './dto/create-commentaire.dto';
 import { UpdateCommentaireDto } from './dto/update-commentaire.dto';
@@ -16,12 +16,13 @@ export class CommentairesController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
+  @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Créer un nouveau commentaire' })
   @ApiResponse({ status: 201, description: 'Commentaire créé avec succès', type: Commentaire })
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 404, description: 'Parcours ou commentaire parent non trouvé' })
-  async create(@Body() createCommentaireDto: CreateCommentaireDto, @GetUser() user: any): Promise<Commentaire> {
-    const userId = user.userId
+  async create(@Body() createCommentaireDto: CreateCommentaireDto, @Request() req: any): Promise<Commentaire> {
+    const userId = req.user.utilisateurId
     return await this.commentairesService.create(createCommentaireDto, userId);
   }
 
@@ -95,26 +96,29 @@ export class CommentairesController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Commentaires de l\'utilisateur récupérés avec succès' })
   async findByUser(
-    @GetUser() user: any,
-    @Query() query: CommentaireQueryDto,
+    @Request() req: any,
+    @Query() query: CommentaireQueryDto
   ) {
-    const userId = user.userId;
+    const userId = req.user.utilisateurId;
     return await this.commentairesService.findByUser(userId, query);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Patch(':id')
-  @ApiOperation({ summary: 'Mettre à jour un commentaire' })
-  @ApiParam({ name: 'id', description: 'ID du commentaire à mettre à jour' })
-  @ApiResponse({ status: 200, description: 'Commentaire mis à jour avec succès', type: Commentaire })
-  @ApiResponse({ status: 404, description: 'Commentaire non trouvé' })
-  @ApiResponse({ status: 400, description: 'Données invalides' })
-  async update(
-    @Param('id') id: number,
-    @Body() updateCommentaireDto: UpdateCommentaireDto,
-  ): Promise<Commentaire> {
-    return await this.commentairesService.update(id, updateCommentaireDto);
-  }
+  // @UseGuards(JwtAuthGuard)
+  // @Patch(':id')
+  // @ApiBearerAuth('JWT')
+  // @ApiOperation({ summary: 'Mettre à jour un commentaire' })
+  // @ApiParam({ name: 'id', description: 'ID du commentaire à mettre à jour' })
+  // @ApiResponse({ status: 200, description: 'Commentaire mis à jour avec succès', type: Commentaire })
+  // @ApiResponse({ status: 404, description: 'Commentaire non trouvé' })
+  // @ApiResponse({ status: 400, description: 'Données invalides' })
+  // async update(
+  //   @Param('id') id: number,
+  //   @Request() req: any,
+  //   @Body() updateCommentaireDto: UpdateCommentaireDto,
+  // ): Promise<Commentaire> {
+  //   const userId = req.user.utilisateur_id
+  //   return await this.commentairesService.update(id, updateCommentaireDto);
+  // }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')

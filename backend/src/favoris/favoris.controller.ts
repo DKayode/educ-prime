@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, ParseUUIDPipe, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, ParseUUIDPipe, UseGuards, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { FavorisService } from './favoris.service';
 import { CreateFavoriDto } from './dto/create-favoris.dto';
 import { UpdateFavorisDto } from './dto/update-favoris.dto';
@@ -15,13 +15,14 @@ export class FavorisController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
+  @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Ajouter un parcours aux favoris' })
   @ApiResponse({ status: 201, description: 'Favori ajouté avec succès', type: Favori })
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 404, description: 'Parcours non trouvé' })
   @ApiResponse({ status: 409, description: 'Parcours déjà dans les favoris' })
-  async create(@Body() createFavoriDto: CreateFavoriDto, @GetUser() user: any): Promise<Favori> {
-    const userId = user.userId;
+  async create(@Body() createFavoriDto: CreateFavoriDto, @Request() req: any): Promise<Favori> {
+    const userId = req.user.utilisateurId;
     return await this.favorisService.create(createFavoriDto, userId);
   }
 
@@ -112,6 +113,7 @@ export class FavorisController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
+  @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Mettre à jour un favori' })
   @ApiParam({ name: 'id', description: 'ID du favori à mettre à jour' })
   @ApiResponse({ status: 200, description: 'Favori mis à jour avec succès', type: Favori })
@@ -121,9 +123,9 @@ export class FavorisController {
   async update(
     @Param('id') id: number,
     @Body() updateFavoriDto: UpdateFavorisDto,
-    @GetUser() user: any,
+    @Request() req: any,
   ): Promise<Favori> {
-    const userId = user.userId;
+    const userId = req.user.utilisateurId;
     return await this.favorisService.update(id, updateFavoriDto, userId);
   }
 

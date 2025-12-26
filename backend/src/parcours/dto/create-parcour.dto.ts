@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl, Matches } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsUrl, Matches } from 'class-validator';
 
 export enum MediaType {
     IMAGE = 'image',
@@ -17,7 +18,7 @@ export class CreateParcourDto {
     @IsUrl()
     image_couverture?: string;
 
-    @ApiProperty({ description: 'URL de la vidéo', required: false })
+    @ApiProperty({ description: 'URL du média', required: true })
     @IsOptional()
     @IsUrl()
     lien_video?: string;
@@ -27,9 +28,15 @@ export class CreateParcourDto {
     type_media: MediaType;
 
     @ApiProperty({ description: 'Catégorie du parcours' })
-    @IsNotEmpty()
+    @IsOptional()
     @IsString()
     categorie: string;
+
+    @ApiProperty({ description: 'id catégirie du parcours' })
+    @IsNotEmpty()
+    @IsInt()
+    @Type(() => Number)
+    category_id: number;
 
     @ApiProperty({ description: 'Description détaillée' })
     @IsNotEmpty()
