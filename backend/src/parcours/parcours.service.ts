@@ -47,8 +47,8 @@ export class ParcoursService {
       where.titre = ILike(`%${filters.titre}%`);
     }
 
-    if (filters.categorie) {
-      where.category = ILike(`%${filters.categorie}%`);
+    if (filters.category_id) {
+      where.category = ILike(`%${filters.category_id}%`);
     }
 
     if (filters.type_media) {

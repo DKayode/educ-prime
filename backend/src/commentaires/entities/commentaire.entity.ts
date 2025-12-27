@@ -19,6 +19,14 @@ export class Commentaire {
     @Column({ name: 'utilisateur_id', type: 'integer' })
     utilisateur_id: number;
 
+    @ApiProperty({ description: 'utilisateur ayant commenté', type: () => Utilisateur, required: false })
+    @ManyToOne(() => Utilisateur, utilisateur => utilisateur.commentaires, {
+        eager: false,
+        nullable: false,
+    })
+    @JoinColumn({ name: 'utilisateur_id' })
+    utilisateur: Utilisateur;
+
     @ApiProperty({ description: 'Contenu du commentaire' })
     @Column({ type: 'text' })
     contenu: string;
