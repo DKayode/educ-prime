@@ -27,11 +27,6 @@ export class CreateParcourDto {
     @IsEnum(MediaType)
     type_media: MediaType;
 
-    @ApiProperty({ description: 'Catégorie du parcours' })
-    @IsOptional()
-    @IsString()
-    categorie: string;
-
     @ApiProperty({ description: 'id catégirie du parcours' })
     @IsNotEmpty()
     @IsInt()
