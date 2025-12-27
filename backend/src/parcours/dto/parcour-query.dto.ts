@@ -25,8 +25,9 @@ export class ParcourQueryDto {
 
     @ApiProperty({ required: false })
     @IsOptional()
-    @IsString()
-    categorie?: string;
+    @Type(() => Number)
+    @IsNumber()
+    category_id?: number;
 
     @ApiProperty({ enum: MediaType, required: false })
     @IsOptional()

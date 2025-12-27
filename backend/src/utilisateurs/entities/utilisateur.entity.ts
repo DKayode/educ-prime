@@ -1,7 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Etablissement } from '../../etablissements/entities/etablissement.entity';
 import { Filiere } from '../../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../../niveau-etude/entities/niveau-etude.entity';
+import { Commentaire } from 'src/commentaires/entities/commentaire.entity';
+import { Exclude } from 'class-transformer';
 
 export enum RoleType {
   ADMIN = 'admin',
@@ -32,7 +34,8 @@ export class Utilisateur {
   @Column({ unique: true })
   email: string;
 
-  @Column()
+  @Column({ nullable: false })
+  @Exclude()
   mot_de_passe: string;
 
   @Column({ nullable: true })
@@ -58,4 +61,7 @@ export class Utilisateur {
   @ManyToOne(() => NiveauEtude, { nullable: true })
   @JoinColumn({ name: 'niveau_etude_id' })
   niveau_etude: NiveauEtude;
+
+  @OneToMany(() => Commentaire, commentaire => commentaire.utilisateur)
+  commentaires: Commentaire[];
 }

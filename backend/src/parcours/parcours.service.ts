@@ -47,8 +47,8 @@ export class ParcoursService {
       where.titre = ILike(`%${filters.titre}%`);
     }
 
-    if (filters.categorie) {
-      where.category = ILike(`%${filters.categorie}%`);
+    if (filters.category_id) {
+      where.category = ILike(`%${filters.category_id}%`);
     }
 
     if (filters.type_media) {
@@ -74,7 +74,7 @@ export class ParcoursService {
     const parcoursWithCounts = data.map(parcours => ({
       ...parcours,
       commentairesCount: parcours.commentaires?.length || 0,
-      likesCount: parcours.likes?.length || 0,
+      likesCount: parcours.likes?.filter(like => like.type == "like").length || 0,
       favorisCount: parcours.favoris?.length || 0,
     }));
 

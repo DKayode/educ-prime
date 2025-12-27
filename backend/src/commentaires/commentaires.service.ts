@@ -57,12 +57,12 @@ export class CommentairesService {
   }
 
   /**
-   * Récupère tous les commentaires avec pagination et filtres
-   * @param query - Paramètres de requête
-   * @returns Liste paginée des commentaires avec métadonnées
-   */
+ * Récupère tous les commentaires avec pagination et filtres
+ * @param query - Paramètres de requête
+ * @returns Liste paginée des commentaires avec métadonnées
+ */
   async findAll(query: CommentaireQueryDto): Promise<{
-    data: Commentaire[];
+    data: any[];
     meta: {
       page: number;
       limit: number;
@@ -73,54 +73,84 @@ export class CommentairesService {
     const { page, limit, ...filters } = query;
     const skip = (page - 1) * limit;
 
-    const where: FindOptionsWhere<Commentaire> = {};
+    const qb = this.commentaireRepository
+      .createQueryBuilder('commentaire')
+      .leftJoin('commentaire.parcours', 'parcours')
+      .leftJoin('commentaire.parent', 'parent')
+      .leftJoin('commentaire.utilisateur', 'utilisateur')
+      .leftJoin('commentaire.likes', 'likes')
+      .select([
+        // Commentaire
+        'commentaire.id',
+        'commentaire.contenu',
+        'commentaire.date_commentaire',
+        'commentaire.parent_id',
+        'commentaire.parcours_id',
 
+
+        'parcours.id',
+        'parcours.titre',
+
+        // Parent
+        'parent.id',
+
+
+        'utilisateur.id',
+        'utilisateur.nom',
+        'utilisateur.prenom',
+        'utilisateur.photo',
+        'utilisateur.email',
+
+        'utilisateur.prenom',
+        'utilisateur.photo',
+        'utilisateur.email',
+
+
+
+
+      ]);
+
+    // 🔎 Filtres
     if (filters.parcours_id) {
-      where.parcours_id = filters.parcours_id;
+      qb.andWhere('commentaire.parcours_id = :parcours_id', {
+        parcours_id: filters.parcours_id,
+      });
     }
 
     if (filters.utilisateur_id) {
-      where.utilisateur_id = filters.utilisateur_id;
+      qb.andWhere('commentaire.utilisateur_id = :utilisateur_id', {
+        utilisateur_id: filters.utilisateur_id,
+      });
     }
 
     if (filters.parent_id !== undefined) {
       if (filters.parent_id === null) {
-        where.parent_id = null;
+        qb.andWhere('commentaire.parent_id IS NULL');
       } else {
-        where.parent_id = filters.parent_id;
+        qb.andWhere('commentaire.parent_id = :parent_id', {
+          parent_id: filters.parent_id,
+        });
       }
     } else {
-      // Par défaut, ne montrer que les commentaires de premier niveau
-      where.parent_id = null;
+
+      qb.andWhere('commentaire.parent_id IS NULL');
     }
 
     if (filters.date_commentaire) {
-      where.date_commentaire = filters.date_commentaire;
+      qb.andWhere('commentaire.date_commentaire = :date_commentaire', {
+        date_commentaire: filters.date_commentaire,
+      });
     }
 
+    // 📄 Tri + pagination
+    qb.orderBy(`commentaire.${filters.sortBy}`, filters.order)
+      .skip(skip)
+      .take(limit);
 
-    // if (filters.contenu) {
-    //   where.contenu = ILike(`%${filters.contenu}%`);
-    // }
+    // 📦 Récupération des données
+    const [data, total] = await qb.getManyAndCount();
 
-    // Filtrage par date range
-    // if (filters.date_debut && filters.date_fin) {
-    //   where.date_commentaire = Between(filters.date_debut, filters.date_fin);
-    // } else if (filters.date_debut) {
-    //   where.date_commentaire = MoreThanOrEqual(filters.date_debut);
-    // } else if (filters.date_fin) {
-    //   where.date_commentaire = LessThanOrEqual(filters.date_fin);
-    // }
-
-    const [data, total] = await this.commentaireRepository.findAndCount({
-      where,
-      order: { [filters.sortBy]: filters.order },
-      skip,
-      take: limit,
-      relations: ['parcours', 'parent'],
-    });
-
-    // Compter le nombre de réponses pour chaque commentaire
+    // 🔢 Compter le nombre de réponses pour chaque commentaire
     const commentairesWithCounts = await Promise.all(
       data.map(async commentaire => {
         const enfantsCount = await this.commentaireRepository.count({
@@ -144,6 +174,7 @@ export class CommentairesService {
       },
     };
   }
+
 
   /**
    * Récupère un commentaire par son ID
