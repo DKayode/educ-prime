@@ -74,7 +74,7 @@ export class ParcoursService {
     const parcoursWithCounts = data.map(parcours => ({
       ...parcours,
       commentairesCount: parcours.commentaires?.length || 0,
-      likesCount: parcours.likes?.length || 0,
+      likesCount: parcours.likes?.filter(like => like.type == "like").length || 0,
       favorisCount: parcours.favoris?.length || 0,
     }));
 
