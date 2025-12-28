@@ -45,7 +45,7 @@ export const ressourcesService = {
         return api.post<Ressource>('/ressources', data);
     },
 
-    async update(id: string, data: Partial<CreateRessourceData>): Promise<Ressource> {
+    async update(id: string, data: Partial<CreateRessourceData> & { nombre_pages?: number }): Promise<Ressource> {
         return api.put<Ressource>(`/ressources/${id}`, data);
     },
 

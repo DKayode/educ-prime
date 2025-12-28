@@ -29,7 +29,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Download, FileText, Trash2, Search, Loader2, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { Upload, Download, FileText, Trash2, Search, Loader2, Eye, ChevronLeft, ChevronRight, Pencil, Check, ChevronsUpDown } from "lucide-react";
+import { cn, getAcronym } from "@/lib/utils";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -45,6 +59,11 @@ export default function Epreuves() {
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [selectedType, setSelectedType] = useState<EpreuveType | "ALL">("ALL");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [openMatiere, setOpenMatiere] = useState(false);
+
+  // Edit mode state
+  const [editData, setEditData] = useState<any | null>(null);
+
   const [formData, setFormData] = useState({
     titre: "",
     type: "" as EpreuveType | "",
@@ -108,18 +127,31 @@ export default function Epreuves() {
       queryClient.invalidateQueries({ queryKey: ['epreuves'] });
       toast.success("Épreuve créée avec succès");
       setIsDialogOpen(false);
-      setFormData({
-        titre: "",
-        type: "",
-        duree_minutes: "",
-        nombre_pages: "",
-        matiere_id: "",
-        date_publication: "",
-      });
-      setSelectedFile(null);
+      resetForm();
     },
     onError: (error: any) => {
       toast.error(error.message || "Erreur lors de la création");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: { id: string; titre: string; type?: string; duree_minutes: number; nombre_pages?: number; matiere_id: number; date_publication?: string }) =>
+      epreuvesService.update(data.id, {
+        titre: data.titre,
+        type: data.type,
+        duree_minutes: data.duree_minutes,
+        nombre_pages: data.nombre_pages,
+        matiere_id: data.matiere_id,
+        date_publication: data.date_publication,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['epreuves'] });
+      toast.success("Épreuve mise à jour avec succès");
+      setIsDialogOpen(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erreur lors de la mise à jour");
     },
   });
 
@@ -134,21 +166,67 @@ export default function Epreuves() {
     },
   });
 
-  const handleCreate = () => {
-    if (!formData.titre || !formData.duree_minutes || !formData.matiere_id || !selectedFile || !formData.type) {
-      toast.error("Veuillez remplir tous les champs requis (Titre, Type, Durée, Matière, Fichier)");
+  const resetForm = () => {
+    setFormData({
+      titre: "",
+      type: "",
+      duree_minutes: "",
+      nombre_pages: "",
+      matiere_id: "",
+      date_publication: "",
+    });
+    setSelectedFile(null);
+    setEditData(null);
+  };
+
+  const handleOpenDialog = () => {
+    resetForm();
+    setIsDialogOpen(true);
+  };
+
+  const handleEdit = (epreuve: any) => {
+    setEditData(epreuve);
+    setFormData({
+      titre: epreuve.titre,
+      type: epreuve.type || "",
+      duree_minutes: epreuve.duree_minutes?.toString() || "",
+      nombre_pages: epreuve.nombre_pages?.toString() || "",
+      matiere_id: (epreuve.matiere_id || epreuve.matiere?.id)?.toString() || "",
+      date_publication: epreuve.date_publication ? new Date(epreuve.date_publication).toISOString().slice(0, 16) : "",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = () => {
+    if (!formData.titre || !formData.duree_minutes || !formData.matiere_id || (!selectedFile && !editData) || !formData.type) {
+      toast.error(editData ? "Veuillez remplir tous les champs requis (Titre, Type, Durée, Matière)" : "Veuillez remplir tous les champs requis (Titre, Type, Durée, Matière, Fichier)");
       return;
     }
-    // Convert to proper types before sending
-    createMutation.mutate({
-      file: selectedFile,
-      titre: formData.titre,
-      type: formData.type || undefined,
-      duree_minutes: parseInt(formData.duree_minutes, 10),
-      nombre_pages: formData.nombre_pages ? parseInt(formData.nombre_pages, 10) : undefined,
-      matiere_id: parseInt(formData.matiere_id, 10),
-      date_publication: formData.date_publication || undefined,
-    });
+
+    if (editData) {
+      updateMutation.mutate({
+        id: editData.id.toString(),
+        titre: formData.titre,
+        type: formData.type || undefined,
+        duree_minutes: parseInt(formData.duree_minutes, 10),
+        nombre_pages: formData.nombre_pages ? parseInt(formData.nombre_pages, 10) : undefined,
+        matiere_id: parseInt(formData.matiere_id, 10),
+        date_publication: formData.date_publication || undefined,
+      });
+    } else {
+      // Create mode - Requires File
+      if (!selectedFile) return;
+
+      createMutation.mutate({
+        file: selectedFile,
+        titre: formData.titre,
+        type: formData.type || undefined,
+        duree_minutes: parseInt(formData.duree_minutes, 10),
+        nombre_pages: formData.nombre_pages ? parseInt(formData.nombre_pages, 10) : undefined,
+        matiere_id: parseInt(formData.matiere_id, 10),
+        date_publication: formData.date_publication || undefined,
+      });
+    }
   };
 
   const handlePreview = async (epreuve: any) => {
@@ -200,16 +278,16 @@ export default function Epreuves() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={handleOpenDialog}>
               <Upload className="h-4 w-4" />
               Nouvelle épreuve
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Créer une épreuve</DialogTitle>
+              <DialogTitle>{editData ? "Modifier l'épreuve" : "Créer une épreuve"}</DialogTitle>
               <DialogDescription>
-                Ajoutez une nouvelle épreuve d'examen au système
+                {editData ? "Modifier les informations de l'épreuve" : "Ajoutez une nouvelle épreuve d'examen au système"}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -222,22 +300,24 @@ export default function Epreuves() {
                   onChange={(e) => setFormData({ ...formData, titre: e.target.value })}
                 />
               </div>
+              {!editData && (
+                <div className="space-y-2">
+                  <Label htmlFor="file">Fichier de l'épreuve *</Label>
+                  <Input
+                    id="file"
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  />
+                  {selectedFile && (
+                    <p className="text-sm text-muted-foreground">
+                      Fichier sélectionné : {selectedFile.name}
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="space-y-2">
-                <Label htmlFor="file">Fichier de l'épreuve *</Label>
-                <Input
-                  id="file"
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                />
-                {selectedFile && (
-                  <p className="text-sm text-muted-foreground">
-                    Fichier sélectionné : {selectedFile.name}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="type">Type d'épreuve</Label>
+                <Label htmlFor="type">Type d'épreuve *</Label>
                 <Select
                   value={formData.type}
                   onValueChange={(value) => setFormData({ ...formData, type: value as EpreuveType })}
@@ -275,23 +355,79 @@ export default function Epreuves() {
                   />
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 flex flex-col">
                 <Label htmlFor="matiere">Matière *</Label>
-                <Select
-                  value={formData.matiere_id}
-                  onValueChange={(value) => setFormData({ ...formData, matiere_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {matieres.map((matiere) => (
-                      <SelectItem key={matiere.id} value={matiere.id.toString()}>
-                        {matiere.nom}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={openMatiere} onOpenChange={setOpenMatiere}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openMatiere}
+                      className="justify-between w-full"
+                    >
+                      {formData.matiere_id
+                        ? (() => {
+                          const m = matieres.find((matiere) => matiere.id.toString() === formData.matiere_id);
+                          if (!m) return "Sélectionner une matière...";
+
+                          const niveauNom = m.niveau_etude?.nom;
+                          const filiereNom = m.niveau_etude?.filiere?.nom;
+                          const etablissementNom = m.niveau_etude?.filiere?.etablissement?.nom;
+                          const acronym = etablissementNom ? getAcronym(etablissementNom) : "";
+
+                          return [m.nom, niveauNom, filiereNom, acronym].filter(Boolean).join(" - ");
+                        })()
+                        : "Sélectionner une matière..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                    <Command>
+                      <CommandInput placeholder="Rechercher une matière..." />
+                      <CommandList>
+                        <CommandEmpty>Aucune matière trouvée.</CommandEmpty>
+                        <CommandGroup>
+                          {matieres.map((matiere) => {
+                            const niveauNom = matiere.niveau_etude?.nom;
+                            const filiereNom = matiere.niveau_etude?.filiere?.nom;
+                            const etablissementNom = matiere.niveau_etude?.filiere?.etablissement?.nom;
+                            const acronym = etablissementNom ? getAcronym(etablissementNom) : "";
+
+                            const parts = [
+                              matiere.nom,
+                              niveauNom,
+                              filiereNom,
+                              acronym
+                            ].filter(Boolean);
+
+                            const displayName = parts.join(" - ");
+
+                            return (
+                              <CommandItem
+                                key={matiere.id}
+                                value={displayName}
+                                onSelect={() => {
+                                  setFormData({ ...formData, matiere_id: matiere.id.toString() });
+                                  setOpenMatiere(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    formData.matiere_id === matiere.id.toString()
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                                <span>{displayName}</span>
+                              </CommandItem>
+                            )
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
@@ -311,8 +447,8 @@ export default function Epreuves() {
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Annuler
               </Button>
-              <Button onClick={handleCreate} disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Création..." : "Créer"}
+              <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
+                {editData ? (updateMutation.isPending ? "Modification..." : "Modifier") : (createMutation.isPending ? "Création..." : "Créer")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -397,7 +533,15 @@ export default function Epreuves() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-orange-500 hover:text-orange-600"
+                            onClick={() => handleEdit(epreuve)}
+                            title="Modifier"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"

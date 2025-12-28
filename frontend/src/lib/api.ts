@@ -165,9 +165,11 @@ class ApiClient {
   }
 
   async patch<T>(endpoint: string, data?: any): Promise<T> {
+    const isFormData = data instanceof FormData;
+
     return this.request<T>(endpoint, {
       method: 'PATCH',
-      body: JSON.stringify(data),
+      body: isFormData ? data : JSON.stringify(data),
     });
   }
 

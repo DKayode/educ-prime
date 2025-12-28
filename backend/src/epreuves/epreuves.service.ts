@@ -44,8 +44,9 @@ export class EpreuvesService {
       .leftJoinAndSelect('epreuve.matiere', 'matiere')
       .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .leftJoinAndSelect('epreuve.professeur', 'professeur')
-      .orderBy('epreuve.date_publication', 'DESC')
+      .orderBy('epreuve.date_publication', filterDto.sort_order || 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -99,7 +100,7 @@ export class EpreuvesService {
           filiere: {
             id: epreuve.matiere.niveau_etude.filiere.id,
             nom: epreuve.matiere.niveau_etude.filiere.nom,
-            etablissement_id: epreuve.matiere.niveau_etude.filiere.etablissement_id,
+            etablissement: epreuve.matiere.niveau_etude.filiere.etablissement,
           },
         },
       },
@@ -118,7 +119,7 @@ export class EpreuvesService {
     this.logger.log(`Recherche de l'épreuve ID: ${id}`);
     const epreuve = await this.epreuvesRepository.findOne({
       where: { id: parseInt(id) },
-      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
+      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'matiere.niveau_etude.filiere.etablissement', 'professeur'],
     });
 
     if (!epreuve) {
@@ -155,7 +156,7 @@ export class EpreuvesService {
           filiere: {
             id: epreuve.matiere.niveau_etude.filiere.id,
             nom: epreuve.matiere.niveau_etude.filiere.nom,
-            etablissement_id: epreuve.matiere.niveau_etude.filiere.etablissement_id,
+            etablissement: epreuve.matiere.niveau_etude.filiere.etablissement,
           },
         },
       },

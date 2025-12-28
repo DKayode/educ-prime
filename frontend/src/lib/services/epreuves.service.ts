@@ -23,6 +23,10 @@ export const epreuvesService = {
   async update(id: string, data: {
     titre?: string;
     matiere_id?: number;
+    type?: string;
+    duree_minutes?: number;
+    nombre_pages?: number;
+    date_publication?: string;
   }): Promise<Epreuve> {
     return api.put<Epreuve>(`/epreuves/${id}`, data);
   },

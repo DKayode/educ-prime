@@ -32,9 +32,10 @@ export class MatieresService {
     const queryBuilder = this.matieresRepository.createQueryBuilder('matiere')
       .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .skip((page - 1) * limit)
       .take(limit)
-      .orderBy('matiere.id', 'DESC');
+      .orderBy('matiere.nom', filterDto.sort_order || 'ASC');
 
     if (search) {
       queryBuilder.andWhere(
@@ -66,7 +67,7 @@ export class MatieresService {
         filiere: {
           id: matiere?.niveau_etude?.filiere?.id,
           nom: matiere?.niveau_etude?.filiere?.nom,
-          etablissement_id: matiere?.niveau_etude?.filiere?.etablissement_id,
+          etablissement: matiere?.niveau_etude?.filiere?.etablissement,
         },
       },
     }));
@@ -84,7 +85,7 @@ export class MatieresService {
     this.logger.log(`Recherche de la matière ID: ${id}`);
     const matiere = await this.matieresRepository.findOne({
       where: { id: parseInt(id) },
-      relations: ['niveau_etude', 'niveau_etude.filiere'],
+      relations: ['niveau_etude', 'niveau_etude.filiere', 'niveau_etude.filiere.etablissement'],
     });
 
     if (!matiere) {
@@ -106,7 +107,7 @@ export class MatieresService {
         filiere: {
           id: matiere.niveau_etude.filiere.id,
           nom: matiere.niveau_etude.filiere.nom,
-          etablissement_id: matiere.niveau_etude.filiere.etablissement_id,
+          etablissement: matiere.niveau_etude.filiere.etablissement,
         },
       },
     };

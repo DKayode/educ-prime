@@ -134,4 +134,21 @@ export class ParcoursController {
   async getLink(@Param('id') id: number) {
     return await this.parcoursService.findOneForLink(id);
   }
+
+  @Get(':id/categorie/icon')
+  @ApiOperation({ summary: 'Récupérer l\'icône de la catégorie associée au parcours' })
+  @ApiParam({ name: 'id', description: 'ID du parcours' })
+  @ApiResponse({ status: 200, description: 'Icône récupérée avec succès' })
+  @ApiResponse({ status: 404, description: 'Parcours, catégorie ou icône non trouvée' })
+  async getCategoryIcon(
+    @Param('id') id: number,
+    @Res() res: Response
+  ) {
+    const { url } = await this.parcoursService.findOneForCategoryIcon(id);
+    const { buffer, contentType, filename } = await this.fichiersService.downloadFile(url);
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.status(HttpStatus.OK).send(buffer);
+  }
 }

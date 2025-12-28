@@ -44,8 +44,9 @@ export class RessourcesService {
       .leftJoinAndSelect('ressource.matiere', 'matiere')
       .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .leftJoinAndSelect('ressource.professeur', 'professeur')
-      .orderBy('ressource.date_creation', 'DESC')
+      .orderBy('ressource.date_creation', filterDto.sort_order || 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -97,7 +98,7 @@ export class RessourcesService {
           filiere: {
             id: ressource.matiere.niveau_etude.filiere.id,
             nom: ressource.matiere.niveau_etude.filiere.nom,
-            etablissement_id: ressource.matiere.niveau_etude.filiere.etablissement_id,
+            etablissement: ressource.matiere.niveau_etude.filiere.etablissement,
           },
         },
       },
@@ -116,7 +117,7 @@ export class RessourcesService {
     this.logger.log(`Recherche de la ressource ID: ${id}`);
     const ressource = await this.ressourcesRepository.findOne({
       where: { id: parseInt(id) },
-      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
+      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'matiere.niveau_etude.filiere.etablissement', 'professeur'],
     });
 
     if (!ressource) {
@@ -149,7 +150,7 @@ export class RessourcesService {
           filiere: {
             id: ressource.matiere.niveau_etude.filiere.id,
             nom: ressource.matiere.niveau_etude.filiere.nom,
-            etablissement_id: ressource.matiere.niveau_etude.filiere.etablissement_id,
+            etablissement: ressource.matiere.niveau_etude.filiere.etablissement,
           },
         },
       },

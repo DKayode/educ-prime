@@ -9,6 +9,9 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import * as bcrypt from 'bcrypt';
 
+import { FichiersService } from 'src/fichiers/fichiers.service';
+import { TypeFichier } from 'src/fichiers/entities/fichier.entity';
+
 @Injectable()
 export class UtilisateursService {
   private readonly logger = new Logger(UtilisateursService.name);
@@ -16,6 +19,7 @@ export class UtilisateursService {
   constructor(
     @InjectRepository(Utilisateur)
     private readonly utilisateursRepository: Repository<Utilisateur>,
+    private readonly fichiersService: FichiersService,
   ) { }
 
   async findByEmail(email: string) {
@@ -148,5 +152,44 @@ export class UtilisateursService {
     await this.utilisateursRepository.remove(user);
     this.logger.log(`Utilisateur supprimé avec succès: ${user.email} (ID: ${id})`);
     return { message: 'Utilisateur supprimé avec succès' };
+  }
+
+  async uploadPhoto(id: string, file: any) {
+    this.logger.log(`Mise à jour de la photo de profil pour l'utilisateur ID: ${id}`);
+    const user = await this.utilisateursRepository.findOne({
+      where: { id: parseInt(id) },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    const uploadResult = await this.fichiersService.uploadFile(file, parseInt(id), {
+      type: TypeFichier.PROFILE,
+      entityId: parseInt(id),
+    });
+
+    user.photo = uploadResult.url;
+    const updatedUser = await this.utilisateursRepository.save(user);
+
+    delete updatedUser.mot_de_passe;
+    return updatedUser;
+  }
+
+  async downloadPhoto(id: string) {
+    this.logger.log(`Téléchargement de la photo pour l'utilisateur ID: ${id}`);
+    const user = await this.utilisateursRepository.findOne({
+      where: { id: parseInt(id) },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    if (!user.photo) {
+      throw new NotFoundException('Aucune photo de profil disponible');
+    }
+
+    return this.fichiersService.downloadFile(user.photo);
   }
 }

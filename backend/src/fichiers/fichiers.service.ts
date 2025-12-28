@@ -250,6 +250,12 @@ export class FichiersService {
           const parcoursSubPath = uploadData.entitySubtype ? `/${this.normalizePathSegment(uploadData.entitySubtype)}` : '';
           folderPath = `parcours/${this.normalizePathSegment(uploadData.entityId)}${parcoursSubPath}/${normalizedFileName}`;
           break;
+        case TypeFichier.CATEGORIES:
+          if (!uploadData.entityId) {
+            throw new BadRequestException('entityId est requis pour les catégories');
+          }
+          folderPath = `categories/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
+          break;
         default:
           throw new BadRequestException('Type de fichier invalide');
       }

@@ -31,9 +31,10 @@ export class NiveauEtudeService {
 
     const queryBuilder = this.niveauEtudeRepository.createQueryBuilder('niveau')
       .leftJoinAndSelect('niveau.filiere', 'filiere')
+      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .skip((page - 1) * limit)
       .take(limit)
-      .orderBy('niveau.id', 'DESC');
+      .orderBy('niveau.nom', filterDto.sort_order || 'ASC')
 
     if (filiere) {
       queryBuilder.andWhere('filiere.nom = :filiere', { filiere });
@@ -60,7 +61,7 @@ export class NiveauEtudeService {
       filiere: {
         id: niveau.filiere.id,
         nom: niveau.filiere.nom,
-        etablissement_id: niveau.filiere.etablissement_id,
+        etablissement: niveau.filiere.etablissement,
       },
     }));
 
@@ -77,7 +78,7 @@ export class NiveauEtudeService {
     this.logger.log(`Recherche du niveau d'étude ID: ${id}`);
     const niveauEtude = await this.niveauEtudeRepository.findOne({
       where: { id: parseInt(id) },
-      relations: ['filiere'],
+      relations: ['filiere', 'filiere.etablissement'],
     });
 
     if (!niveauEtude) {
@@ -95,7 +96,7 @@ export class NiveauEtudeService {
       filiere: {
         id: niveauEtude.filiere.id,
         nom: niveauEtude.filiere.nom,
-        etablissement_id: niveauEtude.filiere.etablissement_id,
+        etablissement: niveauEtude.filiere.etablissement,
       },
     };
   }
