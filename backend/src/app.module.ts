@@ -39,11 +39,14 @@ import { Like } from './likes/entities/like.entity';
 import { Favori } from './favoris/entities/favoris.entity';
 import { Category } from './categories/entities/category.entity';
 import { CategoriesModule } from './categories/categories.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { FirebaseModule } from './firebase/firebase.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -91,6 +94,8 @@ import { CategoriesModule } from './categories/categories.module';
     LikesModule,
     FavorisModule,
     CategoriesModule,
+    NotificationsModule,
+    FirebaseModule,
   ],
   controllers: [AppController],
   providers: [AppService],
