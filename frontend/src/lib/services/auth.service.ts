@@ -51,7 +51,7 @@ export const authService = {
 
   async getProfile(): Promise<Utilisateur> {
     try {
-      const profile = await api.get<Utilisateur>('/utilisateurs/me');
+      const profile = await api.get<Utilisateur>('/utilisateurs/profil');
       return profile;
     } catch (error) {
       throw error;
