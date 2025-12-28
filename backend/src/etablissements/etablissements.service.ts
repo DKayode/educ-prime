@@ -17,6 +17,7 @@ import { FilterNiveauEtudeDto } from '../niveau-etude/dto/filter-niveau-etude.dt
 import { FilterMatiereDto } from '../matieres/dto/filter-matiere.dto';
 import { FilterEpreuveDto } from '../epreuves/dto/filter-epreuve.dto';
 import { FilterRessourceDto } from '../ressources/dto/filter-ressource.dto';
+import { FiliereResponseDto } from '../filieres/dto/filiere-response.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 
 @Injectable()
@@ -63,6 +64,7 @@ export class EtablissementsService {
     }
 
     const [etablissements, total] = await queryBuilder
+      .orderBy('etablissement.nom', filterDto.sort_order || 'ASC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
@@ -150,7 +152,7 @@ export class EtablissementsService {
   }
 
   // Hierarchical navigation methods
-  async findFilieresById(id: string, filterDto: FilterFiliereDto): Promise<PaginationResponse<Filiere>> {
+  async findFilieresById(id: string, filterDto: FilterFiliereDto): Promise<PaginationResponse<FiliereResponseDto>> {
     const { page = 1, limit = 10, search } = filterDto;
     this.logger.log(`Récupération des filières pour établissement ID: ${id} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
     await this.findOne(id); // Verify etablissement exists
@@ -165,6 +167,8 @@ export class EtablissementsService {
 
     const [filieres, total] = await this.filieresRepository.findAndCount({
       where: whereCondition,
+      relations: ['etablissement'],
+      order: { nom: filterDto.sort_order || 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -172,7 +176,11 @@ export class EtablissementsService {
     this.logger.log(`${filieres.length} filière(s) trouvée(s) pour établissement ${id} sur ${total} total`);
 
     return {
-      data: filieres,
+      data: filieres.map(filiere => ({
+        id: filiere.id,
+        nom: filiere.nom,
+        etablissement: filiere.etablissement,
+      })),
       total,
       page,
       limit,
@@ -206,7 +214,8 @@ export class EtablissementsService {
 
     const [niveaux, total] = await this.niveauEtudeRepository.findAndCount({
       where: whereCondition,
-      relations: ['filiere'],
+      relations: ['filiere', 'filiere.etablissement'],
+      order: { nom: filterDto.sort_order || 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -221,7 +230,7 @@ export class EtablissementsService {
         filiere: {
           id: niveau.filiere.id,
           nom: niveau.filiere.nom,
-          etablissement_id: niveau.filiere.etablissement_id,
+          etablissement: niveau.filiere.etablissement,
         },
       })) as NiveauEtude[],
       total,
@@ -253,6 +262,7 @@ export class EtablissementsService {
     const queryBuilder = this.matieresRepository.createQueryBuilder('matiere')
       .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .where('niveau_etude.id = :niveauEtudeId', { niveauEtudeId });
 
     if (search) {
@@ -264,6 +274,7 @@ export class EtablissementsService {
     }
 
     const [matieres, total] = await queryBuilder
+      .orderBy('matiere.nom', filterDto.sort_order || 'ASC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
@@ -282,7 +293,7 @@ export class EtablissementsService {
           filiere: {
             id: matiere.niveau_etude.filiere.id,
             nom: matiere.niveau_etude.filiere.nom,
-            etablissement_id: matiere.niveau_etude.filiere.etablissement_id,
+            etablissement: matiere.niveau_etude.filiere.etablissement,
           },
         },
       })) as Matiere[],
@@ -321,9 +332,10 @@ export class EtablissementsService {
       .leftJoinAndSelect('epreuve.matiere', 'matiere')
       .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .leftJoinAndSelect('epreuve.professeur', 'professeur')
       .where('niveau_etude.id = :niveauEtudeId', { niveauEtudeId })
-      .orderBy('epreuve.date_creation', 'DESC')
+      .orderBy('epreuve.date_creation', filterDto.sort_order || 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -375,7 +387,7 @@ export class EtablissementsService {
             filiere: {
               id: epreuve.matiere.niveau_etude.filiere.id,
               nom: epreuve.matiere.niveau_etude.filiere.nom,
-              etablissement_id: epreuve.matiere.niveau_etude.filiere.etablissement_id,
+              etablissement: epreuve.matiere.niveau_etude.filiere.etablissement,
             },
           },
         },
@@ -415,9 +427,10 @@ export class EtablissementsService {
       .leftJoinAndSelect('ressource.matiere', 'matiere')
       .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .leftJoinAndSelect('ressource.professeur', 'professeur')
       .where('niveau_etude.id = :niveauEtudeId', { niveauEtudeId })
-      .orderBy('ressource.date_creation', 'DESC')
+      .orderBy('ressource.date_creation', filterDto.sort_order || 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -468,7 +481,7 @@ export class EtablissementsService {
             filiere: {
               id: ressource.matiere.niveau_etude.filiere.id,
               nom: ressource.matiere.niveau_etude.filiere.nom,
-              etablissement_id: ressource.matiere.niveau_etude.filiere.etablissement_id,
+              etablissement: ressource.matiere.niveau_etude.filiere.etablissement,
             },
           },
         },

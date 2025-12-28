@@ -9,14 +9,14 @@ export const authService = {
         '/auth/connexion',
         { ...credentials, appareil: 'web' }
       );
-      
+
       // Store tokens
       api.setToken(response.access_token);
       localStorage.setItem('refresh_token', response.refresh_token);
-      
+
       // Fetch user profile after successful login
       const utilisateur = await authService.getProfile();
-      
+
       return {
         ...response,
         utilisateur,
@@ -51,7 +51,7 @@ export const authService = {
 
   async getProfile(): Promise<Utilisateur> {
     try {
-      const profile = await api.get<Utilisateur>('/utilisateurs/profil');
+      const profile = await api.get<Utilisateur>('/utilisateurs/me');
       return profile;
     } catch (error) {
       throw error;
