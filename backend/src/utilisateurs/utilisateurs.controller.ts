@@ -38,7 +38,7 @@ export class UtilisateursController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('me')
+  @Get('profil')
   @ApiOperation({ summary: 'Récupérer le profil utilisateur (JSON)' })
   async getProfil(@Request() req) {
     const userId = req.user.utilisateurId.toString();
@@ -69,7 +69,7 @@ export class UtilisateursController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Patch('profil')
+  @Patch('photo')
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Mettre à jour ma photo de profil' })
   @ApiResponse({ status: 200, description: 'Photo mise à jour avec succès' })
@@ -82,7 +82,7 @@ export class UtilisateursController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('profil')
+  @Get('photo')
   @ApiOperation({ summary: 'Récupérer ma photo de profil' })
   @ApiResponse({ status: 200, description: 'Photo récupérée avec succès' })
   @ApiResponse({ status: 404, description: 'Photo non trouvée' })
