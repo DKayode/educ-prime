@@ -52,7 +52,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getAcronym } from "@/lib/utils";
 
 export default function Niveaux() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -189,7 +189,10 @@ export default function Niveaux() {
       filiere_ids: niveau.filiere ? [niveau.filiere.id.toString()] : []
     });
     if (niveau.filiere) {
-      setSelectedDialogFiliere({ id: niveau.filiere.id, nom: niveau.filiere.nom });
+      const etablissementName = niveau.filiere.etablissement?.nom;
+      const acronym = etablissementName ? getAcronym(etablissementName) : "";
+      const displayName = etablissementName ? `${niveau.filiere.nom} - ${acronym}` : niveau.filiere.nom;
+      setSelectedDialogFiliere({ id: niveau.filiere.id, nom: displayName });
     }
     setIsDialogOpen(true);
   };
@@ -342,37 +345,43 @@ export default function Niveaux() {
                                 Tout sélectionner
                               </CommandItem>
                             )}
-                            {dialogFilieres.map((filiere) => (
-                              <CommandItem
-                                key={filiere.id}
-                                value={filiere.nom}
-                                onSelect={() => {
-                                  if (editId) {
-                                    // Edit mode: strict single select
-                                    setFormData({ ...formData, filiere_ids: [filiere.id.toString()] });
-                                    setSelectedDialogFiliere({ id: filiere.id, nom: filiere.nom });
-                                    setOpenDialogCombobox(false);
-                                  } else {
-                                    // Create mode: multi select toggle
-                                    const currentIds = formData.filiere_ids;
-                                    const filiereId = filiere.id.toString();
-                                    const newIds = currentIds.includes(filiereId)
-                                      ? currentIds.filter(id => id !== filiereId)
-                                      : [...currentIds, filiereId];
-                                    setFormData({ ...formData, filiere_ids: newIds });
-                                    // Keep dialog open for multiple selections
-                                  }
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    formData.filiere_ids.includes(filiere.id.toString()) ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {filiere.nom}
-                              </CommandItem>
-                            ))}
+                            {dialogFilieres.map((filiere) => {
+                              const etablissementName = filiere.etablissement?.nom;
+                              const acronym = etablissementName ? getAcronym(etablissementName) : "";
+                              const displayName = etablissementName ? `${filiere.nom} - ${acronym}` : filiere.nom;
+
+                              return (
+                                <CommandItem
+                                  key={filiere.id}
+                                  value={displayName}
+                                  onSelect={() => {
+                                    if (editId) {
+                                      // Edit mode: strict single select
+                                      setFormData({ ...formData, filiere_ids: [filiere.id.toString()] });
+                                      setSelectedDialogFiliere({ id: filiere.id, nom: displayName });
+                                      setOpenDialogCombobox(false);
+                                    } else {
+                                      // Create mode: multi select toggle
+                                      const currentIds = formData.filiere_ids;
+                                      const filiereId = filiere.id.toString();
+                                      const newIds = currentIds.includes(filiereId)
+                                        ? currentIds.filter(id => id !== filiereId)
+                                        : [...currentIds, filiereId];
+                                      setFormData({ ...formData, filiere_ids: newIds });
+                                      // Keep dialog open for multiple selections
+                                    }
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      formData.filiere_ids.includes(filiere.id.toString()) ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {displayName}
+                                </CommandItem>
+                              )
+                            })}
                           </CommandGroup>
                         </CommandList>
                       </Command>

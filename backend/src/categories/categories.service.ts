@@ -6,12 +6,14 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { Category } from './entities/category.entity';
 import { CategoryQueryDto } from './dto/category-query.dto';
 import { slugify } from '../utils/slugify';
+import { FichiersService } from 'src/fichiers/fichiers.service';
 
 @Injectable()
 export class CategoriesService {
   constructor(
     @InjectRepository(Category)
     private categoryRepository: Repository<Category>,
+    private fichiersService: FichiersService,
   ) { }
 
   async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
@@ -143,6 +145,28 @@ export class CategoriesService {
 
     Object.assign(category, updateCategoryDto);
     return await this.categoryRepository.save(category);
+  }
+
+  async uploadIcon(id: number, file: any, userId: number): Promise<Category> {
+    const category = await this.findOne(id);
+
+    // Upload file
+    const uploadResult = await this.fichiersService.uploadFile(file, userId, {
+      type: 'CATEGORIES' as any, // Typed as any to match Enum in FichiersService if needed, or import Enum
+      entityId: id,
+    });
+
+    // Update category icon URL
+    category.icone = uploadResult.url;
+    return await this.categoryRepository.save(category);
+  }
+
+  async downloadIcon(id: number): Promise<{ buffer: Buffer; contentType: string; filename: string }> {
+    const category = await this.findOne(id);
+    if (!category.icone) {
+      throw new NotFoundException(`Aucune icône n'est associée à la catégorie ${id}`);
+    }
+    return this.fichiersService.downloadFile(category.icone);
   }
 
   async remove(id: number): Promise<void> {

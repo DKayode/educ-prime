@@ -7,6 +7,7 @@ import { MajFiliereDto } from './dto/maj-filiere.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { FilterFiliereDto } from './dto/filter-filiere.dto';
+import { FiliereResponseDto } from './dto/filiere-response.dto';
 
 @Injectable()
 export class FilieresService {
@@ -28,12 +29,13 @@ export class FilieresService {
     return saved;
   }
 
-  async findAll(filterDto: FilterFiliereDto): Promise<PaginationResponse<Filiere>> {
+  async findAll(filterDto: FilterFiliereDto): Promise<PaginationResponse<FiliereResponseDto>> {
     const { page = 1, limit = 10, search, etablissement } = filterDto;
     this.logger.log(`Récupération des filières - Page: ${page}, Limite: ${limit}, Search: ${search}, Etablissement: ${etablissement}`);
 
     const queryBuilder = this.filieresRepository.createQueryBuilder('filiere')
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
+      .orderBy('filiere.nom', filterDto.sort_order || 'ASC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -55,8 +57,14 @@ export class FilieresService {
 
     this.logger.log(`${filieres.length} filière(s) trouvée(s) sur ${total} total`);
 
+    const data = filieres.map(filiere => ({
+      id: filiere.id,
+      nom: filiere.nom,
+      etablissement: filiere.etablissement,
+    }));
+
     return {
-      data: filieres,
+      data,
       total,
       page,
       limit,
@@ -64,7 +72,7 @@ export class FilieresService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<FiliereResponseDto> {
     this.logger.log(`Recherche de la filière ID: ${id}`);
     const filiere = await this.filieresRepository.findOne({
       where: { id: parseInt(id) },
@@ -77,7 +85,12 @@ export class FilieresService {
     }
 
     this.logger.log(`Filière trouvée: ${filiere.nom} (ID: ${id})`);
-    return filiere;
+
+    return {
+      id: filiere.id,
+      nom: filiere.nom,
+      etablissement: filiere.etablissement,
+    };
   }
 
   async update(id: string, majFiliereDto: MajFiliereDto) {

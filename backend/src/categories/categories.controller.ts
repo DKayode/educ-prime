@@ -8,8 +8,12 @@ import {
   Delete,
   Query,
   UseGuards,
-  Res
+  Res,
+  UseInterceptors,
+  UploadedFile,
+  Req
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { CategoriesService } from './categories.service';
@@ -77,6 +81,34 @@ export class CategoriesController {
     @Body() updateCategoryDto: UpdateCategoryDto,
   ): Promise<Category> {
     return await this.categoriesService.update(+id, updateCategoryDto);
+  }
+
+  @Patch(':id/icone')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Mettre à jour l\'icône d\'une catégorie' })
+  @ApiResponse({ status: 200, description: 'Icône mise à jour avec succès', type: Category })
+  async uploadIcon(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req,
+  ): Promise<Category> {
+    return await this.categoriesService.uploadIcon(+id, file, req.user.id);
+  }
+
+  @Get(':id/icone')
+  @ApiOperation({ summary: 'Récupérer l\'icône d\'une catégorie' })
+  @ApiResponse({ status: 200, description: 'Icône récupérée avec succès' })
+  @ApiResponse({ status: 404, description: 'Icône non trouvée' })
+  async getIcon(
+    @Param('id') id: string,
+    @Res() res: any // using any or Response from express
+  ) {
+    const { buffer, contentType, filename } = await this.categoriesService.downloadIcon(+id);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.send(buffer);
   }
 
   @Delete(':id')

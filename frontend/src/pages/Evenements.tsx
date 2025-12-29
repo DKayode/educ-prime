@@ -136,6 +136,7 @@ export default function Evenements() {
                 ...formData,
                 image: formData.image || undefined,
                 lien_inscription: formData.lien_inscription || undefined,
+                date: formData.date || undefined,
             });
 
             // Step 2: Upload file if selected
@@ -184,7 +185,7 @@ export default function Evenements() {
             await evenementsService.update(editingEvenement.id.toString(), {
                 titre: editingEvenement.titre,
                 description: editingEvenement.description,
-                date: editingEvenement.date,
+                date: editingEvenement.date || undefined,
                 lieu: editingEvenement.lieu,
                 actif: editingEvenement.actif,
                 image: editingEvenement.image || undefined,
@@ -305,7 +306,7 @@ export default function Evenements() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="date">Date et heure</Label>
+                                        <Label htmlFor="date">Date et heure (Optionnel)</Label>
                                         <Input
                                             id="date"
                                             type="datetime-local"
@@ -461,7 +462,7 @@ export default function Evenements() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="grid gap-2">
-                                    <Label>Date et heure</Label>
+                                    <Label>Date et heure (Optionnel)</Label>
                                     <Input
                                         type="datetime-local"
                                         value={editingEvenement?.date ? new Date(editingEvenement.date).toISOString().slice(0, 16) : ""}

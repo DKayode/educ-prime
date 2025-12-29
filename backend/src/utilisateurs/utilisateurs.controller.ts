@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Query, Patch } from '@nestjs/common';
 import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Query, Patch, UseInterceptors, UploadedFile, Res, HttpStatus } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { UtilisateursService } from './utilisateurs.service';
 import { InscriptionDto } from './dto/inscription.dto';
 import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
@@ -38,6 +39,7 @@ export class UtilisateursController {
 
   @UseGuards(JwtAuthGuard)
   @Get('profil')
+  @ApiOperation({ summary: 'Récupérer le profil utilisateur (JSON)' })
   async getProfil(@Request() req) {
     const userId = req.user.utilisateurId.toString();
     const email = req.user.email;
@@ -85,5 +87,46 @@ export class UtilisateursController {
       message: 'Votre token FCM a été mis à jour',
       hasToken: !!updatedUser.fcm_token,
     };
+
+  }
+  @UseGuards(JwtAuthGuard)
+  @Patch('photo')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Mettre à jour ma photo de profil' })
+  @ApiResponse({ status: 200, description: 'Photo mise à jour avec succès' })
+  async uploadPhoto(
+    @Request() req,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const userId = req.user.utilisateurId.toString();
+    return this.utilisateursService.uploadPhoto(userId, file);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('photo')
+  @ApiOperation({ summary: 'Récupérer ma photo de profil' })
+  @ApiResponse({ status: 200, description: 'Photo récupérée avec succès' })
+  @ApiResponse({ status: 404, description: 'Photo non trouvée' })
+  async getPhoto(
+    @Request() req,
+    @Res() res: any
+  ) {
+    const userId = req.user.utilisateurId.toString();
+    const { buffer, contentType, filename } = await this.utilisateursService.downloadPhoto(userId);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.status(HttpStatus.OK).send(buffer);
   }
 }

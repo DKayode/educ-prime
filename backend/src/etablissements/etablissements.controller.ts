@@ -16,6 +16,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
+import { FiliereResponseDto } from '../filieres/dto/filiere-response.dto';
 
 @ApiTags('etablissements')
 @Controller('etablissements')
@@ -81,6 +82,7 @@ export class EtablissementsController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiResponse({ type: FiliereResponseDto })
   async findFilieres(@Param('id') id: string, @Query() filterDto: FilterFiliereDto) {
     return this.etablissementsService.findFilieresById(id, filterDto);
   }

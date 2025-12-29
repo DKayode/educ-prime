@@ -38,7 +38,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getAcronym } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -327,24 +327,33 @@ export default function Matieres() {
                             {niveaux.filter(n =>
                               n.nom.toLowerCase().includes(dialogNiveauSearch.toLowerCase()) ||
                               n.filiere?.nom.toLowerCase().includes(dialogNiveauSearch.toLowerCase())
-                            ).map((niveau) => (
-                              <CommandItem
-                                key={niveau.id}
-                                value={`${niveau.nom} - ${niveau.filiere?.nom || ""}`}
-                                onSelect={() => {
-                                  setFormData({ ...formData, niveau_etude_id: niveau.id.toString() });
-                                  setOpenDialogCombobox(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    formData.niveau_etude_id === niveau.id.toString() ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {niveau.nom} - {niveau.filiere?.nom}
-                              </CommandItem>
-                            ))}
+                            ).map((niveau) => {
+                              const etablissementName = niveau.filiere?.etablissement?.nom;
+                              const acronym = etablissementName ? getAcronym(etablissementName) : "";
+                              const filiereDisplay = niveau.filiere?.nom
+                                ? `${niveau.filiere.nom}${acronym ? ` - ${acronym}` : ""}`
+                                : "";
+                              const displayName = `${niveau.nom}${filiereDisplay ? ` - ${filiereDisplay}` : ""}`;
+
+                              return (
+                                <CommandItem
+                                  key={niveau.id}
+                                  value={displayName}
+                                  onSelect={() => {
+                                    setFormData({ ...formData, niveau_etude_id: niveau.id.toString() });
+                                    setOpenDialogCombobox(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      formData.niveau_etude_id === niveau.id.toString() ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {displayName}
+                                </CommandItem>
+                              );
+                            })}
                           </CommandGroup>
                         </CommandList>
                       </Command>
@@ -594,24 +603,33 @@ export default function Matieres() {
                           {niveaux.filter(n =>
                             n.nom.toLowerCase().includes(editDialogNiveauSearch.toLowerCase()) ||
                             n.filiere?.nom.toLowerCase().includes(editDialogNiveauSearch.toLowerCase())
-                          ).map((niveau) => (
-                            <CommandItem
-                              key={niveau.id}
-                              value={`${niveau.nom} - ${niveau.filiere?.nom || ""}`}
-                              onSelect={() => {
-                                setEditingMatiere(editingMatiere ? { ...editingMatiere, niveau_etude_id: niveau.id.toString() } : null);
-                                setOpenEditDialogCombobox(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  editingMatiere?.niveau_etude_id === niveau.id.toString() ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {niveau.nom} - {niveau.filiere?.nom}
-                            </CommandItem>
-                          ))}
+                          ).map((niveau) => {
+                            const etablissementName = niveau.filiere?.etablissement?.nom;
+                            const acronym = etablissementName ? getAcronym(etablissementName) : "";
+                            const filiereDisplay = niveau.filiere?.nom
+                              ? `${niveau.filiere.nom}${acronym ? ` - ${acronym}` : ""}`
+                              : "";
+                            const displayName = `${niveau.nom}${filiereDisplay ? ` - ${filiereDisplay}` : ""}`;
+
+                            return (
+                              <CommandItem
+                                key={niveau.id}
+                                value={displayName}
+                                onSelect={() => {
+                                  setEditingMatiere(editingMatiere ? { ...editingMatiere, niveau_etude_id: niveau.id.toString() } : null);
+                                  setOpenEditDialogCombobox(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    editingMatiere?.niveau_etude_id === niveau.id.toString() ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {displayName}
+                              </CommandItem>
+                            );
+                          })}
                         </CommandGroup>
                       </CommandList>
                     </Command>

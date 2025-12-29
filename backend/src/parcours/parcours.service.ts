@@ -202,4 +202,25 @@ export class ParcoursService {
     }
     return { link: parcours.lien_video };
   }
+
+  async findOneForCategoryIcon(id: number): Promise<{ url: string }> {
+    const parcours = await this.parcoursRepository.findOne({
+      where: { id },
+      relations: ['category']
+    });
+
+    if (!parcours) {
+      throw new NotFoundException(`Parcours avec l'ID ${id} non trouvé`);
+    }
+
+    if (!parcours.category) {
+      throw new NotFoundException(`Le parcours ${id} n'a pas de catégorie associée`);
+    }
+
+    if (!parcours.category.icone) {
+      throw new NotFoundException(`La catégorie associée au parcours ${id} n'a pas d'icône`);
+    }
+
+    return { url: parcours.category.icone };
+  }
 }

@@ -11,6 +11,9 @@ import * as bcrypt from 'bcrypt';
 import { FirebaseService } from '../firebase/firebase.service';
 
 
+import { FichiersService } from 'src/fichiers/fichiers.service';
+import { TypeFichier } from 'src/fichiers/entities/fichier.entity';
+
 @Injectable()
 export class UtilisateursService {
   private readonly logger = new Logger(UtilisateursService.name);
@@ -19,6 +22,7 @@ export class UtilisateursService {
     @InjectRepository(Utilisateur)
     private readonly utilisateursRepository: Repository<Utilisateur>,
     private firebaseService: FirebaseService,
+    private readonly fichiersService: FichiersService,
   ) { }
 
   async findByEmail(email: string) {
@@ -217,4 +221,42 @@ export class UtilisateursService {
 
 
 
+  async uploadPhoto(id: string, file: any) {
+    this.logger.log(`Mise à jour de la photo de profil pour l'utilisateur ID: ${id}`);
+    const user = await this.utilisateursRepository.findOne({
+      where: { id: parseInt(id) },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    const uploadResult = await this.fichiersService.uploadFile(file, parseInt(id), {
+      type: TypeFichier.PROFILE,
+      entityId: parseInt(id),
+    });
+
+    user.photo = uploadResult.url;
+    const updatedUser = await this.utilisateursRepository.save(user);
+
+    delete updatedUser.mot_de_passe;
+    return updatedUser;
+  }
+
+  async downloadPhoto(id: string) {
+    this.logger.log(`Téléchargement de la photo pour l'utilisateur ID: ${id}`);
+    const user = await this.utilisateursRepository.findOne({
+      where: { id: parseInt(id) },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    if (!user.photo) {
+      throw new NotFoundException('Aucune photo de profil disponible');
+    }
+
+    return this.fichiersService.downloadFile(user.photo);
+  }
 }

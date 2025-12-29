@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Plus, Pencil, Trash2, Loader2, Search, Eye } from "lucide-react";
+import { BookOpen, Plus, Pencil, Trash2, Loader2, Search, Eye, Check, ChevronsUpDown } from "lucide-react";
 import { parcoursService, type Parcour } from "@/lib/services/parcours.service";
+import { categoriesService, type Category } from "@/lib/services/categories.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,14 +45,28 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import { useDebounce } from "@/hooks/use-debounce";
+import { cn } from "@/lib/utils";
 
 interface ParcoursFormData {
     titre: string;
     image_couverture?: string;
     lien_video?: string;
     type_media: 'image' | 'video';
-    categorie: string;
+    category_id: number;
     description: string;
 }
 
@@ -65,7 +80,7 @@ export default function Parcours() {
         image_couverture: "",
         lien_video: "",
         type_media: "image",
-        categorie: "",
+        category_id: 0,
         description: "",
     });
     const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
@@ -79,6 +94,10 @@ export default function Parcours() {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [previewTitle, setPreviewTitle] = useState("");
 
+    // Combobox states
+    const [openCategoryCombo, setOpenCategoryCombo] = useState(false);
+    const [categorySearch, setCategorySearch] = useState("");
+
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
@@ -88,12 +107,18 @@ export default function Parcours() {
     });
     const parcours = parcoursResponse?.data || [];
 
+    const { data: categoriesResponse } = useQuery({
+        queryKey: ["categories"],
+        queryFn: () => categoriesService.getAll({ limit: 100 }), // Get all categories for selection
+    });
+    const categories = categoriesResponse?.data || [];
+
     const createMutation = useMutation({
         mutationFn: (data: ParcoursFormData) => parcoursService.create(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["parcours"] });
             setIsCreateDialogOpen(false);
-            setFormData({ titre: "", image_couverture: "", lien_video: "", type_media: "image", categorie: "", description: "" });
+            setFormData({ titre: "", image_couverture: "", lien_video: "", type_media: "image", category_id: 0, description: "" });
             setSelectedImageFile(null);
             setSelectedVideoFile(null);
             toast({
@@ -158,14 +183,13 @@ export default function Parcours() {
         }
     };
 
-    const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setSelectedVideoFile(e.target.files[0]);
-        }
-    };
-
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (formData.category_id === 0) {
+            toast({ title: "Erreur", description: "Veuillez sélectionner une catégorie", variant: "destructive" });
+            return;
+        }
 
         // Validate YouTube URL if type is video
         if (formData.type_media === 'video' && formData.lien_video) {
@@ -188,7 +212,6 @@ export default function Parcours() {
             const created = await parcoursService.create({
                 ...formData,
                 image_couverture: undefined,
-                // Pass lien_video if it's a video type (URL), otherwise undefined (waiting for file upload if we had that, but we don't for video anymore)
                 lien_video: formData.type_media === 'video' ? formData.lien_video : undefined,
             });
             createdId = created.id;
@@ -225,7 +248,7 @@ export default function Parcours() {
             // Success
             queryClient.invalidateQueries({ queryKey: ["parcours"] });
             setIsCreateDialogOpen(false);
-            setFormData({ titre: "", image_couverture: "", lien_video: "", type_media: "image", categorie: "", description: "" });
+            setFormData({ titre: "", image_couverture: "", lien_video: "", type_media: "image", category_id: 0, description: "" });
             setSelectedImageFile(null);
             setSelectedVideoFile(null);
             setSelectedContentFile(null);
@@ -246,6 +269,22 @@ export default function Parcours() {
         e.preventDefault();
         if (!editingParcour) return;
         setIsUploading(true);
+
+        // Map category ID if editing (backend returns object, but we need ID for update logic sometimes if we just patch)
+        // Actually update dto expects category_id.
+        let catId = editingParcour.category?.id;
+        // Check if editingParcour was updated via UI state 
+        // Logic mismatch: editingParcour state is Parcour object. 
+        // We need a separate state or directly mutate editingParcour to have category_id? 
+        // Better: Use a separate numeric state for the edit form OR assume editingParcour.category.id is the source.
+        // But what if user picked a new one?
+        // Let's rely on `editingParcour.category` object being updated in state.
+
+        if (!catId) {
+            toast({ title: "Erreur", description: "Catégorie manquante", variant: "destructive" });
+            setIsUploading(false);
+            return;
+        }
 
         let newImage = editingParcour.image_couverture;
         let newVideo = editingParcour.lien_video;
@@ -275,14 +314,11 @@ export default function Parcours() {
                 newImage = upload.url;
             }
 
-            // Video is now handled by URL input directly in editingParcour.lien_video
-            // if (selectedVideoFile) { ... }
-
             await updateMutation.mutateAsync({
                 id: editingParcour.id.toString(),
                 data: {
                     titre: editingParcour.titre,
-                    categorie: editingParcour.categorie,
+                    category_id: editingParcour.category.id,
                     description: editingParcour.description,
                     type_media: editingParcour.type_media,
                     image_couverture: newImage,
@@ -291,11 +327,9 @@ export default function Parcours() {
             });
 
             if (selectedImageFile && editingParcour.image_couverture && editingParcour.image_couverture !== newImage) {
-                // Cleanup old image
                 try { await fichiersService.deleteFile(editingParcour.image_couverture); } catch { }
             }
             if (selectedVideoFile && editingParcour.lien_video && editingParcour.lien_video !== newVideo) {
-                // Cleanup old video
                 try { await fichiersService.deleteFile(editingParcour.lien_video); } catch { }
             }
 
@@ -314,18 +348,10 @@ export default function Parcours() {
     const handlePreview = async (item: Parcour) => {
         try {
             setPreviewTitle(item.titre);
-            setPreviewUrl(null); // Reset first
+            setPreviewUrl(null);
 
             if (item.type_media === 'video' && item.lien_video) {
-                // For video, use the URL directly
-                // Ensure it's embeddable or just show it. 
-                // If it's a YouTube link, we might need to process it for iframe, or just try iframe.
-                // For now, assume it's an embeddable URL or just plain link. 
-                // If it's standard YouTube watch link, iframe might refuse connection. 
-                // Let's transform common YouTube watch links to embed if possible, or just pass as is.
                 let url = item.lien_video;
-                // Robust regex to extract YouTube Video ID
-                // Handles: https://www.youtube.com/watch?v=ID, https://youtu.be/ID, https://youtube.com/embed/ID etc.
                 const videoIdMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
 
                 if (videoIdMatch && videoIdMatch[1]) {
@@ -335,7 +361,6 @@ export default function Parcours() {
                 setPreviewUrl(url);
                 setIsPreviewOpen(true);
             } else if ((item.type_media === 'image' || !item.type_media) && item.image_couverture) {
-                // For image, download it
                 setIsPreviewOpen(true);
                 const blob = await parcoursService.downloadImage(item.id);
                 const url = window.URL.createObjectURL(blob);
@@ -353,7 +378,6 @@ export default function Parcours() {
     const closePreview = () => {
         setIsPreviewOpen(false);
         if (previewUrl && !previewUrl.startsWith('http')) {
-            // Only revoke object URLs (blob:...)
             window.URL.revokeObjectURL(previewUrl);
         }
         setPreviewUrl(null);
@@ -401,7 +425,21 @@ export default function Parcours() {
                                         </div>
                                         <div className="grid gap-2">
                                             <Label htmlFor="categorie">Catégorie *</Label>
-                                            <Input id="categorie" value={formData.categorie} onChange={(e) => setFormData({ ...formData, categorie: e.target.value })} required />
+                                            <Select
+                                                value={formData.category_id.toString()}
+                                                onValueChange={(v) => setFormData({ ...formData, category_id: parseInt(v) })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Sélectionner une catégorie" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {categories.map((category) => (
+                                                        <SelectItem key={category.id} value={category.id.toString()}>
+                                                            {category.nom}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     </div>
                                     <div className="grid gap-2">
@@ -482,7 +520,11 @@ export default function Parcours() {
                                 {parcours.map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell className="font-medium">{item.titre}</TableCell>
-                                        <TableCell>{item.categorie}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="secondary" className="font-normal">
+                                                {item.category?.nom || "Non catégorisé"}
+                                            </Badge>
+                                        </TableCell>
                                         <TableCell><Badge variant="outline">{item.type_media}</Badge></TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
@@ -549,7 +591,26 @@ export default function Parcours() {
                                     </div>
                                     <div className="grid gap-2">
                                         <Label>Catégorie</Label>
-                                        <Input value={editingParcour.categorie} onChange={(e) => setEditingParcour({ ...editingParcour, categorie: e.target.value })} required />
+                                        <Select
+                                            value={editingParcour.category?.id?.toString() || ""}
+                                            onValueChange={(v) => {
+                                                const selectedCat = categories.find(c => c.id.toString() === v);
+                                                if (selectedCat) {
+                                                    setEditingParcour({ ...editingParcour, category: selectedCat });
+                                                }
+                                            }}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Sélectionner une catégorie" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {categories.map((category) => (
+                                                    <SelectItem key={category.id} value={category.id.toString()}>
+                                                        {category.nom}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                 </div>
                                 <div className="grid gap-2">

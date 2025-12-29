@@ -6,6 +6,7 @@ import { MajFiliereDto } from './dto/maj-filiere.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterFiliereDto } from './dto/filter-filiere.dto';
+import { FiliereResponseDto } from './dto/filiere-response.dto';
 
 @ApiTags('filieres')
 @Controller('filieres')
@@ -32,6 +33,7 @@ export class FilieresController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
+  @ApiResponse({ type: FiliereResponseDto })
   async findOne(@Param('id') id: string) {
     return this.filieresService.findOne(id);
   }

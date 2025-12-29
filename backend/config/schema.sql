@@ -195,6 +195,23 @@ CREATE TABLE IF NOT EXISTS contacts_professionnels (
 );
 
 -- ------------------------------
+-- 7. CREATE CATEGORIES TABLE
+-- ------------------------------
+
+CREATE TABLE IF NOT EXISTS categories (
+  id SERIAL PRIMARY KEY,
+  nom VARCHAR(100) NOT NULL UNIQUE,
+  slug VARCHAR(100) NOT NULL UNIQUE,
+  description TEXT,
+  couleur VARCHAR(7),
+  icone VARCHAR(255),
+  is_active BOOLEAN DEFAULT true,
+  ordre INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ------------------------------
 -- 8. CREATE INTERACTIVE/SOCIAL TABLES
 -- ------------------------------
 
@@ -204,7 +221,7 @@ CREATE TABLE IF NOT EXISTS parcours (
     image_couverture VARCHAR(500),
     lien_video VARCHAR(500),
     type_media parcours_media_type_enum NOT NULL,
-    categorie VARCHAR(100) NOT NULL,
+    category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
     description TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -212,7 +229,7 @@ CREATE TABLE IF NOT EXISTS parcours (
 
 CREATE TABLE IF NOT EXISTS commentaires (
     id SERIAL PRIMARY KEY,
-    parcours_id INTEGER NOT NULL REFERENCES parcours(id),
+    parcours_id INTEGER NOT NULL REFERENCES parcours(id) ON DELETE CASCADE,
     utilisateur_id INTEGER NOT NULL REFERENCES utilisateurs(id),
     contenu TEXT NOT NULL,
     date_commentaire TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -235,8 +252,8 @@ CREATE INDEX idx_commentaires_closure_depth ON commentaires_closure(depth);
 
 CREATE TABLE IF NOT EXISTS likes (
     id SERIAL PRIMARY KEY,
-    parcours_id INTEGER REFERENCES parcours(id),
-    commentaire_id INTEGER REFERENCES commentaires(id),
+    parcours_id INTEGER REFERENCES parcours(id) ON DELETE CASCADE,
+    commentaire_id INTEGER REFERENCES commentaires(id) ON DELETE CASCADE,
     utilisateur_id INTEGER NOT NULL REFERENCES utilisateurs(id),
     date_like TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     date_dislike TIMESTAMP WITH TIME ZONE,
@@ -253,24 +270,8 @@ CREATE TABLE IF NOT EXISTS favoris (
     UNIQUE(parcours_id, utilisateur_id)
 );
 
-CREATE TABLE categories (
-  id SERIAL PRIMARY KEY,
-  nom VARCHAR(100) NOT NULL UNIQUE,
-  slug VARCHAR(100) NOT NULL UNIQUE,
-  description TEXT,
-  couleur VARCHAR(7),
-  icone VARCHAR(50),
-  is_active BOOLEAN DEFAULT true,
-  ordre INTEGER DEFAULT 0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-
-ALTER TABLE parcours ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL;
-
 -- ------------------------------
--- 7. CREATE DEFAULT ADMIN USER
+-- 9. CREATE DEFAULT ADMIN USER
 -- ------------------------------
 -- Install pgcrypto extension for password hashing
 CREATE EXTENSION IF NOT EXISTS pgcrypto;

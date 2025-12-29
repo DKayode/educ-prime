@@ -20,6 +20,7 @@ import Opportunites from "./pages/Opportunites";
 import Concours from "./pages/Concours";
 import ContactsProfessionnels from "./pages/ContactsProfessionnels";
 import Parcours from "./pages/Parcours";
+import Categories from "./pages/Categories";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -54,6 +55,7 @@ const App = () => (
                       <Route path="/opportunites" element={<Opportunites />} />
                       <Route path="/concours" element={<Concours />} />
                       <Route path="/parcours" element={<Parcours />} />
+                      <Route path="/categories" element={<Categories />} />
                       <Route path="/contacts-professionnels" element={<ContactsProfessionnels />} />
                       <Route path="/settings" element={<Settings />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

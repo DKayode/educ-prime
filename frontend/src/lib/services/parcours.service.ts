@@ -2,13 +2,15 @@ import { api } from '../api';
 import type { PaginationResponse, PaginationParams } from '../types/pagination';
 import { buildPaginationQuery } from '../types/pagination';
 
+import { Category } from './categories.service';
+
 export interface Parcour {
     id: number;
     titre: string;
     image_couverture?: string;
     lien_video?: string;
     type_media: 'image' | 'video'; // lowercase to match backend entity enum
-    categorie: string;
+    category: Category;
     description: string;
     created_at: string;
     updated_at: string;
@@ -36,7 +38,7 @@ export const parcoursService = {
         image_couverture?: string;
         lien_video?: string;
         type_media: 'image' | 'video';
-        categorie: string;
+        category_id: number;
         description: string;
     }): Promise<Parcour> {
         return api.post<Parcour>('/parcours', data);
@@ -47,7 +49,7 @@ export const parcoursService = {
         image_couverture: string;
         lien_video: string;
         type_media: 'image' | 'video';
-        categorie: string;
+        category_id: number;
         description: string;
     }>): Promise<Parcour> {
         return api.patch<Parcour>(`/parcours/${id}`, data); // Backend uses @Patch
