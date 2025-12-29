@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Query, Patch, UseInterceptors, UploadedFile, Res, HttpStatus } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { UtilisateursService } from './utilisateurs.service';
 import { InscriptionDto } from './dto/inscription.dto';
 import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
@@ -71,6 +71,18 @@ export class UtilisateursController {
   @UseGuards(JwtAuthGuard)
   @Patch('photo')
   @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   @ApiOperation({ summary: 'Mettre à jour ma photo de profil' })
   @ApiResponse({ status: 200, description: 'Photo mise à jour avec succès' })
   async uploadPhoto(
