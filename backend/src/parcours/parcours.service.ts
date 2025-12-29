@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like as TypeOrmLike, FindOptionsWhere, ILike } from 'typeorm';
+import { Repository, Like as TypeOrmLike, FindOptionsWhere, ILike, In } from 'typeorm';
 import { CreateParcourDto } from './dto/create-parcour.dto';
 import { UpdateParcourDto } from './dto/update-parcour.dto';
 import { Parcour } from './entities/parcour.entity';
@@ -47,8 +47,16 @@ export class ParcoursService {
       where.titre = ILike(`%${filters.titre}%`);
     }
 
+    // CORRECTION ICI : Filtre par category_id
     if (filters.category_id) {
-      where.category = ILike(`%${filters.category_id}%`);
+      // Si category_id est un nombre
+      if (typeof filters.category_id === 'number') {
+        where.category = { id: filters.category_id } as any;
+      }
+      // Si c'est un tableau d'IDs
+      else if (Array.isArray(filters.category_id)) {
+        where.category = { id: In(filters.category_id) } as any;
+      }
     }
 
     if (filters.type_media) {
@@ -58,7 +66,11 @@ export class ParcoursService {
     // Recherche globale sur plusieurs champs
     if (filters.search) {
       where.titre = ILike(`%${filters.search}%`);
-      // Note: Pour rechercher sur plusieurs champs, on peut utiliser OR
+      // Pour rechercher sur plusieurs champs :
+      // where = [
+      //   { titre: ILike(`%${filters.search}%`) },
+      //   { description: ILike(`%${filters.search}%`) }
+      // ] as FindOptionsWhere<Parcour>[];
     }
 
     // Exécution de la requête
