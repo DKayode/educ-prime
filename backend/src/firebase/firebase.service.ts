@@ -1,7 +1,7 @@
-// src/firebase/firebase.service.ts
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
+import * as firebaseConf from "../config/firebase-serviceaccount.json"
 
 export interface NotificationPayload {
   title: string;
@@ -33,10 +33,9 @@ export class FirebaseService implements OnModuleInit {
   private async initializeFirebase() {
     try {
       const firebaseConfig = {
-        projectId: this.configService.get<string>('FIREBASE_PROJECT_ID'),
-        clientEmail: this.configService.get<string>('FIREBASE_CLIENT_EMAIL'),
-        privateKey: this.configService
-          .get<string>('FIREBASE_PRIVATE_KEY')
+        projectId: firebaseConf.project_id,
+        clientEmail: firebaseConf.client_email,
+        privateKey: firebaseConf.private_key
           ?.replace(/\\n/g, '\n'),
       };
 

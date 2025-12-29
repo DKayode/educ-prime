@@ -47,6 +47,9 @@ export class Utilisateur {
   @Column({ nullable: true })
   telephone: string;
 
+  @Column({ type: 'text', nullable: true })
+  fcm_token: string;
+
   @Column({ type: 'enum', enum: RoleType })
   role: RoleType;
 

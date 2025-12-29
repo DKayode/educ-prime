@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Query, Patch } from '@nestjs/common';
 import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { UtilisateursService } from './utilisateurs.service';
 import { InscriptionDto } from './dto/inscription.dto';
 import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
@@ -64,5 +64,26 @@ export class UtilisateursController {
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.utilisateursService.remove(id);
+  }
+
+  @Patch('me/update/fcm-token')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Mettre à jour son propre token FCM' })
+  async updateMyFcmToken(
+    @Request() req: any,
+    @Body() updateDto: any,
+  ) {
+    const userId = req.user.utilisateurId
+    const updatedUser = await this.utilisateursService.updateFcmToken(
+      userId,
+      updateDto.token,
+    );
+
+    return {
+      success: true,
+      message: 'Votre token FCM a été mis à jour',
+      hasToken: !!updatedUser.fcm_token,
+    };
   }
 }

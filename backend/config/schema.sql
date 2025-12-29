@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
     email VARCHAR(255) UNIQUE NOT NULL,
     mot_de_passe VARCHAR(255) NOT NULL,
     photo TEXT,
+    fcm_token TEXT,
     etablissement_id INTEGER REFERENCES etablissements(id),
     filiere_id INTEGER REFERENCES filieres(id),
     niveau_etude_id INTEGER REFERENCES niveau_etude(id),
