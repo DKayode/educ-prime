@@ -28,20 +28,35 @@ export class ConcoursService {
   }
 
   async findAll(filterDto: FilterConcoursDto): Promise<PaginationResponse<Concours>> {
-    const { page = 1, limit = 10, titre, lieu, annee } = filterDto;
+    const { page = 1, limit = 10, search, annee, sort_by = 'annee', sort_order = 'DESC' } = filterDto;
     this.logger.log(`Récupération des concours - filtres: ${JSON.stringify(filterDto)}`);
 
-    const where: FindOptionsWhere<Concours> = {};
-    if (titre) where.titre = Like(`%${titre}%`);
-    if (lieu) where.lieu = Like(`%${lieu}%`);
-    if (annee) where.annee = annee;
+    const queryBuilder = this.concoursRepository.createQueryBuilder('concours');
 
-    const [concours, total] = await this.concoursRepository.findAndCount({
-      where,
-      order: { annee: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    if (search) {
+      queryBuilder.andWhere(
+        '(concours.titre ILIKE :search OR concours.lieu ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    if (annee) {
+      queryBuilder.andWhere('concours.annee = :annee', { annee });
+    }
+
+    // Sorting
+    const sortByColumn = sort_by === 'titre' ? 'concours.titre' : 'concours.annee';
+    queryBuilder.orderBy(sortByColumn, sort_order as 'ASC' | 'DESC');
+
+    // If sorting by titre, add secondary sort by date/id for stability if needed, or leave as simple sort
+    if (sort_by === 'titre') {
+      queryBuilder.addOrderBy('concours.annee', 'DESC');
+    }
+
+    queryBuilder.skip((page - 1) * limit);
+    queryBuilder.take(limit);
+
+    const [concours, total] = await queryBuilder.getManyAndCount();
 
     this.logger.log(`${concours.length} concours trouvé(s) sur ${total} total`);
 

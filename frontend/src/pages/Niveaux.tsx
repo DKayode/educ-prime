@@ -84,7 +84,7 @@ export default function Niveaux() {
     queryKey: ['filterFilieres', debouncedFiliereSearch],
     queryFn: () => filieresService.getAll({
       page: 1,
-      limit: 50,
+      limit: 1000,
       search: debouncedFiliereSearch || undefined
     }),
   });
@@ -100,7 +100,7 @@ export default function Niveaux() {
     queryKey: ['filieres_dialog', debouncedDialogFiliereSearch],
     queryFn: () => filieresService.getAll({
       page: 1,
-      limit: 50,
+      limit: 1000,
       search: debouncedDialogFiliereSearch || undefined
     }),
     enabled: isDialogOpen

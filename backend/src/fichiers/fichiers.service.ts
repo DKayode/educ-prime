@@ -47,8 +47,8 @@ export class FichiersService {
     }
 
     // Create new epreuve without URL
-    if (!uploadData.epreuveTitre || !uploadData.dureeMinutes) {
-      throw new BadRequestException('epreuveTitre et dureeMinutes sont requis lors de la création d\'une nouvelle épreuve');
+    if (!uploadData.epreuveTitre) {
+      throw new BadRequestException('epreuveTitre est requis lors de la création d\'une nouvelle épreuve');
     }
 
     const newEpreuve = this.epreuveRepository.create({
@@ -182,7 +182,19 @@ export class FichiersService {
       }
 
       let folderPath: string;
-      const normalizedFileName = this.normalizeFileName(file.originalname);
+      let normalizedFileName = this.normalizeFileName(file.originalname);
+
+      // Force unique filename for Evenements and Opportunites to avoid caching issues
+      if (uploadData.type === TypeFichier.EVENEMENT || uploadData.type === TypeFichier.OPPORTUNITE) {
+        const parts = normalizedFileName.split('.');
+        if (parts.length > 1) {
+          const ext = parts.pop();
+          const base = parts.join('.');
+          normalizedFileName = `${base}-${Date.now()}.${ext}`;
+        } else {
+          normalizedFileName = `${normalizedFileName}-${Date.now()}`;
+        }
+      }
 
       switch (uploadData.type) {
         case TypeFichier.PROFILE:

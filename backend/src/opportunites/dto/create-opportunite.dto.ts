@@ -20,7 +20,7 @@ export class CreerOpportuniteDto {
     @IsOptional()
     @Type(() => Date)
     @IsDate()
-    date_limite?: Date;
+    date_publication?: Date;
 
     @IsOptional()
     @IsUrl()

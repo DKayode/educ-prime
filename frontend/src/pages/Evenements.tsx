@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, Plus, Pencil, Trash2, Loader2, Eye } from "lucide-react";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useDebounce } from "@/hooks/use-debounce";
+import { Calendar, Plus, Pencil, Trash2, Loader2, X, Search } from "lucide-react";
 import { evenementsService, type Evenement } from "@/lib/services/evenements.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
+import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -64,17 +66,22 @@ export default function Evenements() {
     });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [search, setSearch] = useState("");
+    const debouncedSearch = useDebounce(search, 500);
 
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [previewTitle, setPreviewTitle] = useState("");
-
+    const [imageVersion, setImageVersion] = useState(Date.now());
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
     const { data: evenementsResponse, isLoading } = useQuery({
-        queryKey: ["evenements"],
-        queryFn: () => evenementsService.getAll(),
+        queryKey: ["evenements", debouncedSearch],
+        queryFn: () => evenementsService.getAll({
+            search: debouncedSearch || undefined
+        }),
+        placeholderData: keepPreviousData,
     });
     const evenements = evenementsResponse?.data || [];
 
@@ -86,6 +93,7 @@ export default function Evenements() {
             setIsCreateDialogOpen(false);
             setFormData({ titre: "", description: "", date: "", lieu: "", lien_inscription: "", image: "", actif: true });
             setSelectedFile(null);
+            setImageVersion(Date.now());
             toast({ title: "Succès", description: "Événement créé avec succès" });
         },
         onError: (error: any) => {
@@ -100,6 +108,7 @@ export default function Evenements() {
             queryClient.invalidateQueries({ queryKey: ["evenements"] });
             setIsEditDialogOpen(false);
             setEditingEvenement(null);
+            setImageVersion(Date.now());
             toast({ title: "Succès", description: "Événement mis à jour avec succès" });
         },
         onError: (error: any) => {
@@ -113,6 +122,7 @@ export default function Evenements() {
             queryClient.invalidateQueries({ queryKey: ["evenements"] });
             queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
             setDeleteId(null);
+            setImageVersion(Date.now());
             toast({ title: "Succès", description: "Événement supprimé avec succès" });
         },
         onError: (error: any) => {
@@ -165,6 +175,7 @@ export default function Evenements() {
             setIsCreateDialogOpen(false);
             setFormData({ titre: "", description: "", date: "", lieu: "", lien_inscription: "", image: "", actif: true });
             setSelectedFile(null);
+            setImageVersion(Date.now());
             toast({ title: "Succès", description: "Événement créé avec succès" });
         } catch (error: any) {
             toast({ title: "Erreur", description: error.message || "Échec de la création", variant: "destructive" });
@@ -208,8 +219,8 @@ export default function Evenements() {
                     image: uploadResult.url
                 });
 
-                // Step 4: Delete old file if it existed
-                if (oldImageUrl) {
+                // Step 4: Delete old file if it existed and is different from new file
+                if (oldImageUrl && oldImageUrl !== uploadResult.url) {
                     try {
                         await fichiersService.deleteFile(oldImageUrl);
                         console.log("Deleted old file:", oldImageUrl);
@@ -225,6 +236,7 @@ export default function Evenements() {
             setIsEditDialogOpen(false);
             setEditingEvenement(null);
             setSelectedFile(null); // Clear file
+            setImageVersion(Date.now());
             toast({ title: "Succès", description: "Événement mis à jour avec succès" });
         } catch (error: any) {
             toast({ title: "Erreur", description: error.message || "Échec de la mise à jour", variant: "destructive" });
@@ -255,7 +267,7 @@ export default function Evenements() {
         }
     };
 
-    if (isLoading) {
+    if (isLoading && !evenementsResponse) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -371,6 +383,17 @@ export default function Evenements() {
                     <CardTitle>Liste des événements</CardTitle>
                     <CardDescription>
                         {evenements.length} événement{evenements.length > 1 ? "s" : ""} enregistré{evenements.length > 1 ? "s" : ""}
+                        <div className="mt-4">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    placeholder="Rechercher des événements..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    className="pl-10"
+                                />
+                            </div>
+                        </div>
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -382,6 +405,7 @@ export default function Evenements() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead>Image</TableHead>
                                     <TableHead>Titre</TableHead>
                                     <TableHead>Date</TableHead>
                                     <TableHead>Lieu</TableHead>
@@ -392,6 +416,21 @@ export default function Evenements() {
                             <TableBody>
                                 {evenements.map((evenement) => (
                                     <TableRow key={evenement.id}>
+                                        <TableCell>
+                                            {evenement.image ? (
+                                                <img
+                                                    key={imageVersion}
+                                                    src={`${API_URL}/evenements/${evenement.id}/image?v=${imageVersion}`}
+                                                    alt={evenement.titre}
+                                                    className="h-10 w-10 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
+                                                    onClick={() => handlePreview(evenement)}
+                                                />
+                                            ) : (
+                                                <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center">
+                                                    <Calendar className="h-5 w-5 text-muted-foreground" />
+                                                </div>
+                                            )}
+                                        </TableCell>
                                         <TableCell className="font-medium">{evenement.titre}</TableCell>
                                         <TableCell>{evenement.date ? new Date(evenement.date).toLocaleDateString('fr-FR') : "—"}</TableCell>
                                         <TableCell>{evenement.lieu || "—"}</TableCell>
@@ -402,15 +441,7 @@ export default function Evenements() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => handlePreview(evenement)}
-                                                    title="Visualiser"
-                                                    disabled={!evenement.image}
-                                                >
-                                                    <Eye className="h-4 w-4 text-blue-500" />
-                                                </Button>
+
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -486,18 +517,40 @@ export default function Evenements() {
                             </div>
                             <div className="grid gap-2">
                                 <Label>Image (Laisser vide pour conserver l'actuelle)</Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleFileChange}
-                                        className="flex-1"
-                                    />
-                                    {selectedFile && (
-                                        <Badge variant="secondary" className="self-center">
-                                            {selectedFile.name}
-                                        </Badge>
-                                    )}
+                                <div className="flex items-center gap-4">
+                                    {selectedFile ? (
+                                        <div className="relative h-16 w-16">
+                                            <img
+                                                src={URL.createObjectURL(selectedFile)}
+                                                alt="Preview"
+                                                className="h-full w-full object-cover rounded-md border"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 p-0"
+                                                onClick={() => setSelectedFile(null)}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    ) : editingEvenement?.image ? (
+                                        <div className="relative h-16 w-16">
+                                            <img
+                                                src={`${API_URL}/evenements/${editingEvenement.id}/image?v=${imageVersion}`}
+                                                alt="Current Image"
+                                                className="h-full w-full object-cover rounded-md border"
+                                            />
+                                        </div>
+                                    ) : null}
+                                    <div className="flex-1">
+                                        <Input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleFileChange}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">

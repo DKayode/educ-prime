@@ -198,8 +198,8 @@ export default function Epreuves() {
   };
 
   const handleSubmit = () => {
-    if (!formData.titre || !formData.duree_minutes || !formData.matiere_id || (!selectedFile && !editData) || !formData.type) {
-      toast.error(editData ? "Veuillez remplir tous les champs requis (Titre, Type, Durée, Matière)" : "Veuillez remplir tous les champs requis (Titre, Type, Durée, Matière, Fichier)");
+    if (!formData.titre || !formData.matiere_id || (!selectedFile && !editData) || !formData.type) {
+      toast.error(editData ? "Veuillez remplir tous les champs requis (Titre, Type, Matière)" : "Veuillez remplir tous les champs requis (Titre, Type, Matière, Fichier)");
       return;
     }
 
@@ -208,7 +208,7 @@ export default function Epreuves() {
         id: editData.id.toString(),
         titre: formData.titre,
         type: formData.type || undefined,
-        duree_minutes: parseInt(formData.duree_minutes, 10),
+        duree_minutes: formData.duree_minutes ? parseInt(formData.duree_minutes, 10) : 0,
         nombre_pages: formData.nombre_pages ? parseInt(formData.nombre_pages, 10) : undefined,
         matiere_id: parseInt(formData.matiere_id, 10),
         date_publication: formData.date_publication || undefined,
@@ -221,7 +221,7 @@ export default function Epreuves() {
         file: selectedFile,
         titre: formData.titre,
         type: formData.type || undefined,
-        duree_minutes: parseInt(formData.duree_minutes, 10),
+        duree_minutes: formData.duree_minutes ? parseInt(formData.duree_minutes, 10) : 0,
         nombre_pages: formData.nombre_pages ? parseInt(formData.nombre_pages, 10) : undefined,
         matiere_id: parseInt(formData.matiere_id, 10),
         date_publication: formData.date_publication || undefined,
@@ -335,7 +335,7 @@ export default function Epreuves() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="duree">Durée (minutes) *</Label>
+                  <Label htmlFor="duree">Durée en minutes (optionnel)</Label>
                   <Input
                     id="duree"
                     type="number"

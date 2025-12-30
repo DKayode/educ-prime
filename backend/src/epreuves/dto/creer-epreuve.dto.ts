@@ -8,8 +8,9 @@ export class CreerEpreuveDto {
   @IsString()
   url: string;
 
+  @IsOptional()
   @IsNumber()
-  duree_minutes: number;
+  duree_minutes?: number;
 
   @IsNumber()
   matiere_id: number;

@@ -29,12 +29,10 @@ export default function Concours() {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [editingItem, setEditingItem] = useState<Concours | null>(null);
-    const [searchTitre, setSearchTitre] = useState("");
-    const [searchLieu, setSearchLieu] = useState("");
+    const [search, setSearch] = useState("");
     const [searchAnnee, setSearchAnnee] = useState<string>("ALL");
 
-    const debouncedTitre = useDebounce(searchTitre, 500);
-    const debouncedLieu = useDebounce(searchLieu, 500);
+    const debouncedSearch = useDebounce(search, 500);
 
     const [availableAnnees, setAvailableAnnees] = useState<number[]>([]);
 
@@ -72,10 +70,9 @@ export default function Concours() {
     });
 
     const { data: itemsResponse, isLoading, isPlaceholderData } = useQuery({
-        queryKey: ["concours", debouncedTitre, debouncedLieu, searchAnnee],
+        queryKey: ["concours", debouncedSearch, searchAnnee],
         queryFn: () => concoursService.getAll({
-            titre: debouncedTitre || undefined,
-            lieu: debouncedLieu || undefined,
+            search: debouncedSearch || undefined,
             annee: searchAnnee !== "ALL" ? parseInt(searchAnnee) : undefined
         }),
         placeholderData: keepPreviousData,
@@ -344,20 +341,15 @@ export default function Concours() {
                     <CardDescription>
                         {items.length} élément{items.length > 1 ? "s" : ""}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-                            <div className="relative">
+                            <div className="relative md:col-span-3">
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
-                                    placeholder="Titre..."
-                                    value={searchTitre}
-                                    onChange={(e) => setSearchTitre(e.target.value)}
+                                    placeholder="Rechercher (Titre, Lieu)..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
                                     className="pl-10"
                                 />
                             </div>
-                            <Input
-                                placeholder="Lieu..."
-                                value={searchLieu}
-                                onChange={(e) => setSearchLieu(e.target.value)}
-                            />
                             <Select value={searchAnnee} onValueChange={setSearchAnnee}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Année" />

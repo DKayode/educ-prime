@@ -1,10 +1,12 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { usersService } from "@/lib/services/users.service";
+import { API_URL } from "@/lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +24,26 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const fetchPhoto = async () => {
+      if (user?.photo) {
+        try {
+          const blob = await usersService.getProfilePhoto();
+          const url = URL.createObjectURL(blob);
+          setPhotoUrl(url);
+        } catch (error) {
+          console.error("Failed to load profile photo", error);
+        }
+      }
+    };
+    fetchPhoto();
+
+    return () => {
+      if (photoUrl) URL.revokeObjectURL(photoUrl);
+    };
+  }, [user?.photo]);
 
   const handleLogout = async () => {
     await logout();
@@ -44,7 +66,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.photo} alt={user?.nom} />
+                    <AvatarImage src={photoUrl} alt={user?.nom} />
                     <AvatarFallback>{userInitials}</AvatarFallback>
                   </Avatar>
                 </Button>
