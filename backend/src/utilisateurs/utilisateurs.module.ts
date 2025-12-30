@@ -10,6 +10,6 @@ import { FichiersModule } from 'src/fichiers/fichiers.module';
   imports: [TypeOrmModule.forFeature([Utilisateur]), FichiersModule],
   controllers: [UtilisateursController],
   providers: [UtilisateursService],
-  exports: [UtilisateursService],
+  exports: [UtilisateursService, TypeOrmModule.forFeature([Utilisateur])],
 })
 export class UtilisateursModule { }

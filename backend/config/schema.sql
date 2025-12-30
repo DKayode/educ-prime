@@ -67,7 +67,6 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
     email VARCHAR(255) UNIQUE NOT NULL,
     mot_de_passe VARCHAR(255) NOT NULL,
     photo TEXT,
-    fcm_token TEXT,
     etablissement_id INTEGER REFERENCES etablissements(id),
     filiere_id INTEGER REFERENCES filieres(id),
     niveau_etude_id INTEGER REFERENCES niveau_etude(id),
@@ -75,6 +74,10 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
     telephone VARCHAR(50),
     role utilisateurs_role_enum
 );
+
+ALTER TABLE utilisateurs
+ADD COLUMN IF NOT EXISTS fcm_token TEXT;
+
 
 -- ------------------------------
 -- 4. CREATE SUBJECT AND CONTENT TABLES

@@ -6,11 +6,23 @@ import { UpdateParcourDto } from './dto/update-parcour.dto';
 import { Parcour } from './entities/parcour.entity';
 import { ParcourQueryDto } from './dto/parcour-query.dto';
 
+import { Commentaire } from '../commentaires/entities/commentaire.entity';
+import { Like } from '../likes/entities/like.entity';
+import { Favori } from 'src/favoris/entities/favoris.entity';
+
 @Injectable()
 export class ParcoursService {
   constructor(
     @InjectRepository(Parcour)
     private parcoursRepository: Repository<Parcour>,
+    @InjectRepository(Commentaire)
+    private commentaireRepository: Repository<Commentaire>,
+
+    @InjectRepository(Like)
+    private likeRepository: Repository<Like>,
+
+    @InjectRepository(Favori)
+    private favoriRepository: Repository<Favori>,
   ) { }
 
   /**
@@ -139,17 +151,29 @@ export class ParcoursService {
     return await this.parcoursRepository.save(parcours);
   }
 
-  /**
-   * Supprime un parcours
-   * @param id - ID du parcours à supprimer
-   * @throws NotFoundException si le parcours n'existe pas
-   */
   async remove(id: number): Promise<void> {
+    // Vérifier si le parcours existe
+    const parcours = await this.parcoursRepository.findOne({
+      where: { id },
+    });
+
+    if (!parcours) {
+      throw new NotFoundException(`Parcours avec l'ID ${id} non trouvé`);
+    }
+
+    // Supprimer dans l'ordre inverse des dépendances
+    await this.commentaireRepository.delete({ parcours_id: id });
+    await this.likeRepository.delete({ parcours_id: id });
+    await this.favoriRepository.delete({ parcours_id: id });
+
+    // Supprimer le parcours
     const result = await this.parcoursRepository.delete(id);
+
     if (result.affected === 0) {
       throw new NotFoundException(`Parcours avec l'ID ${id} non trouvé`);
     }
   }
+
 
   /**
    * Recherche des parcours par terme de recherche

@@ -173,11 +173,11 @@ export class UtilisateursService {
       throw new NotFoundException(`Utilisateur ${userId} non trouvé`);
     }
 
-    // Valider le token avec Firebase (optionnel)
-    const isValid = await this.firebaseService.validateToken(token);
-    if (!isValid) {
-      this.logger.warn(`Token FCM invalide pour l'utilisateur ${userId}`);
-    }
+    // const isValid = await this.firebaseService.validateToken(token);
+    // if (!isValid) {
+    //   this.logger.warn(`Token FCM invalide pour l'utilisateur ${userId}`);
+    //   throw new NotFoundException(`FCM Token non valid`)
+    // }
 
     // Vérifier si le token a changé
     if (user.fcm_token !== token) {
