@@ -1,21 +1,41 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsBoolean, IsIn } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { OpportuniteType } from '../entities/opportunite.entity';
+
+export enum OpportuniteSortBy {
+    DATE = 'date',
+    NAME = 'name',
+}
+
+export enum OpportuniteSortOrder {
+    ASC = 'ASC',
+    DESC = 'DESC',
+}
 
 export class FilterOpportuniteDto extends PaginationDto {
     @IsOptional()
     @IsString()
-    titre?: string;
+    search?: string;
 
     @IsOptional()
     @IsEnum(OpportuniteType)
     type?: OpportuniteType;
 
     @IsOptional()
-    @IsString()
-    lieu?: string;
+    @IsEnum(OpportuniteSortBy)
+    sort_by?: OpportuniteSortBy;
 
     @IsOptional()
-    @IsString()
-    organisme?: string;
+    @IsEnum(OpportuniteSortOrder)
+    sort_order?: OpportuniteSortOrder;
+
+    @IsOptional()
+    @IsBoolean()
+    @Transform(({ value }) => {
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        return value;
+    })
+    actif?: boolean;
 }

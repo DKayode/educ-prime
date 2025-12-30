@@ -23,7 +23,7 @@ export class Epreuve {
   @Column()
   url: string;
 
-  @Column()
+  @Column({ nullable: true })
   duree_minutes: number;
 
   @Column({ type: 'int', default: 0 })

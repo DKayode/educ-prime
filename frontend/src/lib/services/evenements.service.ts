@@ -15,7 +15,7 @@ export interface Evenement {
 }
 
 export const evenementsService = {
-    async getAll(params?: PaginationParams): Promise<PaginationResponse<Evenement>> {
+    async getAll(params?: PaginationParams & { search?: string; sort_by?: string; sort_order?: string; actif?: boolean }): Promise<PaginationResponse<Evenement>> {
         const query = buildPaginationQuery(params);
         return api.get<PaginationResponse<Evenement>>(`/evenements${query}`);
     },

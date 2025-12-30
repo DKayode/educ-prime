@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import { Opportunite, OpportuniteType } from './entities/opportunite.entity';
 import { CreerOpportuniteDto } from './dto/create-opportunite.dto';
 import { UpdateOpportuniteDto } from './dto/update-opportunite.dto';
-import { FilterOpportuniteDto } from './dto/filter-opportunite.dto';
+import { FilterOpportuniteDto, OpportuniteSortBy, OpportuniteSortOrder } from './dto/filter-opportunite.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { FindOptionsWhere, Like } from 'typeorm';
 
@@ -28,21 +28,41 @@ export class OpportunitesService {
   }
 
   async findAll(filterDto: FilterOpportuniteDto): Promise<PaginationResponse<Opportunite>> {
-    const { page = 1, limit = 10, titre, type, lieu, organisme } = filterDto;
+    const { page = 1, limit = 10, search, type, sort_by = OpportuniteSortBy.DATE, sort_order = OpportuniteSortOrder.DESC, actif } = filterDto;
     this.logger.log(`Récupération des opportunités - filtres: ${JSON.stringify(filterDto)}`);
 
-    const where: FindOptionsWhere<Opportunite> = {};
-    if (titre) where.titre = Like(`%${titre}%`);
-    if (type) where.type = type;
-    if (lieu) where.lieu = Like(`%${lieu}%`);
-    if (organisme) where.organisme = Like(`%${organisme}%`);
+    const queryBuilder = this.opportuniteRepository.createQueryBuilder('opportunite');
 
-    const [opportunites, total] = await this.opportuniteRepository.findAndCount({
-      where,
-      order: { date_limite: 'ASC', date_creation: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    if (search) {
+      queryBuilder.andWhere(
+        '(opportunite.titre ILIKE :search OR opportunite.organisme ILIKE :search OR opportunite.lieu ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    if (type) {
+      queryBuilder.andWhere('opportunite.type = :type', { type });
+    }
+
+    if (actif !== undefined) {
+      queryBuilder.andWhere('opportunite.actif = :actif', { actif });
+    }
+
+    // Sorting
+    if (sort_by === OpportuniteSortBy.NAME) {
+      queryBuilder.orderBy('opportunite.titre', sort_order);
+    } else {
+      // Default to date (date_publication)
+      queryBuilder.orderBy('opportunite.date_publication', sort_order);
+    }
+
+    // Add secondary sort for stability
+    queryBuilder.addOrderBy('opportunite.date_creation', 'DESC');
+
+    // Pagination
+    queryBuilder.skip((page - 1) * limit).take(limit);
+
+    const [opportunites, total] = await queryBuilder.getManyAndCount();
 
     this.logger.log(`${opportunites.length} opportunité(s) trouvée(s) sur ${total} total`);
 

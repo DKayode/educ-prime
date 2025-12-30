@@ -22,4 +22,8 @@ export const usersService = {
   async delete(id: number): Promise<{ message: string }> {
     return api.delete(`/utilisateurs/${id}`);
   },
+
+  async getProfilePhoto(): Promise<Blob> {
+    return api.download('/utilisateurs/photo');
+  },
 };

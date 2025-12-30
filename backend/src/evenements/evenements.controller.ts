@@ -10,6 +10,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
+import { FilterEvenementDto } from './dto/filter-evenement.dto';
 
 @ApiTags('evenements')
 @Controller('evenements')
@@ -26,14 +27,14 @@ export class EvenementsController {
     return this.evenementsService.create(creerEvenementDto);
   }
 
+
+
   @UseGuards(JwtAuthGuard)
   @Get()
   @ApiOperation({ summary: 'Récupérer la liste des événements' })
   @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
-  findAll(@Query() paginationDto: PaginationDto) {
-    return this.evenementsService.findAll(paginationDto);
+  findAll(@Query() filterDto: FilterEvenementDto) {
+    return this.evenementsService.findAll(filterDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -48,6 +49,32 @@ export class EvenementsController {
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.status(HttpStatus.OK).send(buffer);
+  }
+
+  @Get(':id/image')
+  async viewImage(
+    @Param('id') id: string,
+    @Res() res: Response
+  ) {
+    try {
+      const { url } = await this.evenementsService.findOneForDownload(+id);
+      const { buffer, contentType } = await this.fichiersService.downloadFile(url);
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', 'inline');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.status(HttpStatus.OK).send(buffer);
+    } catch (error) {
+      console.error('Error serving image for event %s:', id, error);
+      res.status(error.status || 500).json({
+        statusCode: error.status || 500,
+        message: error.message,
+        error: error.name || 'Internal Server Error',
+        details: error
+      });
+    }
   }
 
   @UseGuards(JwtAuthGuard)
