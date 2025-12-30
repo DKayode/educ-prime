@@ -20,4 +20,7 @@ export class PaginationDto {
     @ApiPropertyOptional({ description: 'Ordre de tri', enum: ['ASC', 'DESC'], default: 'ASC' })
     @IsOptional()
     sort_order?: 'ASC' | 'DESC' = 'ASC';
+    @ApiPropertyOptional({ description: 'Recherche', required: false })
+    @IsOptional()
+    search?: string;
 }

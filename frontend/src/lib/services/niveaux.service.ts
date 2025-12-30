@@ -19,6 +19,10 @@ export const niveauxService = {
     return api.get<PaginationResponse<NiveauEtude>>(`/niveau-etude${buildPaginationQuery(params)}`);
   },
 
+  async getGroupedByName(params?: PaginationParams & { search?: string }): Promise<PaginationResponse<{ nom: string; filieres: any[] }>> {
+    return api.get<PaginationResponse<{ nom: string; filieres: any[] }>>(`/niveau-etude/grouper-par-nom${buildPaginationQuery(params)}`);
+  },
+
   async getById(id: number): Promise<NiveauEtude> {
     return api.get<NiveauEtude>(`/niveau-etude/${id}`);
   },
@@ -33,5 +37,8 @@ export const niveauxService = {
 
   async delete(id: number): Promise<{ message: string }> {
     return api.delete(`/niveau-etude/${id}`);
+  },
+  async deleteGroup(nom: string): Promise<{ message: string }> {
+    return api.delete(`/niveau-etude/grouper-par-nom/${encodeURIComponent(nom)}`);
   },
 };
