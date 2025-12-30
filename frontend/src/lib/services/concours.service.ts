@@ -15,7 +15,7 @@ export interface Concours {
 }
 
 export const concoursService = {
-    async getAll(params?: PaginationParams & { titre?: string; lieu?: string; annee?: number }): Promise<PaginationResponse<Concours>> {
+    async getAll(params?: PaginationParams & { search?: string; annee?: number; sort_by?: string; sort_order?: string }): Promise<PaginationResponse<Concours>> {
         const query = buildPaginationQuery(params);
         return api.get<PaginationResponse<Concours>>(`/concours${query}`);
     },

@@ -7,6 +7,7 @@ import { CreerEvenementDto } from './dto/create-evenement.dto';
 import { UpdateEvenementDto } from './dto/update-evenement.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
+import { FilterEvenementDto, EvenementSortBy } from './dto/filter-evenement.dto';
 
 @Injectable()
 export class EvenementsService {
@@ -26,15 +27,46 @@ export class EvenementsService {
     return saved;
   }
 
-  async findAll(paginationDto: PaginationDto): Promise<PaginationResponse<Evenement>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    this.logger.log(`Récupération des événements - Page: ${page}, Limite: ${limit}`);
 
-    const [evenements, total] = await this.evenementRepository.findAndCount({
-      order: { date: 'DESC', date_creation: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+
+  async findAll(filterDto: FilterEvenementDto): Promise<PaginationResponse<Evenement>> {
+    const { page = 1, limit = 10, search, sort_by, sort_order = 'DESC' } = filterDto;
+    this.logger.log(`Récupération des événements - Page: ${page}, Limit: ${limit}, SortBy: ${sort_by}, Order: ${sort_order}`);
+
+    const queryBuilder = this.evenementRepository.createQueryBuilder('evenement');
+
+    if (search) {
+      queryBuilder.andWhere(
+        '(evenement.titre ILIKE :search OR evenement.lieu ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    if (filterDto.actif !== undefined) {
+      queryBuilder.andWhere('evenement.actif = :actif', { actif: filterDto.actif });
+    }
+
+    if (sort_by === EvenementSortBy.DATE) {
+      if (sort_order === 'ASC') {
+        queryBuilder.orderBy('evenement.date', 'ASC', 'NULLS LAST');
+      } else {
+        queryBuilder.orderBy('evenement.date', 'DESC');
+      }
+      // Secondary sort to ensure stability
+      queryBuilder.addOrderBy('evenement.date_creation', 'DESC');
+    } else if (sort_by === EvenementSortBy.NAME) {
+      queryBuilder.orderBy('evenement.titre', sort_order);
+      queryBuilder.addOrderBy('evenement.date_creation', 'DESC');
+    } else {
+      // Default sort
+      queryBuilder.orderBy('evenement.date', 'DESC');
+      queryBuilder.addOrderBy('evenement.date_creation', 'DESC');
+    }
+
+    const [evenements, total] = await queryBuilder
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
 
     this.logger.log(`${evenements.length} événement(s) trouvé(s) sur ${total} total`);
 

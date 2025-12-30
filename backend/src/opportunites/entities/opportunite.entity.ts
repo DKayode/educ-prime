@@ -23,7 +23,7 @@ export class Opportunite {
     lieu: string;
 
     @Column({ type: 'date', nullable: true })
-    date_limite: Date;
+    date_publication: Date;
 
     @Column({ type: 'text', nullable: true })
     image: string;

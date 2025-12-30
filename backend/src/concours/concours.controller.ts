@@ -32,9 +32,10 @@ export class ConcoursController {
   @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
-  @ApiQuery({ name: 'titre', required: false, type: String, description: 'Filtrer par titre' })
-  @ApiQuery({ name: 'lieu', required: false, type: String, description: 'Filtrer par lieu' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche textuelle (Titre ou Lieu)' })
   @ApiQuery({ name: 'annee', required: false, type: Number, description: 'Filtrer par année' })
+  @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Trier par (annee, titre)' })
+  @ApiQuery({ name: 'sort_order', required: false, type: String, description: 'Ordre de tri (ASC, DESC)' })
   findAll(@Query() filterDto: FilterConcoursDto) {
     return this.concoursService.findAll(filterDto);
   }
@@ -42,12 +43,6 @@ export class ConcoursController {
   @UseGuards(JwtAuthGuard)
   @Get('annees')
   getAnnees() {
-    return this.concoursService.getAnnees();
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('annee')
-  getAnnee() {
     return this.concoursService.getAnnees();
   }
 

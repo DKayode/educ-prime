@@ -10,7 +10,7 @@ export interface Opportunite {
     type: OpportuniteType;
     organisme?: string;
     lieu?: string;
-    date_limite?: string;
+    date_publication?: string;
     image?: string;
     lien_postuler?: string;
     actif: boolean;
@@ -18,7 +18,7 @@ export interface Opportunite {
 }
 
 export const opportunitesService = {
-    async getAll(params?: PaginationParams & { titre?: string, type?: OpportuniteType, lieu?: string, organisme?: string }): Promise<PaginationResponse<Opportunite>> {
+    async getAll(params?: PaginationParams & { search?: string; type?: OpportuniteType; sort_by?: string; sort_order?: string; actif?: boolean }): Promise<PaginationResponse<Opportunite>> {
         const query = buildPaginationQuery(params);
         return api.get<PaginationResponse<Opportunite>>(`/opportunites${query}`);
     },
@@ -33,7 +33,7 @@ export const opportunitesService = {
         type: OpportuniteType;
         organisme?: string;
         lieu?: string;
-        date_limite?: string;
+        date_publication?: string;
         image?: string;
         lien_postuler?: string;
         actif?: boolean;
@@ -46,7 +46,7 @@ export const opportunitesService = {
         type: OpportuniteType;
         organisme: string;
         lieu: string;
-        date_limite: string;
+        date_publication: string;
         image: string;
         lien_postuler: string;
         actif: boolean;

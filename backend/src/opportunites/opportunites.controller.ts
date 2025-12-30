@@ -32,10 +32,11 @@ export class OpportunitesController {
   @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
-  @ApiQuery({ name: 'titre', required: false, type: String, description: 'Filtrer par titre' })
-  @ApiQuery({ name: 'type', required: false, type: String, description: 'Filtrer par type (Stage, Emploi, Bourse, Concours)' })
-  @ApiQuery({ name: 'lieu', required: false, type: String, description: 'Filtrer par lieu' })
-  @ApiQuery({ name: 'organisme', required: false, type: String, description: 'Filtrer par organisme' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche textuelle (Titre, Organisme, Lieu)' })
+  @ApiQuery({ name: 'type', required: false, type: String, description: 'Filtrer par type' })
+  @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Trier par (date, name)' })
+  @ApiQuery({ name: 'sort_order', required: false, type: String, description: 'Odre de tri (ASC, DESC)' })
+  @ApiQuery({ name: 'actif', required: false, type: Boolean, description: 'Filtrer par statut actif' })
   findAll(@Query() filterDto: FilterOpportuniteDto) {
     return this.opportunitesService.findAll(filterDto);
   }
@@ -51,6 +52,22 @@ export class OpportunitesController {
 
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(HttpStatus.OK).send(buffer);
+  }
+
+  @Get(':id/image')
+  async viewImage(
+    @Param('id') id: string,
+    @Res() res: Response
+  ) {
+    const { url } = await this.opportunitesService.findOneForDownload(+id);
+    const { buffer, contentType } = await this.fichiersService.downloadFile(url);
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.status(HttpStatus.OK).send(buffer);
   }
 
