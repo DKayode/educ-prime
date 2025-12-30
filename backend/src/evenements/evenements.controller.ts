@@ -67,7 +67,7 @@ export class EvenementsController {
       res.setHeader('Expires', '0');
       res.status(HttpStatus.OK).send(buffer);
     } catch (error) {
-      console.error(`Error serving image for event ${id}:`, error);
+      console.error('Error serving image for event %s:', id, error);
       res.status(error.status || 500).json({
         statusCode: error.status || 500,
         message: error.message,
