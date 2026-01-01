@@ -72,11 +72,9 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
     niveau_etude_id INTEGER REFERENCES niveau_etude(id),
     sexe utilisateurs_sexe_enum,
     telephone VARCHAR(50),
-    role utilisateurs_role_enum
+    role utilisateurs_role_enum,
+    fcm_token TEXT
 );
-
-ALTER TABLE utilisateurs
-ADD COLUMN IF NOT EXISTS fcm_token TEXT;
 
 
 -- ------------------------------
