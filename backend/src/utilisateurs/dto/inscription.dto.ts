@@ -24,6 +24,10 @@ export class InscriptionDto {
   photo?: string;
 
   @IsOptional()
+  @IsString()
+  fcm_token?: string;
+
+  @IsOptional()
   @IsEnum(SexeType)
   sexe?: SexeType;
 

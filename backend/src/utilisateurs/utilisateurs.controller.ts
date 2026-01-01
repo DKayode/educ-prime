@@ -1,7 +1,7 @@
+import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
 import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Query, Patch, UseInterceptors, UploadedFile, Res, HttpStatus } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { UtilisateursService } from './utilisateurs.service';
 import { InscriptionDto } from './dto/inscription.dto';
 import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
@@ -68,6 +68,27 @@ export class UtilisateursController {
     return this.utilisateursService.remove(id);
   }
 
+  @Patch('me/update/fcm-token')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Mettre à jour son propre token FCM' })
+  async updateMyFcmToken(
+    @Request() req: any,
+    @Body() updateDto: any,
+  ) {
+    const userId = req.user.utilisateurId
+    const updatedUser = await this.utilisateursService.updateFcmToken(
+      userId,
+      updateDto.token,
+    );
+
+    return {
+      success: true,
+      message: 'Votre token FCM a été mis à jour',
+      hasToken: !!updatedUser.fcm_token,
+    };
+
+  }
   @UseGuards(JwtAuthGuard)
   @Patch('photo')
   @UseInterceptors(FileInterceptor('file'))

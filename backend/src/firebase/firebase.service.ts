@@ -1,7 +1,6 @@
-// src/firebase/firebase.service.ts
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger } from '@nestjs/common';
 import * as admin from 'firebase-admin';
+import { FirebaseConfig } from '../config/firebase.config';
 
 export interface NotificationPayload {
   title: string;
@@ -20,39 +19,13 @@ export interface SendNotificationOptions {
 }
 
 @Injectable()
-export class FirebaseService implements OnModuleInit {
+export class FirebaseService {
   private readonly logger = new Logger(FirebaseService.name);
-  private firebaseApp: admin.app.App;
 
-  constructor(private configService: ConfigService) { }
+  constructor(private readonly firebaseConfig: FirebaseConfig) { }
 
-  async onModuleInit() {
-    await this.initializeFirebase();
-  }
+  // App initialization is now handled by FirebaseConfig
 
-  private async initializeFirebase() {
-    try {
-      const firebaseConfig = {
-        projectId: this.configService.get<string>('FIREBASE_PROJECT_ID'),
-        clientEmail: this.configService.get<string>('FIREBASE_CLIENT_EMAIL'),
-        privateKey: this.configService
-          .get<string>('FIREBASE_PRIVATE_KEY')
-          ?.replace(/\\n/g, '\n'),
-      };
-
-      if (admin.apps.length === 0) {
-        this.firebaseApp = admin.initializeApp({
-          credential: admin.credential.cert(firebaseConfig),
-        });
-        this.logger.log('Firebase Admin SDK initialisé avec succès');
-      } else {
-        this.firebaseApp = admin.apps[0] as admin.app.App;
-      }
-    } catch (error) {
-      this.logger.error('Erreur lors de l\'initialisation de Firebase:', error);
-      throw error;
-    }
-  }
 
   /**
    * Envoyer une notification à un ou plusieurs tokens

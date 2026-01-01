@@ -8,6 +8,8 @@ import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import * as bcrypt from 'bcrypt';
+import { FirebaseService } from '../firebase/firebase.service';
+
 
 import { FichiersService } from 'src/fichiers/fichiers.service';
 import { TypeFichier } from 'src/fichiers/entities/fichier.entity';
@@ -19,6 +21,7 @@ export class UtilisateursService {
   constructor(
     @InjectRepository(Utilisateur)
     private readonly utilisateursRepository: Repository<Utilisateur>,
+    private firebaseService: FirebaseService,
     private readonly fichiersService: FichiersService,
   ) { }
 
@@ -153,6 +156,70 @@ export class UtilisateursService {
     this.logger.log(`Utilisateur supprimé avec succès: ${user.email} (ID: ${id})`);
     return { message: 'Utilisateur supprimé avec succès' };
   }
+
+  /**
+   * Mettre à jour le token FCM d'un utilisateur
+   * Si le token existe déjà, il est mis à jour
+   */
+  async updateFcmToken(
+    userId: number,
+    token: string,
+  ): Promise<Utilisateur> {
+    const user: Utilisateur = await this.utilisateursRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Utilisateur ${userId} non trouvé`);
+    }
+
+    // const isValid = await this.firebaseService.validateToken(token);
+    // if (!isValid) {
+    //   this.logger.warn(`Token FCM invalide pour l'utilisateur ${userId}`);
+    //   throw new NotFoundException(`FCM Token non valid`)
+    // }
+
+    // Vérifier si le token a changé
+    if (user.fcm_token !== token) {
+      user.fcm_token = token;
+
+      const updatedUser = await this.utilisateursRepository.save(user);
+
+      // Souscrire aux topics Firebase
+      await this.subscribeToUserTopics(userId, token);
+
+      this.logger.log(`Token FCM mis à jour pour l'utilisateur ${userId}`);
+      return updatedUser;
+    }
+
+    return user;
+  }
+
+  /**
+   * Souscrire un utilisateur aux topics Firebase
+   */
+  private async subscribeToUserTopics(userId: number, token: string): Promise<void> {
+    try {
+      const topics = [
+        'all_users',
+        `user_${userId}`,
+        'notifications',
+      ];
+
+      for (const topic of topics) {
+        try {
+          await this.firebaseService.subscribeToTopic(token, topic);
+          this.logger.log(`Utilisateur ${userId} abonné au topic: ${topic}`);
+        } catch (error) {
+          this.logger.warn(`Impossible d'abonner au topic ${topic}:`, error.message);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Erreur lors de l'abonnement aux topics:`, error.message);
+    }
+  }
+
+
 
   async uploadPhoto(id: string, file: any) {
     this.logger.log(`Mise à jour de la photo de profil pour l'utilisateur ID: ${id}`);
