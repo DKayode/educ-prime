@@ -568,7 +568,11 @@ function MultiSelectFilieres({ filieres, selectedIds, onChange }: { filieres: an
     }
   };
 
-  const filteredFilieres = filieres.filter(f => f.nom.toLowerCase().includes(search.toLowerCase()));
+  const filteredFilieres = filieres.filter(f => {
+    const acronym = getAcronym(f.etablissement?.nom || "");
+    const fullName = `${f.nom} - ${acronym}`;
+    return fullName.toLowerCase().includes(search.toLowerCase());
+  });
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -588,12 +592,16 @@ function MultiSelectFilieres({ filieres, selectedIds, onChange }: { filieres: an
                 <Check className={cn("mr-2 h-4 w-4", filteredFilieres.length > 0 && filteredFilieres.every(f => selectedIds.includes(f.id.toString())) ? "opacity-100" : "opacity-0")} />
                 Tout sélectionner
               </CommandItem>
-              {filteredFilieres.slice(0, 50).map((filiere) => (
-                <CommandItem key={filiere.id} value={filiere.nom} onSelect={() => toggleSelection(filiere.id.toString())}>
-                  <Check className={cn("mr-2 h-4 w-4", selectedIds.includes(filiere.id.toString()) ? "opacity-100" : "opacity-0")} />
-                  <span className="flex-1">{filiere.nom} - {getAcronym(filiere.etablissement?.nom || "")}</span>
-                </CommandItem>
-              ))}
+              {filteredFilieres.slice(0, 50).map((filiere) => {
+                const acronym = getAcronym(filiere.etablissement?.nom || "");
+                const displayName = `${filiere.nom} - ${acronym}`;
+                return (
+                  <CommandItem key={filiere.id} value={displayName} onSelect={() => toggleSelection(filiere.id.toString())}>
+                    <Check className={cn("mr-2 h-4 w-4", selectedIds.includes(filiere.id.toString()) ? "opacity-100" : "opacity-0")} />
+                    <span className="flex-1">{displayName}</span>
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>
