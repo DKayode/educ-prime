@@ -90,8 +90,8 @@ export default function Ressources() {
     const ressources = ressourcesResponse?.data || [];
 
     const { data: matieresResponse } = useQuery({
-        queryKey: ['matieres'],
-        queryFn: () => matieresService.getAll(),
+        queryKey: ['matieres_all'],
+        queryFn: () => matieresService.getAll({ page: 1, limit: 1000 }),
     });
     const matieres = matieresResponse?.data || [];
 

@@ -103,7 +103,7 @@ export default function Matieres() {
     queryKey: ['filieres_filter', debouncedFiliereSearch],
     queryFn: () => filieresService.getAll({
       page: 1,
-      limit: 50,
+      limit: 1000,
       search: debouncedFiliereSearch || undefined
     }),
   });
@@ -121,8 +121,8 @@ export default function Matieres() {
   const matieres = matieresResponse?.data || [];
 
   const { data: niveauxResponse } = useQuery({
-    queryKey: ["niveaux"],
-    queryFn: () => niveauxService.getAll(),
+    queryKey: ["niveaux_all"],
+    queryFn: () => niveauxService.getAll({ page: 1, limit: 1000 }),
   });
   const niveaux = niveauxResponse?.data || [];
 

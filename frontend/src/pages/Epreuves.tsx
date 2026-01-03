@@ -94,20 +94,20 @@ export default function Epreuves() {
   const epreuves = epreuvesResponse?.data || [];
 
   const { data: filieresResponse } = useQuery({
-    queryKey: ['filieres'],
-    queryFn: () => filieresService.getAll(),
+    queryKey: ['filieres_all'],
+    queryFn: () => filieresService.getAll({ page: 1, limit: 1000 }),
   });
   const filieres = filieresResponse?.data || [];
 
   const { data: matieresResponse } = useQuery({
-    queryKey: ['matieres'],
-    queryFn: () => matieresService.getAll(),
+    queryKey: ['matieres_all'],
+    queryFn: () => matieresService.getAll({ page: 1, limit: 1000 }),
   });
   const matieres = matieresResponse?.data || [];
 
   const { data: niveauxResponse } = useQuery({
-    queryKey: ['niveaux'],
-    queryFn: () => niveauxService.getAll(),
+    queryKey: ['niveaux_all'],
+    queryFn: () => niveauxService.getAll({ page: 1, limit: 1000 }),
   });
   const niveaux = niveauxResponse?.data || [];
 
