@@ -129,6 +129,13 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     appareil appareil_type_enum
 );
 
+CREATE TABLE IF NOT EXISTS blacklisted_tokens (
+    id SERIAL PRIMARY KEY,
+    token TEXT NOT NULL UNIQUE,
+    date_expiration TIMESTAMP WITH TIME ZONE NOT NULL,
+    date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ------------------------------
 -- 6. CREATE PUBLIC CONTENT TABLES
 -- ------------------------------

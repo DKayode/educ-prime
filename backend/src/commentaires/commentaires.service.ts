@@ -6,6 +6,7 @@ import { UpdateCommentaireDto } from './dto/update-commentaire.dto';
 import { Commentaire } from './entities/commentaire.entity';
 import { CommentaireQueryDto } from './dto/commentaire-query.dto';
 import { ParcoursService } from '../parcours/parcours.service';
+import { UtilisateursService } from '../utilisateurs/utilisateurs.service';
 
 @Injectable()
 export class CommentairesService {
@@ -13,6 +14,7 @@ export class CommentairesService {
     @InjectRepository(Commentaire)
     private commentaireRepository: Repository<Commentaire>,
     private parcoursService: ParcoursService,
+    private utilisateursService: UtilisateursService,
   ) { }
 
   /**
@@ -390,5 +392,15 @@ export class CommentairesService {
       averagePerDay: Math.round(averagePerDay * 100) / 100,
       mostActiveUser: mostActive?.user_id,
     };
+  }
+
+  /**
+   * Récupère la photo de l'utilisateur qui a fait le commentaire
+   * @param id - ID du commentaire
+   * @returns Buffer de la photo et informations
+   */
+  async getUtilisateurPhoto(id: number) {
+    const commentaire = await this.findOne(id);
+    return this.utilisateursService.downloadPhoto(commentaire.utilisateur_id.toString());
   }
 }

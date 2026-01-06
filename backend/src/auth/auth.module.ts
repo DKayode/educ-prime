@@ -9,11 +9,12 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RoleGuard } from './guards/role.guard';
 import { UtilisateursModule } from '../utilisateurs/utilisateurs.module';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { BlacklistedToken } from './entities/blacklisted-token.entity';
 
 @Module({
   imports: [
     UtilisateursModule,
-    TypeOrmModule.forFeature([RefreshToken]),
+    TypeOrmModule.forFeature([RefreshToken, BlacklistedToken]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'your-secret-key',
@@ -24,4 +25,4 @@ import { RefreshToken } from './entities/refresh-token.entity';
   controllers: [AuthController],
   exports: [AuthService, JwtModule],
 })
-export class AuthModule {}
+export class AuthModule { }

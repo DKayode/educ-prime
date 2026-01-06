@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, UseGuards, Req, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, UseGuards, Req, Request, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { CommentairesService } from './commentaires.service';
 import { CreateCommentaireDto } from './dto/create-commentaire.dto';
@@ -101,6 +101,21 @@ export class CommentairesController {
   ) {
     const userId = req.user.utilisateurId;
     return await this.commentairesService.findByUser(userId, query);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/utilisateurs/photo')
+  @ApiOperation({ summary: 'Récupérer la photo de l\'utilisateur d\'un commentaire' })
+  @ApiParam({ name: 'id', description: 'ID du commentaire' })
+  @ApiResponse({ status: 200, description: 'Photo récupérée avec succès' })
+  async getUtilisateurPhoto(
+    @Param('id') id: number,
+    @Res() res: any
+  ) {
+    const { buffer, contentType, filename } = await this.commentairesService.getUtilisateurPhoto(id);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.status(HttpStatus.OK).send(buffer);
   }
 
   // @UseGuards(JwtAuthGuard)
