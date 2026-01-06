@@ -161,4 +161,90 @@ export class MatieresService {
     this.logger.log(`${matieres.length} matière(s) trouvée(s) pour niveau d'étude ${niveauEtudeId}`);
     return matieres;
   }
+
+  async findGroupedByName(paginationDto: PaginationDto): Promise<PaginationResponse<any>> {
+    const { page = 1, limit = 10, search } = paginationDto;
+    this.logger.log(`Récupération des matières groupées par nom (Page: ${page}, Limit: ${limit}, Search: ${search})`);
+
+    // 1. Compter le total des noms distincts
+    const countQuery = this.matieresRepository.createQueryBuilder('matiere')
+      .select('COUNT(DISTINCT(matiere.nom))', 'count');
+
+    if (search) {
+      countQuery.where('matiere.nom ILIKE :search', { search: `%${search}%` });
+    }
+
+    const countResult = await countQuery.getRawOne();
+    const total = parseInt(countResult.count, 10);
+
+    // 2. Récupérer les noms de la page courante
+    const namesQuery = this.matieresRepository.createQueryBuilder('matiere')
+      .select('DISTINCT(matiere.nom)', 'nom')
+      .orderBy('nom', 'ASC')
+      .limit(limit)
+      .offset((page - 1) * limit);
+
+    if (search) {
+      namesQuery.where('matiere.nom ILIKE :search', { search: `%${search}%` });
+    }
+
+    const rawNames = await namesQuery.getRawMany();
+    const names = rawNames.map(r => r.nom);
+
+    if (names.length === 0) {
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0
+      };
+    }
+
+    // 3. Récupérer les données complètes pour ces noms
+    const details = await this.matieresRepository.createQueryBuilder('matiere')
+      .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
+      .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
+      .where("matiere.nom IN (:...names)", { names })
+      .orderBy('matiere.nom', 'ASC')
+      .getMany();
+
+    const grouped = new Map<string, any[]>();
+
+    names.forEach(name => grouped.set(name, []));
+
+    details.forEach(matiere => {
+      const existing = grouped.get(matiere.nom);
+      if (existing) {
+        existing.push({
+          id: matiere.id,
+          nom: matiere.nom,
+          description: matiere.description,
+          niveau_etude: {
+            id: matiere?.niveau_etude?.id,
+            nom: matiere?.niveau_etude?.nom,
+            filiere: {
+              id: matiere?.niveau_etude?.filiere?.id,
+              nom: matiere?.niveau_etude?.filiere?.nom,
+              etablissement: matiere?.niveau_etude?.filiere?.etablissement
+            }
+          }
+        });
+      }
+    });
+
+    const data = Array.from(grouped.entries()).map(([nom, matieres]) => ({
+      nom,
+      matieres
+    }));
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 }

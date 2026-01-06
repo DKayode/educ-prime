@@ -9,6 +9,11 @@ export const matieresService = {
     return api.get<PaginationResponse<Matiere>>(`/matieres${query}`);
   },
 
+  async getGroupedByName(params?: PaginationParams & { search?: string }): Promise<PaginationResponse<{ nom: string; matieres: Matiere[] }>> {
+    const query = buildPaginationQuery(params);
+    return api.get<PaginationResponse<{ nom: string; matieres: Matiere[] }>>(`/matieres/grouper-par-nom${query}`);
+  },
+
   async getById(id: string): Promise<Matiere> {
     return api.get<Matiere>(`/matieres/${id}`);
   },

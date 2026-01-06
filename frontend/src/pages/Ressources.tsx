@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,9 @@ import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ressourcesService } from "@/lib/services/ressources.service";
 import { matieresService } from "@/lib/services/matieres.service";
+import { filieresService } from "@/lib/services/filieres.service";
+import { niveauxService } from "@/lib/services/niveaux.service";
+import { etablissementsService } from "@/lib/services/etablissements.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { useDebounce } from "@/hooks/use-debounce";
 
@@ -56,7 +59,12 @@ export default function Ressources() {
     const debouncedSearchQuery = useDebounce(searchQuery, 500);
     const [selectedType, setSelectedType] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [openMatiere, setOpenMatiere] = useState(false);
+
+    // Cascading Select State
+    const [selectedEtablissement, setSelectedEtablissement] = useState<string>("");
+    const [selectedFiliere, setSelectedFiliere] = useState<string>("");
+    const [selectedNiveau, setSelectedNiveau] = useState<string>("");
+
     const [page, setPage] = useState(1);
     const [limit] = useState(10);
 
@@ -89,9 +97,39 @@ export default function Ressources() {
     });
     const ressources = ressourcesResponse?.data || [];
 
+    const { data: etablissementsResponse } = useQuery({
+        queryKey: ['etablissements_all'],
+        queryFn: () => etablissementsService.getAll({ page: 1, limit: 1000 }),
+    });
+    const etablissements = etablissementsResponse?.data || [];
+
+    const { data: filieresResponse } = useQuery({
+        queryKey: ['filieres', selectedEtablissement],
+        queryFn: () => etablissementsService.getFilieres(selectedEtablissement, {
+            page: 1,
+            limit: 1000
+        }),
+        enabled: !!selectedEtablissement,
+    });
+    const filieres = filieresResponse?.data || [];
+
+    const { data: niveauxResponse } = useQuery({
+        queryKey: ['niveaux', selectedEtablissement, selectedFiliere],
+        queryFn: () => etablissementsService.getNiveaux(selectedEtablissement, selectedFiliere, {
+            page: 1,
+            limit: 1000
+        }),
+        enabled: !!selectedEtablissement && !!selectedFiliere,
+    });
+    const niveaux = niveauxResponse?.data || [];
+
     const { data: matieresResponse } = useQuery({
-        queryKey: ['matieres_all'],
-        queryFn: () => matieresService.getAll({ page: 1, limit: 1000 }),
+        queryKey: ['matieres', selectedEtablissement, selectedFiliere, selectedNiveau],
+        queryFn: () => etablissementsService.getMatieres(selectedEtablissement, selectedFiliere, selectedNiveau, {
+            page: 1,
+            limit: 1000
+        }),
+        enabled: !!selectedEtablissement && !!selectedFiliere && !!selectedNiveau,
     });
     const matieres = matieresResponse?.data || [];
 
@@ -155,6 +193,9 @@ export default function Ressources() {
         });
         setSelectedFile(null);
         setEditData(null);
+        setSelectedEtablissement("");
+        setSelectedFiliere("");
+        setSelectedNiveau("");
     };
 
     const handleOpenDialog = () => {
@@ -164,6 +205,24 @@ export default function Ressources() {
 
     const handleEdit = (ressource: any) => {
         setEditData(ressource);
+
+        // Set cascading state
+        const matiere = ressource.matiere;
+        if (matiere) {
+            const niveau = matiere.niveau_etude;
+            if (niveau) {
+                setSelectedNiveau(niveau.id.toString());
+                const filiere = niveau.filiere;
+                if (filiere) {
+                    setSelectedFiliere(filiere.id.toString());
+                    const etablissement = filiere.etablissement;
+                    if (etablissement) {
+                        setSelectedEtablissement(etablissement.id.toString());
+                    }
+                }
+            }
+        }
+
         setFormData({
             titre: ressource.titre,
             type: ressource.type,
@@ -332,79 +391,97 @@ export default function Ressources() {
                                     />
                                 </div>
                             </div>
-                            <div className="space-y-2 flex flex-col">
-                                <Label htmlFor="matiere">Matière *</Label>
-                                <Popover open={openMatiere} onOpenChange={setOpenMatiere}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            aria-expanded={openMatiere}
-                                            className="w-full justify-between"
-                                        >
-                                            {formData.matiere_id
-                                                ? (() => {
-                                                    const m = matieres.find((matiere) => matiere.id.toString() === formData.matiere_id);
-                                                    if (!m) return "Sélectionner une matière...";
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="etablissement">Etablissement *</Label>
+                                    <Select
+                                        value={selectedEtablissement}
+                                        onValueChange={(value) => {
+                                            setSelectedEtablissement(value);
+                                            setSelectedFiliere("");
+                                            setSelectedNiveau("");
+                                            setFormData(prev => ({ ...prev, matiere_id: "" }));
+                                        }}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Sélectionner un établissement" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {etablissements.map((etablissement) => (
+                                                <SelectItem key={etablissement.id} value={etablissement.id.toString()}>
+                                                    {etablissement.nom}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                                                    const niveauNom = m.niveau_etude?.nom;
-                                                    const filiereNom = m.niveau_etude?.filiere?.nom;
-                                                    const etablissementNom = m.niveau_etude?.filiere?.etablissement?.nom;
-                                                    const acronym = etablissementNom ? getAcronym(etablissementNom) : "";
+                                <div className="space-y-2">
+                                    <Label htmlFor="filiere">Filière *</Label>
+                                    <Select
+                                        value={selectedFiliere}
+                                        onValueChange={(value) => {
+                                            setSelectedFiliere(value);
+                                            setSelectedNiveau("");
+                                            setFormData(prev => ({ ...prev, matiere_id: "" }));
+                                        }}
+                                        disabled={!selectedEtablissement}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Sélectionner une filière" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {filieres.map((filiere) => (
+                                                <SelectItem key={filiere.id} value={filiere.id.toString()}>
+                                                    {filiere.nom}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                                                    return [m.nom, niveauNom, filiereNom, acronym].filter(Boolean).join(" - ");
-                                                })()
-                                                : "Sélectionner une matière..."}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Rechercher une matière..." />
-                                            <CommandList>
-                                                <CommandEmpty>Aucune matière trouvée.</CommandEmpty>
-                                                <CommandGroup>
-                                                    {matieres.map((matiere) => {
-                                                        const niveauNom = matiere.niveau_etude?.nom;
-                                                        const filiereNom = matiere.niveau_etude?.filiere?.nom;
-                                                        const etablissementNom = matiere.niveau_etude?.filiere?.etablissement?.nom;
-                                                        const acronym = etablissementNom ? getAcronym(etablissementNom) : "";
+                                <div className="space-y-2">
+                                    <Label htmlFor="niveau">Niveau d'étude *</Label>
+                                    <Select
+                                        value={selectedNiveau}
+                                        onValueChange={(value) => {
+                                            setSelectedNiveau(value);
+                                            setFormData(prev => ({ ...prev, matiere_id: "" }));
+                                        }}
+                                        disabled={!selectedFiliere}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Sélectionner un niveau" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {niveaux.map((niveau) => (
+                                                <SelectItem key={niveau.id} value={niveau.id.toString()}>
+                                                    {niveau.nom}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                                                        const parts = [
-                                                            matiere.nom,
-                                                            niveauNom,
-                                                            filiereNom,
-                                                            acronym
-                                                        ].filter(Boolean);
-
-                                                        const displayName = parts.join(" - ");
-
-                                                        return (
-                                                            <CommandItem
-                                                                key={matiere.id}
-                                                                value={displayName}
-                                                                onSelect={() => {
-                                                                    setFormData({ ...formData, matiere_id: matiere.id.toString() });
-                                                                    setOpenMatiere(false);
-                                                                }}
-                                                            >
-                                                                <Check
-                                                                    className={cn(
-                                                                        "mr-2 h-4 w-4",
-                                                                        formData.matiere_id === matiere.id.toString()
-                                                                            ? "opacity-100"
-                                                                            : "opacity-0"
-                                                                    )}
-                                                                />
-                                                                <span>{displayName}</span>
-                                                            </CommandItem>
-                                                        )
-                                                    })}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
+                                <div className="space-y-2">
+                                    <Label htmlFor="matiere">Matière *</Label>
+                                    <Select
+                                        value={formData.matiere_id}
+                                        onValueChange={(value) => setFormData({ ...formData, matiere_id: value })}
+                                        disabled={!selectedNiveau}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Sélectionner une matière" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {matieres.map((matiere) => (
+                                                <SelectItem key={matiere.id} value={matiere.id.toString()}>
+                                                    {matiere.nom}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                         </div>
                         <DialogFooter>
