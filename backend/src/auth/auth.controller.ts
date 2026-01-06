@@ -8,7 +8,7 @@ import { AppareilType } from './entities/refresh-token.entity';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
@@ -31,7 +31,14 @@ export class AuthController {
   @Post('deconnexion')
   async logout(@Request() req) {
     const userId = req.user.utilisateurId;
+    const token = req.headers.authorization?.split(' ')[1];
+
     await this.authService.revokeRefreshToken(userId);
+
+    if (token) {
+      await this.authService.blacklistAccessToken(token);
+    }
+
     return { message: 'Déconnexion réussie' };
   }
 }
