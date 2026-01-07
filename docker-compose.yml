@@ -82,7 +82,6 @@ services:
     depends_on:
       - frontend
       - backend
-      - certbot
 
   # Certbot
   certbot:
@@ -93,7 +92,7 @@ services:
       - ./certbot/www:/var/www/certbot
     entrypoint: >
       /bin/sh -c ' if [ ! -f /etc/letsencrypt/live/educ-prime.com/fullchain.pem ]; then
-        certbot certonly --webroot --webroot-path=/var/www/certbot --email support@educ-prime.com --agree-tos --no-eff-email -d educ-prime.com -d api.educ-prime.com;
+        certbot certonly --webroot --webroot-path=/var/www/certbot --email support@educ-prime.cloud --agree-tos --no-eff-email -d educ-prime.com -d api.educ-prime.com;
       fi; trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done; '
     networks:
       - educ-prime-network

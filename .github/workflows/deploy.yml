@@ -88,6 +88,9 @@ jobs:
             # Démarrer les conteneurs
             docker-compose up -d --remove-orphans
 
+            # Recharger nginx
+            docker-compose nginx nginx -s reload
+
             # Attendre un peu pour que les conteneurs démarrent
             sleep 10
 
