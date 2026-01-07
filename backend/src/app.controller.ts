@@ -9,11 +9,6 @@ import { RoleType } from './utilisateurs/entities/utilisateur.entity';
 export class AppController {
   constructor(private readonly appService: AppService) { }
 
-  @Get()
-  getApiInfo(): object {
-    return this.appService.getApiInfo();
-  }
-
   @Get('stats')
   @UseGuards(JwtAuthGuard, RoleGuard)
   async getStats() {

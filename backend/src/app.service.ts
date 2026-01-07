@@ -46,33 +46,6 @@ export class AppService {
     private categoriesRepository: Repository<Category>,
   ) { }
 
-  getApiInfo(): object {
-    return {
-      name: 'Educ Prime API',
-      version: '1.0.0',
-      status: 'running',
-      endpoints: {
-        auth: '/auth',
-        utilisateurs: '/utilisateurs',
-        etablissements: '/etablissements',
-        filieres: '/filieres',
-        niveauEtude: '/niveau-etude',
-        matieres: '/matieres',
-        epreuves: '/epreuves',
-        ressources: '/ressources',
-        fichiers: '/fichiers',
-        publicites: '/publicites',
-        evenements: '/evenements',
-        opportunites: '/opportunites',
-        concours: '/concours',
-        contactsProfessionnels: '/contacts-professionnels',
-        parcours: '/parcours',
-        categories: '/categories',
-        stats: '/stats'
-      }
-    };
-  }
-
   async getStats(): Promise<{
     usersCount: number;
     etablissementsCount: number;
