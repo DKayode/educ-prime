@@ -67,9 +67,7 @@ services:
 
   # Nginx Reverse Proxy
   nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
+    image: nginx:alpine
     container_name: educ_prime_nginx
     restart: unless-stopped
     ports:
@@ -88,9 +86,7 @@ services:
 
   # Certbot
   certbot:
-    build:
-      context: ./certbot
-      dockerfile: Dockerfile
+    image: certbot/certbot
     container_name: educ_prime_certbot
     volumes:
       - ./certbot/conf:/etc/letsencrypt

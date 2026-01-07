@@ -51,6 +51,8 @@ jobs:
             # Créer le répertoire de déploiement
             mkdir -p "$DEPLOY_DIR/backend/config"
             mkdir -p "$DEPLOY_DIR/nginx"
+            mkdir -p "$DEPLOY_DIR/certbot/conf"
+            mkdir -p "$DEPLOY_DIR/certbot/www"
             cd "$DEPLOY_DIR"
 
             # Créer le fichier .env avec les secrets
