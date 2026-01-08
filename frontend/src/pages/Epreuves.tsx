@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { type EpreuveType } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ import { epreuvesService } from "@/lib/services/epreuves.service";
 import { filieresService } from "@/lib/services/filieres.service";
 import { matieresService } from "@/lib/services/matieres.service";
 import { niveauxService } from "@/lib/services/niveaux.service";
+import { etablissementsService } from "@/lib/services/etablissements.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
 
 export default function Epreuves() {
@@ -59,7 +60,11 @@ export default function Epreuves() {
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [selectedType, setSelectedType] = useState<EpreuveType | "ALL">("ALL");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [openMatiere, setOpenMatiere] = useState(false);
+
+  // Cascading Select State
+  const [selectedEtablissement, setSelectedEtablissement] = useState<string>("");
+  const [selectedFiliere, setSelectedFiliere] = useState<string>("");
+  const [selectedNiveau, setSelectedNiveau] = useState<string>("");
 
   // Edit mode state
   const [editData, setEditData] = useState<any | null>(null);
@@ -93,23 +98,42 @@ export default function Epreuves() {
   });
   const epreuves = epreuvesResponse?.data || [];
 
+  // Cascading Queries
+  const { data: etablissementsResponse } = useQuery({
+    queryKey: ['etablissements_all'],
+    queryFn: () => etablissementsService.getAll({ page: 1, limit: 1000 }),
+  });
+  const etablissements = etablissementsResponse?.data || [];
+
   const { data: filieresResponse } = useQuery({
-    queryKey: ['filieres'],
-    queryFn: () => filieresService.getAll(),
+    queryKey: ['filieres', selectedEtablissement],
+    queryFn: () => etablissementsService.getFilieres(selectedEtablissement, {
+      page: 1,
+      limit: 1000
+    }),
+    enabled: !!selectedEtablissement,
   });
   const filieres = filieresResponse?.data || [];
 
-  const { data: matieresResponse } = useQuery({
-    queryKey: ['matieres'],
-    queryFn: () => matieresService.getAll(),
-  });
-  const matieres = matieresResponse?.data || [];
-
   const { data: niveauxResponse } = useQuery({
-    queryKey: ['niveaux'],
-    queryFn: () => niveauxService.getAll(),
+    queryKey: ['niveaux', selectedEtablissement, selectedFiliere],
+    queryFn: () => etablissementsService.getNiveaux(selectedEtablissement, selectedFiliere, {
+      page: 1,
+      limit: 1000
+    }),
+    enabled: !!selectedEtablissement && !!selectedFiliere,
   });
   const niveaux = niveauxResponse?.data || [];
+
+  const { data: matieresResponse } = useQuery({
+    queryKey: ['matieres', selectedEtablissement, selectedFiliere, selectedNiveau],
+    queryFn: () => etablissementsService.getMatieres(selectedEtablissement, selectedFiliere, selectedNiveau, {
+      page: 1,
+      limit: 1000
+    }),
+    enabled: !!selectedEtablissement && !!selectedFiliere && !!selectedNiveau,
+  });
+  const matieres = matieresResponse?.data || [];
 
   const createMutation = useMutation({
     mutationFn: (data: { file: File; titre: string; type?: string; duree_minutes: number; nombre_pages?: number; matiere_id: number; date_publication?: string }) =>
@@ -177,6 +201,9 @@ export default function Epreuves() {
     });
     setSelectedFile(null);
     setEditData(null);
+    setSelectedEtablissement("");
+    setSelectedFiliere("");
+    setSelectedNiveau("");
   };
 
   const handleOpenDialog = () => {
@@ -186,6 +213,24 @@ export default function Epreuves() {
 
   const handleEdit = (epreuve: any) => {
     setEditData(epreuve);
+
+    // Set cascading state
+    const matiere = epreuve.matiere;
+    if (matiere) {
+      const niveau = matiere.niveau_etude;
+      if (niveau) {
+        setSelectedNiveau(niveau.id.toString());
+        const filiere = niveau.filiere;
+        if (filiere) {
+          setSelectedFiliere(filiere.id.toString());
+          const etablissement = filiere.etablissement;
+          if (etablissement) {
+            setSelectedEtablissement(etablissement.id.toString());
+          }
+        }
+      }
+    }
+
     setFormData({
       titre: epreuve.titre,
       type: epreuve.type || "",
@@ -283,14 +328,14 @@ export default function Epreuves() {
               Nouvelle épreuve
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-4xl">
             <DialogHeader>
               <DialogTitle>{editData ? "Modifier l'épreuve" : "Créer une épreuve"}</DialogTitle>
               <DialogDescription>
                 {editData ? "Modifier les informations de l'épreuve" : "Ajoutez une nouvelle épreuve d'examen au système"}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
               <div className="space-y-2">
                 <Label htmlFor="titre">Titre de l'épreuve *</Label>
                 <Input
@@ -300,42 +345,47 @@ export default function Epreuves() {
                   onChange={(e) => setFormData({ ...formData, titre: e.target.value })}
                 />
               </div>
-              {!editData && (
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="file">Fichier de l'épreuve *</Label>
-                  <Input
-                    id="file"
-                    type="file"
-                    accept=".pdf,.doc,.docx"
-                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  />
-                  {selectedFile && (
-                    <p className="text-sm text-muted-foreground">
-                      Fichier sélectionné : {selectedFile.name}
-                    </p>
-                  )}
+                  <Label htmlFor="type">Type d'épreuve *</Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value) => setFormData({ ...formData, type: value as EpreuveType })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner le type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Interrogation">Interrogation</SelectItem>
+                      <SelectItem value="Devoirs">Devoirs</SelectItem>
+                      <SelectItem value="Concours">Concours</SelectItem>
+                      <SelectItem value="Examens">Examens</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="type">Type d'épreuve *</Label>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value) => setFormData({ ...formData, type: value as EpreuveType })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner le type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Interrogation">Interrogation</SelectItem>
-                    <SelectItem value="Devoirs">Devoirs</SelectItem>
-                    <SelectItem value="Concours">Concours</SelectItem>
-                    <SelectItem value="Examens">Examens</SelectItem>
-                  </SelectContent>
-                </Select>
+
+                {!editData && (
+                  <div className="space-y-2">
+                    <Label htmlFor="file">Fichier de l'épreuve *</Label>
+                    <Input
+                      id="file"
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    />
+                    {selectedFile && (
+                      <p className="text-sm text-muted-foreground truncate">
+                        {selectedFile.name}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="duree">Durée en minutes (optionnel)</Label>
+                  <Label htmlFor="duree">Durée (minutes)</Label>
                   <Input
                     id="duree"
                     type="number"
@@ -355,85 +405,106 @@ export default function Epreuves() {
                   />
                 </div>
               </div>
-              <div className="space-y-2 flex flex-col">
-                <Label htmlFor="matiere">Matière *</Label>
-                <Popover open={openMatiere} onOpenChange={setOpenMatiere}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={openMatiere}
-                      className="justify-between w-full"
-                    >
-                      {formData.matiere_id
-                        ? (() => {
-                          const m = matieres.find((matiere) => matiere.id.toString() === formData.matiere_id);
-                          if (!m) return "Sélectionner une matière...";
 
-                          const niveauNom = m.niveau_etude?.nom;
-                          const filiereNom = m.niveau_etude?.filiere?.nom;
-                          const etablissementNom = m.niveau_etude?.filiere?.etablissement?.nom;
-                          const acronym = etablissementNom ? getAcronym(etablissementNom) : "";
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="etablissement">Etablissement *</Label>
+                  <Select
+                    value={selectedEtablissement}
+                    onValueChange={(value) => {
+                      setSelectedEtablissement(value);
+                      setSelectedFiliere("");
+                      setSelectedNiveau("");
+                      setFormData(prev => ({ ...prev, matiere_id: "" }));
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {etablissements.map((etablissement) => (
+                        <SelectItem key={etablissement.id} value={etablissement.id.toString()}>
+                          {etablissement.nom}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                          return [m.nom, niveauNom, filiereNom, acronym].filter(Boolean).join(" - ");
-                        })()
-                        : "Sélectionner une matière..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                    <Command>
-                      <CommandInput placeholder="Rechercher une matière..." />
-                      <CommandList>
-                        <CommandEmpty>Aucune matière trouvée.</CommandEmpty>
-                        <CommandGroup>
-                          {matieres.map((matiere) => {
-                            const niveauNom = matiere.niveau_etude?.nom;
-                            const filiereNom = matiere.niveau_etude?.filiere?.nom;
-                            const etablissementNom = matiere.niveau_etude?.filiere?.etablissement?.nom;
-                            const acronym = etablissementNom ? getAcronym(etablissementNom) : "";
+                <div className="space-y-2">
+                  <Label htmlFor="filiere">Filière *</Label>
+                  <Select
+                    value={selectedFiliere}
+                    onValueChange={(value) => {
+                      setSelectedFiliere(value);
+                      setSelectedNiveau("");
+                      setFormData(prev => ({ ...prev, matiere_id: "" }));
+                    }}
+                    disabled={!selectedEtablissement}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filieres.map((filiere) => (
+                        <SelectItem key={filiere.id} value={filiere.id.toString()}>
+                          {filiere.nom}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-                            const parts = [
-                              matiere.nom,
-                              niveauNom,
-                              filiereNom,
-                              acronym
-                            ].filter(Boolean);
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="niveau">Niveau d'étude *</Label>
+                  <Select
+                    value={selectedNiveau}
+                    onValueChange={(value) => {
+                      setSelectedNiveau(value);
+                      setFormData(prev => ({ ...prev, matiere_id: "" }));
+                    }}
+                    disabled={!selectedFiliere}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {niveaux.map((niveau) => (
+                        <SelectItem key={niveau.id} value={niveau.id.toString()}>
+                          {niveau.nom}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                            const displayName = parts.join(" - ");
-
-                            return (
-                              <CommandItem
-                                key={matiere.id}
-                                value={displayName}
-                                onSelect={() => {
-                                  setFormData({ ...formData, matiere_id: matiere.id.toString() });
-                                  setOpenMatiere(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    formData.matiere_id === matiere.id.toString()
-                                      ? "opacity-100"
-                                      : "opacity-0"
-                                  )}
-                                />
-                                <span>{displayName}</span>
-                              </CommandItem>
-                            )
-                          })}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <div className="space-y-2">
+                  <Label htmlFor="matiere">Matière *</Label>
+                  <Select
+                    value={formData.matiere_id}
+                    onValueChange={(value) => setFormData({ ...formData, matiere_id: value })}
+                    disabled={!selectedNiveau}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {matieres.map((matiere) => (
+                        <SelectItem key={matiere.id} value={matiere.id.toString()}>
+                          {matiere.nom}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="date_publication">Date de publication (optionnel)</Label>
+                <Label htmlFor="date">Date de publication (optionnel)</Label>
                 <Input
-                  id="date_publication"
+                  id="date"
                   type="datetime-local"
                   value={formData.date_publication}
                   onChange={(e) => setFormData({ ...formData, date_publication: e.target.value })}

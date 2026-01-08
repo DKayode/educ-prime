@@ -37,8 +37,6 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       # Node
       NODE_ENV: production
-    ports:
-      - "3000:3000"
     networks:
       - educ-prime-network
     depends_on:
@@ -56,8 +54,6 @@ services:
     image: ${DOCKER_IMAGE_FRONTEND:-ghcr.io/dkayode/educ-prime-frontend:latest}
     container_name: educ_prime_frontend
     restart: unless-stopped
-    ports:
-      - "80:80"
     networks:
       - educ-prime-network
     depends_on:
@@ -68,6 +64,38 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: educ_prime_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    networks:
+      - educ-prime-network
+    depends_on:
+      - frontend
+      - backend
+
+  # Certbot
+  certbot:
+    image: certbot/certbot
+    container_name: educ_prime_certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c ' if [ ! -f /etc/letsencrypt/live/educ-prime.com/fullchain.pem ]; then
+        certbot certonly --webroot --webroot-path=/var/www/certbot --email support@educ-prime.cloud --agree-tos --no-eff-email -d educ-prime.com -d api.educ-prime.com;
+      fi; trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done; '
+    networks:
+      - educ-prime-network
 
 volumes:
   postgres_data:

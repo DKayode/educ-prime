@@ -29,22 +29,30 @@ jobs:
           SCHEMA_CONTENT=$(cat backend/config/schema.sql | base64 -w 0)
           echo "schema_content=$SCHEMA_CONTENT" >> $GITHUB_OUTPUT
 
+          # Lire le contenu du nginx.conf
+          NGINX_CONTENT=$(cat nginx/nginx.conf | base64 -w 0)
+          echo "nginx_content=$NGINX_CONTENT" >> $GITHUB_OUTPUT
+
       - name: Déployer sur le VPS
         uses: appleboy/ssh-action@v1.0.0
         env:
           COMPOSE_CONTENT: ${{ steps.prepare.outputs.compose_content }}
           SCHEMA_CONTENT: ${{ steps.prepare.outputs.schema_content }}
+          NGINX_CONTENT: ${{ steps.prepare.outputs.nginx_content }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          envs: COMPOSE_CONTENT,SCHEMA_CONTENT
+          envs: COMPOSE_CONTENT,SCHEMA_CONTENT,NGINX_CONTENT
           script: |
             DEPLOY_DIR=${{ secrets.VPS_PROJECT_PATH || '/root/educ-prime' }}
 
             # Créer le répertoire de déploiement
             mkdir -p "$DEPLOY_DIR/backend/config"
+            mkdir -p "$DEPLOY_DIR/nginx"
+            mkdir -p "$DEPLOY_DIR/certbot/conf"
+            mkdir -p "$DEPLOY_DIR/certbot/www"
             cd "$DEPLOY_DIR"
 
             # Créer le fichier .env avec les secrets
@@ -67,6 +75,9 @@ jobs:
             # Créer le fichier schema.sql depuis le contenu du repo
             echo "$SCHEMA_CONTENT" | base64 -d > ./backend/config/schema.sql
 
+            # Créer le fichier nginx.conf depuis le contenu du repo
+            echo "$NGINX_CONTENT" | base64 -d > ./nginx/nginx.conf
+
             # Arrêter les conteneurs
             docker-compose stop backend frontend
             docker-compose rm -f backend frontend
@@ -76,6 +87,9 @@ jobs:
 
             # Démarrer les conteneurs
             docker-compose up -d --remove-orphans
+
+            # Recharger nginx
+            docker-compose nginx nginx -s reload
 
             # Attendre un peu pour que les conteneurs démarrent
             sleep 10

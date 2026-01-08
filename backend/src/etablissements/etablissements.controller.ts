@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { EtablissementsService } from './etablissements.service';
 import { CreerEtablissementDto } from './dto/creer-etablissement.dto';
 import { MajEtablissementDto } from './dto/maj-etablissement.dto';
@@ -28,6 +28,7 @@ export class EtablissementsController {
 
   @UseGuards(JwtAuthGuard, RoleGuard)
   @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Créer un établissement' })
   @Post()
   async create(@Body() creerEtablissementDto: CreerEtablissementDto) {
     return this.etablissementsService.create(creerEtablissementDto);
@@ -45,6 +46,8 @@ export class EtablissementsController {
   }
 
   @Get(':id/logo')
+  @ApiOperation({ summary: 'Télécharger le logo d\'un établissement' })
+  @ApiParam({ name: 'id', description: 'Identifiant de l\'établissement' })
   async downloadLogo(
     @Param('id') id: string,
     @Res() res: Response
@@ -58,6 +61,8 @@ export class EtablissementsController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
+  @ApiOperation({ summary: 'Récupérer un établissement par son ID' })
+  @ApiParam({ name: 'id', description: 'Identifiant de l\'établissement' })
   async findOne(@Param('id') id: string) {
     return this.etablissementsService.findOne(id);
   }
@@ -65,6 +70,8 @@ export class EtablissementsController {
   @UseGuards(JwtAuthGuard, RoleGuard)
   @Roles(RoleType.ADMIN)
   @Put(':id')
+  @ApiOperation({ summary: 'Mettre à jour un établissement' })
+  @ApiParam({ name: 'id', description: 'Identifiant de l\'établissement' })
   async update(@Param('id') id: string, @Body() majEtablissementDto: MajEtablissementDto) {
     return this.etablissementsService.update(id, majEtablissementDto);
   }
@@ -72,6 +79,8 @@ export class EtablissementsController {
   @UseGuards(JwtAuthGuard, RoleGuard)
   @Roles(RoleType.ADMIN)
   @Delete(':id')
+  @ApiOperation({ summary: 'Supprimer un établissement' })
+  @ApiParam({ name: 'id', description: 'Identifiant de l\'établissement' })
   async remove(@Param('id') id: string) {
     return this.etablissementsService.remove(id);
   }
@@ -79,6 +88,8 @@ export class EtablissementsController {
   // Hierarchical navigation endpoints
   @UseGuards(JwtAuthGuard)
   @Get(':id/filieres')
+  @ApiOperation({ summary: 'Lister les filières d\'un établissement' })
+  @ApiParam({ name: 'id', description: 'Identifiant de l\'établissement' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
@@ -89,6 +100,9 @@ export class EtablissementsController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/filieres/:filiereId/niveau-etude')
+  @ApiOperation({ summary: 'Lister les niveaux d\'étude d\'une filière dans un établissement' })
+  @ApiParam({ name: 'id', description: 'Identifiant de l\'établissement' })
+  @ApiParam({ name: 'filiereId', description: 'Identifiant de la filière' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
@@ -102,6 +116,10 @@ export class EtablissementsController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/filieres/:filiereId/niveau-etude/:niveauId/matieres')
+  @ApiOperation({ summary: 'Lister les matières d\'un niveau d\'étude' })
+  @ApiParam({ name: 'id', description: 'Identifiant de l\'établissement' })
+  @ApiParam({ name: 'filiereId', description: 'Identifiant de la filière' })
+  @ApiParam({ name: 'niveauId', description: 'Identifiant du niveau d\'étude' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
@@ -116,6 +134,10 @@ export class EtablissementsController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/filieres/:filiereId/niveau-etude/:niveauId/epreuves')
+  @ApiOperation({ summary: 'Lister les épreuves associées' })
+  @ApiParam({ name: 'id', description: 'Identifiant de l\'établissement' })
+  @ApiParam({ name: 'filiereId', description: 'Identifiant de la filière' })
+  @ApiParam({ name: 'niveauId', description: 'Identifiant du niveau d\'étude' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (titre ou matière)' })
@@ -137,6 +159,10 @@ export class EtablissementsController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/filieres/:filiereId/niveau-etude/:niveauId/ressources')
+  @ApiOperation({ summary: 'Lister les ressources pédagogiques' })
+  @ApiParam({ name: 'id', description: 'Identifiant de l\'établissement' })
+  @ApiParam({ name: 'filiereId', description: 'Identifiant de la filière' })
+  @ApiParam({ name: 'niveauId', description: 'Identifiant du niveau d\'étude' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (titre ou matière)' })

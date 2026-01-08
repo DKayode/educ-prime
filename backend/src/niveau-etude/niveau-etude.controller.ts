@@ -32,6 +32,13 @@ export class NiveauEtudeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('grouper-par-nom')
+  @ApiOperation({ summary: 'Récupérer les niveaux groupés par nom avec pagination' })
+  async findGroupByName(@Query() paginationDto: PaginationDto) {
+    return this.niveauEtudeService.findGroupByName(paginationDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<NiveauEtudeResponseDto> {
     return this.niveauEtudeService.findOne(id);
@@ -48,6 +55,12 @@ export class NiveauEtudeController {
   async remove(@Param('id') id: string) {
     return this.niveauEtudeService.remove(id);
   }
+  @UseGuards(JwtAuthGuard)
+  @Delete('grouper-par-nom/:nom')
+  async removeGroup(@Param('nom') nom: string) {
+    return this.niveauEtudeService.removeGroup(nom);
+  }
+
 
 
 }

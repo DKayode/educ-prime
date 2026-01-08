@@ -72,11 +72,9 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
     niveau_etude_id INTEGER REFERENCES niveau_etude(id),
     sexe utilisateurs_sexe_enum,
     telephone VARCHAR(50),
-    role utilisateurs_role_enum
+    role utilisateurs_role_enum,
+    fcm_token TEXT
 );
-
-ALTER TABLE utilisateurs
-ADD COLUMN IF NOT EXISTS fcm_token TEXT;
 
 
 -- ------------------------------
@@ -129,6 +127,13 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     date_expiration TIMESTAMP WITH TIME ZONE NOT NULL,
     appareil appareil_type_enum
+);
+
+CREATE TABLE IF NOT EXISTS blacklisted_tokens (
+    id SERIAL PRIMARY KEY,
+    token TEXT NOT NULL UNIQUE,
+    date_expiration TIMESTAMP WITH TIME ZONE NOT NULL,
+    date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ------------------------------

@@ -13,7 +13,7 @@ RUN npm ci --legacy-peer-deps
 COPY . .
 
 # Accept build arguments
-ARG VITE_API_URL=http://localhost:3000
+ARG VITE_API_URL=/backend
 ENV VITE_API_URL=$VITE_API_URL
 
 # Build the application with production mode

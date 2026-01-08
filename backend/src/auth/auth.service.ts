@@ -7,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
 import { RefreshToken, AppareilType } from './entities/refresh-token.entity';
+import { BlacklistedToken } from './entities/blacklisted-token.entity';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -18,8 +19,10 @@ export class AuthService {
     private readonly utilisateursService: UtilisateursService,
     private readonly jwtService: JwtService,
     @InjectRepository(RefreshToken)
-    private readonly refreshTokenRepository: Repository<RefreshToken>
-  ) {}
+    private readonly refreshTokenRepository: Repository<RefreshToken>,
+    @InjectRepository(BlacklistedToken)
+    private readonly blacklistedTokenRepository: Repository<BlacklistedToken>
+  ) { }
 
   async register(registerDto: RegisterDto): Promise<Utilisateur> {
     this.logger.log(`Tentative d'inscription via /auth/register pour: ${registerDto.email}`);
@@ -43,7 +46,7 @@ export class AuthService {
       this.logger.warn(`Échec de connexion: utilisateur ${loginDto.email} introuvable`);
       throw new UnauthorizedException('Identifiants invalides');
     }
-    
+
     const isPasswordValid = await bcrypt.compare(loginDto.mot_de_passe, user.mot_de_passe);
     if (!isPasswordValid) {
       this.logger.warn(`Échec de connexion: mot de passe invalide pour ${loginDto.email}`);
@@ -66,7 +69,7 @@ export class AuthService {
 
   async createRefreshToken(userId: number, appareil: AppareilType): Promise<string> {
     this.logger.log(`Création d'un refresh token pour utilisateur ID: ${userId}`);
-    
+
     // Remove old refresh tokens for this user and device
     await this.refreshTokenRepository.delete({ utilisateur_id: userId, appareil });
 
@@ -136,22 +139,50 @@ export class AuthService {
 
   async revokeRefreshToken(userId: number, appareil?: AppareilType): Promise<void> {
     this.logger.log(`Révocation du refresh token pour utilisateur ID: ${userId}`);
-    
+
     if (appareil) {
       await this.refreshTokenRepository.delete({ utilisateur_id: userId, appareil });
     } else {
       await this.refreshTokenRepository.delete({ utilisateur_id: userId });
     }
-    
+
     this.logger.log(`Refresh token(s) révoqué(s) pour utilisateur ID: ${userId}`);
   }
 
+  async blacklistAccessToken(token: string): Promise<void> {
+    const decoded = this.jwtService.decode(token) as any;
+    if (!decoded || !decoded.exp) {
+      return;
+    }
+
+    const date_expiration = new Date(decoded.exp * 1000);
+    const blacklistedToken = this.blacklistedTokenRepository.create({
+      token,
+      date_expiration,
+    });
+
+    await this.blacklistedTokenRepository.save(blacklistedToken);
+    this.logger.log(`Access token blacklisté jusqu'à: ${date_expiration}`);
+  }
+
+  async isTokenBlacklisted(token: string): Promise<boolean> {
+    const blacklisted = await this.blacklistedTokenRepository.findOne({ where: { token } });
+    return !!blacklisted;
+  }
+
   async cleanupExpiredTokens(): Promise<void> {
-    this.logger.log('Nettoyage des refresh tokens expirés');
-    const result = await this.refreshTokenRepository.delete({
+    this.logger.log('Nettoyage des refresh tokens et tokens blacklistés expirés');
+
+    const refreshResult = await this.refreshTokenRepository.delete({
       date_expiration: LessThan(new Date()),
     });
-    this.logger.log(`${result.affected || 0} refresh token(s) expiré(s) supprimé(s)`);
+
+    const blacklistResult = await this.blacklistedTokenRepository.delete({
+      date_expiration: LessThan(new Date()),
+    });
+
+    this.logger.log(`${refreshResult.affected || 0} refresh token(s) expiré(s) supprimé(s)`);
+    this.logger.log(`${blacklistResult.affected || 0} token(s) blacklisté(s) expiré(s) supprimé(s)`);
   }
 
   async validateUser(userId: number): Promise<Utilisateur> {

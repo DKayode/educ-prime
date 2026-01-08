@@ -42,6 +42,17 @@ export class MatieresController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('grouper-par-nom')
+  @ApiOperation({ summary: 'Récupérer les matières groupées par nom' })
+  @ApiResponse({ status: 200, description: 'Liste groupée récupérée avec succès' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  async findGroupedByName(@Query() paginationDto: PaginationDto) {
+    return this.matieresService.findGroupedByName(paginationDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<MatiereResponseDto> {
     return this.matieresService.findOne(id);
