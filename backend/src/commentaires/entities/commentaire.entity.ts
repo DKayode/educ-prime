@@ -56,4 +56,7 @@ export class Commentaire {
 
     @ApiProperty({ description: 'Nombre de réponses' })
     enfantsCount?: number;
+
+    @ApiProperty({ description: 'Nombre de likes' })
+    likesCount?: number;
 }

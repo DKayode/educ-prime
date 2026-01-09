@@ -107,9 +107,6 @@ export class CommentairesService {
         'utilisateur.photo',
         'utilisateur.email',
 
-
-
-
       ]);
 
     // 🔎 Filtres
@@ -187,7 +184,7 @@ export class CommentairesService {
   async findOne(id: number): Promise<Commentaire> {
     const commentaire = await this.commentaireRepository.findOne({
       where: { id },
-      relations: ['parcours', 'parent', 'enfants'],
+      relations: ['parcours', 'likes', 'parent', 'enfants'],
     });
 
     if (!commentaire) {
@@ -199,10 +196,20 @@ export class CommentairesService {
       where: { parent_id: commentaire.id },
     });
 
+    const likesCount = await this.commentaireRepository.count({
+      where: { parent_id: commentaire.id },
+    });
+
     return {
       ...commentaire,
-      enfantsCount,
+      likesCount: commentaire.likes?.filter(like => like.type == "like").length || 0,
+      enfantsCount: commentaire.enfantsCount || 0,
     };
+
+    // return {
+    //   ...commentaire,
+    //   enfantsCount,
+    // };
   }
 
   /**

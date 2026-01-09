@@ -4,6 +4,7 @@ import { Filiere } from '../../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../../niveau-etude/entities/niveau-etude.entity';
 import { Commentaire } from 'src/commentaires/entities/commentaire.entity';
 import { Exclude } from 'class-transformer';
+import { NotificationUtilisateur } from 'src/notifications/entities/notification-utilisateur.entity';
 
 export enum RoleType {
   ADMIN = 'admin',
@@ -67,4 +68,14 @@ export class Utilisateur {
 
   @OneToMany(() => Commentaire, commentaire => commentaire.utilisateur)
   commentaires: Commentaire[];
+
+  @OneToMany(
+    () => NotificationUtilisateur,
+    (notificationUtilisateur) => notificationUtilisateur.utilisateur,
+  )
+  notificationUtilisateurs: NotificationUtilisateur[];
+
+  notifications?: Notification[];
+
+  unreadNotificationsCount?: number;
 }

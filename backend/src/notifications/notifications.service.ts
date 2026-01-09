@@ -80,9 +80,9 @@ export class NotificationsService {
   private async getAllFcmTokens(): Promise<string[]> {
 
     const users = await this.utilisateurRepository.find({
-      where: {
-        fcm_token: Not(IsNull()),
-      },
+      // where: {
+      //   fcm_token: Not(IsNull()),
+      // },
       select: ['fcm_token'],
     });
 
