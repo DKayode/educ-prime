@@ -173,6 +173,19 @@ export class ParcoursService {
     }
 
     // Supprimer dans l'ordre inverse des dépendances
+
+    // 1. Supprimer les likes associés aux commentaires du parcours
+    const comments = await this.commentaireRepository.find({
+      where: { parcours_id: id },
+      select: ['id']
+    });
+
+    if (comments.length > 0) {
+      const commentIds = comments.map(c => c.id);
+      await this.likeRepository.delete({ commentaire_id: In(commentIds) });
+    }
+
+    // 2. Supprimer les commentaires et autres dépendances directes
     await this.commentaireRepository.delete({ parcours_id: id });
     await this.likeRepository.delete({ parcours_id: id });
     await this.favoriRepository.delete({ parcours_id: id });
