@@ -22,6 +22,7 @@ import ContactsProfessionnels from "./pages/ContactsProfessionnels";
 import Parcours from "./pages/Parcours";
 import Categories from "./pages/Categories";
 import Settings from "./pages/Settings";
+import Notifications from "./pages/Notifications";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -58,6 +59,7 @@ const App = () => (
                       <Route path="/categories" element={<Categories />} />
                       <Route path="/contacts-professionnels" element={<ContactsProfessionnels />} />
                       <Route path="/settings" element={<Settings />} />
+                      <Route path="/notifications" element={<Notifications />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
