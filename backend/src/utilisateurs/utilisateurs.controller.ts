@@ -64,8 +64,20 @@ export class UtilisateursController {
 
   @UseGuards(JwtAuthGuard, OwnerOrAdminGuard)
   @Delete(':id')
+  @ApiOperation({ summary: 'Supprimer un utilisateur (Soft Delete)' })
   async remove(@Param('id') id: string) {
-    return this.utilisateursService.remove(id);
+    await this.utilisateursService.softDelete(parseInt(id));
+    return { message: 'Utilisateur supprimé avec succès. Il sera définitivement effacé dans 30 jours.' };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete()
+  @ApiOperation({ summary: 'Supprimer son propre compte (Soft Delete)' })
+  @ApiResponse({ status: 200, description: 'Compte marqué pour suppression' })
+  async removeSelf(@Request() req) {
+    const userId = req.user.utilisateurId;
+    await this.utilisateursService.softDelete(userId);
+    return { message: 'Compte supprimé avec succès. Il sera définitivement effacé dans 30 jours.' };
   }
 
   @Patch('me/update/fcm-token')

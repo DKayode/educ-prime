@@ -1,7 +1,8 @@
 import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets } from 'typeorm';
+import { Repository, Brackets, LessThan } from 'typeorm';
 import { Utilisateur } from './entities/utilisateur.entity';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
 import { InscriptionDto } from './dto/inscription.dto';
 import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
@@ -66,19 +67,25 @@ export class UtilisateursService {
 
 
   async findAll(filterDto: FilterUtilisateurDto): Promise<PaginationResponse<Utilisateur>> {
-    const { page = 1, limit = 10, search, role } = filterDto;
-    this.logger.log(`Récupération des utilisateurs - Page: ${page}, Limite: ${limit}, Search: ${search}, Role: ${role}`);
+    const { page = 1, limit = 10, search, role, activated } = filterDto;
+    this.logger.log(`Récupération des utilisateurs - Page: ${page}, Limite: ${limit}, Search: ${search}, Role: ${role}, Activated: ${activated}`);
 
     const queryBuilder = this.utilisateursRepository.createQueryBuilder('utilisateur')
       .leftJoinAndSelect('utilisateur.etablissement', 'etablissement')
       .leftJoinAndSelect('utilisateur.filiere', 'filiere')
       .leftJoinAndSelect('utilisateur.niveau_etude', 'niveau_etude')
-      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.photo', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'etablissement', 'filiere', 'niveau_etude'])
+      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.photo', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'etablissement', 'filiere', 'niveau_etude'])
       .skip((page - 1) * limit)
       .take(limit);
 
     if (role) {
       queryBuilder.andWhere('utilisateur.role = :role', { role });
+    }
+
+    if (activated !== undefined) {
+      // activated = true => est_desactive = false
+      // activated = false => est_desactive = true
+      queryBuilder.andWhere('utilisateur.est_desactive = :estDesactive', { estDesactive: !activated });
     }
 
     if (search) {
@@ -258,5 +265,39 @@ export class UtilisateursService {
     }
 
     return this.fichiersService.downloadFile(user.photo);
+  }
+
+  async softDelete(id: number) {
+    const user = await this.utilisateursRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('Utilisateur non trouvé');
+
+    // Calculate deletion date (30 days from now)
+    const deletionDate = new Date();
+    deletionDate.setDate(deletionDate.getDate() + 30);
+
+    user.est_desactive = true;
+    user.date_suppression_prevue = deletionDate;
+
+    await this.utilisateursRepository.save(user);
+    this.logger.log(`Utilisateur ID ${id} marqué pour suppression le ${deletionDate}`);
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleCron() {
+    this.logger.log('Exécution du Cron de suppression des utilisateurs...');
+
+    const usersToDelete = await this.utilisateursRepository.find({
+      where: {
+        est_desactive: true,
+        date_suppression_prevue: LessThan(new Date()),
+      },
+    });
+
+    for (const user of usersToDelete) {
+      this.logger.log(`Suppression définitive de l'utilisateur ID ${user.id}`);
+      await this.utilisateursRepository.remove(user);
+    }
+
+    this.logger.log(`${usersToDelete.length} utilisateurs supprimés définitivement.`);
   }
 }

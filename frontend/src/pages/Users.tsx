@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserPlus, Loader2, Trash2 } from "lucide-react";
+import { Search, UserPlus, Loader2, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { usersService } from "@/lib/services/users.service";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -48,8 +48,12 @@ export default function Users() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [selectedActivated, setSelectedActivated] = useState<string | null>("ALL");
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10); // Default limit
+
   const [newUser, setNewUser] = useState({
     nom: "",
     prenom: "",
@@ -63,13 +67,17 @@ export default function Users() {
   const queryClient = useQueryClient();
 
   const { data: usersResponse, isLoading, error } = useQuery({
-    queryKey: ['users', debouncedSearchQuery, selectedRole],
+    queryKey: ['users', debouncedSearchQuery, selectedRole, selectedActivated, page, limit],
     queryFn: () => usersService.getAll({
       search: debouncedSearchQuery || undefined,
-      role: selectedRole || undefined
+      role: selectedRole || undefined,
+      activated: selectedActivated === "ALL" ? undefined : selectedActivated === "true",
+      page,
+      limit
     }),
   });
   const users = usersResponse?.data || [];
+  const totalPages = usersResponse?.totalPages || 1;
 
   const createMutation = useMutation({
     mutationFn: (data: any) => usersService.create(data),
@@ -163,6 +171,19 @@ export default function Users() {
                   <SelectItem value="admin">Administrateur</SelectItem>
                 </SelectContent>
               </Select>
+              <Select
+                value={selectedActivated || "ALL"}
+                onValueChange={(value) => setSelectedActivated(value)}
+              >
+                <SelectTrigger className="w-full md:w-[200px]">
+                  <SelectValue placeholder="Filtrer par statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Tous les statuts</SelectItem>
+                  <SelectItem value="true">Actifs</SelectItem>
+                  <SelectItem value="false">Supprimés</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardDescription>
         </CardHeader>
@@ -176,51 +197,89 @@ export default function Users() {
               Erreur lors du chargement des utilisateurs
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Rôle</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.length === 0 ? (
+            <>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
-                      Aucun utilisateur trouvé
-                    </TableCell>
+                    <TableHead>Nom</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Rôle</TableHead>
+                    <TableHead>Actif</TableHead>
+                    <TableHead>Suppression définitive</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">
-                        {user.prenom} {user.nom}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                      <TableCell>
-                        <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                          {user.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteId(user.id)}
-                            className="text-destructive hover:text-destructive/90"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {users.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                        Aucun utilisateur trouvé
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">
+                          {user.prenom} {user.nom}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                        <TableCell>
+                          <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                            {user.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={user.est_desactive ? "destructive" : "outline"}>
+                            {user.est_desactive ? "Non" : "Oui"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {user.date_suppression_prevue
+                            ? new Date(user.date_suppression_prevue).toLocaleDateString()
+                            : "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeleteId(user.id)}
+                              className="text-destructive hover:text-destructive/90"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              {/* Pagination mirrored from Etablissements.tsx */}
+              {usersResponse?.totalPages !== undefined && usersResponse.totalPages > 1 && (
+                <div className="flex items-center justify-center space-x-2 py-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    Page {page} sur {usersResponse.totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(usersResponse.totalPages, p + 1))}
+                    disabled={page === usersResponse.totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -353,6 +412,6 @@ export default function Users() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }
