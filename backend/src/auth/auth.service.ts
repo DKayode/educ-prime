@@ -47,6 +47,11 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides');
     }
 
+    if (user.est_desactive) {
+      this.logger.warn(`Connexion refusée: compte désactivé pour ${loginDto.email}`);
+      throw new UnauthorizedException('Ce compte a été désactivé.');
+    }
+
     const isPasswordValid = await bcrypt.compare(loginDto.mot_de_passe, user.mot_de_passe);
     if (!isPasswordValid) {
       this.logger.warn(`Échec de connexion: mot de passe invalide pour ${loginDto.email}`);

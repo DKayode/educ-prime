@@ -42,6 +42,8 @@ export interface Utilisateur {
   sexe?: 'M' | 'F' | 'Autre';
   telephone?: string;
   role: 'admin' | 'étudiant' | 'professeur' | 'autre';
+  est_desactive?: boolean;
+  date_suppression_prevue?: string;
 }
 
 export type EpreuveType = 'Interrogation' | 'Devoirs' | 'Concours' | 'Examens';

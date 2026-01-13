@@ -4,7 +4,7 @@ import type { PaginationResponse, PaginationParams } from '../types/pagination';
 import { buildPaginationQuery } from '../types/pagination';
 
 export const usersService = {
-  async getAll(params?: PaginationParams & { search?: string; role?: string }): Promise<PaginationResponse<Utilisateur>> {
+  async getAll(params?: PaginationParams & { search?: string; role?: string; activated?: boolean }): Promise<PaginationResponse<Utilisateur>> {
     const query = buildPaginationQuery(params);
     return api.get<PaginationResponse<Utilisateur>>(`/utilisateurs${query}`);
   },

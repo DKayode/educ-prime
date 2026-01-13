@@ -35,9 +35,15 @@ export class Utilisateur {
   @Column({ unique: true })
   email: string;
 
-  @Column({ nullable: false })
+  @Column()
   @Exclude()
   mot_de_passe: string;
+
+  @Column({ default: false })
+  est_desactive: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  date_suppression_prevue: Date;
 
   @Column({ nullable: true })
   photo: string;
