@@ -14,7 +14,7 @@ import {
 } from 'typeorm';
 
 @Entity('notification_utilisateurs')
-@Index(['notification_id', 'utilisateur_id'], { unique: true })
+@Index(['notificationId', 'utilisateurId'], { unique: true })
 export class NotificationUtilisateur {
     @PrimaryGeneratedColumn()
     id: number;

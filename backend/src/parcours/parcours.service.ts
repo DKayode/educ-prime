@@ -31,7 +31,11 @@ export class ParcoursService {
    * @returns Le parcours créé
    */
   async create(createParcoursDto: CreateParcourDto): Promise<Parcour> {
-    const parcours = this.parcoursRepository.create(createParcoursDto);
+    const { category_id, ...rest } = createParcoursDto;
+    const parcours = this.parcoursRepository.create({
+      ...rest,
+      category: category_id ? { id: category_id } as any : null,
+    });
     return await this.parcoursRepository.save(parcours);
   }
 
@@ -91,7 +95,7 @@ export class ParcoursService {
       order: { [filters.sortBy]: filters.order },
       skip,
       take: limit,
-      relations: ['commentaires', 'likes', 'favoris'],
+      relations: ['commentaires', 'likes', 'favoris', 'category'],
     });
 
     // Ajout des compteurs
@@ -122,7 +126,7 @@ export class ParcoursService {
   async findOne(id: number): Promise<Parcour> {
     const parcours = await this.parcoursRepository.findOne({
       where: { id },
-      relations: ['commentaires', 'likes', 'favoris'],
+      relations: ['commentaires', 'likes', 'favoris', 'category'],
     });
 
     if (!parcours) {
@@ -147,7 +151,14 @@ export class ParcoursService {
    */
   async update(id: number, updateParcoursDto: UpdateParcourDto): Promise<Parcour> {
     const parcours = await this.findOne(id);
-    Object.assign(parcours, updateParcoursDto);
+    const { category_id, ...rest } = updateParcoursDto;
+
+    Object.assign(parcours, rest);
+
+    if (category_id) {
+      parcours.category = { id: category_id } as any;
+    }
+
     return await this.parcoursRepository.save(parcours);
   }
 

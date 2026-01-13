@@ -33,7 +33,7 @@ export class Parcour {
   type_media: MediaType;
 
   @ApiProperty({ description: 'Catégorie du parcours', type: () => Category, required: false })
-  @ManyToOne(() => Category, category => category.parcours, { nullable: true })
+  @ManyToOne(() => Category, category => category.parcours, { nullable: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'category_id' })
   category: Category;
 
