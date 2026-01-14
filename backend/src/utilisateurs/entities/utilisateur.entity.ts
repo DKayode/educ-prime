@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany, CreateDateColumn } from 'typeorm';
+import { ApiProperty } from '@nestjs/swagger';
 import { Etablissement } from '../../etablissements/entities/etablissement.entity';
 import { Filiere } from '../../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../../niveau-etude/entities/niveau-etude.entity';
@@ -29,15 +30,25 @@ export class Utilisateur {
   @Column()
   prenom: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, unique: true })
   pseudo: string;
 
   @Column({ unique: true })
   email: string;
 
-  @Column({ nullable: false })
+  @Column()
   @Exclude()
   mot_de_passe: string;
+
+  @Column({ default: false })
+  est_desactive: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  date_suppression_prevue: Date;
+
+  @ApiProperty({ description: 'Date de création de l\'utilisateur' })
+  @CreateDateColumn()
+  date_creation: Date;
 
   @Column({ nullable: true })
   photo: string;

@@ -73,7 +73,10 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
     sexe utilisateurs_sexe_enum,
     telephone VARCHAR(50),
     role utilisateurs_role_enum,
-    fcm_token TEXT
+    fcm_token TEXT,
+    est_desactive BOOLEAN DEFAULT false,
+    date_suppression_prevue TIMESTAMP,
+    date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 

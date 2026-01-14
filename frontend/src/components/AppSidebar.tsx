@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, BookOpen, Calendar, FileText, Settings, Building2, BookMarked, FolderOpen, Megaphone, CalendarDays, Briefcase, GraduationCap, UserCheck, Layers } from "lucide-react";
+import { LayoutDashboard, Users, BookOpen, Calendar, FileText, Settings, Building2, BookMarked, FolderOpen, Megaphone, CalendarDays, Briefcase, GraduationCap, UserCheck, Layers, Bell } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation }
   from "react-router-dom";
@@ -39,6 +39,7 @@ const publicContentItems = [
 
 const settingsItems = [
   { title: "Paramètres", url: "/settings", icon: Settings },
+  { title: "Notifications", url: "/notifications", icon: Bell },
 ];
 
 export function AppSidebar() {

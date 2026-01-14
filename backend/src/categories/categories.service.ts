@@ -100,11 +100,14 @@ export class CategoriesService {
     }
 
     // Compter les parcours
-    const parcoursCount = await this.categoryRepository
+    const result = await this.categoryRepository
       .createQueryBuilder('category')
       .leftJoin('category.parcours', 'parcours')
       .where('category.id = :id', { id })
-      .getCount();
+      .select('COUNT(parcours.id)', 'count')
+      .getRawOne();
+
+    const parcoursCount = parseInt(result.count || '0', 10);
 
     category.parcoursCount = parcoursCount;
 
@@ -173,11 +176,14 @@ export class CategoriesService {
     const category = await this.findOne(id);
 
     // Vérifier si la catégorie contient des parcours
-    const parcoursCount = await this.categoryRepository
+    const result = await this.categoryRepository
       .createQueryBuilder('category')
       .leftJoin('category.parcours', 'parcours')
       .where('category.id = :id', { id })
-      .getCount();
+      .select('COUNT(parcours.id)', 'count')
+      .getRawOne();
+
+    const parcoursCount = parseInt(result.count || '0', 10);
 
     if (parcoursCount > 0) {
       throw new BadRequestException(

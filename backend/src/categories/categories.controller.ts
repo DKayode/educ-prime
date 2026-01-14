@@ -11,7 +11,8 @@ import {
   Res,
   UseInterceptors,
   UploadedFile,
-  Req
+  Req,
+  HttpCode
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -114,8 +115,9 @@ export class CategoriesController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @HttpCode(204)
   @ApiOperation({ summary: 'Supprimer une catégorie' })
-  @ApiResponse({ status: 200, description: 'Catégorie supprimée avec succès' })
+  @ApiResponse({ status: 204, description: 'Catégorie supprimée avec succès' })
   @ApiResponse({ status: 404, description: 'Catégorie non trouvée' })
   @ApiResponse({ status: 400, description: 'Impossible de supprimer (contient des parcours)' })
   async remove(@Param('id') id: string): Promise<void> {

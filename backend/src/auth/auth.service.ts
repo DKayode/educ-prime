@@ -31,7 +31,8 @@ export class AuthService {
       nom: registerDto.nom,
       prenom: registerDto.prenom,
       email: registerDto.email,
-      mot_de_passe: hashedPassword,
+      pseudo: registerDto.pseudo,
+      mot_de_passe: hashedPassword, // Note: InscriptionDto expects plain password, but we hash here? check service
       role: registerDto.role,
       sexe: registerDto.sexe
     });
@@ -40,11 +41,21 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto, appareil?: AppareilType): Promise<{ access_token: string; refresh_token: string }> {
-    this.logger.log(`Tentative de connexion pour: ${loginDto.email}`);
-    const user = await this.utilisateursService.findByEmail(loginDto.email);
+    const identifier = loginDto.identifiant || loginDto.email;
+    if (!identifier) {
+      throw new UnauthorizedException('Identifiant (email ou pseudo) requis');
+    }
+
+    this.logger.log(`Tentative de connexion pour: ${identifier}`);
+    const user = await this.utilisateursService.findByIdentifier(identifier);
     if (!user) {
       this.logger.warn(`Échec de connexion: utilisateur ${loginDto.email} introuvable`);
       throw new UnauthorizedException('Identifiants invalides');
+    }
+
+    if (user.est_desactive) {
+      this.logger.warn(`Connexion refusée: compte désactivé pour ${loginDto.email}`);
+      throw new UnauthorizedException('Ce compte a été désactivé.');
     }
 
     const isPasswordValid = await bcrypt.compare(loginDto.mot_de_passe, user.mot_de_passe);
