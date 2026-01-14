@@ -33,6 +33,16 @@ export class UtilisateursService {
     });
   }
 
+  async findByIdentifier(identifier: string) {
+    this.logger.log(`Recherche de l'utilisateur par identifiant (email ou pseudo): ${identifier}`);
+    return this.utilisateursRepository.findOne({
+      where: [
+        { email: identifier },
+        { pseudo: identifier }
+      ]
+    });
+  }
+
   async inscription(inscriptionDto: InscriptionDto) {
     this.logger.log(`Tentative d'inscription pour: ${inscriptionDto.email}`);
 
@@ -42,8 +52,56 @@ export class UtilisateursService {
     });
 
     if (existingUser) {
-      this.logger.warn(`Échec de l'inscription: email ${inscriptionDto.email} déjà utilisé`);
+      // Check if user is soft deleted (marked for deletion)
+      if (existingUser.est_desactive && existingUser.date_suppression_prevue) {
+        this.logger.log(`Réactivation du compte pour: ${inscriptionDto.email}`);
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(inscriptionDto.mot_de_passe, 10);
+
+        // Update user properties
+        const updatedUser = this.utilisateursRepository.merge(existingUser, {
+          ...inscriptionDto,
+          mot_de_passe: hashedPassword,
+          est_desactive: false,
+          date_suppression_prevue: null,
+        });
+
+        // Save reactivated user
+        const savedUser = await this.utilisateursRepository.save(updatedUser);
+        this.logger.log(`Utilisateur réactivé avec succès: ${savedUser.email} (ID: ${savedUser.id})`);
+
+        // Remove password from response
+        delete savedUser.mot_de_passe;
+        return savedUser;
+      }
+
+      this.logger.warn(`Échec de l'inscription: email ${inscriptionDto.email} déjà utilisé et compte actif`);
       throw new ConflictException('Un utilisateur avec cet email existe déjà');
+    }
+
+    // Check if pseudo already exists (if provided)
+    if (inscriptionDto.pseudo) {
+      const existingUserPseudo = await this.utilisateursRepository.findOne({
+        where: { pseudo: inscriptionDto.pseudo },
+      });
+
+      if (existingUserPseudo) {
+        this.logger.warn(`Échec de l'inscription: pseudo ${inscriptionDto.pseudo} déjà utilisé`);
+        throw new ConflictException('Un utilisateur avec ce pseudo existe déjà');
+      }
+    }
+
+    // Check if pseudo already exists (if provided)
+    if (inscriptionDto.pseudo) {
+      const existingUserPseudo = await this.utilisateursRepository.findOne({
+        where: { pseudo: inscriptionDto.pseudo },
+      });
+
+      if (existingUserPseudo) {
+        this.logger.warn(`Échec de l'inscription: pseudo ${inscriptionDto.pseudo} déjà utilisé`);
+        throw new ConflictException('Un utilisateur avec ce pseudo existe déjà');
+      }
     }
 
     // Hash password before saving
@@ -67,16 +125,24 @@ export class UtilisateursService {
 
 
   async findAll(filterDto: FilterUtilisateurDto): Promise<PaginationResponse<Utilisateur>> {
-    const { page = 1, limit = 10, search, role, activated } = filterDto;
-    this.logger.log(`Récupération des utilisateurs - Page: ${page}, Limite: ${limit}, Search: ${search}, Role: ${role}, Activated: ${activated}`);
+    const { page = 1, limit = 10, search, role, activated, sort_by, sort_order } = filterDto;
+    this.logger.log(`Récupération des utilisateurs - Page: ${page}, Limite: ${limit}, Search: ${search}, Role: ${role}, Activated: ${activated}, SortBy: ${sort_by}, Order: ${sort_order}`);
 
     const queryBuilder = this.utilisateursRepository.createQueryBuilder('utilisateur')
       .leftJoinAndSelect('utilisateur.etablissement', 'etablissement')
       .leftJoinAndSelect('utilisateur.filiere', 'filiere')
       .leftJoinAndSelect('utilisateur.niveau_etude', 'niveau_etude')
-      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.photo', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'etablissement', 'filiere', 'niveau_etude'])
+      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.photo', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'etablissement', 'filiere', 'niveau_etude'])
       .skip((page - 1) * limit)
       .take(limit);
+
+    // Sorting
+    if (sort_by === 'date_creation') {
+      queryBuilder.orderBy('utilisateur.date_creation', sort_order || 'DESC');
+    } else {
+      // Default sort by ID (or whatever was default before, usually ID implicitly or creation order)
+      queryBuilder.orderBy('utilisateur.id', sort_order || 'ASC');
+    }
 
     if (role) {
       queryBuilder.andWhere('utilisateur.role = :role', { role });
@@ -92,7 +158,8 @@ export class UtilisateursService {
       queryBuilder.andWhere(
         new Brackets((qb) => {
           qb.where('utilisateur.nom ILIKE :search', { search: `%${search}%` })
-            .orWhere('utilisateur.email ILIKE :search', { search: `%${search}%` });
+            .orWhere('utilisateur.email ILIKE :search', { search: `%${search}%` })
+            .orWhere('utilisateur.pseudo ILIKE :search', { search: `%${search}%` });
         }),
       );
     }
