@@ -278,6 +278,36 @@ CREATE TABLE IF NOT EXISTS favoris (
     UNIQUE(parcours_id, utilisateur_id)
 );
 
+
+CREATE TABLE notification_utilisateurs (
+    id SERIAL PRIMARY KEY,
+    notification_id INTEGER NOT NULL,
+    utilisateur_id INTEGER NOT NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    read_at TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Contrainte d'unicité pour éviter les doublons
+    CONSTRAINT unique_notification_user UNIQUE (notification_id, utilisateur_id),
+    
+    -- Clés étrangères avec suppression en cascade
+    CONSTRAINT fk_notification
+        FOREIGN KEY (notification_id) 
+        REFERENCES notifications(id)
+        ON DELETE CASCADE,
+    
+    CONSTRAINT fk_utilisateur
+        FOREIGN KEY (utilisateur_id) 
+        REFERENCES utilisateurs(id)
+        ON DELETE CASCADE
+);
+
+-- Création des index pour optimiser les requêtes
+CREATE INDEX idx_notification_utilisateurs_notification_id ON notification_utilisateurs(notification_id);
+CREATE INDEX idx_notification_utilisateurs_utilisateur_id ON notification_utilisateurs(utilisateur_id);
+CREATE INDEX idx_notification_utilisateurs_is_read ON notification_utilisateurs(is_read);
+CREATE INDEX idx_notification_utilisateurs_created_at ON notification_utilisateurs(created_at DESC);
+
 -- ------------------------------
 -- 9. CREATE DEFAULT ADMIN USER
 -- ------------------------------
