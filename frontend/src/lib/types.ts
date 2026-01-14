@@ -44,6 +44,7 @@ export interface Utilisateur {
   role: 'admin' | 'étudiant' | 'professeur' | 'autre';
   est_desactive?: boolean;
   date_suppression_prevue?: string;
+  date_creation?: string;
 }
 
 export type EpreuveType = 'Interrogation' | 'Devoirs' | 'Concours' | 'Examens';

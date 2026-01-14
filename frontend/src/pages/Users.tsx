@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserPlus, Loader2, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, UserPlus, Loader2, Trash2, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 import { usersService } from "@/lib/services/users.service";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -25,6 +25,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   Select,
@@ -53,6 +54,7 @@ export default function Users() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [limit] = useState(10); // Default limit
+  const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
 
   const [newUser, setNewUser] = useState({
     nom: "",
@@ -67,13 +69,15 @@ export default function Users() {
   const queryClient = useQueryClient();
 
   const { data: usersResponse, isLoading, error } = useQuery({
-    queryKey: ['users', debouncedSearchQuery, selectedRole, selectedActivated, page, limit],
+    queryKey: ['users', debouncedSearchQuery, selectedRole, selectedActivated, page, limit, sortOrder],
     queryFn: () => usersService.getAll({
       search: debouncedSearchQuery || undefined,
       role: selectedRole || undefined,
       activated: selectedActivated === "ALL" ? undefined : selectedActivated === "true",
       page,
-      limit
+      limit,
+      sort_by: 'date_creation',
+      sort_order: sortOrder
     }),
   });
   const users = usersResponse?.data || [];
@@ -130,6 +134,10 @@ export default function Users() {
     createMutation.mutate(newUser);
   };
 
+  const toggleSortOrder = () => {
+    setSortOrder(current => current === 'ASC' ? 'DESC' : 'ASC');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -147,8 +155,8 @@ export default function Users() {
         <CardHeader>
           <CardTitle>Liste des utilisateurs</CardTitle>
           <CardDescription>
-            <div className="flex flex-col md:flex-row gap-4 mt-4">
-              <div className="relative flex-1">
+            <div className="flex flex-col md:flex-row gap-4 mt-4 items-center">
+              <div className="relative flex-1 w-full">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Rechercher par nom ou email..."
@@ -184,6 +192,14 @@ export default function Users() {
                   <SelectItem value="false">Supprimés</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleSortOrder}
+                title={`Trier par date (${sortOrder === 'ASC' ? 'Croissant' : 'Décroissant'})`}
+              >
+                <ArrowUpDown className={`h-4 w-4 ${sortOrder === 'ASC' ? 'rotate-180' : ''} transition-transform`} />
+              </Button>
             </div>
           </CardDescription>
         </CardHeader>
@@ -205,6 +221,7 @@ export default function Users() {
                     <TableHead>Email</TableHead>
                     <TableHead>Rôle</TableHead>
                     <TableHead>Actif</TableHead>
+                    <TableHead>Date création</TableHead>
                     <TableHead>Suppression définitive</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -212,7 +229,7 @@ export default function Users() {
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground">
                         Aucun utilisateur trouvé
                       </TableCell>
                     </TableRow>
@@ -232,6 +249,11 @@ export default function Users() {
                           <Badge variant={user.est_desactive ? "destructive" : "outline"}>
                             {user.est_desactive ? "Non" : "Oui"}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {user.date_creation
+                            ? new Date(user.date_creation).toLocaleDateString()
+                            : "-"}
                         </TableCell>
                         <TableCell>
                           {user.date_suppression_prevue

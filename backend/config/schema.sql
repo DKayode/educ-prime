@@ -75,7 +75,8 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
     role utilisateurs_role_enum,
     fcm_token TEXT,
     est_desactive BOOLEAN DEFAULT false,
-    date_suppression_prevue TIMESTAMP
+    date_suppression_prevue TIMESTAMP,
+    date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 
