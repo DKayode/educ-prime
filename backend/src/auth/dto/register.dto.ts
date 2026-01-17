@@ -23,7 +23,7 @@ export class RegisterDto {
 
     @ApiProperty({ example: 'password123', description: 'Le mot de passe de l\'utilisateur (min 6 caractères)' })
     @IsString()
-    @MinLength(6)
+    @MinLength(6, { message: 'Le mot de passe doit contenir au moins 6 caractères' })
     mot_de_passe: string;
 
     @ApiProperty({ enum: RoleType, example: RoleType.ETUDIANT, description: 'Le rôle de l\'utilisateur' })

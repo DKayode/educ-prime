@@ -5,6 +5,8 @@ import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto, LoginWithDeviceDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AppareilType } from './entities/refresh-token.entity';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -27,7 +29,6 @@ export class AuthController {
     return this.authService.refreshAccessToken(refreshTokenDto.refresh_token);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('deconnexion')
   async logout(@Request() req) {
     const userId = req.user.utilisateurId;
@@ -40,5 +41,17 @@ export class AuthController {
     }
 
     return { message: 'Déconnexion réussie' };
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(forgotPasswordDto.email);
+    return { message: 'Si l\'email existe, un code a été envoyé' };
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    await this.authService.resetPassword(resetPasswordDto);
+    return { message: 'Mot de passe réinitialisé avec succès' };
   }
 }

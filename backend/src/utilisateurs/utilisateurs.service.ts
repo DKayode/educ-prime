@@ -14,6 +14,7 @@ import { FirebaseService } from '../firebase/firebase.service';
 
 import { FichiersService } from 'src/fichiers/fichiers.service';
 import { TypeFichier } from 'src/fichiers/entities/fichier.entity';
+import { IsEmail } from 'class-validator';
 
 @Injectable()
 export class UtilisateursService {
@@ -229,6 +230,24 @@ export class UtilisateursService {
     await this.utilisateursRepository.remove(user);
     this.logger.log(`Utilisateur supprimé avec succès: ${user.email} (ID: ${id})`);
     return { message: 'Utilisateur supprimé avec succès' };
+  }
+
+  async setResetCode(email: string, code: string, expiration: Date) {
+    const user = await this.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+    user.code_reinitialisation = code;
+    user.date_expiration_code = expiration;
+    await this.utilisateursRepository.save(user);
+  }
+
+  async updatePassword(id: number, hashedPassword: string) {
+    await this.utilisateursRepository.update(id, {
+      mot_de_passe: hashedPassword,
+      code_reinitialisation: null,
+      date_expiration_code: null
+    });
   }
 
   /**

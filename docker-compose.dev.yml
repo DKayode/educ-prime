@@ -39,6 +39,12 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       # Node
       NODE_ENV: development
+      # Email
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_SECURE: ${SMTP_SECURE}
     volumes:
       - ./backend/config/firebase-serviceaccount.json:/app/config/firebase-serviceaccount.json:ro
     networks:

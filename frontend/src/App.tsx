@@ -23,7 +23,10 @@ import Parcours from "./pages/Parcours";
 import Categories from "./pages/Categories";
 import Settings from "./pages/Settings";
 import Notifications from "./pages/Notifications";
+import AppVersions from "./pages/AppVersions";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +40,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route
               path="/*"
               element={
@@ -60,6 +65,8 @@ const App = () => (
                       <Route path="/contacts-professionnels" element={<ContactsProfessionnels />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/notifications" element={<Notifications />} />
+                      <Route path="/notifications" element={<Notifications />} />
+                      <Route path="/app-versions" element={<AppVersions />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
