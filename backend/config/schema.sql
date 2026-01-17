@@ -28,6 +28,9 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'likes_type_enum') THEN
         CREATE TYPE likes_type_enum AS ENUM ('like', 'dislike');
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_platform_enum') THEN
+        CREATE TYPE app_platform_enum AS ENUM ('android', 'ios');
+    END IF;
 END $$;
 
 -- ------------------------------
@@ -76,6 +79,8 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
     fcm_token TEXT,
     est_desactive BOOLEAN DEFAULT false,
     date_suppression_prevue TIMESTAMP,
+    code_reinitialisation VARCHAR(6),
+    date_expiration_code TIMESTAMP,
     date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -324,3 +329,21 @@ SELECT 'Admin', 'System', 'admin@exemple.com', crypt('MotDePasse123!', gen_salt(
 WHERE NOT EXISTS (
     SELECT 1 FROM utilisateurs WHERE email = 'admin@exemple.com'
 );
+
+-- ------------------------------
+-- 10. APP MANAGEMENT TABLES
+-- ------------------------------
+
+CREATE TABLE IF NOT EXISTS app_versions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    platform app_platform_enum NOT NULL,
+    version VARCHAR(50) NOT NULL,
+    minimum_required_version VARCHAR(50) NOT NULL,
+    update_url TEXT NOT NULL,
+    force_update BOOLEAN DEFAULT false,
+    release_notes JSONB,
+    is_active BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+

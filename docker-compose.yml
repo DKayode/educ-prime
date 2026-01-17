@@ -37,6 +37,12 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       # Node
       NODE_ENV: production
+      # Email
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_SECURE: ${SMTP_SECURE}
     networks:
       - educ-prime-network
     depends_on:

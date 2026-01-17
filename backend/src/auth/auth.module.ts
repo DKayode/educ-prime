@@ -10,19 +10,26 @@ import { RoleGuard } from './guards/role.guard';
 import { UtilisateursModule } from '../utilisateurs/utilisateurs.module';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { BlacklistedToken } from './entities/blacklisted-token.entity';
+import { MailModule } from '../mail/mail.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
     UtilisateursModule,
-    TypeOrmModule.forFeature([RefreshToken, BlacklistedToken]),
-    PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your-secret-key',
-      signOptions: { expiresIn: '1h' }, // 1 hour
+    PassportModule,
+    ConfigModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '60m' },
+      }),
+      inject: [ConfigService],
     }),
+    TypeOrmModule.forFeature([RefreshToken, BlacklistedToken]),
+    MailModule,
   ],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, RoleGuard],
   controllers: [AuthController],
-  exports: [AuthService, JwtModule],
+  providers: [AuthService, JwtStrategy],
 })
 export class AuthModule { }

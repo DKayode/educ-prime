@@ -36,9 +36,7 @@ async function bootstrap() {
           if (constraints.isEmail) {
             return `L'email doit être une adresse email valide`;
           }
-          if (constraints.minLength) {
-            return `Le ${error.property} doit contenir au moins ${error.constraints.minLength} caractères`;
-          }
+
           if (constraints.isString) {
             return `Le champ ${error.property} doit être une chaîne de caractères`;
           }

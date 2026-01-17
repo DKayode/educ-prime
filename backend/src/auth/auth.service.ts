@@ -10,6 +10,8 @@ import { RefreshToken, AppareilType } from './entities/refresh-token.entity';
 import { BlacklistedToken } from './entities/blacklisted-token.entity';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { MailService } from '../mail/mail.service';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -21,7 +23,8 @@ export class AuthService {
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     @InjectRepository(BlacklistedToken)
-    private readonly blacklistedTokenRepository: Repository<BlacklistedToken>
+    private readonly blacklistedTokenRepository: Repository<BlacklistedToken>,
+    private readonly mailService: MailService
   ) { }
 
   async register(registerDto: RegisterDto): Promise<Utilisateur> {
@@ -199,5 +202,53 @@ export class AuthService {
   async validateUser(userId: number): Promise<Utilisateur> {
     this.logger.log(`Validation de l'utilisateur ID: ${userId}`);
     return this.utilisateursService.findOne(userId.toString());
+  }
+
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.utilisateursService.findByEmail(email);
+    if (!user) {
+      // Pour des raisons de sécurité, ne pas dire si l'email n'existe pas
+      // Mais pour le debug c'est utile. En prod, on loggerait juste.
+      this.logger.warn(`Demande de mot de passe oublié pour email inconnu: ${email}`);
+      return;
+    }
+
+    // Générer un code (6 chiffres)
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Définir l'expiration (15 minutes)
+    const expiration = new Date();
+    expiration.setTime(expiration.getTime() + 15 * 60 * 1000);
+
+    // Sauvegarder dans Utilisateur
+    await this.utilisateursService.setResetCode(email, code, expiration);
+
+    // Envoyer l'email
+    await this.mailService.sendResetCode(email, code);
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<void> {
+    const { email, code, nouveau_mot_de_passe } = resetPasswordDto;
+
+    const user = await this.utilisateursService.findByEmail(email);
+    if (!user) {
+      throw new UnauthorizedException('Code invalide ou expiré');
+    }
+
+    if (user.code_reinitialisation !== code) {
+      throw new UnauthorizedException('Code incorrect');
+    }
+
+    if (new Date() > user.date_expiration_code) {
+      throw new UnauthorizedException('Code expiré');
+    }
+
+    // Hasher le nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(nouveau_mot_de_passe, 10);
+
+    // Mettre à jour et nettoyer le code
+    await this.utilisateursService.updatePassword(user.id, hashedPassword);
+
+    this.logger.log(`Mot de passe réinitialisé pour ${email}`);
   }
 }

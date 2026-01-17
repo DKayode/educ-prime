@@ -62,6 +62,12 @@ export class Utilisateur {
   @Column({ type: 'text', nullable: true })
   fcm_token: string;
 
+  @Column({ nullable: true })
+  code_reinitialisation: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  date_expiration_code: Date;
+
   @Column({ type: 'enum', enum: RoleType })
   role: RoleType;
 
