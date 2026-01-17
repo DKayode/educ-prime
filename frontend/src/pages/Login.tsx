@@ -79,6 +79,17 @@ export default function Login() {
               />
             </div>
 
+            <div className="flex justify-end">
+              <Button
+                variant="link"
+                className="px-0 font-normal"
+                onClick={() => navigate("/forgot-password")}
+                type="button"
+              >
+                Mot de passe oublié ?
+              </Button>
+            </div>
+
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>

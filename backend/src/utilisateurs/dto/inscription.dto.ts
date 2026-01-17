@@ -22,7 +22,7 @@ export class InscriptionDto {
 
   @ApiProperty({ example: 'password123', description: 'Le mot de passe de l\'utilisateur (min 8 caractères)' })
   @IsString()
-  @MinLength(8)
+  @MinLength(8, { message: 'Le mot de passe doit contenir au moins 8 caractères' })
   mot_de_passe: string;
 
   @ApiProperty({ description: 'URL de la photo de profil', required: false })
