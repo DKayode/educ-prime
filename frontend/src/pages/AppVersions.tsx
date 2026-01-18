@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { Smartphone, Plus, Pencil, Trash2, Loader2, Check, X } from "lucide-react";
+import { Smartphone, Plus, Pencil, Trash2, Loader2, Check, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { appVersionService, AppPlatform, type AppVersion } from "@/lib/services/app-version.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,9 +35,14 @@ export default function AppVersions() {
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
+    const [page, setPage] = useState(1);
+    const [limit] = useState(10);
+
     const { data: itemsResponse, isLoading, isPlaceholderData } = useQuery({
-        queryKey: ["app-versions", searchPlatform],
+        queryKey: ["app-versions", searchPlatform, page, limit],
         queryFn: () => appVersionService.getAll({
+            page,
+            limit,
             platform: searchPlatform !== "ALL" ? (searchPlatform as AppPlatform) : undefined
         }),
         placeholderData: keepPreviousData,
@@ -260,6 +265,29 @@ export default function AppVersions() {
                             ))}
                         </TableBody>
                     </Table>
+                    {itemsResponse?.totalPages !== undefined && itemsResponse.totalPages > 1 && (
+                        <div className="flex items-center justify-center space-x-2 py-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                Page {page} sur {itemsResponse.totalPages}
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.min(itemsResponse.totalPages, p + 1))}
+                                disabled={page === itemsResponse.totalPages}
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -282,6 +310,14 @@ export default function AppVersions() {
                                 <div className="grid gap-2">
                                     <Label>URL Store</Label>
                                     <Input value={editingItem.update_url} onChange={(e) => setEditingItem({ ...editingItem, update_url: e.target.value })} />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>Notes (FR)</Label>
+                                    <Textarea value={editingItem.release_notes?.fr || ""} onChange={(e) => setEditingItem({ ...editingItem, release_notes: { ...editingItem.release_notes, fr: e.target.value } })} />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>Notes (EN)</Label>
+                                    <Textarea value={editingItem.release_notes?.en || ""} onChange={(e) => setEditingItem({ ...editingItem, release_notes: { ...editingItem.release_notes, en: e.target.value } })} />
                                 </div>
                                 <div className="flex gap-6 mt-2">
                                     <div className="flex items-center space-x-2">
