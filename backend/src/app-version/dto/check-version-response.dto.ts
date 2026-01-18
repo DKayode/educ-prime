@@ -13,6 +13,12 @@ export class CheckVersionResponseDto {
     @ApiProperty()
     update_url: string;
 
+    @ApiProperty()
+    force_update: boolean;
+
+    @ApiProperty()
+    messages: { fr?: string; en?: string };
+
     @ApiProperty({ example: { fr: 'Notes', en: 'Notes' } })
     release_notes: { fr?: string; en?: string };
 }
