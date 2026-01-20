@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AppVersion, AppPlatform } from './entities/app-version.entity';
+import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { CreateAppVersionDto } from './dto/create-app-version.dto';
 import { UpdateAppVersionDto } from './dto/update-app-version.dto';
 import { CheckVersionResponseDto } from './dto/check-version-response.dto';
@@ -81,7 +82,12 @@ export class AppVersionService {
             latest_version: activeVersion.version,
             update_type: updateType,
             update_url: activeVersion.update_url,
-            release_notes: activeVersion.release_notes,
+            force_update: activeVersion.force_update,
+            messages: {
+                fr: `Une nouvelle version (${activeVersion.version}) est disponible. Souhaitez-vous mettre à jour ?`,
+                en: `A new version (${activeVersion.version}) is available. Would you like to update?`,
+            },
+            release_notes: activeVersion.release_notes || { fr: '', en: '' },
         };
     }
 
@@ -112,7 +118,7 @@ export class AppVersionService {
 
     async findAll(
         filterDto: FilterAppVersionDto,
-    ): Promise<{ data: AppVersion[]; total: number }> {
+    ): Promise<PaginationResponse<AppVersion>> {
         const { platform, is_active, limit = 10, page = 1 } = filterDto;
         const offset = (page - 1) * limit;
 
@@ -129,7 +135,14 @@ export class AppVersionService {
         query.skip(offset).take(limit).orderBy('version.created_at', 'DESC');
 
         const [data, total] = await query.getManyAndCount();
-        return { data, total };
+
+        return {
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
     }
 
     async findOne(id: string): Promise<AppVersion> {
