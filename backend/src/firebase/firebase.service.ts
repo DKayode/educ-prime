@@ -34,6 +34,8 @@ export class FirebaseService {
     try {
       const { tokens, payload } = options;
 
+      this.logger.log(tokens,payload);
+
       // Construction du message selon le type de cible
       let message: admin.messaging.Message;
 
