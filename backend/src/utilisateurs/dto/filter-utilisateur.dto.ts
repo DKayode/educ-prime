@@ -22,4 +22,9 @@ export class FilterUtilisateurDto extends PaginationDto {
     @ApiPropertyOptional({ description: 'Champ de tri (ex: date_creation)', required: false })
     @IsString()
     sort_by?: string;
+
+    @IsOptional()
+    @ApiPropertyOptional({ description: 'Filtrer par ID du parrain', required: false })
+    @IsString()
+    parrain_id?: string;
 }

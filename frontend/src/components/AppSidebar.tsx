@@ -19,6 +19,7 @@ import {
 const academicItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Utilisateurs", url: "/users", icon: Users },
+  { title: "Parrainages", url: "/parrainages", icon: Users },
   { title: "Établissements", url: "/etablissements", icon: Building2 },
   { title: "Filières", url: "/filieres", icon: BookOpen },
   { title: "Niveaux d'études", url: "/niveaux", icon: Calendar },

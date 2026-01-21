@@ -13,10 +13,10 @@ export class MailService {
 
     private initTransporter() {
         const host = this.configService.get<string>('SMTP_HOST');
-        const port = this.configService.get<number>('SMTP_PORT');
+        const port = Number(this.configService.get<number>('SMTP_PORT'));
         const user = this.configService.get<string>('SMTP_USER');
         const pass = this.configService.get<string>('SMTP_PASS');
-        const secure = this.configService.get<boolean>('SMTP_SECURE', false);
+        const secure = this.configService.get<string>('SMTP_SECURE') === 'true';
 
         if (host && user && pass) {
             this.transporter = nodemailer.createTransport({
@@ -41,7 +41,7 @@ export class MailService {
 
         const from = this.configService.get<string>('SMTP_USER') || 'support@educ-prime.cloud';
         const mailOptions = {
-            from: `"Educ Prime" <${from}>`,
+            from: `"Edukia" <${from}>`,
             to: email,
             subject: 'Réinitialisation de votre mot de passe',
             html: `

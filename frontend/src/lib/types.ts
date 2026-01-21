@@ -45,6 +45,8 @@ export interface Utilisateur {
   est_desactive?: boolean;
   date_suppression_prevue?: string;
   date_creation?: string;
+  mon_code_parrainage?: string;
+  filleulsCount?: number;
 }
 
 export type EpreuveType = 'Interrogation' | 'Devoirs' | 'Concours' | 'Examens';

@@ -97,7 +97,7 @@ export class AppService {
       etablissementsCount,
       filieresCount,
       matieresCount,
-      epreuvesCount,
+      epreuvesCount: epreuvesCount + ressourcesCount + concoursCount,
       ressourcesCount,
       publicitesCount,
       evenementsCount,

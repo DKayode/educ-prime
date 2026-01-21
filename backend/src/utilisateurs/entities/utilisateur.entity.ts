@@ -33,6 +33,9 @@ export class Utilisateur {
   @Column({ nullable: true, unique: true })
   pseudo: string;
 
+  @Column({ nullable: true, unique: true })
+  mon_code_parrainage: string;
+
   @Column({ unique: true })
   email: string;
 
@@ -93,6 +96,13 @@ export class Utilisateur {
   notificationUtilisateurs: NotificationUtilisateur[];
 
   notifications?: Notification[];
+
+  @ManyToOne(() => Utilisateur, (utilisateur) => utilisateur.filleuls, { nullable: true })
+  @JoinColumn({ name: 'parrain_id' })
+  parrain: Utilisateur;
+
+  @OneToMany(() => Utilisateur, (utilisateur) => utilisateur.parrain)
+  filleuls: Utilisateur[];
 
   unreadNotificationsCount?: number;
 }

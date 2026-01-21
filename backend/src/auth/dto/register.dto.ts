@@ -33,4 +33,9 @@ export class RegisterDto {
     @ApiProperty({ enum: SexeType, example: SexeType.M, description: 'Le sexe de l\'utilisateur' })
     @IsEnum(SexeType)
     sexe: SexeType;
+
+    @ApiProperty({ example: 'CODE123', description: 'Code de parrainage', required: false })
+    @IsOptional()
+    @IsString()
+    code_parrainage?: string;
 }
