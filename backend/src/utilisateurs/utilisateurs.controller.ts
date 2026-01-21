@@ -56,6 +56,24 @@ export class UtilisateursController {
     return this.utilisateursService.inscription(inscriptionDto);
   }
 
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @Post('backfill-referral-codes')
+  @ApiOperation({ summary: 'Générer des codes de parrainage pour les utilisateurs existants qui n\'en ont pas (Admin)' })
+  @ApiResponse({ status: 200, description: 'Backfill terminé' })
+  async backfillReferralCodes() {
+    return this.utilisateursService.generateMissingReferralCodes();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('code-parrainage')
+  @ApiOperation({ summary: 'Récupérer son propre code de parrainage' })
+  @ApiResponse({ status: 200, description: 'Code récupéré avec succès' })
+  async getMyReferralCode(@Request() req) {
+    const userId = req.user.utilisateurId;
+    return this.utilisateursService.getReferralCode(userId);
+  }
+
   @UseGuards(JwtAuthGuard, OwnerOrAdminGuard)
   @Put(':id')
   async update(@Param('id') id: string, @Body() majUtilisateurDto: MajUtilisateurDto) {
