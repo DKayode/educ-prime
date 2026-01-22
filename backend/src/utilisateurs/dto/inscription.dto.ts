@@ -63,4 +63,9 @@ export class InscriptionDto {
   @IsOptional()
   @IsNumber()
   niveau_etude_id?: number;
+
+  @ApiProperty({ example: 'CODE123', description: 'Code de parrainage', required: false })
+  @IsOptional()
+  @IsString()
+  code_parrainage?: string;
 }

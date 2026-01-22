@@ -1,6 +1,6 @@
 import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets, LessThan } from 'typeorm';
+import { Repository, Brackets, LessThan, IsNull } from 'typeorm';
 import { Utilisateur } from './entities/utilisateur.entity';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
@@ -15,6 +15,7 @@ import { FirebaseService } from '../firebase/firebase.service';
 import { FichiersService } from 'src/fichiers/fichiers.service';
 import { TypeFichier } from 'src/fichiers/entities/fichier.entity';
 import { IsEmail } from 'class-validator';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class UtilisateursService {
@@ -105,35 +106,107 @@ export class UtilisateursService {
       }
     }
 
+    // Verifier le parrain si le code est fourni
+    let parrain: Utilisateur | null = null;
+    if (inscriptionDto.code_parrainage) {
+      this.logger.log(`Recherche du parrain avec le code: ${inscriptionDto.code_parrainage}`);
+      parrain = await this.utilisateursRepository.findOne({
+        where: { mon_code_parrainage: inscriptionDto.code_parrainage }
+      });
+      if (parrain) {
+        this.logger.log(`Parrain trouvé: ${parrain.email}`);
+      } else {
+        this.logger.warn(`Aucun parrain trouvé avec le code: ${inscriptionDto.code_parrainage}`);
+      }
+    }
+
     // Hash password before saving
     const hashedPassword = await bcrypt.hash(inscriptionDto.mot_de_passe, 10);
+
+    // Generate unique referral code for the new user
+    let monCodeParrainage = this.generateReferralCode();
+    // Ensure uniqueness
+    while (await this.utilisateursRepository.findOne({ where: { mon_code_parrainage: monCodeParrainage } })) {
+      monCodeParrainage = this.generateReferralCode();
+    }
 
     // Create new user with hashed password
     const newUser = this.utilisateursRepository.create({
       ...inscriptionDto,
       mot_de_passe: hashedPassword,
+      parrain: parrain,
+      mon_code_parrainage: monCodeParrainage
     });
 
     // Save user
     const savedUser = await this.utilisateursRepository.save(newUser);
-    this.logger.log(`Utilisateur créé avec succès: ${savedUser.email} (ID: ${savedUser.id}, Rôle: ${savedUser.role})`);
+    this.logger.log(`Utilisateur créé avec succès: ${savedUser.email} (ID: ${savedUser.id}, Rôle: ${savedUser.role}, Code Parrainage: ${savedUser.mon_code_parrainage})`);
 
     // Remove password from response
     delete savedUser.mot_de_passe;
     return savedUser;
   }
 
+  private generateReferralCode(): string {
+    // Generate a code like "REF-A1B2C" or "KAYODE123"
+    // Using simple alphanumeric random string
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    const length = 6;
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
 
+  async generateMissingReferralCodes(): Promise<{ updated: number }> {
+    const users = await this.utilisateursRepository.find({
+      where: { mon_code_parrainage: IsNull() },
+    });
+
+    let updatedCount = 0;
+    for (const user of users) {
+      // Reuse existing generation logic (which checks uniqueness if we use the same pattern, 
+      // but generateReferralCode() specifically returns a string. We need to ensure uniqueness loop here too or inside helper.
+      // The helper I wrote earlier is private and just returns a string. 
+      // Ideally I should refactor inscription's uniqueness logic into a helper, but for now I'll duplicate the simple uniqueness check or improve helper.
+      // Actually inscription logic does: generate -> check DB -> retry.
+
+      let code = this.generateReferralCode();
+      while (await this.utilisateursRepository.findOne({ where: { mon_code_parrainage: code } })) {
+        code = this.generateReferralCode();
+      }
+
+      user.mon_code_parrainage = code;
+      await this.utilisateursRepository.save(user);
+      updatedCount++;
+    }
+
+    this.logger.log(`Backfill complete: Generated referral codes for ${updatedCount} users.`);
+    return { updated: updatedCount };
+  }
+
+  async getReferralCode(id: number): Promise<{ code_parrainage: string }> {
+    const user = await this.utilisateursRepository.findOne({
+      where: { id },
+      select: ['mon_code_parrainage'],
+    });
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+    return { code_parrainage: user.mon_code_parrainage };
+  }
 
   async findAll(filterDto: FilterUtilisateurDto): Promise<PaginationResponse<Utilisateur>> {
-    const { page = 1, limit = 10, search, role, activated, sort_by, sort_order } = filterDto;
-    this.logger.log(`Récupération des utilisateurs - Page: ${page}, Limite: ${limit}, Search: ${search}, Role: ${role}, Activated: ${activated}, SortBy: ${sort_by}, Order: ${sort_order}`);
+    const { page = 1, limit = 10, search, role, activated, sort_by, sort_order, parrain_id } = filterDto;
+    this.logger.log(`Récupération des utilisateurs - Page: ${page}, Limite: ${limit}, Search: ${search}, Role: ${role}, Activated: ${activated}, SortBy: ${sort_by}, Order: ${sort_order}, ParrainId: ${parrain_id}`);
 
     const queryBuilder = this.utilisateursRepository.createQueryBuilder('utilisateur')
       .leftJoinAndSelect('utilisateur.etablissement', 'etablissement')
       .leftJoinAndSelect('utilisateur.filiere', 'filiere')
       .leftJoinAndSelect('utilisateur.niveau_etude', 'niveau_etude')
-      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.photo', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'etablissement', 'filiere', 'niveau_etude'])
+      .loadRelationCountAndMap('utilisateur.filleulsCount', 'utilisateur.filleuls')
+      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.photo', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'etablissement', 'filiere', 'niveau_etude'])
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -153,6 +226,10 @@ export class UtilisateursService {
       // activated = true => est_desactive = false
       // activated = false => est_desactive = true
       queryBuilder.andWhere('utilisateur.est_desactive = :estDesactive', { estDesactive: !activated });
+    }
+
+    if (parrain_id) {
+      queryBuilder.andWhere('utilisateur.parrain_id = :parrainId', { parrainId: parrain_id });
     }
 
     if (search) {
@@ -182,7 +259,7 @@ export class UtilisateursService {
     this.logger.log(`Recherche de l'utilisateur avec ID: ${id}`);
     const user = await this.utilisateursRepository.findOne({
       where: { id: parseInt(id) },
-      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'photo', 'sexe', 'telephone', 'role'],
+      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'photo', 'sexe', 'telephone', 'role', 'mon_code_parrainage'],
       relations: ['etablissement', 'filiere', 'niveau_etude'],
     });
 
