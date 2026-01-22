@@ -52,7 +52,7 @@ export class Notification {
         enum: NotificationType,
         default: NotificationType.OTHER,
     })
-    type: NotificationType;
+    type?: NotificationType;
 
     @ApiProperty({
         description: 'Priorité de la notification',
@@ -64,21 +64,21 @@ export class Notification {
         enum: NotificationPriority,
         default: NotificationPriority.NORMAL,
     })
-    priority: NotificationPriority;
+    priority?: NotificationPriority;
 
     @ApiProperty({ description: 'Données supplémentaires au format JSON' })
     @Column({ type: 'jsonb', nullable: true })
-    data: Record<string, any>;
+    data?: Record<string, any>;
 
     @ApiProperty({ description: 'URL de l\'image à afficher' })
     @Column({ type: 'varchar', length: 500, nullable: true })
-    imageUrl: string;
+    imageUrl?: string;
 
     @ApiProperty({
         description: 'URL pour redirection lors du clic sur la notification',
     })
     @Column({ type: 'varchar', length: 500, nullable: true })
-    actionUrl: string;
+    actionUrl?: string;
 
     @ApiProperty({ description: 'Date de création de la notification' })
     @CreateDateColumn({ name: 'created_at' })
