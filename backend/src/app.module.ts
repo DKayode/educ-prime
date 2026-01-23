@@ -42,8 +42,8 @@ import { CategoriesModule } from './categories/categories.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { ScheduleModule } from '@nestjs/schedule';
-
 import { AppVersionModule } from './app-version/app-version.module';
+import { Notification } from './notifications/entities/notification.entity';
 
 @Module({
   imports: [
@@ -77,7 +77,8 @@ import { AppVersionModule } from './app-version/app-version.module';
       Commentaire,
       Like,
       Favori,
-      Category
+      Category,
+      Notification
     ]),
     AuthModule,
     UtilisateursModule,

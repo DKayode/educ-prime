@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import { ConfigService } from '@nestjs/config';
 import * as firebaseConf from "../config/firebase-serviceaccount.json"
@@ -171,11 +171,11 @@ export class FirebaseService implements OnModuleInit {
 
         switch (error.code) {
           case 'messaging/invalid-registration-token':
-            throw new Error('Token FCM invalide. Le token peut être expiré ou mal formaté.');
+            throw new BadRequestException('Token FCM invalide. Le token peut être expiré ou mal formaté.');
           case 'messaging/registration-token-not-registered':
-            throw new Error('Token non enregistré. L\'application a peut-être été désinstallée.');
+            throw new BadRequestException('Token non enregistré. L\'application a peut-être été désinstallée.');
           case 'app/no-app':
-            throw new Error('Firebase non initialisé. Vérifiez votre configuration.');
+            throw new BadRequestException('Firebase non initialisé. Vérifiez votre configuration.');
           default:
             throw error;
         }

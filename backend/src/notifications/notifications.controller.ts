@@ -5,7 +5,10 @@ import {
   HttpCode,
   HttpStatus,
   UsePipes,
-  ValidationPipe
+  ValidationPipe,
+  Query,
+  Get,
+  Request
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
@@ -14,6 +17,7 @@ import {
   SubscribeTopicDto,
   ValidateTokenDto
 } from './dto/send-notification.dto';
+import { GetNotificationsQueryDto } from './dto/get-notifications-query.dto';
 
 @ApiTags('notifications')
 @Controller('notifications')
@@ -21,7 +25,23 @@ import {
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) { }
 
-  @Post('send')
+  @Get()
+  @ApiOperation({ summary: 'Récupérer les notifications' })
+  @ApiResponse({ status: 200, description: 'Liste des notifications' })
+  async getNotifications(
+    @Request() req,
+    @Query() query: GetNotificationsQueryDto,
+  ) {
+    return this.notificationsService.getNotifications({
+      // userId: req.user.id,
+      title: query.title,
+      body: query.body,
+      page: query.page,
+      limit: query.limit,
+    });
+  }
+
+  @Post()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Envoyer une notification push' })
   @ApiResponse({ status: 200, description: 'Notification envoyée avec succès' })

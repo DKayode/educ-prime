@@ -288,6 +288,31 @@ CREATE TABLE IF NOT EXISTS favoris (
     UNIQUE(parcours_id, utilisateur_id)
 );
 
+
+CREATE TABLE notifications (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    body TEXT NOT NULL,
+    type VARCHAR(50) DEFAULT 'other',
+    priority VARCHAR(50) DEFAULT 'normal',
+    data JSONB,
+    image_url VARCHAR(500),
+    action_url VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP,
+    sender_id INTEGER
+);
+
+ALTER TABLE notifications 
+ALTER COLUMN type DROP NOT NULL,
+ALTER COLUMN priority DROP NOT NULL,
+ALTER COLUMN data DROP NOT NULL,
+ALTER COLUMN image_url DROP NOT NULL,
+ALTER COLUMN action_url DROP NOT NULL,
+ALTER COLUMN created_at DROP NOT NULL,
+ALTER COLUMN expires_at DROP NOT NULL,
+ALTER COLUMN sender_id DROP NOT NULL;
+
 -- ------------------------------
 -- 9. CREATE DEFAULT ADMIN USER
 -- ------------------------------
