@@ -44,9 +44,9 @@ export class FirebaseService implements OnModuleInit {
 
       // Récupérer la configuration depuis les variables d'environnement
       const firebaseConfig = {
-        projectId: "educ-prime",
-        clientEmail: "firebase-adminsdk-fbsvc@educ-prime.iam.gserviceaccount.com",
-        privateKey: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC4VwfjhwWq2VR4\nVR21nc+8aQiqA6uRIZ8CLgMhUJd00olWqgpaQh7a39rNhectv61sACxi9ENuvWGO\nw0PTJNqeZNBv3ZPbCC0qQS+IEtTwD4h4PSI/ZyUtDBDtS94P/EEUH9cbMptt6lw3\nA08QtZNNqI32mhGX/Iz2d0hxxuJRnOX6em+13R2oJrQtGBUS9ZKMSznGcOe5xLhL\nTC0NG8jwOJ0rVPO4Z9+ysJbhfJ9KBa+4+cZIiZavLb54yhID5s3oTmPkLETK6SWE\nLCKD3n4t8uVz/5vSy6nkp5PeOJA5I60vxiDQTMY7xsoe4AbAE4jpnzPHQIYE1RIE\nI5EdKpS7AgMBAAECggEALxuunGqo/BxGBepaiUsnB1MgL7J4acJZzEjN6/mYevZC\nuq8Brkcvc2e5lsQdbAeL3gm9Thx2Dxq+j6k+7/p/E/NXgP7zBgp04FOAPhnx6NdP\nXMrisak+SuDGgp3cxeEFEIuCgSTRq6k0n6pszixY1IO6o8aDsH+N1n5tOQZGV+x9\nJdU4xE2xrMGq+xDVQNZb6+0d+wew5mlc7z1tMGDAKIje516d2+0tZvY57oa3RRGT\nK13TOagc0LkjizZ/HqePSOPpLD0+wRBG6lTPKa1a2Zavd+q1FiV2TDmBFacBaaA5\nYozTdBPXC/SJxVY97Gml+MQ0u5s4DwlDBEaRbZWDYQKBgQDucqXlNzKv4nXALPfG\n5MIxd5o6nm7mL8vEu6dyGJj72WOM+ION95l9C0fRCgGniElACqZZ2NK3AaVzxzPu\nfuect55P5Dp3V+Crw3sXf1EM7F9JB1xhEY0mvq0+QU2pm52Uvtb6kQcsYyy+1MOe\nKR0LLFr7WWdpdfCQPpKon3dfBwKBgQDF6MO/moI6f4K77CK/BbsaHyF32Py/t+qX\n1uYF4x34a0DNrDjUkGWRfH5Xl4QsODc0e0Hlv9Hr9F2cX6AhXKnetAhGIjVB0+Vx\nF4RTXxhoxgwLO/8r0sC8t829/p7a3dHddU111vmdhInQr+ld2W4rhy8aiKD9GM7U\n1veZnbF7rQKBgQCCeb+nNlYJAjz2hGSss75DPTPqgYkjceHpa9mLSERmAyVDHTU3\nONYHI2YPz47qMlwKrAksvsVGmKMFQGp9RXnNOnhpNPR9G1v4AQZY7DTYgnr9RgbZ\norX/DnVTzH4HofxPSUHvZ+5p7naskVXdNJgM5h9+zAQXJA8XjvXHSUMTfwKBgDzg\nV24Vmd9in5UskpeNrLrhPos9/KkAarHgEYtYDD0AyMM7KZQBAq0YzUgmPCrZ8+k5\nzNBeC7V3yl+ybnA0r6/oUu830If6JQZ/hF2cz8ZSvRurjdcuEck7BJdfvf924for\n/fK0eL3CKh4+LhuHKUNMZunTgym3Os/ve+QNxK1VAoGAYAn0eHow8KrKMzHLl6Te\nO2GanNhY0CaqdiNNVVMXMT8mQdKt6nME5iFF+bNN/mDliw1aEwA7ki46ScpiTy9c\nkkjToPkf1qggCkA8vfFYU1Mv6x0p6hgq5Q5r/kqtzJDzydHFxA9JPZX9M0sPUohO\n7o5I8MVqtiSGBzOdX3a84cU=\n-----END PRIVATE KEY-----\n",
+        projectId: firebaseConf.project_id,
+        clientEmail: firebaseConf.client_email,
+        privateKey: firebaseConf.private_key,
       };
 
       // Vérifier que toutes les variables sont présentes
