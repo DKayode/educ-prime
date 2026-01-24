@@ -295,6 +295,7 @@ CREATE TABLE notifications (
     body TEXT NOT NULL,
     type VARCHAR(50) DEFAULT 'other',
     priority VARCHAR(50) DEFAULT 'normal',
+    data JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP,
 );
