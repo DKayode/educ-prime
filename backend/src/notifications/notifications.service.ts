@@ -2,149 +2,323 @@ import { Injectable, Logger } from '@nestjs/common';
 import { FirebaseService, NotificationPayload } from '../firebase/firebase.service';
 import { SendNotificationDto } from './dto/send-notification.dto';
 import { Utilisateur } from 'src/utilisateurs/entities/utilisateur.entity';
-import { IsNull, Not, Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Notification } from './entities/notification.entity';
+import { NotificationUtilisateur } from './entities/notification-utilisateur.entity';
 import { BadRequestException } from '@nestjs/common';
+import { MarkNotificationAsReadDto } from './dto/mark-notification-read.dto';
 
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
-
-  constructor(private readonly firebaseService: FirebaseService,
+  constructor(
+    private readonly firebaseService: FirebaseService,
     @InjectRepository(Utilisateur)
     private utilisateurRepository: Repository<Utilisateur>,
     @InjectRepository(Notification)
-    private notificationRepository: Repository<Notification>,) { }
-
-  // async sendNotification(dto: SendNotificationDto) {
-  //   const payload: NotificationPayload = {
-  //     title: dto.title,
-  //     body: dto.body
-  //   };
-
-  //   if (dto.topic) {
-  //     return await this.firebaseService.sendToTopic(dto.topic, payload);
-
-  //   } else if (dto.condition) {
-  //     return await this.firebaseService.sendWithCondition(dto.condition, payload);
-
-  //   } else if (dto.tokens) {
-  //     // Si des tokens sont fournis, on les utilise directement
-  //     return await this.firebaseService.sendToTokens({
-  //       tokens: dto.tokens,
-  //       payload,
-  //     });
-
-  //   } else {
-  //     // Si aucun destinataire n'est spécifié, on récupère TOUS les tokens de la base
-  //     const allTokens = await this.getAllFcmTokens();
-  //     this.logger.log(`${allTokens} `);
-
-
-  //     if (allTokens.length === 0) {
-  //       throw new Error('Aucun token FCM trouvé dans la base de données');
-  //     }
-
-  //     this.logger.log(`Envoi à ${allTokens.length} tokens récupérés depuis la base`);
-
-  //     await this.firebaseService.sendToTokens({
-  //       tokens: allTokens,
-  //       payload,
-  //     });
-
-  //   }
-
-  //   const NotificationCreated = await this.createAndStoreNotification(dto);
-
-  //   this.logger.log(`Notification ${NotificationCreated} créer avec succès`);
-
-  //   return NotificationCreated
-  // }
+    private notificationRepository: Repository<Notification>,
+    @InjectRepository(NotificationUtilisateur)
+    private notificationUtilisateurRepository: Repository<NotificationUtilisateur>,
+  ) { }
 
   async sendNotification(dto: SendNotificationDto) {
     // 1. Créer et stocker la notification en base de données d'abord
     const notificationCreated = await this.createAndStoreNotification(dto);
     this.logger.log(`Notification ${notificationCreated.id} créée avec succès`);
 
-    // 2. Préparer le payload pour Firebase
+    // 2. Déterminer les utilisateurs destinataires
+    let utilisateurs: Utilisateur[] = [];
+    let utilisateursIds: number[] = [];
+
+    if (dto.utilisateurIds && dto.utilisateurIds.length > 0) {
+      // Cas 1: Utilisateurs spécifiques
+      utilisateurs = await this.utilisateurRepository.find({
+        where: { id: In(dto.utilisateurIds) }
+      });
+      utilisateursIds = dto.utilisateurIds;
+    } else {
+      // Cas 3: Tous les utilisateurs
+      utilisateurs = await this.utilisateurRepository.find();
+      utilisateursIds = utilisateurs.map(u => u.id);
+    }
+
+    // 3. Créer les relations dans notification_utilisateurs
+    if (utilisateursIds.length > 0) {
+      await this.createNotificationUtilisateurRelations(
+        notificationCreated.id,
+        utilisateursIds
+      );
+    }
+
+    // 4. Préparer le payload pour Firebase
     const payload: NotificationPayload = {
       title: dto.title,
       body: dto.body,
-      // Inclure l'ID de notification dans les données pour référence
       data: {
-        ...dto.data,
+        notificationId: notificationCreated.id.toString()
       },
     };
 
-    // 3. Gérer l'envoi selon le type de destinataire
-    if (dto.topic) {
-      // Envoyer au topic (en arrière-plan)
-      this.sendFirebaseNotificationAsync({
-        type: 'topic',
-        target: dto.topic,
-        payload,
-        notificationId: notificationCreated.id,
-      }).catch(error => {
-        this.logger.error(`Erreur lors de l'envoi au topic: ${error.message}`);
-      });
+    // 5. Récupérer les tokens FCM des destinataires
+    const tokens = utilisateurs
+      .map(u => u.fcm_token)
+      .filter((token): token is string =>
+        token !== null &&
+        token !== undefined &&
+        token.trim().length > 0
+      );
 
-    } else if (dto.condition) {
-      // Envoyer avec condition (en arrière-plan)
-      this.sendFirebaseNotificationAsync({
-        type: 'condition',
-        target: dto.condition,
-        payload,
-        notificationId: notificationCreated.id,
-      }).catch(error => {
-        this.logger.error(`Erreur lors de l'envoi avec condition: ${error.message}`);
-      });
-
-    } else if (dto.tokens && dto.tokens.length > 0) {
-      // Envoyer aux tokens spécifiques (en arrière-plan)
+    // 6. Envoyer la notification Firebase (en arrière-plan)
+    if (tokens.length > 0) {
       this.sendFirebaseNotificationAsync({
         type: 'tokens',
-        target: dto.tokens,
+        target: tokens,
         payload,
         notificationId: notificationCreated.id,
       }).catch(error => {
-        this.logger.error(`Erreur lors de l'envoi aux tokens: ${error.message}`);
-      });
-
-    } else {
-      // Si aucun destinataire n'est spécifié, on récupère TOUS les tokens de la base
-      const allTokens = await this.getAllFcmTokens();
-      this.logger.log(`${allTokens.length} tokens trouvés`);
-
-      if (allTokens.length === 0) {
-        // Retourner une erreur JSON sans planter l'application
-        throw new BadRequestException('Aucun token FCM trouvé dans la base de données');
-      }
-
-      this.logger.log(`Envoi à ${allTokens.length} tokens récupérés depuis la base`);
-
-      // Envoyer à tous les tokens (en arrière-plan)
-      this.sendFirebaseNotificationAsync({
-        type: 'all',
-        target: allTokens,
-        payload,
-        notificationId: notificationCreated.id,
-      }).catch(error => {
-        this.logger.error(`Erreur lors de l'envoi à tous les tokens: ${error.message}`);
+        this.logger.error(`Erreur lors de l'envoi Firebase: ${error.message}`);
       });
     }
 
-    // 4. Retourner la réponse immédiatement (sans attendre l'envoi Firebase)
+    // 7. Retourner la réponse
     return {
       success: true,
-      message: 'Notification créée avec succès, envoi en cours...',
+      message: 'Notification créée avec succès',
       notification: notificationCreated,
       notificationId: notificationCreated.id,
+      destinatairesCount: utilisateursIds.length,
     };
   }
 
-  // Méthode privée pour l'envoi asynchrone des notifications Firebase
+  /**
+   * Crée les relations entre notification et utilisateurs
+   */
+  private async createNotificationUtilisateurRelations(
+    notificationId: number,
+    utilisateurIds: number[]
+  ): Promise<void> {
+    const relations = utilisateurIds.map(utilisateurId => {
+      return this.notificationUtilisateurRepository.create({
+        notificationId,
+        utilisateurId,
+        isRead: false,
+        readAt: null,
+      });
+    });
+
+    await this.notificationUtilisateurRepository.save(relations);
+    this.logger.log(`${relations.length} relations créées pour la notification ${notificationId}`);
+  }
+
+  /**
+ * Récupère les notifications d'un utilisateur avec leur statut de lecture
+ */
+  async getUserNotifications(
+    utilisateurId: number,
+    options: {
+      read?: boolean;
+      page?: number;
+      limit?: number;
+    } = {}
+  ) {
+    const page = options.page ? Number(options.page) : 1;
+    const limit = options.limit ? Number(options.limit) : 20;
+    const offset = (page - 1) * limit;
+
+    // Construction de la requête SQL directe (évite les problèmes de relations)
+    let query = `
+      SELECT 
+        n.id,
+        n.title,
+        n.body,
+        n.type,
+        n.priority,
+        n.data,
+        n.created_at as "createdAt",
+        n.expires_at as "expiresAt",
+        n.sender_id as "senderId",
+        nu.is_read as "isRead",
+        nu.read_at as "readAt"
+      FROM notification_utilisateurs nu
+      INNER JOIN notifications n ON n.id = nu.notification_id
+      WHERE nu.utilisateur_id = $1
+    `;
+
+    const params: any[] = [utilisateurId];
+    let paramIndex = 2;
+
+    if (options.read !== undefined) {
+      query += ` AND nu.is_read = $${paramIndex}`;
+      params.push(options.read);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY n.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
+
+    // Exécuter la requête
+    const notifications = await this.notificationRepository.query(query, params);
+
+    // Compter le total
+    let countQuery = `
+      SELECT COUNT(*) as count
+      FROM notification_utilisateurs nu
+      WHERE nu.utilisateur_id = $1
+    `;
+    const countParams: any[] = [utilisateurId];
+
+    if (options.read !== undefined) {
+      countQuery += ` AND nu.is_read = $2`;
+      countParams.push(options.read);
+    }
+
+    const countResult = await this.notificationRepository.query(countQuery, countParams);
+    const total = parseInt(countResult[0].count, 10);
+
+    // Compter les non lues
+    const unreadResult = await this.notificationRepository.query(
+      `SELECT COUNT(*) as count FROM notification_utilisateurs WHERE utilisateur_id = $1 AND is_read = false`,
+      [utilisateurId]
+    );
+    const unreadCount = parseInt(unreadResult[0].count, 10);
+
+    notifications.forEach(notification => {
+      if (notification.data && typeof notification.data === 'string') {
+        try {
+          notification.data = JSON.parse(notification.data);
+        } catch (e) {
+
+        }
+      }
+    });
+
+    return {
+      notifications,
+      total,
+      page,
+      limit,
+      unreadCount,
+    };
+  }
+
+  /**
+   * Marquer une notification comme lue
+   */
+  async markNotificationAsRead(
+    utilisateurId: number,
+    dto: MarkNotificationAsReadDto
+  ): Promise<NotificationUtilisateur> {
+    const { notificationId, markAsRead = true } = dto;
+
+    // Trouver la relation
+    const relation = await this.notificationUtilisateurRepository.findOne({
+      where: {
+        notificationId,
+        utilisateurId,
+      },
+    });
+
+    if (!relation) {
+      throw new BadRequestException(
+        `Notification ${notificationId} non trouvée pour l'utilisateur ${utilisateurId}`
+      );
+    }
+
+    // Mettre à jour le statut
+    relation.isRead = markAsRead;
+    relation.readAt = markAsRead ? new Date() : null;
+
+    const updatedRelation = await this.notificationUtilisateurRepository.save(relation);
+
+    this.logger.log(
+      `Notification ${notificationId} marquée comme ${markAsRead ? 'lue' : 'non lue'} 
+       pour l'utilisateur ${utilisateurId}`
+    );
+
+    return updatedRelation;
+  }
+
+  /**
+   * Marquer toutes les notifications d'un utilisateur comme lues
+   */
+  async markAllNotificationsAsRead(utilisateurId: number): Promise<{ count: number }> {
+    const result = await this.notificationUtilisateurRepository.update(
+      {
+        utilisateurId,
+        isRead: false,
+      },
+      {
+        isRead: true,
+        readAt: new Date(),
+      }
+    );
+
+    this.logger.log(`${result.affected} notifications marquées comme lues pour l'utilisateur ${utilisateurId}`);
+
+    return { count: result.affected || 0 };
+  }
+
+  /**
+   * Récupérer le nombre de notifications non lues
+   */
+  async getUnreadCount(utilisateurId: number): Promise<{ count: number }> {
+    const count = await this.notificationUtilisateurRepository.count({
+      where: {
+        utilisateurId,
+        isRead: false,
+      },
+    });
+
+    return { count };
+  }
+
+  /**
+   * Récupérer une notification spécifique avec son statut pour un utilisateur
+   */
+  async getNotificationDetails(
+    notificationId: number,
+    utilisateurId: number
+  ): Promise<Notification & { isRead: boolean; readAt: Date | null }> {
+    const relation = await this.notificationUtilisateurRepository.findOne({
+      where: {
+        notificationId,
+        utilisateurId,
+      },
+      relations: ['notification'],
+    });
+
+    if (!relation) {
+      throw new BadRequestException(
+        `Notification ${notificationId} non trouvée pour l'utilisateur ${utilisateurId}`
+      );
+    }
+
+    return {
+      ...relation.notification,
+      isRead: relation.isRead,
+      readAt: relation.readAt,
+    };
+  }
+
+  /**
+   * Crée et stocke une notification dans la base de données
+   */
+  private async createAndStoreNotification(dto: SendNotificationDto): Promise<Notification> {
+    const notification = this.notificationRepository.create({
+      title: dto.title,
+      body: dto.body,
+      type: dto.type,
+      priority: dto.priority,
+      data: dto.data,
+      senderId: dto.senderId,
+      expiresAt: dto.expiresAt,
+    });
+
+    return await this.notificationRepository.save(notification);
+  }
+
   private async sendFirebaseNotificationAsync(params: {
     type: 'topic' | 'condition' | 'tokens' | 'all';
     target: string | string[];
@@ -235,15 +409,6 @@ export class NotificationsService {
         'notifications.createdAt'
       ]);
 
-    // Filtrer par utilisateur si spécifié
-    // if (userId) {
-    //   query.innerJoin(
-    //     'notification.notificationUtilisateurs',
-    //     'nu',
-    //     'nu.utilisateurId = :userId',
-    //     { userId }
-    //   );
-    // }
 
     // Appliquer les filtres de recherche
     if (title) {
@@ -275,120 +440,6 @@ export class NotificationsService {
     };
   }
 
-
-  /**
-   * Crée et stocke une notification dans la base de données
-   */
-  async createAndStoreNotification(dto: {
-    title: string;
-    body: string;
-  }): Promise<Notification> {
-    const notification = this.notificationRepository.create({
-      title: dto.title,
-      body: dto.body,
-    });
-
-    const savedNotification = await this.notificationRepository.save(notification);
-
-    return savedNotification;
-  }
-
-  /**
-   * Envoi de notification avec stockage préalable
-   */
-  // async sendNotification(dto: SendNotificationDto) {
-  //   // 1. D'abord, stocker la notification dans la base
-  //   const notification = await this.createAndStoreNotification({
-  //     title: dto.title,
-  //     body: dto.body,
-  //   });
-
-  //   // 2. Préparer le payload pour Firebase
-  //   const payload: NotificationPayload = {
-  //     title: dto.title,
-  //     body: dto.body,
-  //   };
-
-  //   let firebaseResult;
-
-  //   // 3. Envoyer la notification via Firebase (en arrière-plan)
-  //   this.sendFirebaseNotificationAsync({
-  //     dto,
-  //     payload,
-  //   }).catch(error => {
-  //     this.logger.error(`Erreur lors de l'envoi asynchrone: ${error.message}`);
-  //   });
-
-  //   return {
-
-  //     message: 'Notification créée avec succès, envoi en cours...',
-  //   };
-  // }
-
-  /**
-   * Envoi asynchrone des notifications Firebase (ne bloque pas le processus)
-   */
-  // private async sendFirebaseNotificationAsync(params: {
-  //   dto: SendNotificationDto;
-  //   payload: NotificationPayload;
-  // }) {
-  //   try {
-  //     const { dto, payload } = params;
-
-  //     if (dto.topic) {
-  //       await this.firebaseService.sendToTopic(dto.topic, payload);
-  //       this.logger.log(`Notification ${dto.title} envoyée au topic: ${dto.topic}`);
-
-  //     } else if (dto.condition) {
-  //       await this.firebaseService.sendWithCondition(dto.condition, payload);
-  //       this.logger.log(`Notification ${dto.title} envoyée avec condition: ${dto.condition}`);
-
-  //     } else if (dto.tokens && dto.tokens.length > 0) {
-  //       await this.firebaseService.sendToTokens({
-  //         tokens: dto.tokens,
-  //         payload,
-  //       });
-  //       this.logger.log(`Notification ${dto.title} envoyée à ${dto.tokens.length} tokens`);
-
-  //     } else {
-  //       // Récupérer tous les tokens
-  //       const allTokens = await this.getAllFcmTokens();
-
-  //       if (allTokens.length === 0) {
-  //         this.logger.warn(`Aucun token FCM trouvé pour la notification ${dto.title}`);
-  //         return;
-  //       }
-
-  //       await this.firebaseService.sendToTokens({
-  //         tokens: allTokens,
-  //         payload,
-  //       });
-  //       this.logger.log(`Notification ${dto.title} envoyée à ${allTokens.length} tokens`);
-  //     }
-
-  //     // Optionnel: Marquer la notification comme envoyée
-  //     // await this.notificationRepository.update(dto.title, {
-  //     //   data: {
-  //     //     ...dto.title,
-  //     //     firebaseSent: true,
-  //     //     sentAt: new Date(),
-  //     //   },
-  //     // });
-
-  //   } catch (error) {
-  //     this.logger.error(`Erreur Firebase pour notification ${params.dto.title}: ${error.message}`);
-
-  //     // Marquer l'erreur dans la notification
-  //     // await this.notificationRepository.update(params.dto.title, {
-  //     //   data: {
-  //     //     ...params.dto.title,
-  //     //     firebaseError: error.message,
-  //     //     firebaseSent: false,
-  //     //   },
-  //     // });
-  //   }
-  // }
-
   /**
   * Récupérer TOUS les tokens FCM depuis la table utilisateur
   */
@@ -411,11 +462,11 @@ export class NotificationsService {
       );
   }
 
-  async subscribeToTopic(tokens: string[], topic: string) {
+  async subscribeToTopic(tokens: string | string[], topic: string) {
     return await this.firebaseService.subscribeToTopic(tokens, topic);
   }
 
-  async unsubscribeFromTopic(tokens: string[], topic: string) {
+  async unsubscribeFromTopic(tokens: string | string[], topic: string) {
     return await this.firebaseService.unsubscribeFromTopic(tokens, topic);
   }
 

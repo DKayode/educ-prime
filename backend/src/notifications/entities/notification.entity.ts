@@ -108,9 +108,9 @@ export class Notification {
     )
     notificationUtilisateurs?: NotificationUtilisateur[];
 
-    // @ApiProperty({ description: 'Nombre total de destinataires' })
-    // totalRecipients?: number;
+    @ApiProperty({ description: 'Nombre total de destinataires' })
+    totalRecipients?: number;
 
-    // @ApiProperty({ description: 'Nombre de destinataires ayant lu la notification' })
-    // readCount?: number;
+    @ApiProperty({ description: 'Nombre de destinataires ayant lu la notification' })
+    readCount?: number;
 }
