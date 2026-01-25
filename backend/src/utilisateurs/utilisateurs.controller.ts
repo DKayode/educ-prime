@@ -33,6 +33,8 @@ export class UtilisateursController {
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (nom ou email)' })
   @ApiQuery({ name: 'role', required: false, enum: RoleType, description: 'Filtrer par rôle' })
+  @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Champ de tri (ex: date_creation, filleuls)' })
+  @ApiQuery({ name: 'sort_order', required: false, enum: ['ASC', 'DESC'], description: 'Ordre de tri' })
   async findAll(@Query() filterDto: FilterUtilisateurDto) {
     return this.utilisateursService.findAll(filterDto);
   }

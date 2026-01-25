@@ -1,7 +1,7 @@
-import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import { ConfigService } from '@nestjs/config';
-import * as firebaseConf from "../config/firebase-serviceaccount.json"
+import { FirebaseConfig } from '../config/firebase.config';
 
 export interface NotificationPayload {
   title: string;
@@ -20,66 +20,19 @@ export interface SendNotificationOptions {
 }
 
 @Injectable()
-export class FirebaseService implements OnModuleInit {
+export class FirebaseService {
   private readonly logger = new Logger(FirebaseService.name);
-  private isInitialized = false;
 
-  constructor(private readonly configService: ConfigService) { }
-
-  async onModuleInit() {
-    await this.initializeFirebase();
-  }
-
-  /**
-   * Initialise Firebase Admin SDK
-   */
-  private async initializeFirebase(): Promise<void> {
-    try {
-      // Vérifier si Firebase est déjà initialisé
-      if (admin.apps.length > 0) {
-        this.logger.log('Firebase déjà initialisé');
-        this.isInitialized = true;
-        return;
-      }
-
-      // Récupérer la configuration depuis les variables d'environnement
-      const firebaseConfig = {
-        projectId: firebaseConf.project_id,
-        clientEmail: firebaseConf.client_email,
-        privateKey: firebaseConf.private_key,
-      };
-
-      // Vérifier que toutes les variables sont présentes
-      if (!firebaseConfig.projectId || !firebaseConfig.clientEmail || !firebaseConfig.privateKey) {
-        throw new Error(
-          'Configuration Firebase manquante. Vérifiez FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL et FIREBASE_PRIVATE_KEY dans vos variables d\'environnement.'
-        );
-      }
-
-      // Initialiser Firebase
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: firebaseConfig.projectId,
-          clientEmail: firebaseConfig.clientEmail,
-          privateKey: firebaseConfig.privateKey.replace(/\n/g, '\\n'),
-        }),
-      });
-
-      this.isInitialized = true;
-      this.logger.log('✅ Firebase Admin SDK initialisé avec succès');
-      this.logger.debug(`Projet: ${firebaseConfig.projectId}`);
-
-    } catch (error) {
-      this.logger.error('❌ Erreur lors de l\'initialisation de Firebase:', error);
-      throw error;
-    }
-  }
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly firebaseConfig: FirebaseConfig,
+  ) { }
 
   /**
    * Vérifier que Firebase est initialisé
    */
   private checkInitialization(): void {
-    if (!this.isInitialized || admin.apps.length === 0) {
+    if (admin.apps.length === 0) {
       throw new Error('Firebase Admin SDK non initialisé. Assurez-vous que la configuration Firebase est correcte.');
     }
   }

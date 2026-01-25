@@ -31,7 +31,7 @@ export default function Parrainages() {
             search: debouncedSearchQuery || undefined,
             page,
             limit,
-            sort_by: 'date_creation',
+            sort_by: 'filleuls',
             sort_order: 'DESC'
         }),
     });

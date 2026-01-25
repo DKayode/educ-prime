@@ -28,7 +28,7 @@ export class ConcoursService {
   }
 
   async findAll(filterDto: FilterConcoursDto): Promise<PaginationResponse<Concours>> {
-    const { page = 1, limit = 10, search, annee, sort_by = 'annee', sort_order = 'DESC' } = filterDto;
+    const { page = 1, limit = 10, search, annee, sort_by = 'titre', sort_order = 'ASC' } = filterDto;
     this.logger.log(`Récupération des concours - filtres: ${JSON.stringify(filterDto)}`);
 
     const queryBuilder = this.concoursRepository.createQueryBuilder('concours');

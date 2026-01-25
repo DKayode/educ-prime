@@ -19,7 +19,7 @@ export class FilterUtilisateurDto extends PaginationDto {
     activated?: boolean;
 
     @IsOptional()
-    @ApiPropertyOptional({ description: 'Champ de tri (ex: date_creation)', required: false })
+    @ApiPropertyOptional({ description: 'Champ de tri (ex: date_creation, filleuls)', required: false })
     @IsString()
     sort_by?: string;
 
