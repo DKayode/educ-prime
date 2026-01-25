@@ -29,9 +29,10 @@ export class AuthController {
     return this.authService.refreshAccessToken(refreshTokenDto.refresh_token);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('deconnexion')
   async logout(@Request() req) {
-    const userId = req.user.utilisateurId;
+    const userId = req.user?.utilisateurId;
     const token = req.headers.authorization?.split(' ')[1];
 
     await this.authService.revokeRefreshToken(userId);
