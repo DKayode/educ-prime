@@ -32,6 +32,7 @@ export interface Notification {
 export interface SendNotificationDto {
     title: string;
     body: string;
+    utilisateurIds?: number[];
     tokens?: string[];
     topic?: string;
     condition?: string;

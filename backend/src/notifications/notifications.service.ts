@@ -357,19 +357,26 @@ export class NotificationsService {
       }
 
       // Marquer comme envoyée dans la base de données (optionnel)
+      // Marquer comme envoyée dans la base de données (optionnel)
+      // Note: On ne peut pas mettre à jour "notificationId" car ce n'est pas une colonne
+      // On met à jour seulement le champ "data" si nécessaire
+      /*
       await this.notificationRepository.update(notificationId, {
-        ...payload.data
+        data: payload.data
       });
+      */
 
     } catch (error) {
       this.logger.error(`Erreur Firebase pour notification ${params.notificationId}: ${error.message}`);
 
       // Enregistrer l'erreur dans la base de données (optionnel)
+      // Enregistrer l'erreur dans la base de données (optionnel)
+      // On doit récupérer l'objet data existant idéalement, ou écraser.
+      // Ici on met à jour le champ data.
       await this.notificationRepository.update(params.notificationId, {
         data: {
           ...params.payload.data,
           firebaseError: error.message,
-          // firebaseSent: false,
         },
       });
 
