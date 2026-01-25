@@ -10,7 +10,8 @@ import { NotificationUtilisateur } from 'src/notifications/entities/notification
 export enum RoleType {
   ADMIN = 'admin',
   ETUDIANT = 'étudiant',
-  PROFESSEUR = 'professeur'
+  PROFESSEUR = 'professeur',
+  AUTRE = 'autre'
 }
 
 export enum SexeType {

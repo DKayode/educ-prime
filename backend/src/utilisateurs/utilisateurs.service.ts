@@ -213,6 +213,14 @@ export class UtilisateursService {
     // Sorting
     if (sort_by === 'date_creation') {
       queryBuilder.orderBy('utilisateur.date_creation', sort_order || 'DESC');
+    } else if (sort_by === 'filleuls') {
+      queryBuilder.addSelect((subQuery) => {
+        return subQuery
+          .select('COUNT(sub_u.id)', 'count')
+          .from(Utilisateur, 'sub_u')
+          .where('sub_u.parrain_id = utilisateur.id');
+      }, 'filleuls_count');
+      queryBuilder.orderBy('filleuls_count', sort_order || 'DESC');
     } else {
       // Default sort by ID (or whatever was default before, usually ID implicitly or creation order)
       queryBuilder.orderBy('utilisateur.id', sort_order || 'ASC');

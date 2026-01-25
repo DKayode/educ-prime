@@ -34,8 +34,8 @@ export class ConcoursController {
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche textuelle (Titre ou Lieu)' })
   @ApiQuery({ name: 'annee', required: false, type: Number, description: 'Filtrer par année' })
-  @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Trier par (annee, titre)' })
-  @ApiQuery({ name: 'sort_order', required: false, type: String, description: 'Ordre de tri (ASC, DESC)' })
+  @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Trier par (annee, titre) [Default: titre]' })
+  @ApiQuery({ name: 'sort_order', required: false, type: String, description: 'Ordre de tri (ASC, DESC) [Default: ASC]' })
   findAll(@Query() filterDto: FilterConcoursDto) {
     return this.concoursService.findAll(filterDto);
   }
