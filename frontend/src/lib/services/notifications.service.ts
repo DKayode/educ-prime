@@ -6,7 +6,7 @@ export const notificationsService = {
      * Envoyer une notification (Admin)
      */
     send: async (data: SendNotificationDto) => {
-        return api.post('/notifications/send', data);
+        return api.post('/notifications', data);
     },
 
     /**

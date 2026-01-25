@@ -149,6 +149,10 @@ export class CommentairesService {
     // 📦 Récupération des données
     const [data, total] = await qb.getManyAndCount();
 
+    // const commentairesCount = await this.commentaireRepository.count({
+    //   where: { parent_id: commentaire.id },
+    // });
+
     // 🔢 Compter le nombre de réponses pour chaque commentaire
     const commentairesWithCounts = await Promise.all(
       data.map(async commentaire => {
@@ -156,9 +160,12 @@ export class CommentairesService {
           where: { parent_id: commentaire.id },
         });
 
+        // const likesCount = commentaire.likes?.filter(like => like.type == "like").length || 0
+
         return {
           ...commentaire,
           enfantsCount,
+          // likesCount
         };
       }),
     );

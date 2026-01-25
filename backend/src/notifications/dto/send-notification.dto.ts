@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsArray, IsObject, ValidateIf } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsArray, IsEnum, IsOptional, IsString, IsNumber, IsObject, IsDateString } from 'class-validator';
+import { NotificationType, NotificationPriority } from '../entities/notification.entity';
 
 export class SendNotificationDto {
   @ApiProperty({ description: 'Titre de la notification' })
@@ -11,61 +12,80 @@ export class SendNotificationDto {
   body: string;
 
   @ApiProperty({
-    description: 'Token(s) FCM du/des destinataire(s)',
-    oneOf: [
-      { type: 'string' },
-      { type: 'array', items: { type: 'string' } }
-    ]
+    description: 'IDs des utilisateurs destinataires',
+    required: false,
+    type: [Number]
   })
-  @ValidateIf(o => !o.topic && !o.condition)
-  tokens?: string | string[];
+  @IsArray()
+  @IsNumber({}, { each: true })
+  @IsOptional()
+  utilisateurIds?: number[];
 
   @ApiProperty({
-    description: 'Topic pour l\'envoi groupé',
+    description: 'Topic Firebase',
     required: false
   })
-  @IsOptional()
   @IsString()
+  @IsOptional()
   topic?: string;
 
   @ApiProperty({
-    description: 'Condition pour l\'envoi ciblé',
+    description: 'Condition Firebase',
     required: false
   })
-  @IsOptional()
   @IsString()
+  @IsOptional()
   condition?: string;
 
   @ApiProperty({
-    description: 'Données supplémentaires',
-    required: false
+    description: 'Tokens FCM spécifiques',
+    required: false,
+    type: [String]
   })
-  @IsOptional()
-  @IsObject()
-  data?: Record<string, string>;
-
-  @ApiProperty({
-    description: 'URL de l\'image à afficher',
-    required: false
-  })
-  @IsOptional()
-  @IsString()
-  imageUrl?: string;
-}
-
-export class SubscribeTopicDto {
-  @ApiProperty({ description: 'Token(s) FCM à abonner' })
   @IsArray()
   @IsString({ each: true })
-  tokens: string[];
+  @IsOptional()
+  tokens?: string | string[];
 
-  @ApiProperty({ description: 'Topic auquel s\'abonner' })
-  @IsString()
-  topic: string;
-}
+  @ApiProperty({
+    description: 'Type de notification',
+    enum: NotificationType,
+    required: false
+  })
+  @IsEnum(NotificationType)
+  @IsOptional()
+  type?: NotificationType;
 
-export class ValidateTokenDto {
-  @ApiProperty({ description: 'Token FCM à valider' })
-  @IsString()
-  token: string;
+  @ApiProperty({
+    description: 'Priorité de la notification',
+    enum: NotificationPriority,
+    required: false
+  })
+  @IsEnum(NotificationPriority)
+  @IsOptional()
+  priority?: NotificationPriority;
+
+  @ApiProperty({
+    description: 'Données supplémentaires au format JSON',
+    required: false
+  })
+  @IsObject()
+  @IsOptional()
+  data?: Record<string, any>;
+
+  @ApiProperty({
+    description: 'ID de l\'utilisateur émetteur',
+    required: false
+  })
+  @IsNumber()
+  @IsOptional()
+  senderId?: number;
+
+  @ApiProperty({
+    description: 'Date d\'expiration de la notification',
+    required: false
+  })
+  @IsDateString()
+  @IsOptional()
+  expiresAt?: Date;
 }

@@ -318,4 +318,35 @@ CREATE TABLE IF NOT EXISTS app_versions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+-- Supprimer d'abord les tables si elles existent (attention: supprime les données)
+DROP TABLE IF EXISTS notification_utilisateurs CASCADE;
+DROP TABLE IF EXISTS notifications CASCADE;
+
+
+-- Recréer les tables
+CREATE TABLE notifications (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    body TEXT NOT NULL,
+    type VARCHAR(50) DEFAULT 'other' CHECK (type IN ('system', 'comment', 'like', 'parcours', 'follow', 'other')),
+    priority VARCHAR(50) DEFAULT 'normal' CHECK (priority IN ('high', 'normal', 'low')),
+    data JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP,
+    sender_id INTEGER
+);
+
+CREATE TABLE notification_utilisateurs (
+    id SERIAL PRIMARY KEY,
+    notification_id INTEGER NOT NULL,
+    utilisateur_id INTEGER NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    read_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE,
+    FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    
+    UNIQUE (notification_id, utilisateur_id)
+);
 

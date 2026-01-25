@@ -1,5 +1,3 @@
-// src/notifications/entities/notification-utilisateur.entity.ts
-
 import { ApiProperty } from '@nestjs/swagger';
 import { Utilisateur } from 'src/utilisateurs/entities/utilisateur.entity';
 import { Notification } from './notification.entity';
@@ -37,7 +35,6 @@ export class NotificationUtilisateur {
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
 
-    // Relations
     @ManyToOne(() => Notification, (notification) => notification.notificationUtilisateurs, {
         onDelete: 'CASCADE',
     })
