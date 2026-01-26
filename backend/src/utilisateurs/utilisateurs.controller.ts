@@ -5,6 +5,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiConsumes, ApiBody, Api
 import { UtilisateursService } from './utilisateurs.service';
 import { InscriptionDto } from './dto/inscription.dto';
 import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
+import { UpdateProfilDto } from './dto/update-profil.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -76,10 +77,19 @@ export class UtilisateursController {
     return this.utilisateursService.getReferralCode(userId);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Put()
+  @ApiOperation({ summary: 'Mettre à jour son propre profil' })
+  @ApiResponse({ status: 200, description: 'Profil mis à jour avec succès' })
+  async updateProfile(@Request() req, @Body() updateProfilDto: UpdateProfilDto) {
+    const userId = req.user.utilisateurId;
+    return this.utilisateursService.update(userId, updateProfilDto);
+  }
+
   @UseGuards(JwtAuthGuard, OwnerOrAdminGuard)
   @Put(':id')
-  async update(@Param('id') id: string, @Body() majUtilisateurDto: MajUtilisateurDto) {
-    return this.utilisateursService.update(id, majUtilisateurDto);
+  async update(@Param('id') id: string, @Body() updateProfilDto: UpdateProfilDto) {
+    return this.utilisateursService.update(id, updateProfilDto);
   }
 
   @UseGuards(JwtAuthGuard, OwnerOrAdminGuard)
