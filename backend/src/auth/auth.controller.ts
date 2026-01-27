@@ -8,6 +8,9 @@ import { AppareilType } from './entities/refresh-token.entity';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
@@ -31,6 +34,9 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('deconnexion')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Déconnexion de l\'utilisateur' })
+  @ApiResponse({ status: 200, description: 'Déconnexion réussie' })
   async logout(@Request() req) {
     const userId = req.user?.utilisateurId;
     const token = req.headers.authorization?.split(' ')[1];

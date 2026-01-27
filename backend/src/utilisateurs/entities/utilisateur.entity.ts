@@ -75,13 +75,22 @@ export class Utilisateur {
   @Column({ type: 'enum', enum: RoleType })
   role: RoleType;
 
+  @Column({ nullable: true })
+  etablissement_id: number;
+
   @ManyToOne(() => Etablissement, { nullable: true })
   @JoinColumn({ name: 'etablissement_id' })
   etablissement: Etablissement;
 
+  @Column({ nullable: true })
+  filiere_id: number;
+
   @ManyToOne(() => Filiere, { nullable: true })
   @JoinColumn({ name: 'filiere_id' })
   filiere: Filiere;
+
+  @Column({ nullable: true })
+  niveau_etude_id: number;
 
   @ManyToOne(() => NiveauEtude, { nullable: true })
   @JoinColumn({ name: 'niveau_etude_id' })
