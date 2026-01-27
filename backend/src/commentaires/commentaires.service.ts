@@ -75,41 +75,38 @@ export class CommentairesService {
     const { page, limit, ...filters } = query;
     const skip = (page - 1) * limit;
 
+    // Requête principale pour les commentaires parents
     const qb = this.commentaireRepository
       .createQueryBuilder('commentaire')
-      .leftJoin('commentaire.parcours', 'parcours')
+      .leftJoinAndSelect('commentaire.utilisateur', 'utilisateur')
+      .leftJoinAndSelect('commentaire.parcours', 'parcours')
+      .leftJoinAndSelect('commentaire.likes', 'likes')
       .leftJoin('commentaire.parent', 'parent')
-      .leftJoin('commentaire.utilisateur', 'utilisateur')
-      .leftJoin('commentaire.likes', 'likes')
-      .select([
-        // Commentaire
-        'commentaire.id',
-        'commentaire.contenu',
-        'commentaire.date_commentaire',
-        'commentaire.parent_id',
-        'commentaire.parcours_id',
-
-
-        'parcours.id',
-        'parcours.titre',
-
-        // Parent
+      .addSelect([
         'parent.id',
-
-
+        'parent.contenu',
+        'parent.date_commentaire'
+      ])
+      // Compte le nombre d'enfants (réponses)
+      .loadRelationCountAndMap('commentaire.enfantsCount', 'commentaire.enfants')
+      // Compte SEULEMENT les likes de type 'like' (pas les dislikes)
+      .loadRelationCountAndMap('commentaire.likesCount', 'commentaire.likes', 'like',
+        qb => qb.andWhere('like.type = :likeType', { likeType: 'like' }))
+      .select([
+        'commentaire',
         'utilisateur.id',
         'utilisateur.nom',
         'utilisateur.prenom',
         'utilisateur.photo',
         'utilisateur.email',
-
-        'utilisateur.prenom',
-        'utilisateur.photo',
-        'utilisateur.email',
-
+        'parcours.id',
+        'parcours.titre',
+        'likes.id',
+        'likes.type', // Important pour filtrer côté client si besoin
+        'likes.utilisateur_id',
+        'likes.commentaire_id'
       ]);
 
-    // 🔎 Filtres
     if (filters.parcours_id) {
       qb.andWhere('commentaire.parcours_id = :parcours_id', {
         parcours_id: filters.parcours_id,
@@ -131,47 +128,23 @@ export class CommentairesService {
         });
       }
     } else {
-
       qb.andWhere('commentaire.parent_id IS NULL');
     }
 
     if (filters.date_commentaire) {
-      qb.andWhere('commentaire.date_commentaire = :date_commentaire', {
+      qb.andWhere('DATE(commentaire.date_commentaire) = DATE(:date_commentaire)', {
         date_commentaire: filters.date_commentaire,
       });
     }
 
-    // 📄 Tri + pagination
-    qb.orderBy(`commentaire.${filters.sortBy}`, filters.order)
+    qb.orderBy(`commentaire.${filters.sortBy || 'date_commentaire'}`, filters.order || 'DESC')
       .skip(skip)
       .take(limit);
 
-    // 📦 Récupération des données
     const [data, total] = await qb.getManyAndCount();
 
-    // const commentairesCount = await this.commentaireRepository.count({
-    //   where: { parent_id: commentaire.id },
-    // });
-
-    // 🔢 Compter le nombre de réponses pour chaque commentaire
-    const commentairesWithCounts = await Promise.all(
-      data.map(async commentaire => {
-        const enfantsCount = await this.commentaireRepository.count({
-          where: { parent_id: commentaire.id },
-        });
-
-        // const likesCount = commentaire.likes?.filter(like => like.type == "like").length || 0
-
-        return {
-          ...commentaire,
-          enfantsCount,
-          // likesCount
-        };
-      }),
-    );
-
     return {
-      data: commentairesWithCounts,
+      data,
       meta: {
         page,
         limit,

@@ -23,6 +23,26 @@ export class NotificationsService {
     private notificationUtilisateurRepository: Repository<NotificationUtilisateur>,
   ) { }
 
+  // emitParcoursNotifEvent(event: ParcoursNotifEvent) {
+  //   this.eventEmitter.emit(NotificationEventType.PARCOURS_CREATED, event);
+  //   this.logger.debug(`Événement émis: ${NotificationEventType.PARCOURS_CREATED}`, event);
+  // }
+
+  // emitEvenementNotifEvent(event: EvenementNotifEvent) {
+  //   this.eventEmitter.emit(NotificationEventType.EVENEMENTS_CREATED, event);
+  //   this.logger.debug(`Événement émis: ${NotificationEventType.EVENEMENTS_CREATED}`, event);
+  // }
+
+  // emitOpportuniteNotifEvent(event: OpportuniteNotifEvent) {
+  //   this.eventEmitter.emit(NotificationEventType.OPPORTUNITEES_CREATED, event);
+  //   this.logger.debug(`Événement émis: ${NotificationEventType.OPPORTUNITEES_CREATED}`, event);
+  // }
+
+  // emitConcoursNotifEvent(event: ConcoursNotifEvent) {
+  //   this.eventEmitter.emit(NotificationEventType.CONCOURS_CREATED, event);
+  //   this.logger.debug(`Événement émis: ${NotificationEventType.CONCOURS_CREATED}`, event);
+  // }
+
   async sendNotification(dto: SendNotificationDto) {
     // 1. Créer et stocker la notification en base de données d'abord
     const notificationCreated = await this.createAndStoreNotification(dto);

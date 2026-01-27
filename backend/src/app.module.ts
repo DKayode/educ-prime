@@ -44,6 +44,7 @@ import { FirebaseModule } from './firebase/firebase.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppVersionModule } from './app-version/app-version.module';
 import { Notification } from './notifications/entities/notification.entity';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -102,6 +103,7 @@ import { Notification } from './notifications/entities/notification.entity';
     NotificationsModule,
     FirebaseModule,
     AppVersionModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
