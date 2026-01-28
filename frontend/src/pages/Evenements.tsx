@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Calendar, Plus, Pencil, Trash2, Loader2, X, Search } from "lucide-react";
+import { Calendar, Plus, Pencil, Trash2, Loader2, X, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { evenementsService, type Evenement } from "@/lib/services/evenements.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { API_URL } from "@/lib/api";
@@ -73,17 +73,22 @@ export default function Evenements() {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [previewTitle, setPreviewTitle] = useState("");
     const [imageVersion, setImageVersion] = useState(Date.now());
+    const [page, setPage] = useState(1);
+    const [limit] = useState(10);
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
     const { data: evenementsResponse, isLoading } = useQuery({
-        queryKey: ["evenements", debouncedSearch],
+        queryKey: ["evenements", debouncedSearch, page, limit],
         queryFn: () => evenementsService.getAll({
-            search: debouncedSearch || undefined
+            search: debouncedSearch || undefined,
+            page,
+            limit
         }),
         placeholderData: keepPreviousData,
     });
     const evenements = evenementsResponse?.data || [];
+    const totalPages = evenementsResponse?.totalPages || 1;
 
     const createMutation = useMutation({
         mutationFn: (data: EvenementFormData) => evenementsService.create(data),
@@ -467,6 +472,30 @@ export default function Evenements() {
                         </Table>
                     )}
                 </CardContent>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-center space-x-2 py-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page === 1}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            Page {page} sur {totalPages}
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                            disabled={page === totalPages}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
             </Card>
 
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -630,6 +659,6 @@ export default function Evenements() {
                     </div>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     );
 }

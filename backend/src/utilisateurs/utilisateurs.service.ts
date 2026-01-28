@@ -243,9 +243,9 @@ export class UtilisateursService {
     if (search) {
       queryBuilder.andWhere(
         new Brackets((qb) => {
-          qb.where('utilisateur.nom ILIKE :search', { search: `%${search}%` })
-            .orWhere('utilisateur.email ILIKE :search', { search: `%${search}%` })
-            .orWhere('utilisateur.pseudo ILIKE :search', { search: `%${search}%` });
+          qb.where('unaccent(utilisateur.nom) ILIKE unaccent(:search)', { search: `%${search}%` })
+            .orWhere('unaccent(utilisateur.email) ILIKE unaccent(:search)', { search: `%${search}%` })
+            .orWhere('unaccent(utilisateur.pseudo) ILIKE unaccent(:search)', { search: `%${search}%` });
         }),
       );
     }

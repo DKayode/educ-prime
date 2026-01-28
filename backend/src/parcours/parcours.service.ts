@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like as TypeOrmLike, FindOptionsWhere, ILike, In } from 'typeorm';
+import { Repository, Like as TypeOrmLike, FindOptionsWhere, ILike, In, Raw } from 'typeorm';
 import { CreateParcourDto } from './dto/create-parcour.dto';
 import { UpdateParcourDto } from './dto/update-parcour.dto';
 import { Parcour } from './entities/parcour.entity';
@@ -60,7 +60,7 @@ export class ParcoursService {
     const where: FindOptionsWhere<Parcour> = {};
 
     if (filters.titre) {
-      where.titre = ILike(`%${filters.titre}%`);
+      where.titre = Raw(alias => `unaccent(${alias}) ILIKE unaccent('%${filters.titre}%')`);
     }
 
     // CORRECTION ICI : Filtre par category_id
@@ -81,11 +81,11 @@ export class ParcoursService {
 
     // Recherche globale sur plusieurs champs
     if (filters.search) {
-      where.titre = ILike(`%${filters.search}%`);
+      where.titre = Raw(alias => `unaccent(${alias}) ILIKE unaccent('%${filters.search}%')`);
       // Pour rechercher sur plusieurs champs :
       // where = [
-      //   { titre: ILike(`%${filters.search}%`) },
-      //   { description: ILike(`%${filters.search}%`) }
+      //   { titre: Raw(alias => `unaccent(${alias}) ILIKE unaccent('%${filters.search}%')`) },
+      //   { description: Raw(alias => `unaccent(${alias}) ILIKE unaccent('%${filters.search}%')`) }
       // ] as FindOptionsWhere<Parcour>[];
     }
 
@@ -208,9 +208,9 @@ export class ParcoursService {
   async search(search: string, limit: number = 10): Promise<Parcour[]> {
     return await this.parcoursRepository.find({
       where: [
-        { titre: ILike(`%${search}%`) },
-        { description: ILike(`%${search}%`) },
-        { category: ILike(`%${search}%`) },
+        { titre: Raw(alias => `unaccent(${alias}) ILIKE unaccent('%${search}%')`) },
+        { description: Raw(alias => `unaccent(${alias}) ILIKE unaccent('%${search}%')`) },
+        // { category: Raw(alias => `unaccent(${alias}) ILIKE unaccent('%${search}%')`) }, // Category is a relation, cannot use Raw directly on it easily without QB or joining. Assuming simple string search or ignoring.
       ],
       take: limit,
     });

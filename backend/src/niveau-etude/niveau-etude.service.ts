@@ -43,8 +43,8 @@ export class NiveauEtudeService {
     if (search) {
       queryBuilder.andWhere(
         new Brackets((qb) => {
-          qb.where('niveau.nom ILIKE :search', { search: `%${search}%` })
-            .orWhere('filiere.nom ILIKE :search', { search: `%${search}%` });
+          qb.where('unaccent(niveau.nom) ILIKE unaccent(:search)', { search: `%${search}%` })
+            .orWhere('unaccent(filiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
         }),
       );
     }
@@ -162,7 +162,7 @@ export class NiveauEtudeService {
       .select('COUNT(DISTINCT(niveau.nom))', 'count');
 
     if (search) {
-      countQuery.where('niveau.nom ILIKE :search', { search: `%${search}%` });
+      countQuery.where('unaccent(niveau.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
     }
 
     const countResult = await countQuery.getRawOne();
@@ -176,7 +176,7 @@ export class NiveauEtudeService {
       .offset((page - 1) * limit);
 
     if (search) {
-      namesQuery.where('niveau.nom ILIKE :search', { search: `%${search}%` });
+      namesQuery.where('unaccent(niveau.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
     }
 
     const rawNames = await namesQuery.getRawMany();

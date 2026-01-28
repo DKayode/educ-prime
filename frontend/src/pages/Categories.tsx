@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Layers, Plus, Pencil, Trash2, Loader2, Search, X } from "lucide-react";
+import { Layers, Plus, Pencil, Trash2, Loader2, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { categoriesService, type Category } from "@/lib/services/categories.service";
 import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -65,15 +65,22 @@ export default function Categories() {
     const [isUploading, setIsUploading] = useState(false);
     const [search, setSearch] = useState("");
     const debouncedSearch = useDebounce(search, 500);
+    const [page, setPage] = useState(1);
+    const [limit] = useState(10);
 
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
     const { data: categoriesResponse, isLoading } = useQuery({
-        queryKey: ["categories", debouncedSearch],
-        queryFn: () => categoriesService.getAll({ search: debouncedSearch }),
+        queryKey: ["categories", debouncedSearch, page, limit],
+        queryFn: () => categoriesService.getAll({
+            search: debouncedSearch,
+            page,
+            limit
+        }),
     });
     const categories = categoriesResponse?.data || [];
+    const totalPages = categoriesResponse?.totalPages || 1;
 
     // Safe object URL management
     useEffect(() => {
@@ -356,6 +363,30 @@ export default function Categories() {
                     }
                 </CardContent>
             </Card>
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-center space-x-2 py-4">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        Page {page} sur {totalPages}
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
 
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent className="max-w-[500px]">

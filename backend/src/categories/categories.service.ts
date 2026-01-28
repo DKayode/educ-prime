@@ -60,7 +60,7 @@ export class CategoriesService {
     // Appliquer les filtres
     if (search) {
       queryBuilder.where(
-        '(category.nom LIKE :search OR category.description LIKE :search)',
+        '(unaccent(category.nom) ILIKE unaccent(:search) OR unaccent(category.description) ILIKE unaccent(:search))',
         { search: `%${search}%` }
       );
     }

@@ -35,7 +35,7 @@ export class ConcoursService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(concours.titre ILIKE :search OR concours.lieu ILIKE :search)',
+        '(unaccent(concours.titre) ILIKE unaccent(:search) OR unaccent(concours.lieu) ILIKE unaccent(:search))',
         { search: `%${search}%` }
       );
     }
@@ -46,7 +46,7 @@ export class ConcoursService {
 
     // Sorting
     const sortByColumn = sort_by === 'titre' ? 'concours.titre' : 'concours.annee';
-    queryBuilder.orderBy(sortByColumn, sort_order as 'ASC' | 'DESC');
+    queryBuilder.orderBy(sortByColumn, 'ASC');
 
     // If sorting by titre, add secondary sort by date/id for stability if needed, or leave as simple sort
     if (sort_by === 'titre') {

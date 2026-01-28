@@ -419,13 +419,13 @@ export class NotificationsService {
 
     // Appliquer les filtres de recherche
     if (title) {
-      query.andWhere('notifications.title ILIKE :title', {
+      query.andWhere('unaccent(notifications.title) ILIKE unaccent(:title)', {
         title: `%${title}%`
       });
     }
 
     if (body) {
-      query.andWhere('notifications.body ILIKE :body', {
+      query.andWhere('unaccent(notifications.body) ILIKE unaccent(:body)', {
         body: `%${body}%`
       });
     }

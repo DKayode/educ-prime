@@ -61,8 +61,8 @@ export class EpreuvesService {
     if (search) {
       queryBuilder.andWhere(
         new Brackets((qb) => {
-          qb.where('epreuve.titre ILIKE :search', { search: `%${search}%` })
-            .orWhere('matiere.nom ILIKE :search', { search: `%${search}%` });
+          qb.where('unaccent(epreuve.titre) ILIKE unaccent(:search)', { search: `%${search}%` })
+            .orWhere('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
         }),
       );
     }

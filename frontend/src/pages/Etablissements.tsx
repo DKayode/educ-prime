@@ -94,6 +94,7 @@ export default function Etablissements() {
     placeholderData: keepPreviousData,
   });
   const etablissements = etablissementsResponse?.data || [];
+  const totalPages = etablissementsResponse?.totalPages || 1;
 
   const createMutation = useMutation({
     mutationFn: (data: EtablissementFormData) => etablissementsService.create(data),

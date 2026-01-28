@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Users, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { contactsProfessionnelsService, type ContactsProfessionnel } from "@/lib/services/contacts-professionnels.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,15 +35,18 @@ export default function ContactsProfessionnels() {
         reseaux_sociaux: {},
         actif: true,
     });
+    const [page, setPage] = useState(1);
+    const [limit] = useState(10);
 
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
     const { data: contactsResponse, isLoading } = useQuery({
-        queryKey: ["contacts-professionnels"],
-        queryFn: () => contactsProfessionnelsService.getAll(),
+        queryKey: ["contacts-professionnels", page, limit],
+        queryFn: () => contactsProfessionnelsService.getAll({ page, limit }),
     });
     const contacts = contactsResponse?.data || [];
+    const totalPages = contactsResponse?.totalPages || 1;
 
     const createMutation = useMutation({
         mutationFn: (data: ContactFormData) => contactsProfessionnelsService.create(data),
@@ -195,6 +198,30 @@ export default function ContactsProfessionnels() {
                         </Table>
                     )}
                 </CardContent>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-center space-x-2 py-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page === 1}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            Page {page} sur {totalPages}
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                            disabled={page === totalPages}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
             </Card>
 
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -234,6 +261,6 @@ export default function ContactsProfessionnels() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div>
+        </div >
     );
 }
