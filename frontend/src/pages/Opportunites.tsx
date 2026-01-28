@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Briefcase, Plus, Pencil, Trash2, Loader2, Search } from "lucide-react";
+import { Briefcase, Plus, Pencil, Trash2, Loader2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { opportunitesService, type Opportunite, type OpportuniteType } from "@/lib/services/opportunites.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { API_URL } from "@/lib/api";
@@ -39,6 +39,8 @@ export default function Opportunites() {
     const [sortBy, setSortBy] = useState<"date" | "name">("date");
     const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
     const [filterActif, setFilterActif] = useState<string>("ALL"); // "ALL", "true", "false"
+    const [page, setPage] = useState(1);
+    const [limit] = useState(10);
 
     const debouncedSearch = useDebounce(searchTerm, 500);
 
@@ -64,17 +66,20 @@ export default function Opportunites() {
     const queryClient = useQueryClient();
 
     const { data: opportunitesResponse, isLoading, isPlaceholderData } = useQuery({
-        queryKey: ["opportunites", debouncedSearch, searchType, sortBy, sortOrder, filterActif],
+        queryKey: ["opportunites", debouncedSearch, searchType, sortBy, sortOrder, filterActif, page, limit],
         queryFn: () => opportunitesService.getAll({
             search: debouncedSearch || undefined,
             type: searchType === "ALL" ? undefined : searchType,
             sort_by: sortBy,
             sort_order: sortOrder,
             actif: filterActif === "ALL" ? undefined : filterActif === "true",
+            page,
+            limit,
         }),
         placeholderData: keepPreviousData,
     });
     const opportunites = opportunitesResponse?.data || [];
+    const totalPages = opportunitesResponse?.totalPages || 1;
 
     const createMutation = useMutation({
         mutationFn: (data: OpportuniteFormData) => opportunitesService.create(data),
@@ -430,6 +435,30 @@ export default function Opportunites() {
                                 ))}
                             </TableBody>
                         </Table>
+                    )}
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-center space-x-2 py-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                Page {page} sur {totalPages}
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages}
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
                     )}
                 </CardContent>
             </Card>

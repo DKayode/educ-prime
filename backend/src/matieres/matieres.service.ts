@@ -40,9 +40,9 @@ export class MatieresService {
     if (search) {
       queryBuilder.andWhere(
         new Brackets((qb) => {
-          qb.where('matiere.nom ILIKE :search', { search: `%${search}%` })
-            .orWhere('niveau_etude.nom ILIKE :search', { search: `%${search}%` })
-            .orWhere('filiere.nom ILIKE :search', { search: `%${search}%` });
+          qb.where('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` })
+            .orWhere('unaccent(niveau_etude.nom) ILIKE unaccent(:search)', { search: `%${search}%` })
+            .orWhere('unaccent(filiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
         }),
       );
     }
@@ -171,7 +171,7 @@ export class MatieresService {
       .select('COUNT(DISTINCT(matiere.nom))', 'count');
 
     if (search) {
-      countQuery.where('matiere.nom ILIKE :search', { search: `%${search}%` });
+      countQuery.where('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
     }
 
     const countResult = await countQuery.getRawOne();
@@ -185,7 +185,7 @@ export class MatieresService {
       .offset((page - 1) * limit);
 
     if (search) {
-      namesQuery.where('matiere.nom ILIKE :search', { search: `%${search}%` });
+      namesQuery.where('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
     }
 
     const rawNames = await namesQuery.getRawMany();

@@ -61,8 +61,8 @@ export class RessourcesService {
     if (filterDto.search) {
       queryBuilder.andWhere(
         new Brackets((qb) => {
-          qb.where('ressource.titre ILIKE :search', { search: `%${filterDto.search}%` })
-            .orWhere('matiere.nom ILIKE :search', { search: `%${filterDto.search}%` });
+          qb.where('unaccent(ressource.titre) ILIKE unaccent(:search)', { search: `%${filterDto.search}%` })
+            .orWhere('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${filterDto.search}%` });
         }),
       );
     }

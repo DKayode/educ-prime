@@ -34,6 +34,12 @@ DO $$ BEGIN
 END $$;
 
 -- ------------------------------
+-- 1b. ENABLE EXTENSIONS
+-- ------------------------------
+-- Required for accent-insensitive search
+CREATE EXTENSION IF NOT EXISTS unaccent;
+
+-- ------------------------------
 -- 2. CREATE CORE ACADEMIC TABLES
 -- ------------------------------
 
@@ -349,4 +355,3 @@ CREATE TABLE notification_utilisateurs (
     
     UNIQUE (notification_id, utilisateur_id)
 );
-

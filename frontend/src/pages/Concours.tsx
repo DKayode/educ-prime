@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
-import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, Eye } from "lucide-react";
+import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { concoursService, type Concours } from "@/lib/services/concours.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,8 @@ export default function Concours() {
     });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [page, setPage] = useState(1);
+    const [limit] = useState(10);
 
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -70,14 +72,17 @@ export default function Concours() {
     });
 
     const { data: itemsResponse, isLoading, isPlaceholderData } = useQuery({
-        queryKey: ["concours", debouncedSearch, searchAnnee],
+        queryKey: ["concours", debouncedSearch, searchAnnee, page, limit],
         queryFn: () => concoursService.getAll({
             search: debouncedSearch || undefined,
-            annee: searchAnnee !== "ALL" ? parseInt(searchAnnee) : undefined
+            annee: searchAnnee !== "ALL" ? parseInt(searchAnnee) : undefined,
+            page,
+            limit
         }),
         placeholderData: keepPreviousData,
     });
     const items = itemsResponse?.data || [];
+    const totalPages = itemsResponse?.totalPages || 1;
 
 
 
@@ -408,6 +413,30 @@ export default function Concours() {
                     )}
                 </CardContent>
             </Card>
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-center space-x-2 py-4">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        Page {page} sur {totalPages}
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
 
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent className="max-w-2xl">

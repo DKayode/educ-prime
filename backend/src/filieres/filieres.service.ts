@@ -46,9 +46,9 @@ export class FilieresService {
     if (search) {
       queryBuilder.andWhere(
         new Brackets((qb) => {
-          qb.where('filiere.nom ILIKE :search', { search: `%${search}%` })
-            .orWhere('etablissement.nom ILIKE :search', { search: `%${search}%` })
-            .orWhere('etablissement.ville ILIKE :search', { search: `%${search}%` });
+          qb.where('unaccent(filiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` })
+            .orWhere('unaccent(etablissement.nom) ILIKE unaccent(:search)', { search: `%${search}%` })
+            .orWhere('unaccent(etablissement.ville) ILIKE unaccent(:search)', { search: `%${search}%` });
         }),
       );
     }

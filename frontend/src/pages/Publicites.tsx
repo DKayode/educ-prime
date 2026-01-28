@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Megaphone, Plus, Pencil, Trash2, Loader2, Upload, Search, Eye } from "lucide-react";
+import { Megaphone, Plus, Pencil, Trash2, Loader2, Upload, Search, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { publicitesService, type Publicite } from "@/lib/services/publicites.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { Button } from "@/components/ui/button";
@@ -76,15 +76,22 @@ export default function Publicites() {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [previewTitle, setPreviewTitle] = useState("");
+    const [page, setPage] = useState(1);
+    const [limit] = useState(10);
 
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
     const { data: publicitesResponse, isLoading } = useQuery({
-        queryKey: ["publicites", debouncedSearch],
-        queryFn: () => publicitesService.getAll({ titre: debouncedSearch }),
+        queryKey: ["publicites", debouncedSearch, page, limit],
+        queryFn: () => publicitesService.getAll({
+            titre: debouncedSearch,
+            page,
+            limit
+        }),
     });
     const publicites = publicitesResponse?.data || [];
+    const totalPages = publicitesResponse?.totalPages || 1;
 
     const createMutation = useMutation({
         mutationFn: (data: PubliciteFormData) => publicitesService.create(data),
@@ -683,6 +690,31 @@ export default function Publicites() {
                         </Table>
                     )}
                 </CardContent>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-center space-x-2 py-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page === 1}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            Page {page} sur {totalPages}
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                            disabled={page === totalPages}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
             </Card>
 
             {/* Edit Dialog */}

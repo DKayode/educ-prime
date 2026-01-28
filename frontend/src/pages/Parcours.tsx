@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Plus, Pencil, Trash2, Loader2, Search, Eye, Check, ChevronsUpDown } from "lucide-react";
+import { BookOpen, Plus, Pencil, Trash2, Loader2, Search, Eye, Check, ChevronsUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { parcoursService, type Parcour } from "@/lib/services/parcours.service";
 import { categoriesService, type Category } from "@/lib/services/categories.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
@@ -93,6 +93,8 @@ export default function Parcours() {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [previewTitle, setPreviewTitle] = useState("");
+    const [page, setPage] = useState(1);
+    const [limit] = useState(10);
 
     // Combobox states
     const [openCategoryCombo, setOpenCategoryCombo] = useState(false);
@@ -102,10 +104,15 @@ export default function Parcours() {
     const queryClient = useQueryClient();
 
     const { data: parcoursResponse, isLoading } = useQuery({
-        queryKey: ["parcours", debouncedSearch],
-        queryFn: () => parcoursService.getAll({ titre: debouncedSearch }),
+        queryKey: ["parcours", debouncedSearch, page, limit],
+        queryFn: () => parcoursService.getAll({
+            titre: debouncedSearch,
+            page,
+            limit
+        }),
     });
     const parcours = parcoursResponse?.data || [];
+    const totalPages = parcoursResponse?.totalPages || 1;
 
     const { data: categoriesResponse } = useQuery({
         queryKey: ["categories"],
@@ -546,6 +553,30 @@ export default function Parcours() {
                             </TableBody>
                         </Table>
                     }
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-center space-x-2 py-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                Page {page} sur {totalPages}
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages}
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

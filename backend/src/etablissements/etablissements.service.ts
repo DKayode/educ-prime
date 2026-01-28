@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
+import { Repository, Like, FindOptionsWhere, Brackets, Raw } from 'typeorm';
 import { Etablissement } from './entities/etablissement.entity';
 import { Filiere } from '../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../niveau-etude/entities/niveau-etude.entity';
@@ -57,8 +57,8 @@ export class EtablissementsService {
     if (search) {
       queryBuilder.andWhere(
         new Brackets((qb) => {
-          qb.where('etablissement.nom ILIKE :search', { search: `%${search}%` })
-            .orWhere('etablissement.ville ILIKE :search', { search: `%${search}%` });
+          qb.where('unaccent(etablissement.nom) ILIKE unaccent(:search)', { search: `%${search}%` })
+            .orWhere('unaccent(etablissement.ville) ILIKE unaccent(:search)', { search: `%${search}%` });
         }),
       );
     }
@@ -162,7 +162,7 @@ export class EtablissementsService {
     };
 
     if (search) {
-      whereCondition.nom = Like(`%${search}%`);
+      whereCondition.nom = Raw(alias => `unaccent(${alias}) ILIKE unaccent('%${search}%')`);
     }
 
     const [filieres, total] = await this.filieresRepository.findAndCount({
@@ -209,7 +209,7 @@ export class EtablissementsService {
     };
 
     if (search) {
-      whereCondition.nom = Like(`%${search}%`);
+      whereCondition.nom = Raw(alias => `unaccent(${alias}) ILIKE unaccent('%${search}%')`);
     }
 
     const [niveaux, total] = await this.niveauEtudeRepository.findAndCount({
@@ -268,7 +268,7 @@ export class EtablissementsService {
     if (search) {
       queryBuilder.andWhere(
         new Brackets((qb) => {
-          qb.where('matiere.nom ILIKE :search', { search: `%${search}%` });
+          qb.where('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
         }),
       );
     }
@@ -350,8 +350,8 @@ export class EtablissementsService {
     if (search) {
       queryBuilder.andWhere(
         new Brackets((qb) => {
-          qb.where('epreuve.titre ILIKE :search', { search: `%${search}%` })
-            .orWhere('matiere.nom ILIKE :search', { search: `%${search}%` });
+          qb.where('unaccent(epreuve.titre) ILIKE unaccent(:search)', { search: `%${search}%` })
+            .orWhere('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
         }),
       );
     }
@@ -445,8 +445,8 @@ export class EtablissementsService {
     if (search) {
       queryBuilder.andWhere(
         new Brackets((qb) => {
-          qb.where('ressource.titre ILIKE :search', { search: `%${search}%` })
-            .orWhere('matiere.nom ILIKE :search', { search: `%${search}%` });
+          qb.where('unaccent(ressource.titre) ILIKE unaccent(:search)', { search: `%${search}%` })
+            .orWhere('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
         }),
       );
     }

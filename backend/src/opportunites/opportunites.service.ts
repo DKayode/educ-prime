@@ -35,7 +35,7 @@ export class OpportunitesService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(opportunite.titre ILIKE :search OR opportunite.organisme ILIKE :search OR opportunite.lieu ILIKE :search)',
+        '(unaccent(opportunite.titre) ILIKE unaccent(:search) OR unaccent(opportunite.organisme) ILIKE unaccent(:search) OR unaccent(opportunite.lieu) ILIKE unaccent(:search))',
         { search: `%${search}%` },
       );
     }

@@ -37,7 +37,7 @@ export class EvenementsService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(evenement.titre ILIKE :search OR evenement.lieu ILIKE :search)',
+        '(unaccent(evenement.titre) ILIKE unaccent(:search) OR unaccent(evenement.lieu) ILIKE unaccent(:search))',
         { search: `%${search}%` }
       );
     }

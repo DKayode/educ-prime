@@ -94,7 +94,7 @@ export class AuthService {
 
     // Calculate expiration (7 days)
     const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 7); // 7 days
+    expirationDate.setDate(expirationDate.getDate() + 3); // 3 days
 
     // Save to database
     const refreshToken = this.refreshTokenRepository.create({
