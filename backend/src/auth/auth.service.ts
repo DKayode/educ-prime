@@ -104,29 +104,42 @@ export class AuthService {
       appareil,
     });
 
-    await this.refreshTokenRepository.save(refreshToken);
+    const savedToken = await this.refreshTokenRepository.save(refreshToken);
     this.logger.log(`Refresh token créé pour utilisateur ID: ${userId}, appareil: ${appareil}`);
 
-    return token; // Return the plain token to the client
+    // Return the composite token (id:token)
+    return `${savedToken.id}:${token}`;
   }
 
-  async refreshAccessToken(refreshToken: string): Promise<{ access_token: string }> {
+  async refreshAccessToken(refreshTokenString: string): Promise<{ access_token: string }> {
     this.logger.log('Tentative de rafraîchissement du token');
 
-    // Find all refresh tokens and check against the provided token
-    const allTokens = await this.refreshTokenRepository.find();
-    let validToken: RefreshToken | null = null;
-
-    for (const dbToken of allTokens) {
-      const isValid = await bcrypt.compare(refreshToken, dbToken.token);
-      if (isValid) {
-        validToken = dbToken;
-        break;
-      }
+    // Expected format: "id:token"
+    if (!refreshTokenString || !refreshTokenString.includes(':')) {
+      // Fail Fast: Legacy tokens or invalid formats are rejected immediately
+      this.logger.warn('Format de token invalide ou ancien token détecté (Fail Fast)');
+      throw new UnauthorizedException('Session expirée, veuillez vous reconnecter');
     }
 
+    const [idStr, plainTextToken] = refreshTokenString.split(':');
+    const tokenId = parseInt(idStr, 10);
+
+    if (isNaN(tokenId)) {
+      throw new UnauthorizedException('Token ID invalide');
+    }
+
+    // FAST LOOKUP: Find specific token by ID (O(1))
+    const validToken = await this.refreshTokenRepository.findOne({ where: { id: tokenId } });
+
     if (!validToken) {
-      this.logger.warn('Refresh token invalide');
+      this.logger.warn(`Refresh token ID ${tokenId} introuvable`);
+      throw new UnauthorizedException('Refresh token invalide');
+    }
+
+    // Verify hash
+    const isValid = await bcrypt.compare(plainTextToken, validToken.token);
+    if (!isValid) {
+      this.logger.warn(`Signature invalide pour le refresh token ID ${tokenId}`);
       throw new UnauthorizedException('Refresh token invalide');
     }
 
