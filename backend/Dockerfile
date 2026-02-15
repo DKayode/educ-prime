@@ -17,6 +17,9 @@ RUN npm install && npm cache clean --force
 # Copy source code
 COPY . .
 
+# Generate Prisma Client
+RUN npx prisma generate
+
 # Build the application
 RUN npm run build
 
@@ -43,6 +46,12 @@ COPY --from=builder /app/dist ./dist
 # Copy config directory (includes Firebase credentials if present)
 COPY --from=builder /app/config ./config
 
+# Copy generated Prisma Client
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+# Copy prisma directory (needed for migrations)
+COPY --from=builder /app/prisma ./prisma
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
   adduser -S nestjs -u 1001 && \
@@ -62,4 +71,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
 ENTRYPOINT ["dumb-init", "--"]
 
 # Start the application
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
