@@ -52,6 +52,9 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 # Copy prisma directory (needed for migrations)
 COPY --from=builder /app/prisma ./prisma
 
+# Copy prisma config file
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
   adduser -S nestjs -u 1001 && \
