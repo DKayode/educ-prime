@@ -93,3 +93,43 @@ export interface ApiResponse<T> {
   data: T;
   message?: string;
 }
+
+export interface Forum {
+  id: number;
+  theme: string;
+  content: string;
+  photo?: string;
+
+  user_id: number;
+  user?: Utilisateur;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string;
+  nb_like?: number;
+  nb_comment?: number;
+  is_like?: boolean;
+}
+
+export interface ForumCommentaire {
+  id: number;
+  commentable_id: string; // BigInt from backend
+  commentable_type: string;
+  commentaire_id?: number;
+  content: string;
+  user_id: number;
+  user?: Utilisateur;
+  created_at: string;
+  children?: ForumCommentaire[];
+
+  nb_like?: number;
+  is_like?: boolean;
+  // deprecated
+  forum_id?: number;
+}
+
+export interface CreateForumCommentaire {
+  forum_id: number; // Used to identify target in service
+  content: string;
+  commentaire_id?: number;
+
+}

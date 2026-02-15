@@ -29,6 +29,7 @@ import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
+import Forums from "./pages/Forums";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const App = () => (
                       <Route path="/evenements" element={<Evenements />} />
                       <Route path="/opportunites" element={<Opportunites />} />
                       <Route path="/concours" element={<Concours />} />
+                      <Route path="/forums" element={<Forums />} />
                       <Route path="/parcours" element={<Parcours />} />
                       <Route path="/categories" element={<Categories />} />
                       <Route path="/contacts-professionnels" element={<ContactsProfessionnels />} />

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, BookOpen, Calendar, FileText, Settings, Building2, BookMarked, FolderOpen, Megaphone, CalendarDays, Briefcase, GraduationCap, UserCheck, Layers, Bell, Smartphone } from "lucide-react";
+import { LayoutDashboard, Users, BookOpen, Calendar, FileText, Settings, Building2, BookMarked, FolderOpen, Megaphone, CalendarDays, Briefcase, GraduationCap, UserCheck, Layers, Bell, Smartphone, MessageSquare } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation }
   from "react-router-dom";
@@ -26,6 +26,7 @@ const academicItems = [
   { title: "Matières", url: "/matieres", icon: BookMarked },
   { title: "Épreuves", url: "/epreuves", icon: FileText },
   { title: "Ressources", url: "/ressources", icon: FolderOpen },
+  { title: "Forums", url: "/forums", icon: MessageSquare },
 ];
 
 const publicContentItems = [
