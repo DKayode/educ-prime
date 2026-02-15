@@ -8,11 +8,16 @@ on:
     branches:
       - main
   workflow_dispatch:  # Allow manual trigger
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/deploy.yml' # Avoid triggering on unrelated changes if desired, but user said remove condition. I'll stick to simple push.
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ !github.event.workflow_run || github.event.workflow_run.conclusion == 'success' }}
     environment: PRD
     steps:
       - name: Récupérer le dépôt
@@ -60,6 +65,7 @@ jobs:
             DB_USERNAME=${{ secrets.DB_USERNAME }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             DB_NAME=${{ secrets.DB_NAME }}
+            DATABASE_URL=postgresql://${{ secrets.DB_USERNAME }}:${{ secrets.DB_PASSWORD }}@db:5432/${{ secrets.DB_NAME }}?schema=public
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
             FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
