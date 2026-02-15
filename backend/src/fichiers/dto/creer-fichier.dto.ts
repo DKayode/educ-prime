@@ -15,7 +15,7 @@ export class CreerFichierDto {
     example: TypeFichier.RESSOURCE
   })
   @IsIn(Object.values(TypeFichier), {
-    message: 'type must be one of the following values: profile, epreuve, ressource, PUBLICITE, EVENEMENT, OPPORTUNITE, CONCOURS, ETABLISSEMENT'
+    message: 'type must be one of the following values: profile, epreuve, ressource, PUBLICITE, EVENEMENT, OPPORTUNITE, CONCOURS, ETABLISSEMENT, CATEGORIES, FORUMS'
   })
   readonly type: TypeFichier;
 

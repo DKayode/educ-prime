@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
     date_suppression_prevue TIMESTAMP,
     code_reinitialisation VARCHAR(6),
     date_expiration_code TIMESTAMP,
-    mon_code_parrainage VARCHAR(6) UNIQUE,
+    mon_code_parrainage TEXT UNIQUE,
     parrain_id INTEGER REFERENCES utilisateurs(id),
     date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

@@ -1,0 +1,417 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model app_versions {
+  id                       String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  platform                 app_platform_enum
+  version                  String            @db.VarChar(50)
+  minimum_required_version String            @db.VarChar(50)
+  update_url               String
+  force_update             Boolean?          @default(false)
+  release_notes            Json?
+  is_active                Boolean?          @default(false)
+  created_at               DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?         @default(now()) @db.Timestamptz(6)
+}
+
+model blacklisted_tokens {
+  id              Int      @id @default(autoincrement())
+  token           String   @unique
+  date_expiration DateTime @db.Timestamptz(6)
+  date_creation   DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model categories {
+  id          Int        @id @default(autoincrement())
+  nom         String     @unique @db.VarChar(100)
+  slug        String     @unique @db.VarChar(100)
+  description String?
+  couleur     String?    @db.VarChar(7)
+  is_active   Boolean?   @default(true)
+  ordre       Int?       @default(0)
+  created_at  DateTime?  @default(now()) @db.Timestamp(6)
+  updated_at  DateTime?  @default(now()) @db.Timestamp(6)
+  parcours    parcours[]
+}
+
+model commentaires {
+  id                                                                    Int                    @id @default(autoincrement())
+  parcours_id                                                           Int
+  utilisateur_id                                                        Int
+  contenu                                                               String
+  date_commentaire                                                      DateTime               @default(now()) @db.Timestamptz(6)
+  parent_id                                                             Int?
+  parcours                                                              parcours               @relation(fields: [parcours_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  commentaires                                                          commentaires?          @relation("commentairesTocommentaires", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_commentaires                                                    commentaires[]         @relation("commentairesTocommentaires")
+  utilisateurs                                                          utilisateurs           @relation(fields: [utilisateur_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  commentaires_closure_commentaires_closure_id_ancestorTocommentaires   commentaires_closure[] @relation("commentaires_closure_id_ancestorTocommentaires")
+  commentaires_closure_commentaires_closure_id_descendantTocommentaires commentaires_closure[] @relation("commentaires_closure_id_descendantTocommentaires")
+  likes                                                                 likes[]
+}
+
+model commentaires_closure {
+  id_ancestor                                                   Int
+  id_descendant                                                 Int
+  depth                                                         Int          @default(0)
+  commentaires_commentaires_closure_id_ancestorTocommentaires   commentaires @relation("commentaires_closure_id_ancestorTocommentaires", fields: [id_ancestor], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  commentaires_commentaires_closure_id_descendantTocommentaires commentaires @relation("commentaires_closure_id_descendantTocommentaires", fields: [id_descendant], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([id_ancestor, id_descendant])
+  @@index([id_ancestor], map: "idx_commentaires_closure_ancestor")
+  @@index([depth], map: "idx_commentaires_closure_depth")
+  @@index([id_descendant], map: "idx_commentaires_closure_descendant")
+}
+
+model concours {
+  id                     Int     @id(map: "concours_examens_pkey") @default(autoincrement())
+  titre                  String  @db.VarChar(255)
+  lieu                   String? @db.VarChar(255)
+  url                    String?
+  annee                  Int?
+  nombre_page            Int?    @default(0)
+  nombre_telechargements Int?    @default(0)
+}
+
+model contacts_professionnels {
+  id              Int      @id @default(autoincrement())
+  nom             String   @db.VarChar(255)
+  email           String   @db.VarChar(255)
+  telephone       String?  @db.VarChar(50)
+  message         String?
+  reseaux_sociaux Json?
+  actif           Boolean? @default(true)
+  date_creation   DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model epreuves {
+  id                     Int                 @id @default(autoincrement())
+  titre                  String              @db.VarChar(255)
+  url                    String
+  professeur_id          Int
+  matiere_id             Int
+  duree_minutes          Int
+  date_creation          DateTime            @default(now()) @db.Timestamptz(6)
+  date_publication       DateTime?           @db.Timestamptz(6)
+  type                   epreuves_type_enum?
+  nombre_pages           Int                 @default(0)
+  nombre_telechargements Int                 @default(0)
+  matieres               matieres            @relation(fields: [matiere_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  utilisateurs           utilisateurs        @relation(fields: [professeur_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model etablissements {
+  id           Int            @id @default(autoincrement())
+  nom          String         @db.VarChar(255)
+  ville        String?        @db.VarChar(100)
+  code_postal  String?        @db.VarChar(20)
+  logo         String?
+  filieres     filieres[]
+  utilisateurs utilisateurs[]
+}
+
+model evenements {
+  id               Int       @id @default(autoincrement())
+  titre            String    @db.VarChar(255)
+  description      String?
+  date             DateTime? @db.Timestamptz(6)
+  lieu             String?   @db.VarChar(255)
+  lien_inscription String?
+  image            String?
+  actif            Boolean?  @default(true)
+  date_creation    DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+model favoris {
+  id             Int          @id @default(autoincrement())
+  parcours_id    Int
+  utilisateur_id Int
+  date_favoris   DateTime     @default(now()) @db.Timestamptz(6)
+  parcours       parcours     @relation(fields: [parcours_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  utilisateurs   utilisateurs @relation(fields: [utilisateur_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([parcours_id, utilisateur_id])
+}
+
+model filieres {
+  id               Int            @id @default(autoincrement())
+  nom              String         @db.VarChar(255)
+  etablissement_id Int
+  etablissements   etablissements @relation(fields: [etablissement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  matieres         matieres[]
+  niveau_etude     niveau_etude[]
+  utilisateurs     utilisateurs[]
+}
+
+model likes {
+  id             Int              @id @default(autoincrement())
+  parcours_id    Int?
+  commentaire_id Int?
+  utilisateur_id Int
+  date_like      DateTime         @default(now()) @db.Timestamptz(6)
+  date_dislike   DateTime?        @db.Timestamptz(6)
+  type           likes_type_enum? @default(like)
+  commentaires   commentaires?    @relation(fields: [commentaire_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parcours       parcours?        @relation(fields: [parcours_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  utilisateurs   utilisateurs     @relation(fields: [utilisateur_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([commentaire_id, utilisateur_id])
+  @@unique([parcours_id, utilisateur_id])
+}
+
+model matieres {
+  id              Int          @id @default(autoincrement())
+  nom             String       @db.VarChar(255)
+  description     String?
+  niveau_etude_id Int
+  filiere_id      Int
+  epreuves        epreuves[]
+  filieres        filieres     @relation(fields: [filiere_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  niveau_etude    niveau_etude @relation(fields: [niveau_etude_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ressources      ressources[]
+}
+
+model niveau_etude {
+  id           Int            @id @default(autoincrement())
+  nom          String         @db.VarChar(100)
+  duree_mois   Int?
+  filiere_id   Int
+  matieres     matieres[]
+  filieres     filieres       @relation(fields: [filiere_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  utilisateurs utilisateurs[]
+}
+
+model notification_utilisateurs {
+  id              Int           @id @default(autoincrement())
+  notification_id Int
+  utilisateur_id  Int
+  is_read         Boolean?      @default(false)
+  read_at         DateTime?     @db.Timestamp(6)
+  created_at      DateTime?     @default(now()) @db.Timestamp(6)
+  notifications   notifications @relation(fields: [notification_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  utilisateurs    utilisateurs  @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([notification_id, utilisateur_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notifications {
+  id                        Int                         @id @default(autoincrement())
+  title                     String                      @db.VarChar(255)
+  body                      String
+  type                      String?                     @default("other") @db.VarChar(50)
+  priority                  String?                     @default("normal") @db.VarChar(50)
+  data                      Json?
+  created_at                DateTime?                   @default(now()) @db.Timestamp(6)
+  expires_at                DateTime?                   @db.Timestamp(6)
+  sender_id                 Int?
+  notification_utilisateurs notification_utilisateurs[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model opportunites {
+  id               Int       @id @default(autoincrement())
+  titre            String    @db.VarChar(255)
+  type             String    @db.VarChar(50)
+  organisme        String?   @db.VarChar(255)
+  lieu             String?   @db.VarChar(100)
+  date_publication DateTime? @db.Date
+  image            String?
+  lien_postuler    String?
+  actif            Boolean?  @default(true)
+  date_creation    DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+model parcours {
+  id               Int                      @id @default(autoincrement())
+  titre            String                   @db.VarChar(255)
+  image_couverture String?                  @db.VarChar(500)
+  lien_video       String?                  @db.VarChar(500)
+  type_media       parcours_media_type_enum
+  description      String
+  created_at       DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime                 @default(now()) @db.Timestamptz(6)
+  category_id      Int?
+  commentaires     commentaires[]
+  favoris          favoris[]
+  likes            likes[]
+  categories       categories?              @relation(fields: [category_id], references: [id], onUpdate: NoAction, map: "fk_parcours_categories")
+}
+
+model publicites {
+  id            Int                         @id @default(autoincrement())
+  titre         String                      @db.VarChar(255)
+  image         String?
+  media         String?
+  ordre         Int?                        @default(0)
+  actif         Boolean?                    @default(true)
+  date_creation DateTime                    @default(now()) @db.Timestamptz(6)
+  type_media    publicites_type_media_enum?
+}
+
+model refresh_tokens {
+  id              Int                 @id @default(autoincrement())
+  utilisateur_id  Int
+  token           String              @unique @db.VarChar(255)
+  date_creation   DateTime            @default(now()) @db.Timestamptz(6)
+  date_expiration DateTime            @db.Timestamptz(6)
+  appareil        appareil_type_enum?
+  utilisateurs    utilisateurs        @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model ressources {
+  id                     Int                  @id @default(autoincrement())
+  titre                  String               @db.VarChar(255)
+  type                   ressources_type_enum
+  url                    String
+  professeur_id          Int
+  matiere_id             Int
+  date_creation          DateTime             @default(now()) @db.Timestamptz(6)
+  date_publication       DateTime?            @db.Timestamptz(6)
+  nombre_pages           Int                  @default(0)
+  nombre_telechargements Int                  @default(0)
+  matieres               matieres             @relation(fields: [matiere_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  utilisateurs           utilisateurs         @relation(fields: [professeur_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model utilisateurs {
+  id                        Int                         @id @default(autoincrement())
+  nom                       String                      @db.VarChar(100)
+  prenom                    String                      @db.VarChar(100)
+  pseudo                    String?                     @db.VarChar(100)
+  email                     String                      @unique @db.VarChar(255)
+  mot_de_passe              String                      @db.VarChar(255)
+  photo                     String?
+  etablissement_id          Int?
+  filiere_id                Int?
+  niveau_etude_id           Int?
+  sexe                      utilisateurs_sexe_enum?
+  telephone                 String?                     @db.VarChar(50)
+  role                      utilisateurs_role_enum?
+  fcm_token                 String?
+  est_desactive             Boolean?                    @default(false)
+  date_suppression_prevue   DateTime?                   @db.Timestamp(6)
+  date_creation             DateTime?                   @default(now()) @db.Timestamp(6)
+  code_reinitialisation     String?                     @db.VarChar(6)
+  date_expiration_code      DateTime?                   @db.Timestamp(6)
+  mon_code_parrainage       String?                     @unique @db.VarChar(20)
+  parrain_id                Int?
+  commentaires              commentaires[]
+  epreuves                  epreuves[]
+  favoris                   favoris[]
+  likes                     likes[]
+  notification_utilisateurs notification_utilisateurs[]
+  refresh_tokens            refresh_tokens[]
+  ressources                ressources[]
+  etablissements            etablissements?             @relation(fields: [etablissement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  filieres                  filieres?                   @relation(fields: [filiere_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  niveau_etude              niveau_etude?               @relation(fields: [niveau_etude_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  utilisateurs              utilisateurs?               @relation("utilisateursToutilisateurs", fields: [parrain_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_utilisateurs        utilisateurs[]              @relation("utilisateursToutilisateurs")
+  forums                    Forum[]
+  like_users                LikeUser[]
+  commentaire_users         CommentaireUser[]
+}
+
+enum app_platform_enum {
+  android
+  ios
+}
+
+enum appareil_type_enum {
+  mobile
+  web
+}
+
+enum epreuves_type_enum {
+  Interrogation
+  Devoirs
+  Concours
+  Examens
+}
+
+enum likes_type_enum {
+  like
+  dislike
+}
+
+enum parcours_media_type_enum {
+  image
+  video
+}
+
+enum publicites_type_media_enum {
+  Image
+  Video
+}
+
+enum ressources_type_enum {
+  Quiz
+  Exercices
+  Document
+}
+
+enum utilisateurs_role_enum {
+  admin
+  tudiant    @map("étudiant")
+  professeur
+  autre
+}
+
+enum utilisateurs_sexe_enum {
+  M
+  F
+  Autre
+}
+
+model Forum {
+  id          Int       @id @default(autoincrement())
+  theme       String
+  content     String    @db.Text
+  photo       String?
+  user_id     Int
+
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  deleted_at  DateTime?
+
+  user        utilisateurs @relation(fields: [user_id], references: [id])
+
+  @@map("forums")
+}
+
+model LikeUser {
+  id            Int      @id @default(autoincrement())
+  likeable_id   BigInt
+  likeable_type String
+  user_id       Int
+  created_at    DateTime @default(now())
+  
+  user          utilisateurs @relation(fields: [user_id], references: [id])
+
+  @@map("like_users")
+}
+
+model CommentaireUser {
+  id               Int       @id @default(autoincrement())
+  commentable_id   BigInt
+  commentable_type String
+  commentaire_id   Int?
+  content          String    @db.Text
+  user_id          Int
+
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  deleted_at       DateTime?
+
+  parent           CommentaireUser? @relation("CommentUserChildren", fields: [commentaire_id], references: [id])
+  children         CommentaireUser[] @relation("CommentUserChildren")
+  user             utilisateurs @relation(fields: [user_id], references: [id])
+
+  @@map("commentaire_users")
+}

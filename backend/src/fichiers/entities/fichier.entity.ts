@@ -12,7 +12,8 @@ export enum TypeFichier {
   PARCOURS = 'PARCOURS',
   CONCOURS = 'CONCOURS',
   ETABLISSEMENT = 'ETABLISSEMENT',
-  CATEGORIES = 'CATEGORIES'
+  CATEGORIES = 'CATEGORIES',
+  FORUMS = 'FORUMS'
 }
 
 export enum TypeRessource {

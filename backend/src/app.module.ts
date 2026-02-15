@@ -45,6 +45,10 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppVersionModule } from './app-version/app-version.module';
 import { Notification } from './notifications/entities/notification.entity';
 import { EventsModule } from './events/events.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { ForumModule } from './forum/forum.module';
+import { LikesPolymorphicModule } from './likes-polymorphic/likes-polymorphic.module';
+import { CommentsPolymorphicModule } from './comments-polymorphic/comments-polymorphic.module';
 
 @Module({
   imports: [
@@ -104,6 +108,10 @@ import { EventsModule } from './events/events.module';
     FirebaseModule,
     AppVersionModule,
     EventsModule,
+    PrismaModule,
+    ForumModule,
+    LikesPolymorphicModule,
+    CommentsPolymorphicModule,
   ],
   controllers: [AppController],
   providers: [AppService],

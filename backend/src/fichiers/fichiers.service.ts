@@ -6,7 +6,8 @@ import { Matiere } from '../matieres/entities/matiere.entity';
 import { Epreuve } from '../epreuves/entities/epreuve.entity';
 import { Ressource, RessourceType } from '../ressources/entities/ressource.entity';
 import { FirebaseConfig } from '../config/firebase.config';
-import { FichierUploadData } from './interfaces/fichier-upload-data.interface'; // Changed from CreerFichierDto
+import { FichierUploadData } from './interfaces/fichier-upload-data.interface';
+import * as sharp from 'sharp';
 
 @Injectable()
 export class FichiersService {
@@ -20,8 +21,20 @@ export class FichiersService {
     @InjectRepository(Ressource)
     private readonly ressourceRepository: Repository<Ressource>,
     @Inject('FirebaseConfig')
-    private readonly firebaseConfig: any, // Changed type to any as per instruction
+    private readonly firebaseConfig: any,
   ) { }
+
+  private async compressImage(buffer: Buffer): Promise<Buffer> {
+    try {
+      return await sharp(buffer)
+        .resize({ width: 1920, withoutEnlargement: true }) // Limit max width
+        .jpeg({ quality: 80, mozjpeg: true }) // Compress as JPEG
+        .toBuffer();
+    } catch (error) {
+      this.logger.warn('Image compression failed, using original file:', error);
+      return buffer;
+    }
+  }
 
   private async validateMatiereExists(matiereId: number): Promise<void> {
     const matiere = await this.matiereRepository.findOne({
@@ -126,12 +139,30 @@ export class FichiersService {
   async uploadFile(file: any, utilisateurId: number, uploadData: FichierUploadData): Promise<{ url: string; type: TypeFichier; entityId: number }> {
     let createdEntityId: number | null = null;
     let createdEntityType: 'epreuve' | 'ressource' | null = null;
+    let fileBuffer = file.buffer;
+    let contentType = file.mimetype;
+
+    // Compress image if applicable
+    if (file.mimetype.startsWith('image/')) {
+      this.logger.log(`Compressing image: ${file.originalname}`);
+      fileBuffer = await this.compressImage(file.buffer);
+      // We convert everything to jpeg in compression for consistency, or we could keep original format.
+      // My implementation above converts to jpeg. So let's update contentType and filename extension if needed.
+      // However, to be safe and simple: strict conversion to jpeg might be aggressive.
+      // Let's stick to the plan: "Quality 80%, WebP or JPEG".
+      // If I change the mime type I should update the filename too.
+      // For simplicity towards the user plan "keep it simple", I will just compress and keep buffer.
+      // If I use .jpeg() in sharp, output is jpeg.
+      contentType = 'image/jpeg';
+    }
 
     try {
       this.logger.log(`Starting file upload process for user ${utilisateurId}`);
 
       let actualEpreuveId: number | undefined;
       let actualRessourceId: number | undefined;
+
+      // ... rest of method
 
       // Step 1: Validate matiere and create/get epreuve or ressource
       if (uploadData.type === TypeFichier.EPREUVE) {
@@ -182,7 +213,14 @@ export class FichiersService {
       }
 
       let folderPath: string;
-      let normalizedFileName = this.normalizeFileName(file.originalname);
+      // If we compressed to jpeg, ensure extension is jpg
+      let originalName = file.originalName || file.originalname;
+      if (contentType === 'image/jpeg' && !originalName.endsWith('.jpg') && !originalName.endsWith('.jpeg')) {
+        const parts = originalName.split('.');
+        if (parts.length > 1) parts.pop();
+        originalName = parts.join('.') + '.jpg';
+      }
+      let normalizedFileName = this.normalizeFileName(originalName);
 
       // Force unique filename for Evenements and Opportunites to avoid caching issues
       if (uploadData.type === TypeFichier.EVENEMENT || uploadData.type === TypeFichier.OPPORTUNITE) {
@@ -268,6 +306,12 @@ export class FichiersService {
           }
           folderPath = `categories/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
           break;
+        case TypeFichier.FORUMS:
+          if (!uploadData.entityId) {
+            throw new BadRequestException('entityId est requis pour les forums');
+          }
+          folderPath = `forums/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
+          break;
         default:
           throw new BadRequestException('Type de fichier invalide');
       }
@@ -281,9 +325,9 @@ export class FichiersService {
       }
 
       this.logger.log('Attempting to save file to storage...');
-      await fileUpload.save(file.buffer, {
+      await fileUpload.save(fileBuffer, {
         metadata: {
-          contentType: file.mimetype,
+          contentType: contentType,
         },
       });
       this.logger.log('File successfully saved to storage');
