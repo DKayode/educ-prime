@@ -93,6 +93,11 @@ jobs:
             # Démarrer les conteneurs
             docker-compose up -d --remove-orphans
 
+            # Exécuter les migrations Prisma
+            # NOTE: Commented out for first deployment to allow manual baseline
+            # echo "=== Running Prisma Migrations ==="
+            # docker-compose exec -T backend npx prisma migrate deploy
+
             # Recharger nginx
             docker-compose exec nginx nginx -s reload
 
