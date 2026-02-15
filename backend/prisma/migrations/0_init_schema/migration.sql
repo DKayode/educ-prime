@@ -60,6 +60,7 @@ CREATE TABLE "categories" (
     "nom" VARCHAR(100) NOT NULL,
     "slug" VARCHAR(100) NOT NULL,
     "description" TEXT,
+    "icone" VARCHAR(255),
     "couleur" VARCHAR(7),
     "is_active" BOOLEAN DEFAULT true,
     "ordre" INTEGER DEFAULT 0,
@@ -334,7 +335,7 @@ CREATE TABLE "utilisateurs" (
     "date_creation" TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
     "code_reinitialisation" VARCHAR(6),
     "date_expiration_code" TIMESTAMP(6),
-    "mon_code_parrainage" VARCHAR(20),
+    "mon_code_parrainage" TEXT,
     "parrain_id" INTEGER,
 
     CONSTRAINT "utilisateurs_pkey" PRIMARY KEY ("id")

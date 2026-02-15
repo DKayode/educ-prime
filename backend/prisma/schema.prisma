@@ -31,6 +31,7 @@ model categories {
   nom         String     @unique @db.VarChar(100)
   slug        String     @unique @db.VarChar(100)
   description String?
+  icone       String?    @db.VarChar(255)
   couleur     String?    @db.VarChar(7)
   is_active   Boolean?   @default(true)
   ordre       Int?       @default(0)
@@ -299,7 +300,7 @@ model utilisateurs {
   date_creation             DateTime?                   @default(now()) @db.Timestamp(6)
   code_reinitialisation     String?                     @db.VarChar(6)
   date_expiration_code      DateTime?                   @db.Timestamp(6)
-  mon_code_parrainage       String?                     @unique @db.VarChar(20)
+  mon_code_parrainage       String?                     @unique
   parrain_id                Int?
   commentaires              commentaires[]
   epreuves                  epreuves[]
