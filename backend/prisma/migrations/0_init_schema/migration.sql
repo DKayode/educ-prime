@@ -60,7 +60,7 @@ CREATE TABLE "categories" (
     "nom" VARCHAR(100) NOT NULL,
     "slug" VARCHAR(100) NOT NULL,
     "description" TEXT,
-    "icone" VARCHAR(255),
+    "icone" TEXT,
     "couleur" VARCHAR(7),
     "is_active" BOOLEAN DEFAULT true,
     "ordre" INTEGER DEFAULT 0,
