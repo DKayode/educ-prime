@@ -57,7 +57,7 @@ export class CommentsPolymorphicService {
         return this.mapResponse(result);
     }
 
-    async findAllByEntity(model: string, id: number, paginationDto: PaginationDto = {}): Promise<PaginationResponse<any>> {
+    async findAllByEntity(model: string, id: number, paginationDto: PaginationDto = {}, userId?: number): Promise<PaginationResponse<any>> {
         this.validateModel(model);
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
@@ -153,8 +153,28 @@ export class CommentsPolymorphicService {
             })
         ]);
 
+        let likedSet = new Set<number>();
+        if (userId) {
+            // Flatten comments to get all IDs
+            const allCommentIds: number[] = [];
+            const collectIds = (nodes: any[]) => {
+                for (const node of nodes) {
+                    allCommentIds.push(node.id);
+                    if (node.children && node.children.length > 0) {
+                        collectIds(node.children);
+                    }
+                }
+            };
+            collectIds(comments);
+
+            if (allCommentIds.length > 0) {
+                const likedIds = await this.likesService.getLikedIdsByUser('Commentaires', allCommentIds, userId);
+                likedSet = new Set(likedIds);
+            }
+        }
+
         return {
-            data: comments.map((comment) => this.mapResponse(comment)),
+            data: comments.map((comment) => this.mapResponse(comment, likedSet)),
             total,
             page,
             limit,
@@ -198,11 +218,12 @@ export class CommentsPolymorphicService {
         return { totalCommentaires: count };
     }
 
-    private mapResponse(comment: any) {
+    private mapResponse(comment: any, likedSet: Set<number> = new Set()) {
         return {
             ...comment,
             commentable_id: comment.commentable_id.toString(), // Handle BigInt
-            children: comment.children ? comment.children.map(c => this.mapResponse(c)) : []
+            isLiked: likedSet.has(comment.id),
+            children: comment.children ? comment.children.map(c => this.mapResponse(c, likedSet)) : []
         };
     }
 }

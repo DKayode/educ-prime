@@ -24,7 +24,7 @@ export class ForumService {
         });
     }
 
-    async findAll(filterDto: FilterForumDto): Promise<PaginationResponse<any>> {
+    async findAll(filterDto: FilterForumDto, userId: number): Promise<PaginationResponse<any>> {
         const { page = 1, limit = 10, search, sortBy = 'most_liked' } = filterDto;
         const skip = (page - 1) * limit;
         const take = limit;
@@ -63,6 +63,11 @@ export class ForumService {
             this.prisma.forum.count({ where }),
         ]);
 
+        // Get list of forum IDs to check likes efficiently
+        const forumIds = forums.map(f => f.id);
+        const likedForumIds = await this.likesService.getLikedIdsByUser('Forums', forumIds, userId);
+        const likedSet = new Set(likedForumIds);
+
         // Map likes and comments count
         const forumsWithCounts = await Promise.all(forums.map(async (forum) => {
             const nb_like = await this.likesService.countLikes('Forums', forum.id);
@@ -81,6 +86,7 @@ export class ForumService {
                 ...forumWithoutUserId,
                 nb_comment,
                 nb_like,
+                isLiked: likedSet.has(forum.id)
             };
         }));
 
@@ -99,7 +105,7 @@ export class ForumService {
         };
     }
 
-    async findOne(id: number) {
+    async findOne(id: number, userId: number) {
         const forum = await this.prisma.forum.findFirst({
             where: { id, deleted_at: null },
             include: {
@@ -127,12 +133,15 @@ export class ForumService {
             }
         });
 
+        const isLiked = await this.likesService.isLiked('Forums', forum.id, userId);
+
         const { user_id, ...forumWithoutUserId } = forum;
 
         return {
             ...forumWithoutUserId,
             nb_like,
             nb_comment,
+            isLiked
         };
     }
 

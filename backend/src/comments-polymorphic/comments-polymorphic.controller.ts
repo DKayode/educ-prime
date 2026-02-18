@@ -44,9 +44,11 @@ export class CommentsPolymorphicController {
     findAllByEntity(
         @Param('model') model: string,
         @Param('id', ParseIntPipe) id: number,
-        @Query() paginationDto: PaginationDto
+        @Query() paginationDto: PaginationDto,
+        @Req() req
     ) {
-        return this.commentsService.findAllByEntity(model, id, paginationDto);
+        const userId = req.user.utilisateurId;
+        return this.commentsService.findAllByEntity(model, id, paginationDto, userId);
     }
 
     @Delete(':model/:id')
