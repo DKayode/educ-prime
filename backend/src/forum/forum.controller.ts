@@ -28,8 +28,9 @@ export class ForumController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Récupérer la liste des forums' })
     @ApiResponse({ status: 200, description: 'Liste des forums récupérée avec succès.', type: [ForumEntity] })
-    findAll(@Query() filterDto: FilterForumDto) {
-        return this.forumService.findAll(filterDto);
+    findAll(@Query() filterDto: FilterForumDto, @Req() req) {
+        const userId = req.user.utilisateurId;
+        return this.forumService.findAll(filterDto, userId);
     }
 
     @Get(':id')
@@ -39,8 +40,9 @@ export class ForumController {
     @ApiParam({ name: 'id', description: 'ID du forum' })
     @ApiResponse({ status: 200, description: 'Le forum a été trouvé.', type: ForumEntity })
     @ApiResponse({ status: 404, description: 'Forum introuvable.' })
-    findOne(@Param('id') id: string) {
-        return this.forumService.findOne(+id);
+    findOne(@Param('id') id: string, @Req() req) {
+        const userId = req.user.utilisateurId;
+        return this.forumService.findOne(+id, userId);
     }
 
     @Delete(':id')

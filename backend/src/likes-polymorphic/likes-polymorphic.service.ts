@@ -67,4 +67,29 @@ export class LikesPolymorphicService {
         });
         return count > 0;
     }
+
+    // Helper to get a list of IDs liked by a user from a given list of IDs
+    async getLikedIdsByUser(model: string, ids: number[], userId: number): Promise<number[]> {
+        const validModels = ['Forums', 'Parcours', 'Commentaires'];
+        if (!validModels.includes(model)) {
+            throw new BadRequestException(`Invalid model: ${model}. Valid models are: Forums, Parcours, Commentaires`);
+        }
+
+        if (ids.length === 0) return [];
+
+        const likes = await this.prisma.likeUser.findMany({
+            where: {
+                likeable_type: model,
+                user_id: userId,
+                likeable_id: {
+                    in: ids.map(id => BigInt(id))
+                }
+            },
+            select: {
+                likeable_id: true
+            }
+        });
+
+        return likes.map(like => Number(like.likeable_id));
+    }
 }
