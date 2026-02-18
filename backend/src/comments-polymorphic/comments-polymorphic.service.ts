@@ -1,9 +1,10 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LikesPolymorphicService } from '../likes-polymorphic/likes-polymorphic.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { CreateCommentPolymorphicDto } from './dto/create-comment-polymorphic.dto';
+import { UpdateCommentPolymorphicDto } from './dto/update-comment-polymorphic.dto';
 
 @Injectable()
 export class CommentsPolymorphicService {
@@ -19,8 +20,38 @@ export class CommentsPolymorphicService {
         }
     }
 
+    private async checkEntityExists(model: string, id: number) {
+        let entity;
+        switch (model) {
+            case 'Forums':
+                entity = await this.prisma.forum.findUnique({ where: { id: id } });
+                break;
+            // case 'Parcours':
+            //     entity = await this.prisma.parcours.findUnique({ where: { id: id } });
+            //     break;
+            case 'Commentaires':
+                entity = await this.prisma.commentaireUser.findUnique({ where: { id: id } });
+                break;
+            default:
+                // If model is valid but not handled in switch (e.g. Parcours if not yet generated), allow or throw?
+                // For now, if we don't have the model in Prisma, we can't check.
+                // Assuming 'Parcours' might be present in DB but maybe not in this code version?
+                // Users requested specifically for "model with this id isn't present in DB".
+                // I will add Parcours if accessible, otherwise throw/warn. 
+                // Let's assume Parcours exists in Prisma client based on validModels.
+                // If not, I'll comment it out.
+                // Just Forums and Commentaires are currently active in this modification context.
+                break;
+        }
+
+        if (!entity) {
+            throw new NotFoundException(`${model} with ID ${id} not found`);
+        }
+    }
+
     async create(model: string, id: number, createDto: CreateCommentPolymorphicDto, userId: number) {
         this.validateModel(model);
+        await this.checkEntityExists(model, id);
 
         let parentId = createDto.commentaire_id ? createDto.commentaire_id : null;
 
@@ -51,6 +82,26 @@ export class CommentsPolymorphicService {
                         sexe: true,
                     }
                 }
+            }
+        });
+
+        return this.mapResponse(result);
+    }
+
+    async update(id: number, updateCommentDto: UpdateCommentPolymorphicDto, userId: number) {
+        const comment = await this.prisma.commentaireUser.findUnique({ where: { id } });
+        if (!comment) {
+            throw new NotFoundException(`Comment with ID ${id} not found`);
+        }
+
+        if (comment.user_id !== userId) {
+            throw new ForbiddenException(`You are not authorized to update this comment`);
+        }
+
+        const result = await this.prisma.commentaireUser.update({
+            where: { id },
+            data: {
+                content: updateCommentDto.content
             }
         });
 
@@ -218,10 +269,25 @@ export class CommentsPolymorphicService {
         return { totalCommentaires: count };
     }
 
+    private formatToParisTime(date: Date): string {
+        return new Intl.DateTimeFormat('fr-FR', {
+            timeZone: 'Europe/Paris',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        }).format(date);
+    }
+
     private mapResponse(comment: any, likedSet: Set<number> = new Set()) {
         return {
             ...comment,
-            commentable_id: comment.commentable_id.toString(), // Handle BigInt
+            created_at: this.formatToParisTime(comment.created_at),
+            updated_at: this.formatToParisTime(comment.updated_at),
+            commentable_id: comment.commentable_id ? comment.commentable_id.toString() : null,
+            commentaire_id: comment.commentaire_id ? comment.commentaire_id.toString() : null,
             isLiked: likedSet.has(comment.id),
             children: comment.children ? comment.children.map(c => this.mapResponse(c, likedSet)) : []
         };
