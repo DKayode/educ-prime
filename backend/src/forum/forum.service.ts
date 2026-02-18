@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LikesPolymorphicService } from '../likes-polymorphic/likes-polymorphic.service';
 import { CreateForumDto } from './dto/create-forum.dto';
+import { UpdateForumDto } from './dto/update-forum.dto';
 import { FilterForumDto } from './dto/filter-forum.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 
@@ -22,6 +23,34 @@ export class ForumService {
                 user_id: userId,
             },
         });
+    }
+
+    async update(id: number, updateForumDto: UpdateForumDto, userId: number) {
+        const forum = await this.prisma.forum.findUnique({ where: { id } });
+        if (!forum) {
+            throw new NotFoundException(`Forum with ID ${id} not found`);
+        }
+
+        if (forum.user_id !== userId) {
+            throw new ForbiddenException(`You are not authorized to update this forum`);
+        }
+
+        return this.prisma.forum.update({
+            where: { id },
+            data: updateForumDto,
+        });
+    }
+
+    private formatToParisTime(date: Date): string {
+        return new Intl.DateTimeFormat('fr-FR', {
+            timeZone: 'Europe/Paris',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        }).format(date);
     }
 
     async findAll(filterDto: FilterForumDto, userId: number): Promise<PaginationResponse<any>> {
@@ -84,6 +113,8 @@ export class ForumService {
 
             return {
                 ...forumWithoutUserId,
+                created_at: this.formatToParisTime(forum.created_at),
+                updated_at: this.formatToParisTime(forum.updated_at),
                 nb_comment,
                 nb_like,
                 isLiked: likedSet.has(forum.id)
@@ -139,6 +170,8 @@ export class ForumService {
 
         return {
             ...forumWithoutUserId,
+            created_at: this.formatToParisTime(forum.created_at),
+            updated_at: this.formatToParisTime(forum.updated_at),
             nb_like,
             nb_comment,
             isLiked
@@ -155,21 +188,6 @@ export class ForumService {
         });
 
         // 2. Remove all comments associated to the forum
-        // detailed logic: "follow logic implemented in DELETE /commentaires/:model/:id"
-        // This means we should call commentsService.remove() for each root comment to trigger recursion.
-
-        // We need to inject CommentsPolymorphicService or use Prisma directly if we replicate logic.
-        // Since we need to follow the logic, calling the service is safer but requires injection.
-        // Let's check imports. We don't have CommentsService injected yet.
-        // For now, I will implement the loop here using Prisma to find roots, then recursing?
-        // Actually, simpler: find ALL comments for this forum (roots), then call a recursive delete function?
-        // Or if we can inject CommentsPolymorphicService that would be best. 
-        // But circular dependency risk if CommentsService imports ForumService.
-        // Let's assume for now we can select them and delete them.
-        // But the user said "following logic implemented in ...". 
-        // The logic there is: find children -> remove children -> remove self.
-
-        // Let's fetch root comments for this forum
         const rootComments = await this.prisma.commentaireUser.findMany({
             where: {
                 commentable_type: 'Forums',
@@ -177,15 +195,6 @@ export class ForumService {
                 deleted_at: null
             }
         });
-
-        // We can't easily call CommentsPolymorphicService.remove without injecting it.
-        // And we can't inject it if it's not in the module.
-        // Let's assume we implement a private helper or local recursion if needed.
-        // BUT, wait, `CommentsPolymorphicService` is NOT injected. 
-        // I will add a private recursion helper `deleteCommentRecursively` here to duplicate the logic safely 
-        // without circular deps, OR I will modify the constructor to inject it if possible.
-        // Given the constraints and likely circular dep (Comments might use ForumService later),
-        // I'll replicate the recursive logic here which is cleaner for now.
 
         for (const comment of rootComments) {
             await this.deleteCommentRecursively(comment.id);

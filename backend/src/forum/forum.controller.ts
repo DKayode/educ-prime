@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Req, UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator, Res, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Query, UseInterceptors, UploadedFile, Res, UseGuards, Req, Put, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ForumService } from './forum.service';
 import { CreateForumDto } from './dto/create-forum.dto';
+import { UpdateForumDto } from './dto/update-forum.dto';
 import { FilterForumDto } from './dto/filter-forum.dto';
 import { ApiTags, ApiBearerAuth, ApiQuery, ApiOkResponse, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
 import { ForumEntity } from './entities/forum.entity';
@@ -108,5 +109,18 @@ export class ForumController {
         } catch (error) {
             res.status(404).json({ message: error.message });
         }
+    }
+
+    @Put(':id')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Mettre à jour un forum' })
+    @ApiParam({ name: 'id', description: 'ID du forum' })
+    @ApiResponse({ status: 200, description: 'Le forum a été mis à jour.', type: ForumEntity })
+    @ApiResponse({ status: 404, description: 'Forum introuvable.' })
+    @ApiResponse({ status: 403, description: 'Non autorisé à modifier ce forum.' })
+    update(@Param('id') id: string, @Body() updateForumDto: UpdateForumDto, @Req() req) {
+        const userId = req.user.utilisateurId;
+        return this.forumService.update(+id, updateForumDto, userId);
     }
 }
