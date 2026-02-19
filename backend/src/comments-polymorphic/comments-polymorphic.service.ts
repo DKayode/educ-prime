@@ -205,27 +205,33 @@ export class CommentsPolymorphicService {
         ]);
 
         let likedSet = new Set<number>();
-        if (userId) {
-            // Flatten comments to get all IDs
-            const allCommentIds: number[] = [];
-            const collectIds = (nodes: any[]) => {
-                for (const node of nodes) {
-                    allCommentIds.push(node.id);
-                    if (node.children && node.children.length > 0) {
-                        collectIds(node.children);
-                    }
-                }
-            };
-            collectIds(comments);
+        let likesCounts = new Map<number, number>();
 
-            if (allCommentIds.length > 0) {
+        // Flatten comments to get all IDs
+        const allCommentIds: number[] = [];
+        const collectIds = (nodes: any[]) => {
+            for (const node of nodes) {
+                allCommentIds.push(node.id);
+                if (node.children && node.children.length > 0) {
+                    collectIds(node.children);
+                }
+            }
+        };
+        collectIds(comments);
+
+        if (allCommentIds.length > 0) {
+            // Get user likes
+            if (userId) {
                 const likedIds = await this.likesService.getLikedIdsByUser('Commentaires', allCommentIds, userId);
                 likedSet = new Set(likedIds);
             }
+
+            // Get like counts
+            likesCounts = await this.likesService.getLikesCounts('Commentaires', allCommentIds);
         }
 
         return {
-            data: comments.map((comment) => this.mapResponse(comment, likedSet)),
+            data: comments.map((comment) => this.mapResponse(comment, likedSet, likesCounts)),
             total,
             page,
             limit,
@@ -281,7 +287,7 @@ export class CommentsPolymorphicService {
         }).format(date);
     }
 
-    private mapResponse(comment: any, likedSet: Set<number> = new Set()) {
+    private mapResponse(comment: any, likedSet: Set<number> = new Set(), likesCounts: Map<number, number> = new Map()) {
         return {
             ...comment,
             created_at: this.formatToParisTime(comment.created_at),
@@ -289,7 +295,9 @@ export class CommentsPolymorphicService {
             commentable_id: comment.commentable_id ? comment.commentable_id.toString() : null,
             commentaire_id: comment.commentaire_id ? comment.commentaire_id.toString() : null,
             isLiked: likedSet.has(comment.id),
-            children: comment.children ? comment.children.map(c => this.mapResponse(c, likedSet)) : []
+            nb_like: likesCounts.get(comment.id) || 0,
+            nb_comment: comment.children ? comment.children.length : 0,
+            children: comment.children ? comment.children.map(c => this.mapResponse(c, likedSet, likesCounts)) : []
         };
     }
 }

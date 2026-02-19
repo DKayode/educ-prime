@@ -92,4 +92,25 @@ export class LikesPolymorphicService {
 
         return likes.map(like => Number(like.likeable_id));
     }
+    async getLikesCounts(model: string, ids: number[]): Promise<Map<number, number>> {
+        if (ids.length === 0) return new Map();
+
+        const counts = await this.prisma.likeUser.groupBy({
+            by: ['likeable_id'],
+            where: {
+                likeable_type: model,
+                likeable_id: { in: ids.map(id => BigInt(id)) }
+            },
+            _count: {
+                likeable_id: true
+            }
+        });
+
+        const map = new Map<number, number>();
+        counts.forEach(c => {
+            map.set(Number(c.likeable_id), c._count.likeable_id);
+        });
+
+        return map;
+    }
 }
