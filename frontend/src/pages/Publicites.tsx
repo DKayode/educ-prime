@@ -50,6 +50,7 @@ interface PubliciteFormData {
     image?: string;
     media?: string;
     type_media: 'Image' | 'Video';
+    lien_inscription?: string;
     ordre: number;
     actif: boolean;
 }
@@ -64,6 +65,7 @@ export default function Publicites() {
         image: "",
         media: "",
         type_media: "Image",
+        lien_inscription: "",
         ordre: 0,
         actif: true,
     });
@@ -100,7 +102,7 @@ export default function Publicites() {
             queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
             setIsCreateDialogOpen(false);
             setIsCreateDialogOpen(false);
-            setFormData({ titre: "", image: "", media: "", type_media: "Image", ordre: 0, actif: true });
+            setFormData({ titre: "", image: "", media: "", type_media: "Image", lien_inscription: "", ordre: 0, actif: true });
             setSelectedImageFile(null);
             setSelectedMediaFile(null);
             toast({
@@ -174,6 +176,15 @@ export default function Publicites() {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!selectedImageFile) {
+            toast({
+                title: "Image manquante",
+                description: "Veuillez sélectionner une image de couverture pour la publicité.",
+                variant: "destructive"
+            });
+            return;
+        }
 
         // Validate YouTube URL if type is Video
         if (formData.type_media === 'Video' && formData.media) {
@@ -258,7 +269,7 @@ export default function Publicites() {
             queryClient.invalidateQueries({ queryKey: ["publicites"] });
             queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
             setIsCreateDialogOpen(false);
-            setFormData({ titre: "", image: "", media: "", type_media: "Image", ordre: 0, actif: true });
+            setFormData({ titre: "", image: "", media: "", type_media: "Image", lien_inscription: "", ordre: 0, actif: true });
             setSelectedImageFile(null);
             setSelectedMediaFile(null);
             toast({
@@ -384,6 +395,7 @@ export default function Publicites() {
                     image: updatedImage,
                     media: updatedMedia,
                     type_media: editingPublicite.type_media,
+                    lien_inscription: editingPublicite.lien_inscription || "",
                     ordre: editingPublicite.ordre,
                     actif: editingPublicite.actif,
                 },
@@ -518,7 +530,7 @@ export default function Publicites() {
 
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="image">Image de couverture</Label>
+                                        <Label htmlFor="image">Image de couverture *</Label>
                                         <div className="flex gap-2">
                                             <Input
                                                 id="image-file"
@@ -526,6 +538,7 @@ export default function Publicites() {
                                                 accept="image/*"
                                                 onChange={handleImageFileChange}
                                                 className="flex-1"
+                                                required
                                             />
                                             {selectedImageFile && (
                                                 <Badge variant="secondary" className="self-center">
@@ -580,6 +593,16 @@ export default function Publicites() {
                                                 )}
                                             </div>
                                         )}
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="lien_inscription">Lien d'inscription (Optionnel)</Label>
+                                        <Input
+                                            id="lien_inscription"
+                                            type="url"
+                                            placeholder="https://..."
+                                            value={formData.lien_inscription || ""}
+                                            onChange={(e) => setFormData({ ...formData, lien_inscription: e.target.value })}
+                                        />
                                     </div>
                                     <div className="grid gap-2">
                                         <Label htmlFor="ordre">Ordre</Label>
@@ -639,6 +662,7 @@ export default function Publicites() {
                                 <TableRow>
                                     <TableHead>Titre</TableHead>
                                     <TableHead>Type</TableHead>
+                                    <TableHead>Lien Inscription</TableHead>
                                     <TableHead>Ordre</TableHead>
                                     <TableHead>Statut</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
@@ -650,6 +674,15 @@ export default function Publicites() {
                                         <TableCell className="font-medium">{publicite.titre}</TableCell>
                                         <TableCell>
                                             <Badge variant="outline">{publicite.type_media || 'Image'}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {publicite.lien_inscription ? (
+                                                <a href={publicite.lien_inscription} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                                                    Lien
+                                                </a>
+                                            ) : (
+                                                <span className="text-muted-foreground">-</span>
+                                            )}
                                         </TableCell>
                                         <TableCell>{publicite.ordre}</TableCell>
                                         <TableCell>
@@ -804,6 +837,20 @@ export default function Publicites() {
                                         )}
                                     </div>
                                 )}
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit-lien_inscription">Lien d'inscription (Optionnel)</Label>
+                                <Input
+                                    id="edit-lien_inscription"
+                                    type="url"
+                                    placeholder="https://..."
+                                    value={editingPublicite?.lien_inscription || ""}
+                                    onChange={(e) =>
+                                        setEditingPublicite(
+                                            editingPublicite ? { ...editingPublicite, lien_inscription: e.target.value } : null
+                                        )
+                                    }
+                                />
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="edit-ordre">Ordre</Label>

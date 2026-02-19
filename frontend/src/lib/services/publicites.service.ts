@@ -8,6 +8,7 @@ export interface Publicite {
     image?: string;
     media?: string;
     type_media?: 'Image' | 'Video';
+    lien_inscription?: string;
     ordre: number;
     actif: boolean;
     date_creation: string;
@@ -32,6 +33,7 @@ export const publicitesService = {
         image?: string;
         media?: string;
         type_media?: 'Image' | 'Video';
+        lien_inscription?: string;
         ordre?: number;
         actif?: boolean;
     }): Promise<Publicite> {
@@ -43,6 +45,7 @@ export const publicitesService = {
         image: string;
         media: string;
         type_media: 'Image' | 'Video';
+        lien_inscription: string;
         ordre: number;
         actif: boolean;
     }>): Promise<Publicite> {

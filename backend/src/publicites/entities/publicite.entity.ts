@@ -29,4 +29,7 @@ export class Publicite {
 
     @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
     date_creation: Date;
+
+    @Column({ type: 'text', nullable: true })
+    lien_inscription: string;
 }
