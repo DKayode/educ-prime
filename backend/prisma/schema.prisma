@@ -245,14 +245,15 @@ model parcours {
 }
 
 model publicites {
-  id            Int                         @id @default(autoincrement())
-  titre         String                      @db.VarChar(255)
-  image         String?
-  media         String?
-  ordre         Int?                        @default(0)
-  actif         Boolean?                    @default(true)
-  date_creation DateTime                    @default(now()) @db.Timestamptz(6)
-  type_media    publicites_type_media_enum?
+  id               Int                         @id @default(autoincrement())
+  titre            String                      @db.VarChar(255)
+  image            String?
+  media            String?
+  ordre            Int?                        @default(0)
+  actif            Boolean?                    @default(true)
+  date_creation    DateTime                    @default(now()) @db.Timestamptz(6)
+  type_media       publicites_type_media_enum?
+  lien_inscription String?
 }
 
 model refresh_tokens {

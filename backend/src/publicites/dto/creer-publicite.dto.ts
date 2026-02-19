@@ -30,4 +30,9 @@ export class CreerPubliciteDto {
     @IsOptional()
     @IsBoolean()
     actif?: boolean;
+
+    @ApiProperty({ description: 'Lien d\'inscription', required: false })
+    @IsOptional()
+    @IsUrl()
+    lien_inscription?: string;
 }

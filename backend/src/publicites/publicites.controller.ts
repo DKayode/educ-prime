@@ -23,6 +23,8 @@ export class PublicitesController {
     @UseGuards(JwtAuthGuard, RoleGuard)
     @Roles(RoleType.ADMIN)
     @Post()
+    @ApiOperation({ summary: 'Créer une publicité', description: 'Crée une nouvelle publicité avec possibilité d\'inclure un lien_inscription optionnel.' })
+    @ApiResponse({ status: 201, description: 'Publicité créée avec succès.' })
     async create(@Body() creerPubliciteDto: CreerPubliciteDto) {
         return this.publicitesService.create(creerPubliciteDto);
     }
@@ -40,6 +42,10 @@ export class PublicitesController {
 
     @UseGuards(JwtAuthGuard)
     @Get(':id/media')
+    @ApiOperation({ summary: 'Obtenir l\'image réelle de la publicité', description: 'Récupérer l\'image du contenu (media) si la publicité est de type Image. Pour une publicité Vidéo, cette route renverra une erreur.' })
+    @ApiResponse({ status: 200, description: 'Le fichier image a été téléchargé avec succès.' })
+    @ApiResponse({ status: 400, description: 'La publicité n\'est pas de type Image ou le fichier n\'existe pas.' })
+    @ApiResponse({ status: 404, description: 'Publicité non trouvée.' })
     async downloadMedia(
         @Param('id') id: string,
         @Res() res: Response
@@ -54,12 +60,20 @@ export class PublicitesController {
 
     @UseGuards(JwtAuthGuard)
     @Get(':id/lien')
+    @ApiOperation({ summary: 'Obtenir le lien de la publicité vidéo', description: 'Récupérer le lien d\'une publicité si elle est de type Vidéo.' })
+    @ApiResponse({ status: 200, description: 'Le lien de la vidéo a été récupéré avec succès.' })
+    @ApiResponse({ status: 400, description: 'La publicité n\'est pas de type Vidéo.' })
+    @ApiResponse({ status: 404, description: 'Publicité non trouvée ou lien manquant.' })
     async getLink(@Param('id') id: string) {
         return this.publicitesService.findOneForLink(id);
     }
 
     @UseGuards(JwtAuthGuard)
     @Get(':id/image')
+    @ApiOperation({ summary: 'Obtenir l\'image de couverture de la publicité', description: 'Permet de récupérer (généralement télécharger) l\'image de couverture associée à la publicité.' })
+    @ApiResponse({ status: 200, description: 'L\'image de couverture a été téléchargée avec succès.' })
+    @ApiResponse({ status: 400, description: 'La publicité ne possède pas d\'image de couverture associée.' })
+    @ApiResponse({ status: 404, description: 'Publicité non trouvée.' })
     async downloadImage(
         @Param('id') id: string,
         @Res() res: Response
@@ -74,6 +88,9 @@ export class PublicitesController {
 
     @UseGuards(JwtAuthGuard)
     @Get(':id')
+    @ApiOperation({ summary: 'Récupérer une publicité', description: 'Renvoie les détails de la publicité (y compris lien_inscription le cas échéant).' })
+    @ApiResponse({ status: 200, description: 'Détails de la publicité.' })
+    @ApiResponse({ status: 404, description: 'Publicité non trouvée.' })
     async findOne(@Param('id') id: string) {
         return this.publicitesService.findOne(id);
     }
@@ -81,6 +98,9 @@ export class PublicitesController {
     @UseGuards(JwtAuthGuard, RoleGuard)
     @Roles(RoleType.ADMIN)
     @Put(':id')
+    @ApiOperation({ summary: 'Mettre à jour une publicité', description: 'Permet de modifier les informations d\'une publicité existante, telles que le titre, l\'image ou le lien_inscription.' })
+    @ApiResponse({ status: 200, description: 'Publicité mise à jour avec succès.' })
+    @ApiResponse({ status: 404, description: 'Publicité non trouvée.' })
     async update(@Param('id') id: string, @Body() majPubliciteDto: MajPubliciteDto) {
         return this.publicitesService.update(id, majPubliciteDto);
     }
