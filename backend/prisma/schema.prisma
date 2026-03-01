@@ -286,6 +286,7 @@ model utilisateurs {
   nom                       String                      @db.VarChar(100)
   prenom                    String                      @db.VarChar(100)
   pseudo                    String?                     @db.VarChar(100)
+  uuid                      String?                     @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email                     String                      @unique @db.VarChar(255)
   mot_de_passe              String                      @db.VarChar(255)
   photo                     String?

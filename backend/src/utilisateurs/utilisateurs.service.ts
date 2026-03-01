@@ -135,7 +135,8 @@ export class UtilisateursService {
       ...inscriptionDto,
       mot_de_passe: hashedPassword,
       parrain: parrain,
-      mon_code_parrainage: monCodeParrainage
+      mon_code_parrainage: monCodeParrainage,
+      uuid: crypto.randomUUID()
     });
 
     // Save user
@@ -183,6 +184,22 @@ export class UtilisateursService {
     }
 
     this.logger.log(`Backfill complete: Generated referral codes for ${updatedCount} users.`);
+    return { updated: updatedCount };
+  }
+
+  async generateMissingUuids(): Promise<{ updated: number }> {
+    const users = await this.utilisateursRepository.find({
+      where: { uuid: IsNull() },
+    });
+
+    let updatedCount = 0;
+    for (const user of users) {
+      user.uuid = crypto.randomUUID();
+      await this.utilisateursRepository.save(user);
+      updatedCount++;
+    }
+
+    this.logger.log(`Backfill complete: Generated UUIDs for ${updatedCount} users.`);
     return { updated: updatedCount };
   }
 
