@@ -297,9 +297,10 @@ model utilisateurs {
   role                      utilisateurs_role_enum?
   fcm_token                 String?
   est_desactive             Boolean?                    @default(false)
+  verifier                  Boolean?                    @default(false)
   date_suppression_prevue   DateTime?                   @db.Timestamp(6)
   date_creation             DateTime?                   @default(now()) @db.Timestamp(6)
-  code_reinitialisation     String?                     @db.VarChar(6)
+  digit_code                String?                     @db.VarChar(6)
   date_expiration_code      DateTime?                   @db.Timestamp(6)
   mon_code_parrainage       String?                     @unique
   parrain_id                Int?
@@ -318,6 +319,8 @@ model utilisateurs {
   forums                    Forum[]
   like_users                LikeUser[]
   commentaire_users         CommentaireUser[]
+  services                  services[]
+  avis                      avis[]
 }
 
 enum app_platform_enum {
@@ -416,4 +419,50 @@ model CommentaireUser {
   user             utilisateurs @relation(fields: [user_id], references: [id])
 
   @@map("commentaire_users")
+}
+
+enum services_status_enum {
+  pending_approval
+  declined
+  approved
+  active
+  inactive
+}
+
+model services_types {
+  id          Int        @id @default(autoincrement())
+  nom         String     @db.VarChar(255)
+  slug        String     @unique @db.VarChar(255)
+  description String?    @db.Text
+  services    services[]
+}
+
+model services {
+  id              Int                     @id @default(autoincrement())
+  titre           String                  @db.VarChar(255)
+  description     String                  @db.Text
+  localisation    String                  @db.VarChar(255)
+  utilisateur_id  Int
+  tarif           Decimal?                @db.Decimal(10, 2)
+  type_id         Int
+  status          services_status_enum    @default(pending_approval)
+  disponibilite   Json?   
+  created_at      DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime                @default(now()) @db.Timestamptz(6)
+  
+  utilisateurs    utilisateurs            @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  service_type    services_types          @relation(fields: [type_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  avis            avis[]
+}
+
+model avis {
+  id              Int          @id @default(autoincrement())
+  service_id      Int
+  utilisateur_id  Int
+  note            Int          @default(5)
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime     @default(now()) @db.Timestamptz(6)
+
+  services        services     @relation(fields: [service_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  utilisateurs    utilisateurs @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }

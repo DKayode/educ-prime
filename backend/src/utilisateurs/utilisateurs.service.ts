@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets, LessThan, IsNull } from 'typeorm';
 import { Utilisateur } from './entities/utilisateur.entity';
@@ -6,6 +6,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
 import { InscriptionDto } from './dto/inscription.dto';
 import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
+import { ValidateEmailDto } from './dto/verify-email.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import * as bcrypt from 'bcrypt';
@@ -14,6 +15,7 @@ import { FirebaseService } from '../firebase/firebase.service';
 
 import { FichiersService } from 'src/fichiers/fichiers.service';
 import { TypeFichier } from 'src/fichiers/entities/fichier.entity';
+import { MailService } from '../mail/mail.service';
 import { IsEmail } from 'class-validator';
 import * as crypto from 'crypto';
 
@@ -24,8 +26,9 @@ export class UtilisateursService {
   constructor(
     @InjectRepository(Utilisateur)
     private readonly utilisateursRepository: Repository<Utilisateur>,
-    private firebaseService: FirebaseService,
     private readonly fichiersService: FichiersService,
+    private readonly firebaseService: FirebaseService,
+    private readonly mailService: MailService,
   ) { }
 
   async findByEmail(email: string) {
@@ -301,6 +304,65 @@ export class UtilisateursService {
     return updatedUser;
   }
 
+  async verifyEmail(email: string) {
+    this.logger.log(`Demande de vérification de l\'email pour: ${email}`);
+    const user = await this.utilisateursRepository.findOne({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // Generate a 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Set expiration to 1 day from now
+    const expiration = new Date();
+    expiration.setDate(expiration.getDate() + 1);
+
+    user.digit_code = code;
+    user.date_expiration_code = expiration;
+    await this.utilisateursRepository.save(user);
+
+    await this.mailService.sendVerifyEmailCode(email, code);
+
+    this.logger.log(`Code de vérification envoyé à l\\'utilisateur: ${email}`);
+    return { message: 'Code de vérification envoyé avec succès' };
+  }
+
+  async validateEmail(validateEmailDto: ValidateEmailDto) {
+    const { email, code } = validateEmailDto;
+
+    this.logger.log(`Validation de l\'email pour: ${email}`);
+    const user = await this.utilisateursRepository.findOne({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    if (user.digit_code !== code) {
+      user.verifier = false;
+      await this.utilisateursRepository.save(user);
+      throw new BadRequestException('Code de validation incorrect');
+    }
+
+    if (new Date() > user.date_expiration_code) {
+      user.verifier = false;
+      await this.utilisateursRepository.save(user);
+      throw new BadRequestException('Le code de validation a expiré');
+    }
+
+    user.verifier = true;
+    user.digit_code = null;
+    user.date_expiration_code = null;
+    await this.utilisateursRepository.save(user);
+
+    this.logger.log(`Email validé avec succès pour: ${email}`);
+    return { message: 'Email vérifié avec succès', verifier: true };
+  }
   async remove(id: string) {
     this.logger.log(`Tentative de suppression de l'utilisateur ID: ${id}`);
     const user = await this.utilisateursRepository.findOne({
@@ -322,7 +384,7 @@ export class UtilisateursService {
     if (!user) {
       throw new NotFoundException('Utilisateur non trouvé');
     }
-    user.code_reinitialisation = code;
+    user.digit_code = code;
     user.date_expiration_code = expiration;
     await this.utilisateursRepository.save(user);
   }
@@ -330,7 +392,7 @@ export class UtilisateursService {
   async updatePassword(id: number, hashedPassword: string) {
     await this.utilisateursRepository.update(id, {
       mot_de_passe: hashedPassword,
-      code_reinitialisation: null,
+      digit_code: null,
       date_expiration_code: null
     });
   }

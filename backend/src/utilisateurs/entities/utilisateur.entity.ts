@@ -47,6 +47,9 @@ export class Utilisateur {
   @Column({ default: false })
   est_desactive: boolean;
 
+  @Column({ default: false })
+  verifier: boolean;
+
   @Column({ type: 'timestamp', nullable: true })
   date_suppression_prevue: Date;
 
@@ -66,8 +69,8 @@ export class Utilisateur {
   @Column({ type: 'text', nullable: true })
   fcm_token: string;
 
-  @Column({ nullable: true })
-  code_reinitialisation: string;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  digit_code: string;
 
   @Column({ type: 'timestamp', nullable: true })
   date_expiration_code: Date;

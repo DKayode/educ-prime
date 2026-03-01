@@ -249,7 +249,7 @@ export class AuthService {
       throw new UnauthorizedException('Code invalide ou expiré');
     }
 
-    if (user.code_reinitialisation !== code) {
+    if (user.digit_code !== code) {
       throw new UnauthorizedException('Code incorrect');
     }
 

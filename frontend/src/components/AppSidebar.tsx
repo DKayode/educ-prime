@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, BookOpen, Calendar, FileText, Settings, Building2, BookMarked, FolderOpen, Megaphone, CalendarDays, Briefcase, GraduationCap, UserCheck, Layers, Bell, Smartphone, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Users, BookOpen, Calendar, FileText, Settings, Building2, BookMarked, FolderOpen, Megaphone, CalendarDays, Briefcase, GraduationCap, UserCheck, Layers, Bell, Smartphone, MessageSquare, ClipboardList } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation }
   from "react-router-dom";
@@ -36,6 +36,8 @@ const publicContentItems = [
   { title: "Événements", url: "/evenements", icon: CalendarDays },
   { title: "Opportunités", url: "/opportunites", icon: Briefcase },
   { title: "Concours", url: "/concours", icon: GraduationCap },
+  { title: "Services", url: "/admin/services", icon: ClipboardList },
+  { title: "Types de Services", url: "/admin/service-types", icon: Layers },
   { title: "Contacts Pro", url: "/contacts-professionnels", icon: UserCheck },
 ];
 
