@@ -68,6 +68,15 @@ export class UtilisateursController {
     return this.utilisateursService.generateMissingReferralCodes();
   }
 
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @Post('backfill-uuids')
+  @ApiOperation({ summary: 'Générer des UUIDs pour les utilisateurs existants qui n\'en ont pas (Admin)' })
+  @ApiResponse({ status: 200, description: 'Backfill terminé' })
+  async backfillUuids() {
+    return this.utilisateursService.generateMissingUuids();
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('code-parrainage')
   @ApiOperation({ summary: 'Récupérer son propre code de parrainage' })

@@ -34,6 +34,9 @@ export class Utilisateur {
   @Column({ nullable: true, unique: true })
   pseudo: string;
 
+  @Column({ type: 'uuid', nullable: true, unique: true })
+  uuid: string;
+
   @Column({ nullable: true, unique: true })
   mon_code_parrainage: string;
 
