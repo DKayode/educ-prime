@@ -14,7 +14,7 @@ export class CommentsPolymorphicService {
     ) { }
 
     private validateModel(model: string) {
-        const validModels = ['Forums', 'Parcours', 'Commentaires'];
+        const validModels = ['Forums', 'Parcours', 'Commentaires', 'Avis'];
         if (!validModels.includes(model)) {
             throw new BadRequestException(`Invalid model: ${model}. Valid models are: ${validModels.join(', ')}`);
         }
@@ -31,6 +31,9 @@ export class CommentsPolymorphicService {
             //     break;
             case 'Commentaires':
                 entity = await this.prisma.commentaireUser.findUnique({ where: { id: id } });
+                break;
+            case 'Avis':
+                entity = await this.prisma.avis.findUnique({ where: { id: id } });
                 break;
             default:
                 // If model is valid but not handled in switch (e.g. Parcours if not yet generated), allow or throw?

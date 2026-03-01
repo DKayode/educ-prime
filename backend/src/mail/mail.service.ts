@@ -50,6 +50,8 @@ export class MailService {
         <p>Votre code de vérification est : <strong>${code}</strong></p>
         <p>Ce code expire dans 15 minutes.</p>
         <p>Si vous n'êtes pas à l'origine de cette demande, veuillez ignorer cet email.</p>
+        <br/>
+        <p>L'équipe Edukia</p>
       `,
         };
 
@@ -59,6 +61,77 @@ export class MailService {
         } catch (error) {
             this.logger.error(`Failed to send email to ${email}: ${error.message}`, error.stack);
             throw error;
+        }
+    }
+
+    async sendVerifyEmailCode(email: string, code: string) {
+        if (!this.transporter) {
+            throw new Error('SMTP configuration missing. Cannot send email.');
+        }
+
+        const from = this.configService.get<string>('SMTP_USER') || 'support@educ-prime.cloud';
+        const mailOptions = {
+            from: `"Edukia" <${from}>`,
+            to: email,
+            subject: 'Vérification de votre adresse email',
+            html: `
+        <h1>Vérification d'email</h1>
+        <p>Votre code de vérification est : <strong>${code}</strong></p>
+        <p>Ce code expire dans 1 jour.</p>
+        <br/>
+        <p>L'équipe Edukia</p>
+      `,
+        };
+
+        try {
+            await this.transporter.sendMail(mailOptions);
+            this.logger.log(`Verification code email sent to ${email}`);
+        } catch (error) {
+            this.logger.error(`Failed to send email to ${email}: ${error.message}`, error.stack);
+            throw new Error("Erreur lors de l'envoi de l'email");
+        }
+    }
+
+    async sendServiceStatusUpdateEmail(email: string, userName: string, serviceTitle: string, status: string) {
+        if (!this.transporter) {
+            this.logger.warn('SMTP configuration missing. Cannot send service status email.');
+            return;
+        }
+
+        const from = this.configService.get<string>('SMTP_USER') || 'support@educ-prime.cloud';
+
+        let statusText = '';
+        let messageHtml = '';
+
+        if (status === 'active' || status === 'approved') {
+            statusText = 'approuvé';
+            messageHtml = `<p>Excellente nouvelle ! Votre service <strong>"${serviceTitle}"</strong> a été <strong>approuvé</strong> et est maintenant visible par tous les utilisateurs.</p>`;
+        } else if (status === 'declined') {
+            statusText = 'refusé';
+            messageHtml = `<p>Nous sommes au regret de vous informer que votre service <strong>"${serviceTitle}"</strong> a été <strong>refusé</strong> car il ne respectait pas nos conditions de publication.</p>`;
+        } else {
+            // Optional: don't send emails for other status changes
+            return;
+        }
+
+        const mailOptions = {
+            from: `"Edukia" <${from}>`,
+            to: email,
+            subject: `Mise à jour de votre service : ${statusText}`,
+            html: `
+        <h1>Bonjour ${userName},</h1>
+        ${messageHtml}
+        <p>Merci pour votre confiance,</p>
+        <p>L'équipe Edukia</p>
+      `,
+        };
+
+        try {
+            await this.transporter.sendMail(mailOptions);
+            this.logger.log(`Service status update email sent to ${email}`);
+        } catch (error) {
+            this.logger.error(`Failed to send email to ${email}: ${error.message}`, error.stack);
+            throw new Error("Erreur lors de l'envoi de l'email");
         }
     }
 }

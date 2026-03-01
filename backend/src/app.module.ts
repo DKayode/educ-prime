@@ -49,6 +49,9 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ForumModule } from './forum/forum.module';
 import { LikesPolymorphicModule } from './likes-polymorphic/likes-polymorphic.module';
 import { CommentsPolymorphicModule } from './comments-polymorphic/comments-polymorphic.module';
+import { ServicesModule } from './services/services.module';
+import { AvisModule } from './avis/avis.module';
+import { ServiceTypesModule } from './service-types/service-types.module';
 
 @Module({
   imports: [
@@ -112,6 +115,9 @@ import { CommentsPolymorphicModule } from './comments-polymorphic/comments-polym
     ForumModule,
     LikesPolymorphicModule,
     CommentsPolymorphicModule,
+    ServicesModule,
+    AvisModule,
+    ServiceTypesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

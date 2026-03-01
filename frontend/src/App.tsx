@@ -22,6 +22,8 @@ import ContactsProfessionnels from "./pages/ContactsProfessionnels";
 import Parcours from "./pages/Parcours";
 import Categories from "./pages/Categories";
 import Settings from "./pages/Settings";
+import ServicesAdmin from "./pages/ServicesAdmin";
+import ServiceTypesAdmin from "./pages/ServiceTypesAdmin";
 import Notifications from "./pages/Notifications";
 import AppVersions from "./pages/AppVersions";
 import Parrainages from "./pages/Parrainages";
@@ -68,6 +70,8 @@ const App = () => (
                       <Route path="/contacts-professionnels" element={<ContactsProfessionnels />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/notifications" element={<Notifications />} />
+                      <Route path="/admin/services" element={<ServicesAdmin />} />
+                      <Route path="/admin/service-types" element={<ServiceTypesAdmin />} />
                       <Route path="/app-versions" element={<AppVersions />} />
                       <Route path="/parrainages" element={<Parrainages />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

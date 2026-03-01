@@ -6,6 +6,7 @@ import { UtilisateursService } from './utilisateurs.service';
 import { InscriptionDto } from './dto/inscription.dto';
 import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
 import { UpdateProfilDto } from './dto/update-profil.dto';
+import { VerifyEmailDto, ValidateEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -93,6 +94,20 @@ export class UtilisateursController {
   async updateProfile(@Request() req, @Body() updateProfilDto: UpdateProfilDto) {
     const userId = req.user.utilisateurId;
     return this.utilisateursService.update(userId, updateProfilDto);
+  }
+
+  @Post('verify-email')
+  @ApiOperation({ summary: 'Demander la vérification d\'email (envoie un code)' })
+  @ApiResponse({ status: 200, description: 'Code de vérification envoyé avec succès' })
+  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
+    return this.utilisateursService.verifyEmail(verifyEmailDto.email);
+  }
+
+  @Post('validate-email')
+  @ApiOperation({ summary: 'Valider le code pour confirmer l\'adresse email' })
+  @ApiResponse({ status: 200, description: 'Email validé avec succès' })
+  async validateEmail(@Body() validateEmailDto: ValidateEmailDto) {
+    return this.utilisateursService.validateEmail(validateEmailDto);
   }
 
   @UseGuards(JwtAuthGuard, OwnerOrAdminGuard)
