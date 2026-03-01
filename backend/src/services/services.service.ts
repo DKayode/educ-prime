@@ -88,7 +88,7 @@ export class ServicesService {
             take: limit,
             include: {
                 utilisateurs: {
-                    select: { id: true, nom: true, prenom: true }
+                    select: { id: true, uuid: true, nom: true, prenom: true }
                 },
                 service_type: {
                     select: { id: true, nom: true, slug: true, description: true }
@@ -118,7 +118,7 @@ export class ServicesService {
             orderBy: { created_at: 'desc' },
             include: {
                 utilisateurs: {
-                    select: { id: true, nom: true, prenom: true }
+                    select: { id: true, uuid: true, nom: true, prenom: true }
                 },
                 service_type: {
                     select: { id: true, nom: true, slug: true, description: true }
@@ -140,7 +140,7 @@ export class ServicesService {
             where: { id },
             include: {
                 utilisateurs: {
-                    select: { id: true, nom: true, prenom: true, email: true }
+                    select: { id: true, uuid: true, nom: true, prenom: true, email: true }
                 },
                 service_type: {
                     select: { id: true, nom: true, slug: true, description: true }
@@ -207,7 +207,7 @@ export class ServicesService {
             take: limit,
             include: {
                 utilisateurs: {
-                    select: { id: true, nom: true, prenom: true }
+                    select: { id: true, uuid: true, nom: true, prenom: true }
                 },
                 service_type: {
                     select: { id: true, nom: true, slug: true, description: true }
