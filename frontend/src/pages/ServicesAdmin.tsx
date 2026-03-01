@@ -251,7 +251,7 @@ export default function ServicesAdmin() {
                                                     {service.type?.nom || '-'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {service.tarif ? `${service.tarif}€` : '-'}
+                                                    {service.tarif ? `${service.tarif} FCFA` : '-'}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant={getStatusBadgeVariant(service.status)}>
@@ -360,7 +360,7 @@ export default function ServicesAdmin() {
                                 </div>
                                 <div>
                                     <h4 className="font-semibold text-muted-foreground">Tarif</h4>
-                                    <p>{viewService.tarif ? `${viewService.tarif}€` : 'Non renseigné'}</p>
+                                    <p>{viewService.tarif ? `${viewService.tarif} FCFA` : '-'}</p>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">

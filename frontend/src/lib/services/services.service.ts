@@ -20,6 +20,7 @@ export interface ServiceItem {
     };
     utilisateurs?: {
         id: number;
+        uuid?: string;
         nom: string;
         prenom: string;
     };
