@@ -223,7 +223,7 @@ export class UtilisateursService {
       .leftJoinAndSelect('utilisateur.filiere', 'filiere')
       .leftJoinAndSelect('utilisateur.niveau_etude', 'niveau_etude')
       .loadRelationCountAndMap('utilisateur.filleulsCount', 'utilisateur.filleuls')
-      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.photo', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'etablissement', 'filiere', 'niveau_etude'])
+      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'etablissement', 'filiere', 'niveau_etude'])
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -284,7 +284,7 @@ export class UtilisateursService {
     this.logger.log(`Recherche de l'utilisateur avec ID: ${id}`);
     const user = await this.utilisateursRepository.findOne({
       where: { id: parseInt(id) },
-      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'photo', 'sexe', 'telephone', 'role', 'mon_code_parrainage'],
+      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'sexe', 'telephone', 'role', 'mon_code_parrainage'],
       relations: ['etablissement', 'filiere', 'niveau_etude'],
     });
 
