@@ -92,9 +92,9 @@ export class MailService {
         }
     }
 
-    async sendServiceStatusUpdateEmail(email: string, userName: string, serviceTitle: string, status: string) {
+    async sendServiceStatusUpdateEmail(email: string, userName: string, serviceTitle: string, status: string, entityType: string = 'service') {
         if (!this.transporter) {
-            this.logger.warn('SMTP configuration missing. Cannot send service status email.');
+            this.logger.warn(`SMTP configuration missing. Cannot send ${entityType} status email.`);
             return;
         }
 
@@ -105,10 +105,10 @@ export class MailService {
 
         if (status === 'active' || status === 'approved') {
             statusText = 'approuvé';
-            messageHtml = `<p>Excellente nouvelle ! Votre service <strong>"${serviceTitle}"</strong> a été <strong>approuvé</strong> et est maintenant visible par tous les utilisateurs.</p>`;
+            messageHtml = `<p>Excellente nouvelle ! Votre ${entityType} <strong>"${serviceTitle}"</strong> a été <strong>approuvé</strong> et est maintenant visible par tous les utilisateurs.</p>`;
         } else if (status === 'declined') {
             statusText = 'refusé';
-            messageHtml = `<p>Nous sommes au regret de vous informer que votre service <strong>"${serviceTitle}"</strong> a été <strong>refusé</strong> car il ne respectait pas nos conditions de publication.</p>`;
+            messageHtml = `<p>Nous sommes au regret de vous informer que votre ${entityType} <strong>"${serviceTitle}"</strong> a été <strong>refusé</strong> car il ne respectait pas nos conditions de publication.</p>`;
         } else {
             // Optional: don't send emails for other status changes
             return;
@@ -117,7 +117,7 @@ export class MailService {
         const mailOptions = {
             from: `"Edukia" <${from}>`,
             to: email,
-            subject: `Mise à jour de votre service : ${statusText}`,
+            subject: `Mise à jour de votre ${entityType} : ${statusText}`,
             html: `
         <h1>Bonjour ${userName},</h1>
         ${messageHtml}
@@ -129,6 +129,54 @@ export class MailService {
         try {
             await this.transporter.sendMail(mailOptions);
             this.logger.log(`Service status update email sent to ${email}`);
+        } catch (error) {
+            this.logger.error(`Failed to send email to ${email}: ${error.message}`, error.stack);
+            throw new Error("Erreur lors de l'envoi de l'email");
+        }
+    }
+
+    async sendRecruteurStatusUpdateEmail(email: string, userName: string, status: string) {
+        if (!this.transporter) {
+            this.logger.warn('SMTP configuration missing. Cannot send recruteur status email.');
+            return;
+        }
+
+        const from = this.configService.get<string>('SMTP_USER') || 'support@educ-prime.cloud';
+
+        let statusText = '';
+        let messageHtml = '';
+
+        if (status === 'active' || status === 'approved') {
+            statusText = 'approuvé';
+            messageHtml = `
+                <p>Félicitations ! Votre profil de <strong>Recruteur</strong> a été <strong>approuvé</strong>.</p>
+                <p>Vous pouvez dès à présent vous connecter et commencer à publier des offres sur notre plateforme.</p>
+            `;
+        } else if (status === 'declined') {
+            statusText = 'refusé';
+            messageHtml = `
+                <p>Nous sommes au regret de vous informer que votre profil de <strong>Recruteur</strong> a été <strong>refusé</strong>.</p>
+                <p>Si vous pensez qu'il s'agit d'une erreur ou si vous souhaitez plus d'informations, n'hésitez pas à nous contacter.</p>
+            `;
+        } else {
+            return;
+        }
+
+        const mailOptions = {
+            from: `"Edukia" <${from}>`,
+            to: email,
+            subject: `Mise à jour de votre profil Recruteur : ${statusText}`,
+            html: `
+        <h1>Bonjour ${userName},</h1>
+        ${messageHtml}
+        <p>Merci pour votre confiance,</p>
+        <p>L'équipe Edukia</p>
+      `,
+        };
+
+        try {
+            await this.transporter.sendMail(mailOptions);
+            this.logger.log(`Recruteur status update email sent to ${email}`);
         } catch (error) {
             this.logger.error(`Failed to send email to ${email}: ${error.message}`, error.stack);
             throw new Error("Erreur lors de l'envoi de l'email");

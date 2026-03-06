@@ -1,80 +1,117 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { CreateAvisDto, UpdateAvisDto } from './dto/avis.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { entite_type_enum } from '@prisma/client';
 
 @Injectable()
 export class AvisService {
     constructor(private prisma: PrismaService) { }
 
     async create(userId: number, createAvisDto: CreateAvisDto) {
-        const service = await this.prisma.services.findUnique({
-            where: { id: createAvisDto.service_id }
-        });
+        const { avisable_id, avisable_type, note } = createAvisDto;
 
-        if (!service) {
-            throw new NotFoundException("Service introuvable.");
+        // Valider que l'entité cible existe
+        let targetEntity: any;
+        if (avisable_type === entite_type_enum.Services) {
+            targetEntity = await this.prisma.services.findUnique({
+                where: { id: avisable_id }
+            });
+        } else if (avisable_type === entite_type_enum.Offres) {
+            targetEntity = await this.prisma.offres.findUnique({
+                where: { id: avisable_id }
+            });
         }
 
-        // Un utilisateur ne peut pas noter son propre service
-        if (service.utilisateur_id === userId) {
-            throw new ForbiddenException("Vous ne pouvez pas noter votre propre service.");
+        if (!targetEntity) {
+            throw new NotFoundException(`${avisable_type} introuvable.`);
         }
 
-        // Vérifier si l'utilisateur a déjà laissé un avis pour ce service
+        // Empêcher de noter sa propre entité
+        if (targetEntity.utilisateur_id === userId) {
+            throw new ForbiddenException(`Vous ne pouvez pas noter votre propre ${avisable_type.toLowerCase()}.`);
+        }
+
+        // Vérifier si un avis existe déjà
         const existingAvis = await this.prisma.avis.findFirst({
             where: {
-                service_id: createAvisDto.service_id,
+                avisable_id,
+                avisable_type,
                 utilisateur_id: userId,
             }
         });
 
         if (existingAvis) {
-            throw new ForbiddenException("Vous avez déjà laissé un avis pour ce service.");
+            throw new ForbiddenException(`Vous avez déjà laissé un avis pour ce ${avisable_type.toLowerCase()}.`);
         }
-
-        // Optionnel: vérifier la communication entre les deux utilisateurs
 
         return this.prisma.avis.create({
             data: {
-                note: createAvisDto.note,
-                service_id: createAvisDto.service_id,
+                note,
+                avisable_id,
+                avisable_type,
                 utilisateur_id: userId,
             }
         });
     }
 
-    async findAllByService(serviceId: number, pagination: { page: number, limit: number }) {
+    async findAllByModel(model: string, id: number, pagination: { page: number, limit: number }) {
+        let entityType: entite_type_enum;
+        if (model.toLowerCase() === 'services') {
+            entityType = entite_type_enum.Services;
+        } else if (model.toLowerCase() === 'offres') {
+            entityType = entite_type_enum.Offres;
+        } else {
+            throw new BadRequestException('Modèle invalide. Utilisez "Services" ou "Offres".');
+        }
+        return this.findAllByEntity(id, entityType, pagination);
+    }
+
+    private async findAllByEntity(entityId: number, entityType: entite_type_enum, pagination: { page: number, limit: number }) {
         const { page, limit } = pagination;
 
-        // Obtenir tous les avis
-        const total = await this.prisma.avis.count({ where: { service_id: serviceId } });
+        const total = await this.prisma.avis.count({
+            where: {
+                avisable_id: entityId,
+                avisable_type: entityType
+            }
+        });
+
         const avisList = await this.prisma.avis.findMany({
-            where: { service_id: serviceId },
+            where: {
+                avisable_id: entityId,
+                avisable_type: entityType
+            },
             skip: (page - 1) * limit,
             take: limit,
             include: {
                 utilisateurs: {
-                    select: { id: true, nom: true, prenom: true, photo: true }
+                    select: { id: true, uuid: true, nom: true, prenom: true, email: true }
                 }
             },
             orderBy: { created_at: 'desc' },
         });
 
-        // Pour chaque avis, on tente de récupérer le commentaire associé via la table polymorphique
-        // Model attendu de commentaire: "Avis", ou l'entité commentée est l'ID de l'avis
         const enrichedAvis = await Promise.all(avisList.map(async (avis) => {
             const comment = await this.prisma.commentaireUser.findFirst({
                 where: {
                     commentable_type: "Avis",
                     commentable_id: avis.id,
-                    user_id: avis.utilisateur_id // le commentaire appartient au même auteur que l'avis
+                    user_id: avis.utilisateur_id
                 }
             });
 
+            const { utilisateur_id, utilisateurs, ...restAvis } = avis;
+
             return {
-                ...avis,
+                ...restAvis,
+                utilisateur: utilisateurs ? {
+                    id: utilisateurs.id,
+                    ui: utilisateurs.uuid,
+                    nom: utilisateurs.nom,
+                    prenom: utilisateurs.prenom,
+                    email: utilisateurs.email,
+                } : null,
                 commentaire: comment ? comment.content : null,
-                commentaire_id: comment ? comment.id : null,
             };
         }));
 
@@ -106,7 +143,6 @@ export class AvisService {
             throw new ForbiddenException("Vous n'êtes pas autorisé à modifier cet avis.");
         }
 
-        // 1. Mettre à jour la note dans la table avis si fournie
         if (updateAvisDto.note !== undefined) {
             await this.prisma.avis.update({
                 where: { id },
@@ -114,9 +150,7 @@ export class AvisService {
             });
         }
 
-        // 2. Mettre à jour le commentaire dans la table polymorphic si fourni
         if (updateAvisDto.commentaire !== undefined) {
-            // Cherche le commentaire existant
             const existingComment = await this.prisma.commentaireUser.findFirst({
                 where: {
                     commentable_type: "Avis",
@@ -130,8 +164,10 @@ export class AvisService {
                     where: { id: existingComment.id },
                     data: { content: updateAvisDto.commentaire },
                 });
+            } else {
+                // Créer le commentaire s'il n'existe pas (si le DTO le permet lors de l'update)
+                // Note: La logique initiale semblait l'ignorer, je garde la cohérence mais c'est une amélioration possible.
             }
-            // Gérer le cas où le commentaire n'existe pas encore ? Pour l'instant on ignore.
         }
 
         return { message: "Avis mis à jour avec succès." };
@@ -144,8 +180,6 @@ export class AvisService {
             throw new ForbiddenException("Vous n'êtes pas autorisé à supprimer cet avis.");
         }
 
-        // La suppression de l'avis pourrait entrainer la suppression du commentaire 
-        // Si onDelete Cascade n'est pas géré au niveau polymorphique, il faut le supprimer manuellement
         await this.prisma.commentaireUser.deleteMany({
             where: {
                 commentable_type: "Avis",

@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, Star, MessageSquare } from "lucide-react";
-import { servicesService, ServiceItem } from "@/lib/services/services.service";
+import { offresService, OffreItem } from "@/lib/services/offres.service";
 import { avisService } from "@/lib/services/avis.service";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -30,43 +30,43 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 
-export default function ServicesAdmin() {
+export default function OffresAdmin() {
     const [selectedStatus, setSelectedStatus] = useState<string | null>("ALL");
     const [page, setPage] = useState(1);
     const [limit] = useState(10);
-    const [viewService, setViewService] = useState<ServiceItem | null>(null);
-    const [selectedServiceAvisId, setSelectedServiceAvisId] = useState<number | null>(null);
+    const [viewOffre, setViewOffre] = useState<OffreItem | null>(null);
+    const [selectedOffreAvisId, setSelectedOffreAvisId] = useState<number | null>(null);
 
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
-    const { data: servicesResponse, isLoading, error } = useQuery({
-        queryKey: ['admin-services', selectedStatus, page, limit],
-        queryFn: () => servicesService.getAllAdmin({
+    const { data: offresResponse, isLoading, error } = useQuery({
+        queryKey: ['admin-offres', selectedStatus, page, limit],
+        queryFn: () => offresService.getAllAdmin({
             status: selectedStatus === "ALL" ? undefined : selectedStatus || undefined,
             page,
             limit,
         }),
     });
 
-    const services = servicesResponse?.data || [];
-    const totalPages = servicesResponse?.totalPages || 1;
+    const offres = offresResponse?.data || [];
+    const totalPages = offresResponse?.totalPages || 1;
 
     const { data: avisResponse, isLoading: isLoadingAvis } = useQuery({
-        queryKey: ['service-avis', selectedServiceAvisId],
-        queryFn: () => avisService.getAllByModel('Services', selectedServiceAvisId!),
-        enabled: !!selectedServiceAvisId,
+        queryKey: ['offre-avis', selectedOffreAvisId],
+        queryFn: () => avisService.getAllByModel('Offres', selectedOffreAvisId!),
+        enabled: !!selectedOffreAvisId,
     });
 
     const avisList = avisResponse?.data || [];
 
     const updateStatusMutation = useMutation({
-        mutationFn: ({ id, status }: { id: number, status: string }) => servicesService.updateStatus(id, status),
+        mutationFn: ({ id, status }: { id: number, status: string }) => offresService.updateStatus(id, status),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["admin-services"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-offres"] });
             toast({
                 title: "Statut mis à jour",
-                description: "Le statut du service a été modifié avec succès.",
+                description: "Le statut de l'offre a été modifié avec succès.",
             });
         },
         onError: (error: any) => {
@@ -113,14 +113,14 @@ export default function ServicesAdmin() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">Validation des Services</h1>
-                    <p className="text-muted-foreground">Approuvez ou rejetez les services postés par les utilisateurs</p>
+                    <h1 className="text-3xl font-bold text-foreground">Validation des Offres</h1>
+                    <p className="text-muted-foreground">Approuvez ou rejetez les offres postées par les utilisateurs</p>
                 </div>
             </div>
 
             <Card className="shadow-md">
                 <CardHeader>
-                    <CardTitle>Liste des services demandés</CardTitle>
+                    <CardTitle>Liste des offres demandées</CardTitle>
                     <CardDescription>
                         <div className="flex flex-col md:flex-row gap-4 mt-4 items-center">
                             <Select
@@ -152,7 +152,7 @@ export default function ServicesAdmin() {
                         </div>
                     ) : error ? (
                         <div className="text-center py-8 text-destructive">
-                            Erreur lors du chargement des services
+                            Erreur lors du chargement des offres
                         </div>
                     ) : (
                         <>
@@ -169,41 +169,41 @@ export default function ServicesAdmin() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {services.length === 0 ? (
+                                    {offres.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={7} className="text-center text-muted-foreground">
-                                                Aucun service trouvé.
+                                                Aucune offre trouvée.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        services.map((service) => (
-                                            <TableRow key={service.id}>
-                                                <TableCell className="font-medium max-w-[200px] truncate" title={service.titre}>
-                                                    {service.titre}
+                                        offres.map((offre) => (
+                                            <TableRow key={offre.id}>
+                                                <TableCell className="font-medium max-w-[200px] truncate" title={offre.titre}>
+                                                    {offre.titre}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {service.utilisateurs ? `${service.utilisateurs.prenom} ${service.utilisateurs.nom}` : '-'}
+                                                    {offre.utilisateurs ? `${offre.utilisateurs.prenom} ${offre.utilisateurs.nom}` : '-'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {service.type?.nom || '-'}
+                                                    {offre.type?.nom || '-'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {service.prix ? `${service.prix} FCFA` : '-'}
+                                                    {offre.prix ? `${offre.prix} FCFA` : '-'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant={getStatusBadgeVariant(service.status)}>
-                                                        {getStatusLabel(service.status)}
+                                                    <Badge variant={getStatusBadgeVariant(offre.status)}>
+                                                        {getStatusLabel(offre.status)}
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {new Date(service.created_at).toLocaleDateString()}
+                                                    {new Date(offre.created_at).toLocaleDateString()}
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end gap-2">
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            onClick={() => setViewService(service)}
+                                                            onClick={() => setViewOffre(offre)}
                                                             title="Voir les détails"
                                                         >
                                                             <Eye className="h-4 w-4 text-blue-500" />
@@ -211,18 +211,18 @@ export default function ServicesAdmin() {
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            onClick={() => setSelectedServiceAvisId(service.id)}
+                                                            onClick={() => setSelectedOffreAvisId(offre.id)}
                                                             title="Voir les avis"
                                                         >
                                                             <MessageSquare className="h-4 w-4 text-primary" />
                                                         </Button>
 
-                                                        {service.status === 'pending_approval' && (
+                                                        {offre.status === 'pending_approval' && (
                                                             <>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    onClick={() => handleUpdateStatus(service.id, 'active')}
+                                                                    onClick={() => handleUpdateStatus(offre.id, 'active')}
                                                                     title="Approuver & Activer"
                                                                     disabled={updateStatusMutation.isPending}
                                                                 >
@@ -231,7 +231,7 @@ export default function ServicesAdmin() {
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    onClick={() => handleUpdateStatus(service.id, 'declined')}
+                                                                    onClick={() => handleUpdateStatus(offre.id, 'declined')}
                                                                     title="Refuser"
                                                                     disabled={updateStatusMutation.isPending}
                                                                 >
@@ -274,49 +274,45 @@ export default function ServicesAdmin() {
                 </CardContent>
             </Card>
 
-            <Dialog open={!!viewService} onOpenChange={(open) => !open && setViewService(null)}>
+            <Dialog open={!!viewOffre} onOpenChange={(open) => !open && setViewOffre(null)}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Détails du service</DialogTitle>
-                        <DialogDescription>Informations complètes sur ce service</DialogDescription>
+                        <DialogTitle>Détails de l'offre</DialogTitle>
+                        <DialogDescription>Informations complètes sur cette offre</DialogDescription>
                     </DialogHeader>
-                    {viewService && (
+                    {viewOffre && (
                         <div className="space-y-4 text-sm mt-4">
                             <div>
                                 <h4 className="font-semibold text-muted-foreground">Titre</h4>
-                                <p>{viewService.titre}</p>
+                                <p>{viewOffre.titre}</p>
                             </div>
                             <div>
                                 <h4 className="font-semibold text-muted-foreground">Description</h4>
-                                <p className="whitespace-pre-wrap">{viewService.description}</p>
+                                <p className="whitespace-pre-wrap">{viewOffre.description}</p>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <h4 className="font-semibold text-muted-foreground">Type de service</h4>
-                                    <p>{viewService.type?.nom || '-'}</p>
+                                    <h4 className="font-semibold text-muted-foreground">Type d'offre</h4>
+                                    <p>{viewOffre.type?.nom || '-'}</p>
                                 </div>
                                 <div>
                                     <h4 className="font-semibold text-muted-foreground">Prix</h4>
-                                    <p>{viewService.prix ? `${viewService.prix} FCFA` : '-'}</p>
+                                    <p>{viewOffre.prix ? `${viewOffre.prix} FCFA` : '-'}</p>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <h4 className="font-semibold text-muted-foreground">Localisation</h4>
-                                    <p>{viewService.localisation}</p>
-                                </div>
-                                <div>
                                     <h4 className="font-semibold text-muted-foreground">Statut actuel</h4>
-                                    <Badge variant={getStatusBadgeVariant(viewService.status)} className="mt-1">
-                                        {getStatusLabel(viewService.status)}
+                                    <Badge variant={getStatusBadgeVariant(viewOffre.status)} className="mt-1">
+                                        {getStatusLabel(viewOffre.status)}
                                     </Badge>
                                 </div>
                             </div>
-                            {viewService.delai && (
+                            {viewOffre.temps && (
                                 <div>
-                                    <h4 className="font-semibold text-muted-foreground">Délai de prestation (en jours)</h4>
+                                    <h4 className="font-semibold text-muted-foreground">Temps (en jours/heures)</h4>
                                     <div className="mt-2 text-sm space-y-1">
-                                        <p>{viewService.delai}</p>
+                                        <p>{viewOffre.temps}</p>
                                     </div>
                                 </div>
                             )}
@@ -327,12 +323,12 @@ export default function ServicesAdmin() {
             </Dialog>
 
             {/* Avis/Comments Dialog */}
-            <Dialog open={selectedServiceAvisId !== null} onOpenChange={(open) => !open && setSelectedServiceAvisId(null)}>
+            <Dialog open={selectedOffreAvisId !== null} onOpenChange={(open) => !open && setSelectedOffreAvisId(null)}>
                 <DialogContent className="max-w-xl max-h-[80vh] flex flex-col">
                     <DialogHeader>
                         <DialogTitle>Avis et Commentaires</DialogTitle>
                         <DialogDescription>
-                            Retour des utilisateurs sur ce service.
+                            Retour des utilisateurs sur cette offre.
                         </DialogDescription>
                     </DialogHeader>
 

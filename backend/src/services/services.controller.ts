@@ -1,11 +1,12 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, Query, UseGuards, Request, ForbiddenException, ParseIntPipe, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, Query, UseGuards, Request, ForbiddenException, ParseIntPipe, Patch, UseInterceptors, UploadedFile, Res, HttpStatus, ParseFilePipe, FileTypeValidator } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ServicesService } from './services.service';
 import { CreateServiceDto, UpdateServiceDto, UpdateServiceStatusDto } from './dto/service.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { services_status_enum } from '@prisma/client';
 
 @ApiTags('services')
@@ -119,6 +120,53 @@ export class ServicesController {
     remove(@Request() req, @Param('id', ParseIntPipe) id: number) {
         const userId = req.user.utilisateurId;
         return this.servicesService.remove(id, userId);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @Patch(':id/image-couverture')
+    @UseInterceptors(FileInterceptor('file'))
+    @ApiConsumes('multipart/form-data')
+    @ApiBody({
+        schema: {
+            type: 'object',
+            properties: {
+                file: {
+                    type: 'string',
+                    format: 'binary',
+                },
+            },
+        },
+    })
+    @ApiOperation({ summary: 'Mettre à jour l\'image de couverture du service' })
+    @ApiResponse({ status: 200, description: 'Image de couverture mise à jour avec succès' })
+    async uploadImageCouverture(
+        @Request() req,
+        @Param('id', ParseIntPipe) id: number,
+        @UploadedFile(
+            new ParseFilePipe({
+                validators: [
+                    new FileTypeValidator({ fileType: /(jpg|jpeg|png|gif|webp)$/ }),
+                ],
+            }),
+        ) file: Express.Multer.File,
+    ) {
+        const userId = req.user.utilisateurId;
+        return this.servicesService.uploadImageCouverture(id, userId, file);
+    }
+
+    @Get(':id/image-couverture')
+    @ApiOperation({ summary: 'Récupérer l\'image de couverture du service' })
+    @ApiResponse({ status: 200, description: 'Image de couverture récupérée avec succès' })
+    @ApiResponse({ status: 404, description: 'Image non trouvée' })
+    async getImageCouverture(
+        @Param('id', ParseIntPipe) id: number,
+        @Res() res: any
+    ) {
+        const { buffer, contentType, filename } = await this.servicesService.downloadImageCouverture(id);
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        res.status(HttpStatus.OK).send(buffer);
     }
 
 }

@@ -95,7 +95,7 @@ export class CategoriesController {
     @UploadedFile() file: Express.Multer.File,
     @Req() req,
   ): Promise<Category> {
-    return await this.categoriesService.uploadIcon(+id, file, req.user.id);
+    return await this.categoriesService.uploadIcon(+id, file, req.user.utilisateurId);
   }
 
   @Get(':id/icone')

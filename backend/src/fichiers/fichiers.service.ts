@@ -312,6 +312,24 @@ export class FichiersService {
           }
           folderPath = `forums/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
           break;
+        case TypeFichier.PRESTATAIRE:
+          if (!uploadData.entityId) {
+            throw new BadRequestException('entityId est requis pour les prestataires');
+          }
+          folderPath = `prestataires/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
+          break;
+        case TypeFichier.SERVICE:
+          if (!uploadData.entityId) {
+            throw new BadRequestException('entityId est requis pour les services');
+          }
+          folderPath = `services/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
+          break;
+        case TypeFichier.OFFRE:
+          if (!uploadData.entityId) {
+            throw new BadRequestException('entityId est requis pour les offres');
+          }
+          folderPath = `offres/${this.normalizePathSegment(uploadData.entityId)}/${normalizedFileName}`;
+          break;
         default:
           throw new BadRequestException('Type de fichier invalide');
       }

@@ -1,8 +1,10 @@
-import { Injectable, ForbiddenException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { CreateServiceDto, UpdateServiceDto } from './dto/service.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { services_status_enum } from '@prisma/client';
+import { FichiersService } from '../fichiers/fichiers.service';
+import { TypeFichier } from '../fichiers/entities/fichier.entity';
 
 export interface ServiceFilterDto {
     localisation?: string;
@@ -20,15 +22,16 @@ export class ServicesService {
 
     constructor(
         private prisma: PrismaService,
-        private mailService: MailService
+        private mailService: MailService,
+        private fichiersService: FichiersService
     ) { }
 
     private formatService(service: any) {
         if (!service) return service;
-        const { type_id, service_type, ...rest } = service;
+        const { type_id, types, ...rest } = service;
         return {
             ...rest,
-            type: service_type
+            type: types
         };
     }
 
@@ -42,11 +45,42 @@ export class ServicesService {
             throw new ForbiddenException("Vous devez vérifier votre adresse email pour poster un service.");
         }
 
+        // Vérifier si l'utilisateur est un prestataire (profil existant)
+        const prestataire = await this.prisma.prestataires.findUnique({
+            where: { utilisateur_id: userId }
+        });
+
+        if (!prestataire) {
+            throw new ForbiddenException("Réservé aux prestataires. Vous devez créer un profil prestataire pour proposer un service.");
+        }
+
+        const { type, type_id, ...serviceData } = createServiceDto;
+        let finalTypeId = type_id;
+
+        // Résolution du type
+        if (!finalTypeId) {
+            if (!type) {
+                throw new BadRequestException("Vous devez fournir un 'type_id' ou un 'type' (slug) pour le service.");
+            }
+
+            // Trouver le type par slug
+            const resolvedType = await this.prisma.types.findUnique({
+                where: { slug: type },
+            });
+
+            if (!resolvedType) {
+                throw new BadRequestException(`Le type de service "${type}" est introuvable.`);
+            }
+
+            finalTypeId = resolvedType.id;
+        }
+
         return this.prisma.services.create({
             data: {
-                ...createServiceDto,
+                ...serviceData,
+                type_id: finalTypeId as number,
                 utilisateur_id: userId,
-            }
+            } as any
         });
     }
 
@@ -65,13 +99,13 @@ export class ServicesService {
         }
 
         if (type) {
-            whereClause.service_type = { slug: type };
+            whereClause.types = { slug: type };
         }
 
         if (tarifMin !== undefined || tarifMax !== undefined) {
-            whereClause.tarif = {};
-            if (tarifMin !== undefined) whereClause.tarif.gte = tarifMin;
-            if (tarifMax !== undefined) whereClause.tarif.lte = tarifMax;
+            whereClause.prix = {};
+            if (tarifMin !== undefined) whereClause.prix.gte = tarifMin;
+            if (tarifMax !== undefined) whereClause.prix.lte = tarifMax;
         }
 
         if (search) {
@@ -90,7 +124,7 @@ export class ServicesService {
                 utilisateurs: {
                     select: { id: true, uuid: true, nom: true, prenom: true }
                 },
-                service_type: {
+                types: {
                     select: { id: true, nom: true, slug: true, description: true }
                 }
             },
@@ -120,7 +154,7 @@ export class ServicesService {
                 utilisateurs: {
                     select: { id: true, uuid: true, nom: true, prenom: true }
                 },
-                service_type: {
+                types: {
                     select: { id: true, nom: true, slug: true, description: true }
                 }
             },
@@ -142,7 +176,7 @@ export class ServicesService {
                 utilisateurs: {
                     select: { id: true, uuid: true, nom: true, prenom: true, email: true }
                 },
-                service_type: {
+                types: {
                     select: { id: true, nom: true, slug: true, description: true }
                 }
             }
@@ -162,20 +196,67 @@ export class ServicesService {
             throw new ForbiddenException("Vous n'êtes pas autorisé à modifier ce service.");
         }
 
-        const { titre, description, tarif, localisation, type_id, disponibilite } = updateServiceDto;
+        const { titre, description, prix, localisation, type, type_id, delai, livrable } = updateServiceDto;
         const dataToUpdate: any = { status: 'pending_approval' }; // Réinitialiser le statut
+
+        if (type || type_id) {
+            let finalTypeId = type_id;
+            if (!finalTypeId && type) {
+                const resolvedType = await this.prisma.types.findUnique({
+                    where: { slug: type },
+                });
+
+                if (!resolvedType) {
+                    throw new BadRequestException(`Le type de service "${type}" est introuvable.`);
+                }
+                finalTypeId = resolvedType.id;
+            }
+            if (finalTypeId) dataToUpdate.type_id = finalTypeId;
+        }
 
         if (titre !== undefined) dataToUpdate.titre = titre;
         if (description !== undefined) dataToUpdate.description = description;
-        if (tarif !== undefined) dataToUpdate.tarif = tarif;
+        if (prix !== undefined) dataToUpdate.prix = prix;
         if (localisation !== undefined) dataToUpdate.localisation = localisation;
-        if (type_id !== undefined) dataToUpdate.type_id = type_id;
-        if (disponibilite !== undefined) dataToUpdate.disponibilite = disponibilite;
+        if (delai !== undefined) dataToUpdate.delai = delai;
+        if (livrable !== undefined) dataToUpdate.livrable = livrable;
 
         return this.prisma.services.update({
             where: { id },
-            data: dataToUpdate,
+            data: dataToUpdate as any,
         });
+    }
+
+    async uploadImageCouverture(serviceId: number, userId: number, file: Express.Multer.File) {
+        const service = await this.findOne(serviceId);
+
+        if (service.utilisateur_id !== userId) {
+            throw new ForbiddenException("Vous n'êtes pas autorisé à modifier l'image de ce service.");
+        }
+
+        const uploadData = {
+            type: TypeFichier.SERVICE,
+            entityId: serviceId,
+        };
+
+        const result = await this.fichiersService.uploadFile(file, userId, uploadData as any);
+
+        await this.prisma.services.update({
+            where: { id: serviceId },
+            data: { image_couverture: result.url }
+        });
+
+        return { message: 'Image de couverture mise à jour avec succès', url: result.url };
+    }
+
+    async downloadImageCouverture(serviceId: number) {
+        const service = await this.findOne(serviceId);
+
+        if (!service.image_couverture) {
+            throw new NotFoundException('Image de couverture non trouvée pour ce service');
+        }
+
+        return this.fichiersService.downloadFile(service.image_couverture);
     }
 
     async remove(id: number, userId: number) {
@@ -209,7 +290,7 @@ export class ServicesService {
                 utilisateurs: {
                     select: { id: true, uuid: true, nom: true, prenom: true }
                 },
-                service_type: {
+                types: {
                     select: { id: true, nom: true, slug: true, description: true }
                 }
             },
