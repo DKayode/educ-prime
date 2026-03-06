@@ -322,6 +322,9 @@ model utilisateurs {
   commentaire_users         CommentaireUser[]
   services                  services[]
   avis                      avis[]
+  prestataire               prestataires?
+  recruteur                 recruteurs?
+  offres                    offres[]
 }
 
 enum app_platform_enum {
@@ -375,18 +378,23 @@ enum utilisateurs_sexe_enum {
   Autre
 }
 
+enum entite_type_enum {
+  Services
+  Offres
+}
+
 model Forum {
-  id          Int       @id @default(autoincrement())
-  theme       String
-  content     String    @db.Text
-  photo       String?
-  user_id     Int
+  id      Int     @id @default(autoincrement())
+  theme   String
+  content String  @db.Text
+  photo   String?
+  user_id Int
 
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
-  deleted_at  DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
 
-  user        utilisateurs @relation(fields: [user_id], references: [id])
+  user utilisateurs @relation(fields: [user_id], references: [id])
 
   @@map("forums")
 }
@@ -397,27 +405,27 @@ model LikeUser {
   likeable_type String
   user_id       Int
   created_at    DateTime @default(now())
-  
-  user          utilisateurs @relation(fields: [user_id], references: [id])
+
+  user utilisateurs @relation(fields: [user_id], references: [id])
 
   @@map("like_users")
 }
 
 model CommentaireUser {
-  id               Int       @id @default(autoincrement())
+  id               Int    @id @default(autoincrement())
   commentable_id   BigInt
   commentable_type String
   commentaire_id   Int?
-  content          String    @db.Text
+  content          String @db.Text
   user_id          Int
 
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
-  deleted_at       DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
 
-  parent           CommentaireUser? @relation("CommentUserChildren", fields: [commentaire_id], references: [id])
-  children         CommentaireUser[] @relation("CommentUserChildren")
-  user             utilisateurs @relation(fields: [user_id], references: [id])
+  parent   CommentaireUser?  @relation("CommentUserChildren", fields: [commentaire_id], references: [id])
+  children CommentaireUser[] @relation("CommentUserChildren")
+  user     utilisateurs      @relation(fields: [user_id], references: [id])
 
   @@map("commentaire_users")
 }
@@ -430,40 +438,107 @@ enum services_status_enum {
   inactive
 }
 
-model services_types {
-  id          Int        @id @default(autoincrement())
-  nom         String     @db.VarChar(255)
-  slug        String     @unique @db.VarChar(255)
-  description String?    @db.Text
+model types {
+  id          Int              @id @default(autoincrement())
+  nom         String           @db.VarChar(255)
+  slug        String           @unique @db.VarChar(255)
+  description String?          @db.Text
+  entite_type entite_type_enum @default(Services)
   services    services[]
+  offres      offres[]
 }
 
 model services {
-  id              Int                     @id @default(autoincrement())
-  titre           String                  @db.VarChar(255)
-  description     String                  @db.Text
-  localisation    String                  @db.VarChar(255)
-  utilisateur_id  Int
-  tarif           Decimal?                @db.Decimal(10, 2)
-  type_id         Int
-  status          services_status_enum    @default(pending_approval)
-  disponibilite   Json?   
-  created_at      DateTime                @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime                @default(now()) @db.Timestamptz(6)
-  
-  utilisateurs    utilisateurs            @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  service_type    services_types          @relation(fields: [type_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  avis            avis[]
+  id               Int                  @id @default(autoincrement())
+  titre            String               @db.VarChar(255)
+  description      String               @db.Text
+  localisation     String               @db.VarChar(255)
+  utilisateur_id   Int
+  prix             Decimal?             @map("tarif") @db.Decimal(10, 2)
+  type_id          Int
+  status           services_status_enum @default(pending_approval)
+  delai            Int?                 @map("disponibilite")
+  livrable         String?
+  image_couverture String?
+  created_at       DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime             @default(now()) @db.Timestamptz(6)
+
+  utilisateurs utilisateurs @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  types        types        @relation(fields: [type_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
 }
 
 model avis {
-  id              Int          @id @default(autoincrement())
-  service_id      Int
-  utilisateur_id  Int
-  note            Int          @default(5)
-  created_at      DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime     @default(now()) @db.Timestamptz(6)
+  id             Int              @id @default(autoincrement())
+  avisable_id    Int
+  avisable_type  entite_type_enum
+  utilisateur_id Int
+  note           Int              @default(5)
+  commentaire    String?          @db.Text
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
 
-  services        services     @relation(fields: [service_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  utilisateurs    utilisateurs @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  utilisateurs utilisateurs @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model prestataires {
+  id                 Int      @id @default(autoincrement())
+  nom                String   @db.VarChar(100)
+  prenom             String   @db.VarChar(100)
+  utilisateur_id     Int      @unique
+  photo_profil       String?
+  photo_identite     String?
+  biographie         String?  @db.Text
+  domaine_competence String?  @db.VarChar(255)
+  lien_portfolio     String?  @db.VarChar(255)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  utilisateurs utilisateurs  @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  competences  competences[]
+}
+
+model recruteurs {
+  id             Int                  @id @default(autoincrement())
+  numero_ifu     String?              @db.VarChar(100)
+  nom            String               @db.VarChar(100)
+  nom_recruteur  String               @db.VarChar(100)
+  prenom         String               @db.VarChar(100)
+  utilisateur_id Int                  @unique
+  photo_profil   String?
+  photo_identite String?
+  adresse        String?              @db.VarChar(255)
+  telephone      String?              @db.VarChar(50)
+  biographie     String?              @db.Text
+  status         services_status_enum @default(pending_approval)
+  created_at     DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime             @default(now()) @updatedAt @db.Timestamptz(6)
+
+  utilisateurs utilisateurs @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model competences {
+  id           Int            @id @default(autoincrement())
+  nom          String         @db.VarChar(100)
+  slug         String         @unique @db.VarChar(100)
+  description  String?        @db.Text
+  prestataires prestataires[]
+  offres       offres[]
+}
+
+model offres {
+  id               Int      @id @default(autoincrement())
+  titre            String   @db.VarChar(255)
+  description      String   @db.Text
+  type_id          Int
+  prix             Decimal? @db.Decimal(10, 2)
+  temps            String?  @db.VarChar(100)
+  image_couverture String?
+  utilisateur_id   Int
+  status           services_status_enum @default(pending_approval)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  types        types         @relation(fields: [type_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  utilisateurs utilisateurs  @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  competences  competences[]
 }

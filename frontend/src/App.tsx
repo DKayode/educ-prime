@@ -23,7 +23,10 @@ import Parcours from "./pages/Parcours";
 import Categories from "./pages/Categories";
 import Settings from "./pages/Settings";
 import ServicesAdmin from "./pages/ServicesAdmin";
+import OffresAdmin from "./pages/OffresAdmin";
 import ServiceTypesAdmin from "./pages/ServiceTypesAdmin";
+import RecruteursAdmin from "./pages/RecruteursAdmin";
+import CompetencesAdmin from "./pages/CompetencesAdmin";
 import Notifications from "./pages/Notifications";
 import AppVersions from "./pages/AppVersions";
 import Parrainages from "./pages/Parrainages";
@@ -71,9 +74,12 @@ const App = () => (
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/notifications" element={<Notifications />} />
                       <Route path="/admin/services" element={<ServicesAdmin />} />
+                      <Route path="/admin/offres" element={<OffresAdmin />} />
                       <Route path="/admin/service-types" element={<ServiceTypesAdmin />} />
                       <Route path="/app-versions" element={<AppVersions />} />
                       <Route path="/parrainages" element={<Parrainages />} />
+                      <Route path="/admin/recruteurs" element={<RecruteursAdmin />} />
+                      <Route path="/admin/competences" element={<CompetencesAdmin />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>

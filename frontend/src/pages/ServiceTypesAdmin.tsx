@@ -24,20 +24,31 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Trash2, Edit2, Plus, Loader2 } from 'lucide-react';
+import { Trash2, Edit2, Plus, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ServiceTypesAdmin() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingType, setEditingType] = useState<ServiceTypeItem | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
-    const [formData, setFormData] = useState({ nom: '', description: '' });
+    const [formData, setFormData] = useState<{ nom: string; description: string; entite_type: 'Services' | 'Offres' | undefined; }>({ nom: '', description: '', entite_type: undefined });
+
+    // Pagination and Filtering states
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [filterEntiteType, setFilterEntiteType] = useState<'all' | 'Services' | 'Offres'>('all');
+
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
     const { data: serviceTypes, isLoading } = useQuery({
-        queryKey: ['serviceTypes'],
-        queryFn: () => serviceTypesService.getAll(),
+        queryKey: ['serviceTypes', page, limit, filterEntiteType],
+        queryFn: () => serviceTypesService.getAll({
+            page,
+            limit,
+            entite_type: filterEntiteType === 'all' ? undefined : filterEntiteType
+        }),
     });
 
     const createMutation = useMutation({
@@ -92,7 +103,7 @@ export default function ServiceTypesAdmin() {
 
     const resetForm = () => {
         setEditingType(null);
-        setFormData({ nom: '', description: '' });
+        setFormData({ nom: '', description: '', entite_type: undefined });
     };
 
     const handleOpenDialog = (type?: ServiceTypeItem) => {
@@ -100,7 +111,8 @@ export default function ServiceTypesAdmin() {
             setEditingType(type);
             setFormData({
                 nom: type.nom,
-                description: type.description || ''
+                description: type.description || '',
+                entite_type: type.entite_type
             });
         } else {
             resetForm();
@@ -124,13 +136,23 @@ export default function ServiceTypesAdmin() {
         }));
     };
 
+    const handleFilterChange = (val: 'all' | 'Services' | 'Offres') => {
+        setFilterEntiteType(val);
+        setPage(1); // Reset to first page on filter change
+    };
+
+    const handleLimitChange = (val: string) => {
+        setLimit(parseInt(val));
+        setPage(1); // Reset to first page on limit change
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Types de Services</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Types (Services, Offres)</h1>
                     <p className="text-muted-foreground mt-2">
-                        Gérez les catégories et types de services proposés sur la plateforme.
+                        Gérez les catégories et types de services/offres proposés sur la plateforme.
                     </p>
                 </div>
                 <Button onClick={() => handleOpenDialog()} className="gap-2">
@@ -138,73 +160,146 @@ export default function ServiceTypesAdmin() {
                 </Button>
             </div>
 
+            <div className="flex flex-col md:flex-row gap-4">
+                <div className="w-full md:w-64">
+                    <Label className="mb-2 block">Filtrer par entité</Label>
+                    <Select value={filterEntiteType} onValueChange={handleFilterChange}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Toutes les entités" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Toutes les entités</SelectItem>
+                            <SelectItem value="Services">Services</SelectItem>
+                            <SelectItem value="Offres">Offres</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="w-full md:w-48 ml-auto">
+                    <Label className="mb-2 block">Items par page</Label>
+                    <Select value={limit.toString()} onValueChange={handleLimitChange}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="10 par page" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="5">5 par page</SelectItem>
+                            <SelectItem value="10">10 par page</SelectItem>
+                            <SelectItem value="20">20 par page</SelectItem>
+                            <SelectItem value="50">50 par page</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
             <Card>
                 <CardHeader>
-                    <CardTitle>Liste des types de services</CardTitle>
+                    <CardTitle>Liste des types</CardTitle>
                     <CardDescription>
-                        Attention : Supprimer un type n'est possible que si aucun service ne lui est rattaché.
+                        Attention : Supprimer un type n'is possible que si aucune entité ne lui est rattachée.
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                     {isLoading ? (
                         <div className="flex justify-center p-8">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         </div>
                     ) : (
-                        <div className="rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Nom</TableHead>
-                                        <TableHead>Slug</TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {serviceTypes && serviceTypes.length > 0 ? (
-                                        serviceTypes.map((type) => (
-                                            <TableRow key={type.id}>
-                                                <TableCell className="font-medium">{type.nom}</TableCell>
-                                                <TableCell>
-                                                    <span className="bg-muted px-2 py-1 rounded text-xs font-mono">
-                                                        {type.slug}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell className="text-muted-foreground max-w-xs truncate">
-                                                    {type.description || '-'}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-2">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handleOpenDialog(type)}
-                                                        >
-                                                            <Edit2 className="h-4 w-4 text-blue-500" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => setDeleteId(type.id)}
-                                                            disabled={deleteMutation.isPending}
-                                                        >
-                                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                                        </Button>
-                                                    </div>
+                        <>
+                            <div className="rounded-md border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Nom</TableHead>
+                                            <TableHead>Entité</TableHead>
+                                            <TableHead>Slug</TableHead>
+                                            <TableHead>Description</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {serviceTypes?.data && serviceTypes.data.length > 0 ? (
+                                            serviceTypes.data.map((type) => (
+                                                <TableRow key={type.id}>
+                                                    <TableCell className="font-medium">{type.nom}</TableCell>
+                                                    <TableCell>
+                                                        <span className="bg-primary/10 text-primary px-2 py-1 rounded text-xs">
+                                                            {type.entite_type || '-'}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className="bg-muted px-2 py-1 rounded text-xs font-mono">
+                                                            {type.slug}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="text-muted-foreground max-w-xs truncate">
+                                                        {type.description || '-'}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handleOpenDialog(type)}
+                                                            >
+                                                                <Edit2 className="h-4 w-4 text-blue-500" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => setDeleteId(type.id)}
+                                                                disabled={deleteMutation.isPending}
+                                                            >
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                                    Aucun type trouvé.
                                                 </TableCell>
                                             </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                                                Aucun type de service trouvé.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* Pagination controls */}
+                            {serviceTypes && serviceTypes.totalPages > 1 && (
+                                <div className="flex items-center justify-between py-4 border-t">
+                                    <div className="text-sm text-muted-foreground">
+                                        Total: <span className="font-medium">{serviceTypes.total}</span> items
+                                        (Page {serviceTypes.page} sur {serviceTypes.totalPages})
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                                            disabled={page === 1}
+                                        >
+                                            <ChevronLeft className="h-4 w-4 mr-1" />
+                                            Précédent
+                                        </Button>
+                                        <div className="flex items-center gap-1 mx-2">
+                                            <span className="text-sm font-medium">{page}</span>
+                                            <span className="text-sm text-muted-foreground">/</span>
+                                            <span className="text-sm text-muted-foreground">{serviceTypes.totalPages}</span>
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setPage(prev => Math.min(serviceTypes.totalPages, prev + 1))}
+                                            disabled={page === serviceTypes.totalPages}
+                                        >
+                                            Suivant
+                                            <ChevronRight className="h-4 w-4 ml-1" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </CardContent>
             </Card>
@@ -213,14 +308,31 @@ export default function ServiceTypesAdmin() {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
-                            {editingType ? 'Modifier le type de service' : 'Nouveau type de service'}
+                            {editingType ? 'Modifier le type' : 'Nouveau type'}
                         </DialogTitle>
                         <DialogDescription>
-                            Remplissez les informations ci-dessous pour le type de service.
+                            Remplissez les informations ci-dessous.
                         </DialogDescription>
                     </DialogHeader>
 
                     <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+                        <div className="space-y-2">
+                            <Label>Entité applicable</Label>
+                            <Select
+                                value={formData.entite_type || ''}
+                                onValueChange={(val: 'Services' | 'Offres') => setFormData(prev => ({ ...prev, entite_type: val }))}
+                                required
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Choisir une entité (Services / Offres)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Services">Services</SelectItem>
+                                    <SelectItem value="Offres">Offres</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="nom">Nom du type</Label>
                             <Input
@@ -239,7 +351,7 @@ export default function ServiceTypesAdmin() {
                                 id="description"
                                 value={formData.description}
                                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                placeholder="Description du type de service..."
+                                placeholder="Description du type..."
                             />
                         </div>
 
@@ -262,8 +374,8 @@ export default function ServiceTypesAdmin() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Êtes-vous sûr de vouloir supprimer ce type de service ?
-                            Attention : Cette action est impossible si des services y sont encore rattachés.
+                            Êtes-vous sûr de vouloir supprimer ce type ?
+                            Attention : Cette action est impossible si des entités y sont encore rattachées.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

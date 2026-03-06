@@ -12,7 +12,7 @@ export class AvisController {
     constructor(private readonly avisService: AvisService) { }
 
     @Post()
-    @ApiOperation({ summary: 'Créer un avis sur un service.' })
+    @ApiOperation({ summary: 'Créer un avis sur un service ou une offre (polymorphique).' })
     @ApiResponse({
         status: 201, description: 'L\'avis a été créé.'
     })
@@ -21,18 +21,19 @@ export class AvisController {
         return this.avisService.create(userId, createAvisDto);
     }
 
-    @Get('service/:serviceId')
+    @Get(':model/:id')
     @ApiOperation({
-        summary: 'Récupérer les avis d\'un service (avec les commentaires associés)'
+        summary: 'Récupérer les avis d\'une entité (Services ou Offres)'
     })
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
-    findAllByService(
-        @Param('serviceId', ParseIntPipe) serviceId: number,
+    findAllByModel(
+        @Param('model') model: string,
+        @Param('id', ParseIntPipe) id: number,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
-        return this.avisService.findAllByService(serviceId, {
+        return this.avisService.findAllByModel(model, id, {
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 10,
         });

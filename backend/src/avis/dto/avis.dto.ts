@@ -1,13 +1,19 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, Min, Max, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { entite_type_enum } from '@prisma/client';
 
 export class CreateAvisDto {
-    @ApiProperty({ description: 'ID du service' })
+    @ApiProperty({ description: 'ID de l\'entité (Service ou Offre)', example: 1 })
     @IsNumber()
     @IsNotEmpty()
-    service_id: number;
+    avisable_id: number;
 
-    @ApiProperty({ description: 'Note entre 1 et 5' })
+    @ApiProperty({ description: 'Type de l\'entité', enum: entite_type_enum, example: entite_type_enum.Services })
+    @IsEnum(entite_type_enum)
+    @IsNotEmpty()
+    avisable_type: entite_type_enum;
+
+    @ApiProperty({ description: 'Note entre 1 et 5', example: 5 })
     @IsNumber()
     @Min(1)
     @Max(5)
@@ -16,14 +22,14 @@ export class CreateAvisDto {
 }
 
 export class UpdateAvisDto {
-    @ApiPropertyOptional({ description: 'Note entre 1 et 5' })
+    @ApiPropertyOptional({ description: 'Note entre 1 et 5', example: 4 })
     @IsNumber()
     @Min(1)
     @Max(5)
     @IsOptional()
     note?: number;
 
-    @ApiPropertyOptional({ description: 'Contenu du commentaire associé' })
+    @ApiPropertyOptional({ description: 'Contenu du commentaire associé', example: 'Très bon service, je recommande!' })
     @IsString()
     @IsOptional()
     commentaire?: string;

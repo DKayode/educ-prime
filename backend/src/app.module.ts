@@ -51,7 +51,11 @@ import { LikesPolymorphicModule } from './likes-polymorphic/likes-polymorphic.mo
 import { CommentsPolymorphicModule } from './comments-polymorphic/comments-polymorphic.module';
 import { ServicesModule } from './services/services.module';
 import { AvisModule } from './avis/avis.module';
-import { ServiceTypesModule } from './service-types/service-types.module';
+import { TypesModule } from './types/types.module';
+import { PrestatairesModule } from './prestataires/prestataires.module';
+import { RecruteursModule } from './recruteurs/recruteurs.module';
+import { CompetencesModule } from './competences/competences.module';
+import { OffresModule } from './offres/offres.module';
 
 @Module({
   imports: [
@@ -117,7 +121,11 @@ import { ServiceTypesModule } from './service-types/service-types.module';
     CommentsPolymorphicModule,
     ServicesModule,
     AvisModule,
-    ServiceTypesModule,
+    TypesModule,
+    PrestatairesModule,
+    RecruteursModule,
+    CompetencesModule,
+    OffresModule,
   ],
   controllers: [AppController],
   providers: [AppService],
