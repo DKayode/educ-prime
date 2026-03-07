@@ -110,6 +110,30 @@ export class UtilisateursController {
     return this.utilisateursService.validateEmail(validateEmailDto);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('is-email-verify')
+  @ApiOperation({ summary: 'Vérifier si l\'email de l\'utilisateur connecté est vérifié' })
+  async isEmailVerify(@Request() req) {
+    const userId = req.user.utilisateurId;
+    return this.utilisateursService.isEmailVerified(userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('is-prestataire')
+  @ApiOperation({ summary: 'Vérifier si l\'utilisateur connecté possède un profil prestataire' })
+  async isPrestataire(@Request() req) {
+    const userId = req.user.utilisateurId;
+    return this.utilisateursService.isPrestataire(userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('is-recruteur')
+  @ApiOperation({ summary: 'Vérifier si l\'utilisateur connecté possède un profil recruteur' })
+  async isRecruteur(@Request() req) {
+    const userId = req.user.utilisateurId;
+    return this.utilisateursService.isRecruteur(userId);
+  }
+
   @UseGuards(JwtAuthGuard, OwnerOrAdminGuard)
   @Put(':id')
   async update(@Param('id') id: string, @Body() updateProfilDto: UpdateProfilDto) {
