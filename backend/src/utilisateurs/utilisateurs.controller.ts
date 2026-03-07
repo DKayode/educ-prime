@@ -48,7 +48,19 @@ export class UtilisateursController {
     const userId = req.user.utilisateurId.toString();
     const email = req.user.email;
     console.log(`[UtilisateursController] Récupération du profil pour l'utilisateur: ${email} (ID: ${userId})`);
-    return this.utilisateursService.findOne(userId);
+    const profil = await this.utilisateursService.findOne(userId);
+    const userIdNum = parseInt(userId);
+
+    const { isVerified: isEmailVerified } = await this.utilisateursService.isEmailVerified(userIdNum);
+    const { isPrestataire } = await this.utilisateursService.isPrestataire(userIdNum);
+    const { isRecruteur } = await this.utilisateursService.isRecruteur(userIdNum);
+
+    return {
+      ...profil,
+      isEmailVerified,
+      isPrestataire,
+      isRecruteur
+    };
   }
 
   @UseGuards(JwtAuthGuard, RoleGuard)
