@@ -2,6 +2,7 @@ import { Injectable, ConflictException, NotFoundException, Logger, BadRequestExc
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets, LessThan, IsNull } from 'typeorm';
 import { Utilisateur } from './entities/utilisateur.entity';
+import { PrismaService } from '../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
 import { InscriptionDto } from './dto/inscription.dto';
@@ -29,6 +30,7 @@ export class UtilisateursService {
     private readonly fichiersService: FichiersService,
     private readonly firebaseService: FirebaseService,
     private readonly mailService: MailService,
+    private readonly prisma: PrismaService,
   ) { }
 
   async findByEmail(email: string) {
@@ -319,6 +321,26 @@ export class UtilisateursService {
     // Remove password from response
     delete updatedUser.mot_de_passe;
     return updatedUser;
+  }
+
+  async isEmailVerified(userId: number): Promise<{ isVerified: boolean }> {
+    const user = await this.utilisateursRepository.findOne({ where: { id: userId }, select: ['verifier'] });
+    if (!user) throw new NotFoundException('Utilisateur non trouvé');
+    return { isVerified: user.verifier || false };
+  }
+
+  async isPrestataire(userId: number): Promise<{ isPrestataire: boolean }> {
+    const prestataire = await this.prisma.prestataires.findUnique({
+      where: { utilisateur_id: userId }
+    });
+    return { isPrestataire: !!prestataire };
+  }
+
+  async isRecruteur(userId: number): Promise<{ isRecruteur: boolean }> {
+    const recruteur = await this.prisma.recruteurs.findUnique({
+      where: { utilisateur_id: userId }
+    });
+    return { isRecruteur: !!recruteur };
   }
 
   async verifyEmail(email: string) {
