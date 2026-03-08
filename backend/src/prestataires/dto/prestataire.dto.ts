@@ -7,12 +7,12 @@ export class CreatePrestataireDto {
     @IsOptional()
     utilisateur_id?: number;
 
-    @ApiProperty({ description: 'Nom de famille du prestataire', example: 'Da Cruz' })
+    @ApiProperty({ description: 'Nom de famille du prestataire', example: 'Dupont' })
     @IsString()
     @IsNotEmpty()
     nom: string;
 
-    @ApiProperty({ description: 'Prénom du prestataire', example: 'Kayo' })
+    @ApiProperty({ description: 'Prénom du prestataire', example: 'Jean' })
     @IsString()
     @IsNotEmpty()
     prenom: string;
@@ -50,12 +50,12 @@ export class CreatePrestataireDto {
 }
 
 export class UpdatePrestataireDto {
-    @ApiPropertyOptional({ description: 'Nom de famille du prestataire', example: 'Da Cruz' })
+    @ApiPropertyOptional({ description: 'Nom de famille du prestataire', example: 'Dupont' })
     @IsString()
     @IsOptional()
     nom?: string;
 
-    @ApiPropertyOptional({ description: 'Prénom du prestataire', example: 'Kayo' })
+    @ApiPropertyOptional({ description: 'Prénom du prestataire', example: 'Jean' })
     @IsString()
     @IsOptional()
     prenom?: string;

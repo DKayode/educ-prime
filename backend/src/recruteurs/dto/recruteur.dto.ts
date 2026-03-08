@@ -12,7 +12,7 @@ export class CreateRecruteurDto {
   @IsOptional()
   numero_ifu?: string;
 
-  @ApiProperty({ description: 'Nom de famille', example: 'Da Cruz' })
+  @ApiProperty({ description: 'Nom de famille', example: 'Dupont' })
   @IsString()
   @IsNotEmpty()
   nom: string;

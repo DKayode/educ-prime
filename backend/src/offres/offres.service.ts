@@ -31,20 +31,71 @@ export class OffresService {
                 uuid: true,
                 nom: true,
                 prenom: true,
-                email: true
+                email: true,
+                recruteur: {
+                    select: { id: true, nom_recruteur: true }
+                }
             }
         }
     };
 
-    private formatOffre(offre: any) {
+    private async formatOffre(offre: any) {
         if (!offre) return offre;
         const { type_id, types, utilisateurs, ...rest } = offre;
+
+        const avisAgg = await this.prisma.avis.aggregate({
+            where: { avisable_type: 'Offres', avisable_id: offre.id },
+            _avg: { note: true },
+            _count: { id: true }
+        });
+
+        const recruteur = utilisateurs?.recruteur ? {
+            id: utilisateurs.recruteur.id,
+            uuid: utilisateurs.uuid,
+            nom_recruteur: utilisateurs.recruteur.nom_recruteur,
+        } : null;
+
         return {
             ...rest,
             utilisateur_id: offre.utilisateur_id,
             type: types,
-            ...(utilisateurs && { utilisateur: utilisateurs })
+            recruteur,
+            avis: {
+                moyenne: avisAgg._avg.note ? parseFloat(Number(avisAgg._avg.note).toFixed(1)) : 0,
+                total: avisAgg._count.id
+            }
         };
+    }
+
+    private async formatManyOffres(offres: any[]) {
+        if (!offres.length) return [];
+        const offreIds = offres.map(o => o.id);
+        const avisAgg = await this.prisma.avis.groupBy({
+            by: ['avisable_id'],
+            where: { avisable_type: 'Offres', avisable_id: { in: offreIds } },
+            _avg: { note: true },
+            _count: { id: true }
+        });
+        const avisMap = new Map(avisAgg.map(a => [a.avisable_id, {
+            moyenne: a._avg.note ? parseFloat(Number(a._avg.note).toFixed(1)) : 0,
+            total: a._count.id
+        }]));
+
+        return offres.map(offre => {
+            const { type_id, types, utilisateurs, ...rest } = offre;
+            const recruteur = utilisateurs?.recruteur ? {
+                id: utilisateurs.recruteur.id,
+                uuid: utilisateurs.uuid,
+                nom_recruteur: utilisateurs.recruteur.nom_recruteur,
+            } : null;
+            return {
+                ...rest,
+                utilisateur_id: offre.utilisateur_id,
+                type: types,
+                recruteur,
+                avis: avisMap.get(offre.id) || { moyenne: 0, total: 0 }
+            };
+        });
     }
 
     async create(userId: number, createOffreDto: CreateOffreDto) {
@@ -151,7 +202,7 @@ export class OffresService {
         });
 
         return {
-            data: data.map(o => this.formatOffre(o)),
+            data: await this.formatManyOffres(data),
             total,
             page,
             limit,
@@ -179,7 +230,7 @@ export class OffresService {
         });
 
         return {
-            data: data.map(o => this.formatOffre(o)),
+            data: await this.formatManyOffres(data),
             total,
             page,
             limit,
@@ -204,7 +255,7 @@ export class OffresService {
         });
 
         return {
-            data: data.map(o => this.formatOffre(o)),
+            data: await this.formatManyOffres(data),
             total,
             page,
             limit,

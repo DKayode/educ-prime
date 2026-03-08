@@ -26,13 +26,67 @@ export class ServicesService {
         private fichiersService: FichiersService
     ) { }
 
-    private formatService(service: any) {
+    private async formatService(service: any) {
         if (!service) return service;
-        const { type_id, types, ...rest } = service;
+        const { type_id, types, utilisateurs, ...rest } = service;
+
+        const avisAgg = await this.prisma.avis.aggregate({
+            where: { avisable_type: 'Services', avisable_id: service.id },
+            _avg: { note: true },
+            _count: { id: true }
+        });
+
+        const prestataire = utilisateurs?.prestataire ? {
+            id: utilisateurs.prestataire.id,
+            uuid: utilisateurs.uuid,
+            nom: utilisateurs.prestataire.nom,
+            prenom: utilisateurs.prestataire.prenom,
+            domaine_competence: utilisateurs.prestataire.domaine_competence
+        } : null;
+
         return {
             ...rest,
-            type: types
+            utilisateur_id: service.utilisateur_id,
+            type: types,
+            prestataire,
+            avis: {
+                moyenne: avisAgg._avg.note ? parseFloat(Number(avisAgg._avg.note).toFixed(1)) : 0,
+                total: avisAgg._count.id
+            }
         };
+    }
+
+    private async formatManyServices(services: any[]) {
+        if (!services.length) return [];
+        const serviceIds = services.map(s => s.id);
+        const avisAgg = await this.prisma.avis.groupBy({
+            by: ['avisable_id'],
+            where: { avisable_type: 'Services', avisable_id: { in: serviceIds } },
+            _avg: { note: true },
+            _count: { id: true }
+        });
+        const avisMap = new Map(avisAgg.map(a => [a.avisable_id, {
+            moyenne: a._avg.note ? parseFloat(Number(a._avg.note).toFixed(1)) : 0,
+            total: a._count.id
+        }]));
+
+        return services.map(service => {
+            const { type_id, types, utilisateurs, ...rest } = service;
+            const prestataire = utilisateurs?.prestataire ? {
+                id: utilisateurs.prestataire.id,
+                uuid: utilisateurs.uuid,
+                nom: utilisateurs.prestataire.nom,
+                prenom: utilisateurs.prestataire.prenom,
+                domaine_competence: utilisateurs.prestataire.domaine_competence
+            } : null;
+            return {
+                ...rest,
+                utilisateur_id: service.utilisateur_id,
+                type: types,
+                prestataire,
+                avis: avisMap.get(service.id) || { moyenne: 0, total: 0 }
+            };
+        });
     }
 
     async create(userId: number, createServiceDto: CreateServiceDto) {
@@ -122,7 +176,12 @@ export class ServicesService {
             take: limit,
             include: {
                 utilisateurs: {
-                    select: { id: true, uuid: true, nom: true, prenom: true }
+                    select: {
+                        id: true, uuid: true, nom: true, prenom: true,
+                        prestataire: {
+                            select: { id: true, nom: true, prenom: true, domaine_competence: true }
+                        }
+                    }
                 },
                 types: {
                     select: { id: true, nom: true, slug: true, description: true }
@@ -132,7 +191,7 @@ export class ServicesService {
         });
 
         return {
-            data: data.map(s => this.formatService(s)),
+            data: await this.formatManyServices(data),
             total,
             page,
             limit,
@@ -152,7 +211,12 @@ export class ServicesService {
             orderBy: { created_at: 'desc' },
             include: {
                 utilisateurs: {
-                    select: { id: true, uuid: true, nom: true, prenom: true }
+                    select: {
+                        id: true, uuid: true, nom: true, prenom: true,
+                        prestataire: {
+                            select: { id: true, nom: true, prenom: true, domaine_competence: true }
+                        }
+                    }
                 },
                 types: {
                     select: { id: true, nom: true, slug: true, description: true }
@@ -161,7 +225,7 @@ export class ServicesService {
         });
 
         return {
-            data: data.map(s => this.formatService(s)),
+            data: await this.formatManyServices(data),
             total,
             page,
             limit,
@@ -174,7 +238,12 @@ export class ServicesService {
             where: { id },
             include: {
                 utilisateurs: {
-                    select: { id: true, uuid: true, nom: true, prenom: true, email: true }
+                    select: {
+                        id: true, uuid: true, nom: true, prenom: true, email: true,
+                        prestataire: {
+                            select: { id: true, nom: true, prenom: true, domaine_competence: true }
+                        }
+                    }
                 },
                 types: {
                     select: { id: true, nom: true, slug: true, description: true }
@@ -288,7 +357,12 @@ export class ServicesService {
             take: limit,
             include: {
                 utilisateurs: {
-                    select: { id: true, uuid: true, nom: true, prenom: true }
+                    select: {
+                        id: true, uuid: true, nom: true, prenom: true,
+                        prestataire: {
+                            select: { id: true, nom: true, prenom: true, domaine_competence: true }
+                        }
+                    }
                 },
                 types: {
                     select: { id: true, nom: true, slug: true, description: true }
@@ -298,7 +372,7 @@ export class ServicesService {
         });
 
         return {
-            data: data.map(s => this.formatService(s)),
+            data: await this.formatManyServices(data),
             total,
             page,
             limit,
