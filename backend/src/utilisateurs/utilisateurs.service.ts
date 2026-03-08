@@ -302,6 +302,23 @@ export class UtilisateursService {
     return user;
   }
 
+  async findByUuid(uuid: string) {
+    this.logger.log(`Recherche de l'utilisateur avec UUID: ${uuid}`);
+    const user = await this.utilisateursRepository.findOne({
+      where: { uuid },
+      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'sexe', 'telephone', 'role', 'mon_code_parrainage'],
+      relations: ['etablissement', 'filiere', 'niveau_etude'],
+    });
+
+    if (!user) {
+      this.logger.warn(`Utilisateur avec UUID ${uuid} introuvable`);
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    this.logger.log(`Utilisateur trouvé: ${user.email} (UUID: ${user.uuid})`);
+    return user;
+  }
+
   async update(id: string, majUtilisateurDto: MajUtilisateurDto) {
     this.logger.log(`Mise à jour de l'utilisateur ID: ${id}`);
     const user = await this.utilisateursRepository.findOne({
