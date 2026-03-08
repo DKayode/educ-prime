@@ -231,4 +231,25 @@ export class UtilisateursController {
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.status(HttpStatus.OK).send(buffer);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':uuid')
+  @ApiOperation({ summary: "Récupérer le profil d'un utilisateur par son UUID" })
+  @ApiResponse({ status: 200, description: 'Profil récupéré avec succès' })
+  @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
+  async getByUuid(@Param('uuid') uuid: string) {
+    const profil = await this.utilisateursService.findByUuid(uuid);
+    const userIdNum = profil.id;
+
+    const { isVerified: isEmailVerified } = await this.utilisateursService.isEmailVerified(userIdNum);
+    const { isPrestataire } = await this.utilisateursService.isPrestataire(userIdNum);
+    const { isRecruteur } = await this.utilisateursService.isRecruteur(userIdNum);
+
+    return {
+      ...profil,
+      isEmailVerified,
+      isPrestataire,
+      isRecruteur
+    };
+  }
 }
