@@ -33,10 +33,9 @@ export class CompetencesController {
     }
 
     @Post()
-    @UseGuards(JwtAuthGuard, RolesGuard)
+    @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
-    @Roles(RoleType.ADMIN)
-    @ApiOperation({ summary: 'Créer une compétence (Admin)' })
+    @ApiOperation({ summary: 'Créer une compétence' })
     create(@Body() createCompetenceDto: CreateCompetenceDto) {
         return this.competencesService.create(createCompetenceDto);
     }
