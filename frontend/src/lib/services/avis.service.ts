@@ -7,7 +7,7 @@ export interface AvisItem {
     avisable_type: "SERVICE" | "OFFRE";
     created_at: string;
     updated_at: string;
-    commentaire?: string;
+    comment?: string;
     utilisateur?: {
         id: number;
         ui: string;

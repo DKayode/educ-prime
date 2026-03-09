@@ -40,7 +40,7 @@ export class AvisController {
     }
 
     @Put(':id')
-    @ApiOperation({ summary: 'Mettre à jour un avis et/ou son commentaire' })
+    @ApiOperation({ summary: 'Mettre à jour un avis et/ou son comment' })
     update(
         @Request() req,
         @Param('id', ParseIntPipe) id: number,

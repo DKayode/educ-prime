@@ -473,7 +473,7 @@ model avis {
   avisable_type  entite_type_enum
   utilisateur_id Int
   note           Int              @default(5)
-  commentaire    String?          @db.Text
+  comment        String?          @db.Text
   created_at     DateTime         @default(now()) @db.Timestamptz(6)
   updated_at     DateTime         @default(now()) @db.Timestamptz(6)
 
