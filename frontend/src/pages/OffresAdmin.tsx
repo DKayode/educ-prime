@@ -355,8 +355,8 @@ export default function OffresAdmin() {
                                                 <span className="ml-2 text-foreground font-semibold">{avis.note}/5</span>
                                             </div>
                                         </div>
-                                        {avis.commentaire ? (
-                                            <p className="text-muted-foreground italic">&ldquo;{avis.commentaire}&rdquo;</p>
+                                        {avis.comment ? (
+                                            <p className="text-muted-foreground italic">&ldquo;{avis.comment}&rdquo;</p>
                                         ) : (
                                             <p className="text-muted-foreground text-xs">Aucun commentaire écrit.</p>
                                         )}
@@ -372,8 +372,8 @@ export default function OffresAdmin() {
                             </p>
                         )}
                     </div>
-                </DialogContent>
-            </Dialog>
-        </div>
+                </DialogContent >
+            </Dialog >
+        </div >
     );
 }

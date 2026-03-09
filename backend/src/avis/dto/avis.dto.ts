@@ -19,6 +19,11 @@ export class CreateAvisDto {
     @Max(5)
     @IsNotEmpty()
     note: number;
+
+    @ApiPropertyOptional({ description: 'Contenu du commentaire associé', example: 'Très bon service, je recommande!' })
+    @IsString()
+    @IsOptional()
+    comment?: string;
 }
 
 export class UpdateAvisDto {
@@ -32,5 +37,5 @@ export class UpdateAvisDto {
     @ApiPropertyOptional({ description: 'Contenu du commentaire associé', example: 'Très bon service, je recommande!' })
     @IsString()
     @IsOptional()
-    commentaire?: string;
+    comment?: string;
 }

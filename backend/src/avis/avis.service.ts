@@ -8,7 +8,7 @@ export class AvisService {
     constructor(private prisma: PrismaService) { }
 
     async create(userId: number, createAvisDto: CreateAvisDto) {
-        const { avisable_id, avisable_type, note } = createAvisDto;
+        const { avisable_id, avisable_type, note, comment } = createAvisDto;
 
         // Valider que l'entité cible existe
         let targetEntity: any;
@@ -47,6 +47,7 @@ export class AvisService {
         return this.prisma.avis.create({
             data: {
                 note,
+                comment,
                 avisable_id,
                 avisable_type,
                 utilisateur_id: userId,
@@ -91,15 +92,7 @@ export class AvisService {
             orderBy: { created_at: 'desc' },
         });
 
-        const enrichedAvis = await Promise.all(avisList.map(async (avis) => {
-            const comment = await this.prisma.commentaireUser.findFirst({
-                where: {
-                    commentable_type: "Avis",
-                    commentable_id: avis.id,
-                    user_id: avis.utilisateur_id
-                }
-            });
-
+        const enrichedAvis = avisList.map((avis) => {
             const { utilisateur_id, utilisateurs, ...restAvis } = avis;
 
             return {
@@ -111,9 +104,8 @@ export class AvisService {
                     prenom: utilisateurs.prenom,
                     email: utilisateurs.email,
                 } : null,
-                commentaire: comment ? comment.content : null,
             };
-        }));
+        });
 
         return {
             data: enrichedAvis,
@@ -143,31 +135,15 @@ export class AvisService {
             throw new ForbiddenException("Vous n'êtes pas autorisé à modifier cet avis.");
         }
 
-        if (updateAvisDto.note !== undefined) {
+        const dataToUpdate: any = {};
+        if (updateAvisDto.note !== undefined) dataToUpdate.note = updateAvisDto.note;
+        if (updateAvisDto.comment !== undefined) dataToUpdate.comment = updateAvisDto.comment;
+
+        if (Object.keys(dataToUpdate).length > 0) {
             await this.prisma.avis.update({
                 where: { id },
-                data: { note: updateAvisDto.note },
+                data: dataToUpdate,
             });
-        }
-
-        if (updateAvisDto.commentaire !== undefined) {
-            const existingComment = await this.prisma.commentaireUser.findFirst({
-                where: {
-                    commentable_type: "Avis",
-                    commentable_id: avis.id,
-                    user_id: userId
-                }
-            });
-
-            if (existingComment) {
-                await this.prisma.commentaireUser.update({
-                    where: { id: existingComment.id },
-                    data: { content: updateAvisDto.commentaire },
-                });
-            } else {
-                // Créer le commentaire s'il n'existe pas (si le DTO le permet lors de l'update)
-                // Note: La logique initiale semblait l'ignorer, je garde la cohérence mais c'est une amélioration possible.
-            }
         }
 
         return { message: "Avis mis à jour avec succès." };
@@ -179,13 +155,6 @@ export class AvisService {
         if (avis.utilisateur_id !== userId) {
             throw new ForbiddenException("Vous n'êtes pas autorisé à supprimer cet avis.");
         }
-
-        await this.prisma.commentaireUser.deleteMany({
-            where: {
-                commentable_type: "Avis",
-                commentable_id: id
-            }
-        });
 
         await this.prisma.avis.delete({
             where: { id }
