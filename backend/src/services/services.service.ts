@@ -36,13 +36,21 @@ export class ServicesService {
             _count: { id: true }
         });
 
-        const prestataire = utilisateurs?.prestataire ? {
-            id: utilisateurs.prestataire.id,
-            uuid: utilisateurs.uuid,
-            nom: utilisateurs.prestataire.nom,
-            prenom: utilisateurs.prestataire.prenom,
-            domaine_competence: utilisateurs.prestataire.domaine_competence
-        } : null;
+        let prestataire = null;
+        if (utilisateurs?.prestataire) {
+            const { utilisateur_id, ...prestataireRest } = utilisateurs.prestataire;
+            prestataire = {
+                ...prestataireRest,
+                uuid: utilisateurs.uuid,
+                utilisateur: {
+                    id: utilisateurs.id,
+                    uuid: utilisateurs.uuid,
+                    nom: utilisateurs.nom,
+                    prenom: utilisateurs.prenom,
+                    email: utilisateurs.email
+                }
+            };
+        }
 
         return {
             ...rest,
@@ -72,13 +80,21 @@ export class ServicesService {
 
         return services.map(service => {
             const { type_id, types, utilisateurs, ...rest } = service;
-            const prestataire = utilisateurs?.prestataire ? {
-                id: utilisateurs.prestataire.id,
-                uuid: utilisateurs.uuid,
-                nom: utilisateurs.prestataire.nom,
-                prenom: utilisateurs.prestataire.prenom,
-                domaine_competence: utilisateurs.prestataire.domaine_competence
-            } : null;
+            let prestataire = null;
+            if (utilisateurs?.prestataire) {
+                const { utilisateur_id, ...prestataireRest } = utilisateurs.prestataire;
+                prestataire = {
+                    ...prestataireRest,
+                    uuid: utilisateurs.uuid,
+                    utilisateur: {
+                        id: utilisateurs.id,
+                        uuid: utilisateurs.uuid,
+                        nom: utilisateurs.nom,
+                        prenom: utilisateurs.prenom,
+                        email: utilisateurs.email
+                    }
+                };
+            }
             return {
                 ...rest,
                 utilisateur_id: service.utilisateur_id,
@@ -177,9 +193,9 @@ export class ServicesService {
             include: {
                 utilisateurs: {
                     select: {
-                        id: true, uuid: true, nom: true, prenom: true,
+                        id: true, uuid: true, nom: true, prenom: true, email: true,
                         prestataire: {
-                            select: { id: true, nom: true, prenom: true, domaine_competence: true }
+                            include: { competences: true }
                         }
                     }
                 },
@@ -212,9 +228,9 @@ export class ServicesService {
             include: {
                 utilisateurs: {
                     select: {
-                        id: true, uuid: true, nom: true, prenom: true,
+                        id: true, uuid: true, nom: true, prenom: true, email: true,
                         prestataire: {
-                            select: { id: true, nom: true, prenom: true, domaine_competence: true }
+                            include: { competences: true }
                         }
                     }
                 },
@@ -241,7 +257,7 @@ export class ServicesService {
                     select: {
                         id: true, uuid: true, nom: true, prenom: true, email: true,
                         prestataire: {
-                            select: { id: true, nom: true, prenom: true, domaine_competence: true }
+                            include: { competences: true }
                         }
                     }
                 },
@@ -358,9 +374,9 @@ export class ServicesService {
             include: {
                 utilisateurs: {
                     select: {
-                        id: true, uuid: true, nom: true, prenom: true,
+                        id: true, uuid: true, nom: true, prenom: true, email: true,
                         prestataire: {
-                            select: { id: true, nom: true, prenom: true, domaine_competence: true }
+                            include: { competences: true }
                         }
                     }
                 },
