@@ -32,9 +32,7 @@ export class OffresService {
                 nom: true,
                 prenom: true,
                 email: true,
-                recruteur: {
-                    select: { id: true, nom_recruteur: true }
-                }
+                recruteur: true
             }
         }
     };
@@ -49,11 +47,21 @@ export class OffresService {
             _count: { id: true }
         });
 
-        const recruteur = utilisateurs?.recruteur ? {
-            id: utilisateurs.recruteur.id,
-            uuid: utilisateurs.uuid,
-            nom_recruteur: utilisateurs.recruteur.nom_recruteur,
-        } : null;
+        let recruteur = null;
+        if (utilisateurs?.recruteur) {
+            const { utilisateur_id, ...recruteurRest } = utilisateurs.recruteur;
+            recruteur = {
+                ...recruteurRest,
+                uuid: utilisateurs.uuid,
+                utilisateur: {
+                    id: utilisateurs.id,
+                    uuid: utilisateurs.uuid,
+                    nom: utilisateurs.nom,
+                    prenom: utilisateurs.prenom,
+                    email: utilisateurs.email
+                }
+            };
+        }
 
         return {
             ...rest,
@@ -83,11 +91,21 @@ export class OffresService {
 
         return offres.map(offre => {
             const { type_id, types, utilisateurs, ...rest } = offre;
-            const recruteur = utilisateurs?.recruteur ? {
-                id: utilisateurs.recruteur.id,
-                uuid: utilisateurs.uuid,
-                nom_recruteur: utilisateurs.recruteur.nom_recruteur,
-            } : null;
+            let recruteur = null;
+            if (utilisateurs?.recruteur) {
+                const { utilisateur_id, ...recruteurRest } = utilisateurs.recruteur;
+                recruteur = {
+                    ...recruteurRest,
+                    uuid: utilisateurs.uuid,
+                    utilisateur: {
+                        id: utilisateurs.id,
+                        uuid: utilisateurs.uuid,
+                        nom: utilisateurs.nom,
+                        prenom: utilisateurs.prenom,
+                        email: utilisateurs.email
+                    }
+                };
+            }
             return {
                 ...rest,
                 utilisateur_id: offre.utilisateur_id,
