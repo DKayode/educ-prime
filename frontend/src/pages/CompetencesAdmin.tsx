@@ -45,10 +45,8 @@ export default function CompetencesAdmin() {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
 
-    const [formData, setFormData] = useState({
-        nom: "",
-        description: "",
-    });
+    const [createFormList, setCreateFormList] = useState([{ nom: "", description: "" }]);
+    const [editFormData, setEditFormData] = useState({ nom: "", description: "" });
 
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -59,17 +57,41 @@ export default function CompetencesAdmin() {
     });
 
     const createMutation = useMutation({
-        mutationFn: competencesService.create,
-        onSuccess: () => {
+        mutationFn: async (items: { nom: string; description: string }[]) => {
+            const results = await Promise.allSettled(
+                items.map(item => competencesService.create(item))
+            );
+            return results;
+        },
+        onSuccess: (results) => {
             queryClient.invalidateQueries({ queryKey: ["competences"] });
-            toast({ title: "Succès", description: "Compétence créée avec succès" });
-            setIsCreateOpen(false);
-            resetForm();
+
+            const fulfilledCount = results.filter(r => r.status === "fulfilled").length;
+            const rejectedCount = results.filter(r => r.status === "rejected").length;
+
+            if (fulfilledCount > 0 && rejectedCount === 0) {
+                toast({ title: "Succès", description: "Les compétences ont été créées avec succès" });
+                setIsCreateOpen(false);
+                resetForm();
+            } else if (fulfilledCount > 0 && rejectedCount > 0) {
+                toast({
+                    title: "Succès partiel",
+                    description: `${fulfilledCount} compétence(s) créées avec succès. ${rejectedCount} ont échoué (potentiellement déjà existantes).`,
+                });
+                setIsCreateOpen(false);
+                resetForm();
+            } else {
+                toast({
+                    title: "Erreur",
+                    description: "Impossible de créer les compétences.",
+                    variant: "destructive",
+                });
+            }
         },
         onError: () => {
             toast({
                 title: "Erreur",
-                description: "Impossible de créer la compétence",
+                description: "Une erreur critique s'est produite lors de la création.",
                 variant: "destructive",
             });
         },
@@ -109,17 +131,34 @@ export default function CompetencesAdmin() {
     });
 
     const resetForm = () => {
-        setFormData({ nom: "", description: "" });
+        setCreateFormList([{ nom: "", description: "" }]);
+        setEditFormData({ nom: "", description: "" });
         setSelectedCompetence(null);
     };
 
     const handleEditClick = (competence: CompetenceItem) => {
         setSelectedCompetence(competence);
-        setFormData({
+        setEditFormData({
             nom: competence.nom,
             description: competence.description || "",
         });
         setIsEditOpen(true);
+    };
+
+    const addCreateRow = () => {
+        setCreateFormList([...createFormList, { nom: "", description: "" }]);
+    };
+
+    const removeCreateRow = (index: number) => {
+        if (createFormList.length > 1) {
+            setCreateFormList(createFormList.filter((_, i) => i !== index));
+        }
+    };
+
+    const handleCreateRowChange = (index: number, field: "nom" | "description", value: string) => {
+        const updatedList = [...createFormList];
+        updatedList[index][field] = value;
+        setCreateFormList(updatedList);
     };
 
     const handleLimitChange = (val: string) => {
@@ -153,33 +192,60 @@ export default function CompetencesAdmin() {
                         <DialogHeader>
                             <DialogTitle>Ajouter une compétence</DialogTitle>
                         </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Nom <span className="text-red-500">*</span></label>
-                                <Input
-                                    value={formData.nom}
-                                    onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                                    placeholder="Ex: Analyse de Données"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Description</label>
-                                <Textarea
-                                    value={formData.description}
-                                    onChange={(e) =>
-                                        setFormData({ ...formData, description: e.target.value })
-                                    }
-                                    placeholder="Description optionnelle..."
-                                />
-                            </div>
+                        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
+                            {createFormList.map((row, index) => (
+                                <div key={index} className="space-y-4 p-4 border rounded-md relative bg-muted/20">
+                                    <div className="flex justify-between items-center">
+                                        <h4 className="text-sm font-semibold text-muted-foreground">Compétence {index + 1}</h4>
+                                        {createFormList.length > 1 && (
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-100"
+                                                onClick={() => removeCreateRow(index)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Nom <span className="text-red-500">*</span></label>
+                                        <Input
+                                            value={row.nom}
+                                            onChange={(e) => handleCreateRowChange(index, "nom", e.target.value)}
+                                            placeholder="Ex: Analyse de Données"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Description</label>
+                                        <Textarea
+                                            value={row.description}
+                                            onChange={(e) => handleCreateRowChange(index, "description", e.target.value)}
+                                            placeholder="Description optionnelle..."
+                                            className="resize-none"
+                                            rows={2}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                            <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                className="w-full mt-2"
+                                onClick={addCreateRow}
+                            >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Ajouter une autre compétence
+                            </Button>
                         </div>
                         <DialogFooter>
                             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                                 Annuler
                             </Button>
                             <Button
-                                disabled={!formData.nom || createMutation.isPending}
-                                onClick={() => createMutation.mutate(formData)}
+                                disabled={createFormList.some(r => !r.nom) || createMutation.isPending}
+                                onClick={() => createMutation.mutate(createFormList)}
                             >
                                 {createMutation.isPending && (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -200,16 +266,16 @@ export default function CompetencesAdmin() {
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Nom <span className="text-red-500">*</span></label>
                                 <Input
-                                    value={formData.nom}
-                                    onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                                    value={editFormData.nom}
+                                    onChange={(e) => setEditFormData({ ...editFormData, nom: e.target.value })}
                                 />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Description</label>
                                 <Textarea
-                                    value={formData.description}
+                                    value={editFormData.description}
                                     onChange={(e) =>
-                                        setFormData({ ...formData, description: e.target.value })
+                                        setEditFormData({ ...editFormData, description: e.target.value })
                                     }
                                 />
                             </div>
@@ -219,12 +285,12 @@ export default function CompetencesAdmin() {
                                 Annuler
                             </Button>
                             <Button
-                                disabled={!formData.nom || updateMutation.isPending}
+                                disabled={!editFormData.nom || updateMutation.isPending}
                                 onClick={() =>
                                     selectedCompetence &&
                                     updateMutation.mutate({
                                         id: selectedCompetence.id,
-                                        payload: formData,
+                                        payload: editFormData,
                                     })
                                 }
                             >

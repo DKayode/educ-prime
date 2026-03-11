@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, XCircle, Eye } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { recruteursService, RecruteurItem } from "@/lib/services/recruteurs.service";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -31,6 +31,8 @@ import {
 
 export default function RecruteursAdmin() {
     const [selectedStatus, setSelectedStatus] = useState<string | null>("ALL");
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
     const [viewRecruteur, setViewRecruteur] = useState<RecruteurItem | null>(null);
 
     const { toast } = useToast();
@@ -90,9 +92,17 @@ export default function RecruteursAdmin() {
         }
     };
 
+    const handleLimitChange = (val: string) => {
+        setLimit(parseInt(val));
+        setPage(1);
+    };
+
     const filteredRecruteurs = selectedStatus === "ALL"
         ? recruteurs
         : recruteurs.filter((r) => r.status === selectedStatus);
+
+    const totalPages = Math.ceil(filteredRecruteurs.length / limit) || 1;
+    const paginatedRecruteurs = filteredRecruteurs.slice((page - 1) * limit, page * limit);
 
     return (
         <div className="space-y-6">
@@ -126,6 +136,21 @@ export default function RecruteursAdmin() {
                                     <SelectItem value="inactive">Inactifs</SelectItem>
                                 </SelectContent>
                             </Select>
+
+                            <div className="flex items-center gap-2 ml-auto">
+                                <span className="text-sm text-muted-foreground whitespace-nowrap">Items par page:</span>
+                                <Select value={limit.toString()} onValueChange={handleLimitChange}>
+                                    <SelectTrigger className="w-20">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="5">5</SelectItem>
+                                        <SelectItem value="10">10</SelectItem>
+                                        <SelectItem value="20">20</SelectItem>
+                                        <SelectItem value="50">50</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </CardDescription>
                 </CardHeader>
@@ -152,14 +177,14 @@ export default function RecruteursAdmin() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredRecruteurs.length === 0 ? (
+                                    {paginatedRecruteurs.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={6} className="text-center text-muted-foreground">
                                                 Aucun recruteur trouvé.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        filteredRecruteurs.map((recruteur) => (
+                                        paginatedRecruteurs.map((recruteur) => (
                                             <TableRow key={recruteur.id}>
                                                 <TableCell className="font-medium">
                                                     {recruteur.prenom} {recruteur.nom}
@@ -218,6 +243,29 @@ export default function RecruteursAdmin() {
                                     )}
                                 </TableBody>
                             </Table>
+                            {totalPages > 1 && (
+                                <div className="flex items-center justify-center space-x-2 py-4">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={page === 1}
+                                    >
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </Button>
+                                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                        Page {page} sur {totalPages}
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={page === totalPages}
+                                    >
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            )}
                         </>
                     )}
                 </CardContent>

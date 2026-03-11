@@ -33,7 +33,7 @@ import {
 export default function OffresAdmin() {
     const [selectedStatus, setSelectedStatus] = useState<string | null>("ALL");
     const [page, setPage] = useState(1);
-    const [limit] = useState(10);
+    const [limit, setLimit] = useState(10);
     const [viewOffre, setViewOffre] = useState<OffreItem | null>(null);
     const [selectedOffreAvisId, setSelectedOffreAvisId] = useState<number | null>(null);
 
@@ -109,6 +109,11 @@ export default function OffresAdmin() {
         }
     };
 
+    const handleLimitChange = (val: string) => {
+        setLimit(parseInt(val));
+        setPage(1);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -142,6 +147,21 @@ export default function OffresAdmin() {
                                     <SelectItem value="inactive">Inactifs</SelectItem>
                                 </SelectContent>
                             </Select>
+
+                            <div className="flex items-center gap-2 ml-auto">
+                                <span className="text-sm text-muted-foreground whitespace-nowrap">Items par page:</span>
+                                <Select value={limit.toString()} onValueChange={handleLimitChange}>
+                                    <SelectTrigger className="w-20">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="5">5</SelectItem>
+                                        <SelectItem value="10">10</SelectItem>
+                                        <SelectItem value="20">20</SelectItem>
+                                        <SelectItem value="50">50</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </CardDescription>
                 </CardHeader>
