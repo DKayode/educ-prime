@@ -36,12 +36,15 @@ const publicContentItems = [
   { title: "Événements", url: "/evenements", icon: CalendarDays },
   { title: "Opportunités", url: "/opportunites", icon: Briefcase },
   { title: "Concours", url: "/concours", icon: GraduationCap },
+  { title: "Contacts Pro", url: "/contacts-professionnels", icon: UserCheck },
+];
+
+const jobkiaItems = [
   { title: "Recruteurs", url: "/admin/recruteurs", icon: UserPen },
   { title: "Services", url: "/admin/services", icon: ClipboardList },
   { title: "Offres", url: "/admin/offres", icon: ClipboardList },
   { title: "Types (Services, Offres)", url: "/admin/service-types", icon: Layers },
   { title: "Compétences", url: "/admin/competences", icon: Wrench },
-  { title: "Contacts Pro", url: "/contacts-professionnels", icon: UserCheck },
 ];
 
 const settingsItems = [
@@ -107,6 +110,29 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {publicContentItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                    <NavLink
+                      to={item.url}
+                      end
+                      className="hover:bg-sidebar-accent/50"
+                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {state !== "collapsed" && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Jobkia</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {jobkiaItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
                     <NavLink
