@@ -54,6 +54,11 @@ export class CreateRecruteurDto {
 }
 
 export class UpdateRecruteurDto {
+  @ApiPropertyOptional({ description: 'ID de l\'utilisateur (optionnel)', example: 1 })
+  @IsNumber()
+  @IsOptional()
+  utilisateur_id?: number;
+
   @ApiPropertyOptional({ description: 'Numéro IFU du recruteur', example: '1234567890123' })
   @IsString()
   @IsOptional()
