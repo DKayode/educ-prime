@@ -50,6 +50,11 @@ export class CreatePrestataireDto {
 }
 
 export class UpdatePrestataireDto {
+    @ApiPropertyOptional({ description: 'ID de l\'utilisateur (optionnel)', example: 1 })
+    @IsNumber()
+    @IsOptional()
+    utilisateur_id?: number;
+
     @ApiPropertyOptional({ description: 'Nom de famille du prestataire', example: 'Dupont' })
     @IsString()
     @IsOptional()
