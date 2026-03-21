@@ -68,11 +68,11 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides');
     }
 
-    // Generate access token (12h)
+    // Generate access token (1d)
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwtService.sign(payload);
 
-    // Generate refresh token (7 days)
+    // Generate refresh token (30 days)
     const refreshToken = await this.createRefreshToken(user.id, appareil || AppareilType.WEB);
 
     this.logger.log(`Connexion réussie: ${user.email} (ID: ${user.id}, Rôle: ${user.role})`);
@@ -92,9 +92,9 @@ export class AuthService {
     const token = crypto.randomBytes(64).toString('hex');
     const hashedToken = await bcrypt.hash(token, 10);
 
-    // Calculate expiration (7 days)
+    // Calculate expiration (1 month / 30 days)
     const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 3); // 3 days
+    expirationDate.setDate(expirationDate.getDate() + 30); // 30 days
 
     // Save to database
     const refreshToken = this.refreshTokenRepository.create({
