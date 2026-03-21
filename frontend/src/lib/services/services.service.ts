@@ -24,6 +24,25 @@ export interface ServiceItem {
         nom: string;
         prenom: string;
     };
+    prestataire?: {
+        id: number;
+        nom?: string;
+        prenom?: string;
+        domaine_competence?: string;
+        bio?: string;
+        site_web?: string;
+        linkedin?: string;
+        portfolio?: string;
+        uuid?: string;
+        utilisateur?: {
+            id: number;
+            uuid?: string;
+            nom: string;
+            prenom: string;
+            email: string;
+        };
+        competences?: { id: number; nom: string; slug: string }[];
+    };
 }
 
 export interface ServicesResponse {

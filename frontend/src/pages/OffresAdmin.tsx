@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, Star, MessageSquare } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, Star, MessageSquare, User } from "lucide-react";
 import { offresService, OffreItem } from "@/lib/services/offres.service";
 import { avisService } from "@/lib/services/avis.service";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +35,7 @@ export default function OffresAdmin() {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [viewOffre, setViewOffre] = useState<OffreItem | null>(null);
+    const [viewRecruteur, setViewRecruteur] = useState<OffreItem['recruteur'] | null>(null);
     const [selectedOffreAvisId, setSelectedOffreAvisId] = useState<number | null>(null);
 
     const { toast } = useToast();
@@ -231,6 +232,15 @@ export default function OffresAdmin() {
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
+                                                            onClick={() => setViewRecruteur(offre.recruteur)}
+                                                            title="Voir le recruteur"
+                                                            disabled={!offre.recruteur}
+                                                        >
+                                                            <User className="h-4 w-4 text-orange-500" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
                                                             onClick={() => setSelectedOffreAvisId(offre.id)}
                                                             title="Voir les avis"
                                                         >
@@ -337,6 +347,57 @@ export default function OffresAdmin() {
                                 </div>
                             )}
 
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Recruteur Dialog */}
+            <Dialog open={!!viewRecruteur} onOpenChange={(open) => !open && setViewRecruteur(null)}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Détails du recruteur</DialogTitle>
+                        <DialogDescription>
+                            Informations sur le recruteur proposant cette offre.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {viewRecruteur && (
+                        <div className="space-y-4 text-sm mt-4">
+                            <div>
+                                <h4 className="font-semibold text-muted-foreground">Nom complet</h4>
+                                <p>{viewRecruteur.prenom || viewRecruteur.utilisateur?.prenom} {viewRecruteur.nom || viewRecruteur.utilisateur?.nom}</p>
+                            </div>
+                            {viewRecruteur.nom_recruteur && (
+                                <div>
+                                    <h4 className="font-semibold text-muted-foreground">Nom recruteur</h4>
+                                    <p>{viewRecruteur.nom_recruteur}</p>
+                                </div>
+                            )}
+                            {viewRecruteur.numero_ifu && (
+                                <div>
+                                    <h4 className="font-semibold text-muted-foreground">Numéro IFU</h4>
+                                    <p>{viewRecruteur.numero_ifu}</p>
+                                </div>
+                            )}
+                            {viewRecruteur.utilisateur?.email && (
+                                <div>
+                                    <h4 className="font-semibold text-muted-foreground">Email</h4>
+                                    <p>{viewRecruteur.utilisateur.email}</p>
+                                </div>
+                            )}
+                            {viewRecruteur.telephone && (
+                                <div>
+                                    <h4 className="font-semibold text-muted-foreground">Téléphone</h4>
+                                    <p>{viewRecruteur.telephone}</p>
+                                </div>
+                            )}
+                            {viewRecruteur.adresse && (
+                                <div>
+                                    <h4 className="font-semibold text-muted-foreground">Adresse</h4>
+                                    <p>{viewRecruteur.adresse}</p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </DialogContent>

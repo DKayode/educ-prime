@@ -24,6 +24,24 @@ export interface OffreItem {
         nom: string;
         prenom: string;
     };
+    recruteur?: {
+        id: number;
+        nom?: string;
+        prenom?: string;
+        nom_recruteur?: string;
+        numero_ifu?: string;
+        telephone?: string;
+        adresse?: string;
+        biographie?: string;
+        uuid?: string;
+        utilisateur?: {
+            id: number;
+            uuid?: string;
+            nom: string;
+            prenom: string;
+            email: string;
+        };
+    };
 }
 
 export interface OffresResponse {

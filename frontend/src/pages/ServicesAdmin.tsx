@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, Star, MessageSquare } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, Star, MessageSquare, User } from "lucide-react";
 import { servicesService, ServiceItem } from "@/lib/services/services.service";
 import { avisService } from "@/lib/services/avis.service";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +35,7 @@ export default function ServicesAdmin() {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [viewService, setViewService] = useState<ServiceItem | null>(null);
+    const [viewPrestataire, setViewPrestataire] = useState<ServiceItem['prestataire'] | null>(null);
     const [selectedServiceAvisId, setSelectedServiceAvisId] = useState<number | null>(null);
 
     const { toast } = useToast();
@@ -231,6 +232,15 @@ export default function ServicesAdmin() {
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
+                                                            onClick={() => setViewPrestataire(service.prestataire)}
+                                                            title="Voir le prestataire"
+                                                            disabled={!service.prestataire}
+                                                        >
+                                                            <User className="h-4 w-4 text-orange-500" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
                                                             onClick={() => setSelectedServiceAvisId(service.id)}
                                                             title="Voir les avis"
                                                         >
@@ -341,6 +351,51 @@ export default function ServicesAdmin() {
                                 </div>
                             )}
 
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Prestataire Dialog */}
+            <Dialog open={!!viewPrestataire} onOpenChange={(open) => !open && setViewPrestataire(null)}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Détails du prestataire</DialogTitle>
+                        <DialogDescription>
+                            Informations sur le prestataire proposant ce service.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {viewPrestataire && (
+                        <div className="space-y-4 text-sm mt-4">
+                            <div>
+                                <h4 className="font-semibold text-muted-foreground">Nom complet</h4>
+                                <p>{viewPrestataire.prenom || viewPrestataire.utilisateur?.prenom} {viewPrestataire.nom || viewPrestataire.utilisateur?.nom}</p>
+                            </div>
+                            {viewPrestataire.utilisateur?.email && (
+                                <div>
+                                    <h4 className="font-semibold text-muted-foreground">Email</h4>
+                                    <p>{viewPrestataire.utilisateur.email}</p>
+                                </div>
+                            )}
+                            {viewPrestataire.domaine_competence && (
+                                <div>
+                                    <h4 className="font-semibold text-muted-foreground">Domaine de compétence</h4>
+                                    <p>{viewPrestataire.domaine_competence}</p>
+                                </div>
+                            )}
+                            {viewPrestataire.competences && viewPrestataire.competences.length > 0 && (
+                                <div>
+                                    <h4 className="font-semibold text-muted-foreground mb-2">Compétences</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {viewPrestataire.competences.map((comp) => (
+                                            <Badge key={comp.id} variant="secondary">
+                                                {comp.nom}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </DialogContent>
