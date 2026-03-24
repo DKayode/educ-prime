@@ -117,7 +117,7 @@ export class OffresController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Supprimer une offre (Nécessite connexion)' })
     remove(@Request() req, @Param('id', ParseIntPipe) id: number) {
-        return this.offresService.remove(id, req.user.utilisateurId);
+        return this.offresService.remove(id, req.user.utilisateurId, req.user.role);
     }
 
     @UseGuards(JwtAuthGuard)

@@ -145,7 +145,8 @@ export default function Forums() {
     const [deleteId, setDeleteId] = useState<number | null>(null);
 
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [sortBy, setSortBy] = useState<'most_liked' | 'most_commented' | undefined>(undefined);
+    const [sortBy, setSortBy] = useState<'most_liked' | 'most_commented' | 'date_creation'>('date_creation');
+    const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     const [newForum, setNewForum] = useState({
@@ -157,8 +158,8 @@ export default function Forums() {
     const queryClient = useQueryClient();
 
     const { data: forumsData, isLoading, error } = useQuery({
-        queryKey: ['forums', debouncedSearchQuery, sortBy],
-        queryFn: () => forumService.getAll(debouncedSearchQuery || undefined, sortBy),
+        queryKey: ['forums', debouncedSearchQuery, sortBy, sortOrder],
+        queryFn: () => forumService.getAll(debouncedSearchQuery || undefined, sortBy, sortOrder),
     });
 
     const forums = forumsData?.data || [];
@@ -257,18 +258,46 @@ export default function Forums() {
                                 />
                             </div>
                             <Button
+                                variant={sortBy === 'date_creation' ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => {
+                                    if (sortBy === 'date_creation') {
+                                        setSortOrder(sortOrder === 'DESC' ? 'ASC' : 'DESC');
+                                    } else {
+                                        setSortBy('date_creation');
+                                        setSortOrder('DESC');
+                                    }
+                                }}
+                            >
+                                Date {sortBy === 'date_creation' && (sortOrder === 'ASC' ? <ArrowUpDown className="ml-2 h-4 w-4 rotate-180" /> : <ArrowUpDown className="ml-2 h-4 w-4" />)}
+                            </Button>
+                            <Button
                                 variant={sortBy === 'most_liked' ? "default" : "outline"}
                                 size="sm"
-                                onClick={() => setSortBy(sortBy === 'most_liked' ? undefined : 'most_liked')}
+                                onClick={() => {
+                                    if (sortBy === 'most_liked') {
+                                        setSortOrder(sortOrder === 'DESC' ? 'ASC' : 'DESC');
+                                    } else {
+                                        setSortBy('most_liked');
+                                        setSortOrder('DESC');
+                                    }
+                                }}
                             >
-                                Likes <ArrowUpDown className="ml-2 h-4 w-4" />
+                                Likes {sortBy === 'most_liked' && (sortOrder === 'ASC' ? <ArrowUpDown className="ml-2 h-4 w-4 rotate-180" /> : <ArrowUpDown className="ml-2 h-4 w-4" />)}
                             </Button>
                             <Button
                                 variant={sortBy === 'most_commented' ? "default" : "outline"}
                                 size="sm"
-                                onClick={() => setSortBy(sortBy === 'most_commented' ? undefined : 'most_commented')}
+                                onClick={() => {
+                                    if (sortBy === 'most_commented') {
+                                        setSortOrder(sortOrder === 'DESC' ? 'ASC' : 'DESC');
+                                    } else {
+                                        setSortBy('most_commented');
+                                        setSortOrder('DESC');
+                                    }
+                                }}
                             >
-                                Commentaires <MessageSquare className="ml-2 h-4 w-4" />
+                                Commentaires {sortBy === 'most_commented' && (sortOrder === 'ASC' ? <ArrowUpDown className="ml-2 h-4 w-4 rotate-180" /> : <ArrowUpDown className="ml-2 h-4 w-4" />)}
                             </Button>
                         </div>
                     </CardDescription>
@@ -333,7 +362,7 @@ export default function Forums() {
                                                     <span>{forum.nb_comment || 0}</span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell>{new Date(forum.created_at).toLocaleDateString()}</TableCell>
+                                            <TableCell>{forum.created_at ? forum.created_at.split(' ')[0] : ''}</TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
                                                     <Button

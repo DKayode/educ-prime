@@ -28,5 +28,19 @@ export const notificationsService = {
      */
     validateToken: async (token: string) => {
         return api.post('/notifications/validate-token', { token });
+    },
+
+    /**
+     * Envoyer une notification par email (Admin)
+     */
+    sendEmail: async (data: { title: string; body: string }) => {
+        return api.post('/notification-email', data);
+    },
+
+    /**
+     * Désabonner un utilisateur des notifications par email
+     */
+    unsubscribeFromEmail: async (data: { uuid: string }) => {
+        return api.post('/notification-email/unsubscribe', data);
     }
 };

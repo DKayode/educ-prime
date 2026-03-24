@@ -46,7 +46,7 @@ export class EpreuvesService {
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .leftJoinAndSelect('epreuve.professeur', 'professeur')
-      .orderBy('epreuve.date_publication', filterDto.sort_order || 'DESC')
+      .orderBy('epreuve.date_creation', filterDto.sort_order || 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 

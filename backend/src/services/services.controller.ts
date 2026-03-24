@@ -119,7 +119,7 @@ export class ServicesController {
     @ApiOperation({ summary: 'Supprimer un service' })
     remove(@Request() req, @Param('id', ParseIntPipe) id: number) {
         const userId = req.user.utilisateurId;
-        return this.servicesService.remove(id, userId);
+        return this.servicesService.remove(id, userId, req.user.role);
     }
 
     @UseGuards(JwtAuthGuard)

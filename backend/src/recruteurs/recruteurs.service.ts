@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecruteurDto, UpdateRecruteurDto } from './dto/recruteur.dto';
+import { FilterRecruteurDto } from './dto/filter-recruteur.dto';
 import { services_status_enum } from '@prisma/client';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { TypeFichier } from '../fichiers/entities/fichier.entity';
@@ -86,9 +87,20 @@ export class RecruteursService {
         return recruteurs.map(r => this.formatRecruteur(r));
     }
 
-    async findAllAdmin() {
+    async findAllAdmin(filterDto?: FilterRecruteurDto) {
+        let orderBy: any = {};
+        if (filterDto?.sort_by) {
+            const field = filterDto.sort_by === 'date_creation' ? 'created_at' : filterDto.sort_by;
+            orderBy = {
+                [field]: filterDto.sort_order?.toLowerCase() || 'desc'
+            };
+        } else {
+            orderBy = { created_at: 'desc' };
+        }
+
         const recruteurs = await this.prisma.recruteurs.findMany({
-            include: this.includeUtilisateur
+            include: this.includeUtilisateur,
+            orderBy
         });
         return recruteurs.map(r => this.formatRecruteur(r));
     }

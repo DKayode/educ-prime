@@ -402,7 +402,7 @@ export class OffresService {
         return this.formatOffre(updated);
     }
 
-    async remove(id: number, userId: number) {
+    async remove(id: number, userId: number, userRole?: string) {
         const offre = await this.prisma.offres.findUnique({
             where: { id }
         });
@@ -411,7 +411,7 @@ export class OffresService {
             throw new NotFoundException(`Offre #${id} introuvable`);
         }
 
-        if (offre.utilisateur_id !== Number(userId)) {
+        if (offre.utilisateur_id !== Number(userId) && userRole !== 'admin') {
             throw new ForbiddenException("Vous n'êtes pas autorisé à supprimer cette offre.");
         }
 

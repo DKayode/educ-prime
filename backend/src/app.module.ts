@@ -56,6 +56,7 @@ import { PrestatairesModule } from './prestataires/prestataires.module';
 import { RecruteursModule } from './recruteurs/recruteurs.module';
 import { CompetencesModule } from './competences/competences.module';
 import { OffresModule } from './offres/offres.module';
+import { NotificationEmailModule } from './notification-email/notification-email.module';
 
 @Module({
   imports: [
@@ -112,6 +113,7 @@ import { OffresModule } from './offres/offres.module';
     FavorisModule,
     CategoriesModule,
     NotificationsModule,
+    NotificationEmailModule,
     FirebaseModule,
     AppVersionModule,
     EventsModule,

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, Star, MessageSquare, User } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, Star, MessageSquare, User, Trash2 } from "lucide-react";
 import { servicesService, ServiceItem } from "@/lib/services/services.service";
 import { avisService } from "@/lib/services/avis.service";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +22,16 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
     Dialog,
     DialogContent,
@@ -37,6 +47,7 @@ export default function ServicesAdmin() {
     const [viewService, setViewService] = useState<ServiceItem | null>(null);
     const [viewPrestataire, setViewPrestataire] = useState<ServiceItem['prestataire'] | null>(null);
     const [selectedServiceAvisId, setSelectedServiceAvisId] = useState<number | null>(null);
+    const [deleteId, setDeleteId] = useState<number | null>(null);
 
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -82,6 +93,25 @@ export default function ServicesAdmin() {
     const handleUpdateStatus = (id: number, newStatus: string) => {
         updateStatusMutation.mutate({ id, status: newStatus });
     };
+
+    const deleteMutation = useMutation({
+        mutationFn: (id: number) => servicesService.delete(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["admin-services"] });
+            setDeleteId(null);
+            toast({
+                title: "Service supprimé",
+                description: "Le service a été supprimé avec succès.",
+            });
+        },
+        onError: (error: any) => {
+            toast({
+                title: "Erreur",
+                description: error.message || "Échec de la suppression du service",
+                variant: "destructive",
+            });
+        },
+    });
 
     const getStatusBadgeVariant = (status: string) => {
         switch (status) {
@@ -269,6 +299,15 @@ export default function ServicesAdmin() {
                                                                 </Button>
                                                             </>
                                                         )}
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => setDeleteId(service.id)}
+                                                            title="Supprimer"
+                                                            disabled={deleteMutation.isPending}
+                                                        >
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
@@ -453,6 +492,34 @@ export default function ServicesAdmin() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Êtes-vous sûr de vouloir supprimer ce service ? Cette action est irréversible.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            disabled={deleteMutation.isPending}
+                        >
+                            {deleteMutation.isPending ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Suppression...
+                                </>
+                            ) : (
+                                "Supprimer"
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

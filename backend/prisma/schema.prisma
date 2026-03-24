@@ -325,6 +325,7 @@ model utilisateurs {
   prestataire               prestataires?
   recruteur                 recruteurs?
   offres                    offres[]
+  desabonnement_email       desabonnement_email?
 }
 
 enum app_platform_enum {
@@ -541,4 +542,12 @@ model offres {
   types        types         @relation(fields: [type_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   utilisateurs utilisateurs  @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   competences  competences[]
+}
+
+model desabonnement_email {
+  id               Int          @id @default(autoincrement())
+  utilisateur_uuid String       @unique @db.Uuid
+  date_creation    DateTime     @default(now()) @db.Timestamptz(6)
+
+  utilisateurs     utilisateurs @relation(fields: [utilisateur_uuid], references: [uuid], onDelete: Cascade, onUpdate: NoAction)
 }
