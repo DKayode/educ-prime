@@ -40,7 +40,10 @@ export default function RecruteursAdmin() {
 
     const { data: recruteurs = [], isLoading, error } = useQuery({
         queryKey: ['admin-recruteurs'],
-        queryFn: () => recruteursService.getAllAdmin(),
+        queryFn: () => recruteursService.getAllAdmin({
+            sort_by: 'date_creation',
+            sort_order: 'DESC'
+        }),
     });
 
     const updateStatusMutation = useMutation({

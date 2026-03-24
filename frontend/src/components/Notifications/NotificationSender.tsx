@@ -9,12 +9,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '../ui/label';
 import { Loader2, Send } from 'lucide-react';
 import { useToast } from '../ui/use-toast';
-
 export function NotificationSender() {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
+    const [channel, setChannel] = useState<'push' | 'email'>('push');
 
 
 
@@ -30,20 +30,25 @@ export function NotificationSender() {
 
         setLoading(true);
         try {
-            const payload: any = {
-                title,
-                body,
-                utilisateurIds: [],
-                data: {
-                    priority: NotificationPriority.NORMAL
-                }
-            };
+            if (channel === 'push') {
+                const payload: any = {
+                    title,
+                    body,
+                    utilisateurIds: [],
+                    data: {
+                        priority: NotificationPriority.NORMAL
+                    }
+                };
+                await notificationsService.send(payload);
+            }
 
-            await notificationsService.send(payload);
+            if (channel === 'email') {
+                await notificationsService.sendEmail({ title, body });
+            }
 
             toast({
                 title: "Succès",
-                description: "Notification envoyée avec succès",
+                description: "Notification(s) envoyée(s) avec succès",
             });
 
             // Reset form
@@ -65,9 +70,22 @@ export function NotificationSender() {
         <Card className="w-full max-w-2xl mx-auto">
             <CardHeader>
                 <CardTitle>Envoyer une Notification</CardTitle>
-                <CardDescription>Envoyer une notification push via Firebase</CardDescription>
+                <CardDescription>Envoyer une notification push ou email à vos utilisateurs</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <Label>Canal d'envoi</Label>
+                    <Select value={channel} onValueChange={(val: any) => setChannel(val)}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner le canal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="push">Mobile (Push uniquement)</SelectItem>
+                            <SelectItem value="email">Email uniquement</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
                 <div className="space-y-2">
                     <Label>Titre</Label>
                     <Input

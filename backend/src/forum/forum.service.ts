@@ -54,7 +54,7 @@ export class ForumService {
     }
 
     async findAll(filterDto: FilterForumDto, userId: number): Promise<PaginationResponse<any>> {
-        const { page = 1, limit = 10, search, sortBy = 'most_liked' } = filterDto;
+        const { page = 1, limit = 10, search, sortBy = 'date_creation', sort_order = 'DESC' } = filterDto;
         const skip = (page - 1) * limit;
         const take = limit;
 
@@ -84,7 +84,7 @@ export class ForumService {
                     },
                 },
                 orderBy: {
-                    created_at: 'desc',
+                    created_at: sort_order.toLowerCase() as 'asc' | 'desc',
                 },
                 skip,
                 take,
@@ -122,9 +122,9 @@ export class ForumService {
         }));
 
         if (sortBy === 'most_liked') {
-            forumsWithCounts.sort((a, b) => b.nb_like - a.nb_like);
+            forumsWithCounts.sort((a, b) => sort_order === 'ASC' ? a.nb_like - b.nb_like : b.nb_like - a.nb_like);
         } else if (sortBy === 'most_commented') {
-            forumsWithCounts.sort((a, b) => (b.nb_comment || 0) - (a.nb_comment || 0));
+            forumsWithCounts.sort((a, b) => sort_order === 'ASC' ? (a.nb_comment || 0) - (b.nb_comment || 0) : (b.nb_comment || 0) - (a.nb_comment || 0));
         }
 
         return {

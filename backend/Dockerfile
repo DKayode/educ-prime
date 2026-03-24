@@ -46,6 +46,9 @@ COPY --from=builder /app/dist ./dist
 # Copy config directory (includes Firebase credentials if present)
 COPY --from=builder /app/config ./config
 
+# Copy explicit SMTP image assets 
+COPY --from=builder /app/assets ./assets
+
 # Copy generated Prisma Client
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 

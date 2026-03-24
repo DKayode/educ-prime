@@ -344,10 +344,10 @@ export class ServicesService {
         return this.fichiersService.downloadFile(service.image_couverture);
     }
 
-    async remove(id: number, userId: number) {
+    async remove(id: number, userId: number, userRole?: string) {
         const service = await this.findOne(id);
 
-        if (service.utilisateur_id !== userId) {
+        if (service.utilisateur_id !== userId && userRole !== 'admin') {
             throw new ForbiddenException("Vous n'êtes pas autorisé à supprimer ce service.");
         }
 

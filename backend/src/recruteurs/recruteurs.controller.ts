@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Patch, UseInterceptors, UploadedFile, ParseFilePipe, FileTypeValidator, Res, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiConsumes, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Patch, UseInterceptors, UploadedFile, ParseFilePipe, FileTypeValidator, Res, HttpStatus, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiConsumes, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { RecruteursService } from './recruteurs.service';
 import { CreateRecruteurDto, UpdateRecruteurDto, UpdateRecruteurStatusDto } from './dto/recruteur.dto';
+import { FilterRecruteurDto } from './dto/filter-recruteur.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -31,9 +32,11 @@ export class RecruteursController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Récupérer tous les recruteurs (Admin uniquement)' })
+    @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Champ de tri (ex: date_creation, created_at)' })
+    @ApiQuery({ name: 'sort_order', required: false, enum: ['ASC', 'DESC'], description: 'Ordre de tri' })
     @Get('all')
-    findAllAdmin() {
-        return this.recruteursService.findAllAdmin();
+    findAllAdmin(@Query() filterDto: FilterRecruteurDto) {
+        return this.recruteursService.findAllAdmin(filterDto);
     }
 
     @UseGuards(JwtAuthGuard)

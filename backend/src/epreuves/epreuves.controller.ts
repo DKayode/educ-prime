@@ -33,6 +33,8 @@ export class EpreuvesController {
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (titre ou matière)' })
   @ApiQuery({ name: 'type', required: false, type: String, description: 'Filtrer par type (Interrogation, Devoirs, Concours, Examens)' })
   @ApiQuery({ name: 'matiere', required: false, type: String, description: 'Filtrer par nom de matière' })
+  @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Champ de tri (ex: date_creation)' })
+  @ApiQuery({ name: 'sort_order', required: false, enum: ['ASC', 'DESC'], description: 'Ordre de tri' })
   async findAll(@Query() filterDto: FilterEpreuveDto) {
     return this.epreuvesService.findAll(filterDto);
   }

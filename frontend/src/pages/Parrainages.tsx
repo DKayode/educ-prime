@@ -117,7 +117,9 @@ function ParrainCard({ parrain }: { parrain: Utilisateur }) {
         queryFn: () => usersService.getAll({
             parrain_id: parrain.id.toString(),
             page,
-            limit
+            limit,
+            sort_by: 'date_creation',
+            sort_order: 'DESC'
         }),
         enabled: isOpen, // Only fetch when open
     });

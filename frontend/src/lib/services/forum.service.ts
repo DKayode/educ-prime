@@ -10,10 +10,11 @@ export interface PaginationResponse<T> {
 }
 
 export const forumService = {
-    getAll: async (query?: string, sortBy?: 'most_liked' | 'most_commented', page = 1, limit = 10): Promise<PaginationResponse<Forum>> => {
+    getAll: async (query?: string, sortBy?: 'most_liked' | 'most_commented' | 'date_creation', sort_order: 'ASC' | 'DESC' = 'DESC', page = 1, limit = 10): Promise<PaginationResponse<Forum>> => {
         const params = new URLSearchParams();
-        if (query) params.append('q', query);
+        if (query) params.append('search', query);
         if (sortBy) params.append('sortBy', sortBy);
+        params.append('sort_order', sort_order);
         params.append('page', page.toString());
         params.append('limit', limit.toString());
 

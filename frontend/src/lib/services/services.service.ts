@@ -71,4 +71,8 @@ export const servicesService = {
     updateStatus: async (id: number, status: string) => {
         return api.put<{ message: string; data: ServiceItem }>(`/services/${id}/status`, { status });
     },
+
+    delete: async (id: number) => {
+        return api.delete<{ message: string }>(`/services/${id}`);
+    },
 };

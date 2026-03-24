@@ -29,9 +29,13 @@ export const recruteursService = {
         return Array.isArray(data) ? data : [];
     },
 
-    getAllAdmin: async () => {
+    getAllAdmin: async (params?: { sort_by?: string; sort_order?: string }) => {
         // Requires admin token
-        const data = await api.get<RecruteurItem[]>('/recruteurs/all');
+        const searchParams = new URLSearchParams();
+        if (params?.sort_by) searchParams.append('sort_by', params.sort_by);
+        if (params?.sort_order) searchParams.append('sort_order', params.sort_order);
+        const queryStr = searchParams.toString() ? `?${searchParams.toString()}` : '';
+        const data = await api.get<RecruteurItem[]>(`/recruteurs/all${queryStr}`);
         return Array.isArray(data) ? data : [];
     },
 

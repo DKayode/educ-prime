@@ -70,4 +70,8 @@ export const offresService = {
     updateStatus: async (id: number, status: string) => {
         return api.put<{ message: string; data: OffreItem }>(`/offres/${id}/status`, { status });
     },
+
+    delete: async (id: number) => {
+        return api.delete<{ message: string }>(`/offres/${id}`);
+    },
 };
