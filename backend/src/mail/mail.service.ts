@@ -28,9 +28,15 @@ export class MailService {
                     user,
                     pass,
                 },
+                pool: true, // Reuse connections
+                maxConnections: 3, // Smaller pool for safety
+                maxMessages: 100, // Max messages per connection before reconnecting
+                rateDelta: 1000, // 1 second
+                rateLimit: 1, // 1 email per second max (Extremely safe)
             });
             this.logger.log(`MailService initialized with host: ${host}`);
-            this.logger.error('SMTP configuration missing. Emails cannot be sent.');
+        } else {
+            this.logger.error('SMTP configuration missing (host, user or pass). Emails cannot be sent.');
         }
     }
 
@@ -43,7 +49,7 @@ export class MailService {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>${title}</title>
         </head>
-        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f8;">
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f8;">
             <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f6f8; padding: 20px 0;">
                 <tr>
                     <td align="center">
@@ -170,7 +176,7 @@ export class MailService {
             messageHtml = `<p>Excellente nouvelle ! Votre ${entityType} <strong>"${serviceTitle}"</strong> a été <strong>approuvé</strong> et est maintenant visible par tous les utilisateurs.</p>`;
         } else if (status === 'declined') {
             statusText = 'refusé';
-            messageHtml = `<p>Nous sommes au regret de vous informer que votre ${entityType} <strong>"${serviceTitle}"</strong> a été <strong>refusé</strong> car il ne respectait pas nos conditions de publication.</p>`;
+            messageHtml = `<p>Nous sommes au regret de vous informer que votre ${entityType} <strong>"${serviceTitle}"</strong> a été <strong>refusé</strong> car elle ne respectait pas nos conditions de publication.</p>`;
         } else {
             // Optional: don't send emails for other status changes
             return;
@@ -197,8 +203,8 @@ export class MailService {
         };
 
         try {
-            await this.transporter.sendMail(mailOptions);
-            this.logger.log(`Service status update email sent to ${email}`);
+            const info = await this.transporter.sendMail(mailOptions);
+            this.logger.log(`Service status update email sent to ${email}. MessageId: ${info.messageId}`);
         } catch (error) {
             this.logger.error(`Failed to send email to ${email}: ${error.message}`, error.stack);
             throw new Error("Erreur lors de l'envoi de l'email");
@@ -253,8 +259,8 @@ export class MailService {
         };
 
         try {
-            await this.transporter.sendMail(mailOptions);
-            this.logger.log(`Recruteur status update email sent to ${email}`);
+            const info = await this.transporter.sendMail(mailOptions);
+            this.logger.log(`Recruteur status update email sent to ${email}. MessageId: ${info.messageId}`);
         } catch (error) {
             this.logger.error(`Failed to send email to ${email}: ${error.message}`, error.stack);
             throw new Error("Erreur lors de l'envoi de l'email");
@@ -282,7 +288,9 @@ export class MailService {
         };
 
         try {
+            this.logger.log(`SMTP: Attempting to send personalized email to ${email}`);
             await this.transporter.sendMail(mailOptions);
+            this.logger.log(`SMTP: Successfully sent email to ${email}`);
         } catch (error) {
             this.logger.error(`Failed to send personalized email: ${error.message}`, error.stack);
             throw new Error("Erreur lors de l'envoi de l'email");

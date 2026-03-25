@@ -56,6 +56,7 @@ export class ServicesService {
             ...rest,
             utilisateur_id: service.utilisateur_id,
             type: types,
+            utilisateur: utilisateurs || null,
             prestataire,
             avis: {
                 moyenne: avisAgg._avg.note ? parseFloat(Number(avisAgg._avg.note).toFixed(1)) : 0,
@@ -99,6 +100,7 @@ export class ServicesService {
                 ...rest,
                 utilisateur_id: service.utilisateur_id,
                 type: types,
+                utilisateur: utilisateurs || null,
                 prestataire,
                 avis: avisMap.get(service.id) || { moyenne: 0, total: 0 }
             };
@@ -397,20 +399,34 @@ export class ServicesService {
     }
 
     async updateStatus(id: number, status: services_status_enum) {
-        const service = await this.findOne(id);
+        const existingService = await this.prisma.services.findUnique({ where: { id } });
+        if (!existingService) throw new NotFoundException(`Service #${id} introuvable`);
 
         const updatedService = await this.prisma.services.update({
             where: { id },
             data: { status },
+            include: {
+                utilisateurs: {
+                    select: {
+                        id: true,
+                        nom: true,
+                        prenom: true,
+                        email: true
+                    }
+                }
+            }
         });
 
         // Send email notification to user asynchronously
-        if (service.utilisateurs?.email && (status === 'active' || status === 'approved' || status === 'declined')) {
-            const userName = `${service.utilisateurs.prenom} ${service.utilisateurs.nom}`;
-            this.mailService.sendServiceStatusUpdateEmail(service.utilisateurs.email, userName, service.titre, status)
+        if (existingService.status !== status && updatedService.utilisateurs?.email && (status === 'active' || status === 'approved' || status === 'declined')) {
+            const userName = updatedService.utilisateurs.prenom && updatedService.utilisateurs.nom 
+                ? `${updatedService.utilisateurs.prenom} ${updatedService.utilisateurs.nom}`
+                : (updatedService.utilisateurs.prenom || updatedService.utilisateurs.nom || 'Utilisateur');
+                
+            this.mailService.sendServiceStatusUpdateEmail(updatedService.utilisateurs.email, userName, updatedService.titre, status)
                 .catch(err => this.logger.error(`Failed to send status email for service ${id}: ${err.message}`));
         }
 
-        return updatedService;
+        return this.formatService(updatedService);
     }
 }

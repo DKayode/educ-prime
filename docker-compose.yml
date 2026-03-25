@@ -21,6 +21,21 @@ services:
       timeout: 5s
       retries: 5
 
+  # Redis for BullMQ Queue
+  redis:
+    image: redis:7-alpine
+    container_name: educ_prime_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - educ-prime-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # NestJS Backend API
   backend:
     image: ${DOCKER_IMAGE_BACKEND:-ghcr.io/dkayode/educ-prime-backend:latest}
@@ -44,10 +59,15 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
       SMTP_SECURE: ${SMTP_SECURE}
+      # Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
     networks:
       - educ-prime-network
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test:

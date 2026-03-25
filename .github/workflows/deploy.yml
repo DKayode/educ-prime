@@ -78,6 +78,8 @@ jobs:
             SMTP_USER=${{ secrets.SMTP_USER }}
             SMTP_PASS=${{ secrets.SMTP_PASS }}
             SMTP_SECURE=${{ secrets.SMTP_SECURE }}
+            REDIS_HOST=redis
+            REDIS_PORT=6379
             ENV_EOF
 
             # Créer le fichier docker-compose.yml depuis le contenu du repo
@@ -90,11 +92,11 @@ jobs:
             echo "$NGINX_CONTENT" | base64 -d > ./nginx/nginx.conf
 
             # Arrêter les conteneurs
-            docker-compose stop backend frontend
-            docker-compose rm -f backend frontend
+            docker-compose stop backend frontend redis
+            docker-compose rm -f backend frontend redis
 
             # Pull les dernières images
-            docker-compose pull backend frontend
+            docker-compose pull backend frontend redis
 
             # Démarrer les conteneurs
             docker-compose up -d --remove-orphans
