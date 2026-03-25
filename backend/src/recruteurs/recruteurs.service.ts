@@ -156,7 +156,9 @@ export class RecruteursService {
 
         // Send email notification if status changed
         if (existingRecruteur.status !== status && updated.utilisateurs?.email) {
-            const userName = updated.utilisateurs.prenom || updated.utilisateurs.nom || 'Utilisateur';
+            const userName = updated.utilisateurs.prenom && updated.utilisateurs.nom
+                ? `${updated.utilisateurs.prenom} ${updated.utilisateurs.nom}`
+                : (updated.utilisateurs.prenom || updated.utilisateurs.nom || 'Utilisateur');
             // We use setTimeout to not block the request while the email sends
             setTimeout(async () => {
                 try {

@@ -9,8 +9,8 @@ async function bootstrap() {
   // Enable CORS for frontend access
   app.enableCors({
     origin: process.env.NODE_ENV === 'production'
-      ? true // Allow all origins in production (or specify your domain)
-      : ['http://localhost', 'http://localhost:80', 'http://localhost:8080'],
+      ? true 
+      : ['http://localhost', 'http://localhost:80', 'http://localhost:8080', 'http://localhost:5173'],
     credentials: true,
   });
 

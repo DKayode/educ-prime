@@ -42,5 +42,26 @@ export const notificationsService = {
      */
     unsubscribeFromEmail: async (data: { uuid: string }) => {
         return api.post('/notification-email/unsubscribe', data);
+    },
+
+    /**
+     * Vérifier le statut d'un envoi groupé par email
+     */
+    getEmailJobStatus: async (jobId: string) => {
+        return api.get(`/notification-email/status/${jobId}`);
+    },
+
+    /**
+     * Annuler un envoi groupé
+     */
+    cancelEmailJob: async (jobId: string) => {
+        return api.post(`/notification-email/cancel/${jobId}`);
+    },
+
+    /**
+     * Vider la file d'attente
+     */
+    drainEmailQueue: async () => {
+        return api.post('/notification-email/drain');
     }
 };

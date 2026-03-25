@@ -57,6 +57,7 @@ import { RecruteursModule } from './recruteurs/recruteurs.module';
 import { CompetencesModule } from './competences/competences.module';
 import { OffresModule } from './offres/offres.module';
 import { NotificationEmailModule } from './notification-email/notification-email.module';
+import { BullModule } from '@nestjs/bullmq';
 
 @Module({
   imports: [
@@ -64,6 +65,12 @@ import { NotificationEmailModule } from './notification-email/notification-email
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+    }),
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT) || 6379,
+      },
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',

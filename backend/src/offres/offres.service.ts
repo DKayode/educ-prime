@@ -67,6 +67,7 @@ export class OffresService {
             ...rest,
             utilisateur_id: offre.utilisateur_id,
             type: types,
+            utilisateur: utilisateurs || null,
             recruteur,
             avis: {
                 moyenne: avisAgg._avg.note ? parseFloat(Number(avisAgg._avg.note).toFixed(1)) : 0,
@@ -110,6 +111,7 @@ export class OffresService {
                 ...rest,
                 utilisateur_id: offre.utilisateur_id,
                 type: types,
+                utilisateur: utilisateurs || null,
                 recruteur,
                 avis: avisMap.get(offre.id) || { moyenne: 0, total: 0 }
             };
@@ -380,7 +382,9 @@ export class OffresService {
 
         // Send email notification if status changed
         if (existingOffre.status !== status && updated.utilisateurs?.email) {
-            const userName = updated.utilisateurs.prenom || updated.utilisateurs.nom || 'Utilisateur';
+            const userName = updated.utilisateurs.prenom && updated.utilisateurs.nom
+                ? `${updated.utilisateurs.prenom} ${updated.utilisateurs.nom}`
+                : (updated.utilisateurs.prenom || updated.utilisateurs.nom || 'Utilisateur');
             const serviceTitle = updated.titre || 'Offre';
 
             // We use setTimeout to not block the request while the email sends
