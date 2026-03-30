@@ -164,7 +164,7 @@ export function NotificationSender() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="push">Mobile (Push uniquement)</SelectItem>
-                            <SelectItem value="email">Email uniquement</SelectItem>
+                            <SelectItem value="email" disabled>Email uniquement (Désactivé)</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
