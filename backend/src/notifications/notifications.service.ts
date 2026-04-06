@@ -8,6 +8,8 @@ import { Notification } from './entities/notification.entity';
 import { NotificationUtilisateur } from './entities/notification-utilisateur.entity';
 import { BadRequestException } from '@nestjs/common';
 import { MarkNotificationAsReadDto } from './dto/mark-notification-read.dto';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 @Injectable()
 export class NotificationsService {
@@ -21,6 +23,7 @@ export class NotificationsService {
     private notificationRepository: Repository<Notification>,
     @InjectRepository(NotificationUtilisateur)
     private notificationUtilisateurRepository: Repository<NotificationUtilisateur>,
+    @InjectQueue('push') private readonly pushQueue: Queue,
   ) { }
 
   // emitParcoursNotifEvent(event: ParcoursNotifEvent) {
@@ -44,72 +47,79 @@ export class NotificationsService {
   // }
 
   async sendNotification(dto: SendNotificationDto) {
-    // 1. Créer et stocker la notification en base de données d'abord
+    // 1. Créer et stocker la notification en base de données
     const notificationCreated = await this.createAndStoreNotification(dto);
-    this.logger.log(`Notification ${notificationCreated.id} créée avec succès`);
+    this.logger.log(`Notification ${notificationCreated.id} créée. Mise en file d'attente...`);
 
-    // 2. Déterminer les utilisateurs destinataires
-    let utilisateurs: Utilisateur[] = [];
-    let utilisateursIds: number[] = [];
+    // 2. Ajouter en file d'attente BullMQ
+    const job = await this.pushQueue.add('prepare-push-broadcast', 
+      {
+        dto,
+        notificationId: notificationCreated.id
+      }, 
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: false,
+      }
+    );
 
-    if (dto.utilisateurIds && dto.utilisateurIds.length > 0) {
-      // Cas 1: Utilisateurs spécifiques
-      utilisateurs = await this.utilisateurRepository.find({
-        where: { id: In(dto.utilisateurIds) }
-      });
-      utilisateursIds = dto.utilisateurIds;
-    } else {
-      // Cas 3: Tous les utilisateurs
-      utilisateurs = await this.utilisateurRepository.find();
-      utilisateursIds = utilisateurs.map(u => u.id);
-    }
-
-    // 3. Créer les relations dans notification_utilisateurs
-    if (utilisateursIds.length > 0) {
-      await this.createNotificationUtilisateurRelations(
-        notificationCreated.id,
-        utilisateursIds
-      );
-    }
-
-    // 4. Préparer le payload pour Firebase
-    const payload: NotificationPayload = {
-      title: dto.title,
-      body: dto.body,
-      data: {
-        notificationId: notificationCreated.id.toString()
-      },
-    };
-
-    // 5. Récupérer les tokens FCM des destinataires
-    const tokens = utilisateurs
-      .map(u => u.fcm_token)
-      .filter((token): token is string =>
-        token !== null &&
-        token !== undefined &&
-        token.trim().length > 0
-      );
-
-    // 6. Envoyer la notification Firebase (en arrière-plan)
-    if (tokens.length > 0) {
-      this.sendFirebaseNotificationAsync({
-        type: 'tokens',
-        target: tokens,
-        payload,
-        notificationId: notificationCreated.id,
-      }).catch(error => {
-        this.logger.error(`Erreur lors de l'envoi Firebase: ${error.message}`);
-      });
-    }
-
-    // 7. Retourner la réponse
     return {
       success: true,
-      message: 'Notification créée avec succès',
-      notification: notificationCreated,
+      message: 'Notification push mise en file d\'attente',
       notificationId: notificationCreated.id,
-      destinatairesCount: utilisateursIds.length,
+      jobId: job.id,
     };
+  }
+
+  async getJobStatus(jobId: string) {
+    const job = await this.pushQueue.getJob(jobId);
+    if (!job) return null;
+
+    const state = await job.getState();
+    const result: any = {
+      id: job.id,
+      name: job.name,
+      status: state,
+      progress: job.progress,
+      data: job.data,
+      result: job.returnvalue,
+    };
+
+    if (job.name === 'prepare-push-broadcast') {
+      const client = await this.pushQueue.client;
+      const stats = await client.hgetall(`push-broadcast:${jobId}`);
+
+      const success = parseInt(stats?.sentCount || '0');
+      const failure = parseInt(stats?.failedCount || '0');
+      const total = parseInt(stats?.total || '0');
+
+      if (total > 0) {
+        return {
+          ...result,
+          sentCount: success,
+          failedCount: failure,
+          totalCount: total,
+          status: state === 'completed' && (success + failure >= total) ? 'completed' : 'processing',
+        };
+      }
+    }
+
+    return result;
+  }
+
+  async cancelJob(jobId: string) {
+    const client = await this.pushQueue.client;
+    await client.set(`push-broadcast:${jobId}:canceled`, 'true', 'EX', 86400);
+
+    const job = await this.pushQueue.getJob(jobId);
+    if (job) {
+      await job.remove();
+    }
+    return { success: true, message: `Notification push ${jobId} arrêtée.` };
   }
 
   /**
@@ -128,7 +138,12 @@ export class NotificationsService {
       });
     });
 
-    await this.notificationUtilisateurRepository.save(relations);
+    const chunkSize = 1000;
+    for (let i = 0; i < relations.length; i += chunkSize) {
+      const chunk = relations.slice(i, i + chunkSize);
+      await this.notificationUtilisateurRepository.save(chunk);
+    }
+    
     this.logger.log(`${relations.length} relations créées pour la notification ${notificationId}`);
   }
 

@@ -21,11 +21,13 @@ export function NotificationSender() {
     const [activeJobId, setActiveJobId] = useState<string | null>(null);
     const [jobStatus, setJobStatus] = useState<any>(null);
 
-    // Persist job tracking across refreshes
+    // Use the generic `active_broadcast_id` instead for new jobs, this clears legacy
     useEffect(() => {
-        const savedJobId = localStorage.getItem('active_email_broadcast_id');
-        if (savedJobId) {
-            setActiveJobId(savedJobId);
+        const legacyMailJob = localStorage.getItem('active_email_broadcast_id');
+        if (legacyMailJob) {
+           localStorage.removeItem('active_email_broadcast_id');
+           localStorage.setItem('active_broadcast_id', legacyMailJob);
+           localStorage.setItem('active_broadcast_channel', 'email');
         }
     }, []);
 
@@ -35,7 +37,13 @@ export function NotificationSender() {
 
         const pollStatus = async () => {
             try {
-                const data = await notificationsService.getEmailJobStatus(activeJobId) as any;
+                let data: any;
+                if (channel === 'email') {
+                    data = await notificationsService.getEmailJobStatus(activeJobId);
+                } else {
+                    data = await notificationsService.getPushJobStatus(activeJobId);
+                }
+                
                 setJobStatus(data);
 
                 if (data.status === 'completed') {
@@ -43,7 +51,8 @@ export function NotificationSender() {
                         title: "Succès",
                         description: `Envoi groupé terminé : ${data.sentCount} réussis, ${data.failedCount} échoués sur ${data.totalCount}.`,
                     });
-                    localStorage.removeItem('active_email_broadcast_id');
+                    localStorage.removeItem('active_broadcast_id');
+                    localStorage.removeItem('active_broadcast_channel');
                     setActiveJobId(null);
                     setJobStatus(null);
                 } else if (data.status === 'failed') {
@@ -52,7 +61,8 @@ export function NotificationSender() {
                         description: `L'envoi a échoué : ${data.failedReason || 'Inconnu'}`,
                         variant: "destructive"
                     });
-                    localStorage.removeItem('active_email_broadcast_id');
+                    localStorage.removeItem('active_broadcast_id');
+                    localStorage.removeItem('active_broadcast_channel');
                     setActiveJobId(null);
                 }
             } catch (error) {
@@ -61,11 +71,21 @@ export function NotificationSender() {
             }
         };
 
-        pollStatus(); // Initial poll
-        const interval = setInterval(pollStatus, 3000); // Poll every 3 seconds
+        pollStatus();
+        const interval = setInterval(pollStatus, 3000);
 
         return () => clearInterval(interval);
-    }, [activeJobId, toast]);
+    }, [activeJobId, toast, channel]);
+
+    // Recover channel from localStorage if job exists
+    useEffect(() => {
+        const savedJobId = localStorage.getItem('active_broadcast_id');
+        const savedChannel = localStorage.getItem('active_broadcast_channel') as 'push' | 'email';
+        if (savedJobId) {
+            setActiveJobId(savedJobId);
+            if (savedChannel) setChannel(savedChannel);
+        }
+    }, []);
 
 
 
@@ -90,28 +110,31 @@ export function NotificationSender() {
                         priority: NotificationPriority.NORMAL
                     }
                 };
-                await notificationsService.send(payload);
-            }
-
-            if (channel === 'email') {
+                const response = await notificationsService.send(payload) as any;
+                const jobId = response.jobId;
+                if (jobId) {
+                    setActiveJobId(jobId);
+                    localStorage.setItem('active_broadcast_id', jobId);
+                    localStorage.setItem('active_broadcast_channel', 'push');
+                    toast({
+                        title: "Envoi push lancé",
+                        description: "La notification push a été mise en file d'attente.",
+                    });
+                }
+            } else if (channel === 'email') {
                 const response = await notificationsService.sendEmail({ title, body }) as any;
                 const jobId = response.jobId;
                 if (jobId) {
                     setActiveJobId(jobId);
-                    localStorage.setItem('active_email_broadcast_id', jobId);
+                    localStorage.setItem('active_broadcast_id', jobId);
+                    localStorage.setItem('active_broadcast_channel', 'email');
                     toast({
-                        title: "Envoi lancé",
-                        description: "L'envoi en masse a été mis en file d'attente.",
+                        title: "Envoi email lancé",
+                        description: "L'envoi d'emails en masse a été mis en file d'attente.",
                     });
                 }
-            } else {
-                toast({
-                    title: "Succès",
-                    description: "Notification(s) envoyée(s) avec succès",
-                });
             }
 
-            // Reset form
             setTitle('');
             setBody('');
         } catch (error) {
@@ -130,8 +153,13 @@ export function NotificationSender() {
         if (!activeJobId) return;
         setLoading(true);
         try {
-            await notificationsService.cancelEmailJob(activeJobId);
-            localStorage.removeItem('active_email_broadcast_id');
+            if (channel === 'email') {
+                await notificationsService.cancelEmailJob(activeJobId);
+            } else {
+                await notificationsService.cancelPushJob(activeJobId);
+            }
+            localStorage.removeItem('active_broadcast_id');
+            localStorage.removeItem('active_broadcast_channel');
             setActiveJobId(null);
             setJobStatus(null);
             toast({
@@ -140,8 +168,8 @@ export function NotificationSender() {
             });
         } catch (error) {
             console.error("Cancel error:", error);
-            // Even if it fails on server, let's clear local state if user is stuck
-            localStorage.removeItem('active_email_broadcast_id');
+            localStorage.removeItem('active_broadcast_id');
+            localStorage.removeItem('active_broadcast_channel');
             setActiveJobId(null);
             setJobStatus(null);
         } finally {

@@ -46,10 +46,24 @@ export class NotificationsController {
   @Post()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Envoyer une notification push' })
-  @ApiResponse({ status: 200, description: 'Notification envoyée avec succès' })
+  @ApiResponse({ status: 200, description: 'Notification ajoutée à la file d\'attente avec succès' })
   @ApiResponse({ status: 400, description: 'Données invalides' })
   async sendNotification(@Body() dto: SendNotificationDto) {
     return await this.notificationsService.sendNotification(dto);
+  }
+
+  @Get('status/:id')
+  @ApiOperation({ summary: 'Vérifier la progression d\'un envoi push' })
+  @ApiResponse({ status: 200, description: 'Statut du job récupéré' })
+  async getStatus(@Param('id') id: string) {
+    return await this.notificationsService.getJobStatus(id);
+  }
+
+  @Post('cancel/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Arrêter un envoi push en cours' })
+  async cancelJob(@Param('id') id: string) {
+    return await this.notificationsService.cancelJob(id);
   }
 
   @Post('subscribe')

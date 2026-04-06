@@ -9,6 +9,14 @@ export const notificationsService = {
         return api.post('/notifications', data);
     },
 
+    getPushJobStatus: async (jobId: string) => {
+        return api.get(`/notifications/status/${jobId}`);
+    },
+
+    cancelPushJob: async (jobId: string) => {
+        return api.post(`/notifications/cancel/${jobId}`);
+    },
+
     /**
      * S'abonner à un topic
      */
