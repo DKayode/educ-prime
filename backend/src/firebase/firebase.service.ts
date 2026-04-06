@@ -54,29 +54,42 @@ export class FirebaseService {
       const baseConfig = this.createBaseMessageConfig(payload);
 
       if (Array.isArray(tokens) && tokens.length > 1) {
-        // Message multicast
-        const multicastMessage: admin.messaging.MulticastMessage = {
-          ...baseConfig,
-          tokens: tokens,
-        };
+        this.logger.debug(`Multicast pour ${tokens.length} tokens (par lots de 500)`);
+        
+        let totalSuccessCount = 0;
+        let totalFailureCount = 0;
+        let allResponses: any[] = [];
 
-        this.logger.debug(`Multicast pour ${tokens.length} tokens`);
-
-        const response = await admin.messaging().sendEachForMulticast(multicastMessage);
-
-        // Analyser les résultats
-        const results = {
-          successCount: response.successCount,
-          failureCount: response.failureCount,
-          responses: response.responses.map((resp, index) => ({
-            token: tokens[index],
+        // Firebase sendEachForMulticast has a limit of 500 tokens per call
+        const chunkSize = 500;
+        for (let i = 0; i < tokens.length; i += chunkSize) {
+          const tokenChunk = tokens.slice(i, i + chunkSize);
+          
+          const multicastMessage: admin.messaging.MulticastMessage = {
+            ...baseConfig,
+            tokens: tokenChunk,
+          };
+          
+          const response = await admin.messaging().sendEachForMulticast(multicastMessage);
+          
+          totalSuccessCount += response.successCount;
+          totalFailureCount += response.failureCount;
+          
+          allResponses.push(...response.responses.map((resp, index) => ({
+            token: tokenChunk[index],
             success: resp.success,
             messageId: resp.messageId,
             error: resp.error ? {
               code: resp.error.code,
               message: resp.error.message,
             } : null,
-          })),
+          })));
+        }
+
+        const results = {
+          successCount: totalSuccessCount,
+          failureCount: totalFailureCount,
+          responses: allResponses,
         };
 
         this.logger.log(`Résultat: ${results.successCount} succès, ${results.failureCount} échecs`);
