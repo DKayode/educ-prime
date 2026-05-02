@@ -74,12 +74,14 @@ import { BullModule } from '@nestjs/bullmq';
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT) || 5432,
-      username: process.env.DB_USERNAME || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-      database: process.env.DB_NAME || 'educ_prime',
+      url: process.env.DATABASE_URL,
       autoLoadEntities: true,
+      ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? true : false,
+      extra: process.env.DATABASE_URL?.includes('sslmode=require') ? {
+        ssl: {
+          rejectUnauthorized: false,
+        },
+      } : undefined,
     }),
     TypeOrmModule.forFeature([
       Utilisateur,

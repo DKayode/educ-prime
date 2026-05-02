@@ -31,7 +31,7 @@ services:
     networks:
       - educ-prime-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,7 +39,7 @@ services:
   # NestJS Backend API
   backend:
     image: ${DOCKER_IMAGE_BACKEND:-ghcr.io/dkayode/educ-prime-backend:latest}
-    container_name: educ_prime_backend
+    container_name: edukia_backend
     restart: unless-stopped
     environment:
       # Database
@@ -83,7 +83,7 @@ services:
   # React Frontend Admin Dashboard
   frontend:
     image: ${DOCKER_IMAGE_FRONTEND:-ghcr.io/dkayode/educ-prime-frontend:latest}
-    container_name: educ_prime_frontend
+    container_name: edukia_frontend
     restart: unless-stopped
     networks:
       - educ-prime-network
@@ -98,7 +98,7 @@ services:
   # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
-    container_name: educ_prime_nginx
+    container_name: edukia_nginx
     restart: unless-stopped
     ports:
       - "80:80"
