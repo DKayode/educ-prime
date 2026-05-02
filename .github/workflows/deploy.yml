@@ -29,10 +29,6 @@ jobs:
           # Lire le contenu du docker-compose.yml
           COMPOSE_CONTENT=$(cat docker-compose.yml | base64 -w 0)
           echo "compose_content=$COMPOSE_CONTENT" >> $GITHUB_OUTPUT
-          
-          # Lire le contenu du schema.sql
-          SCHEMA_CONTENT=$(cat backend/config/schema.sql | base64 -w 0)
-          echo "schema_content=$SCHEMA_CONTENT" >> $GITHUB_OUTPUT
 
           # Lire le contenu du nginx.conf
           NGINX_CONTENT=$(cat nginx/nginx.conf | base64 -w 0)
@@ -42,14 +38,13 @@ jobs:
         uses: appleboy/ssh-action@v1.0.0
         env:
           COMPOSE_CONTENT: ${{ steps.prepare.outputs.compose_content }}
-          SCHEMA_CONTENT: ${{ steps.prepare.outputs.schema_content }}
           NGINX_CONTENT: ${{ steps.prepare.outputs.nginx_content }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          envs: COMPOSE_CONTENT,SCHEMA_CONTENT,NGINX_CONTENT
+          envs: COMPOSE_CONTENT,NGINX_CONTENT
           script: |
             DEPLOY_DIR=${{ secrets.VPS_PROJECT_PATH || '/root/educ-prime' }}
 
@@ -65,7 +60,7 @@ jobs:
             DB_USERNAME=${{ secrets.DB_USERNAME }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             DB_NAME=${{ secrets.DB_NAME }}
-            DATABASE_URL=postgresql://${{ secrets.DB_USERNAME }}:${{ secrets.DB_PASSWORD }}@db:5432/${{ secrets.DB_NAME }}?schema=public
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
             FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
@@ -84,9 +79,6 @@ jobs:
 
             # Créer le fichier docker-compose.yml depuis le contenu du repo
             echo "$COMPOSE_CONTENT" | base64 -d > docker-compose.yml
-            
-            # Créer le fichier schema.sql depuis le contenu du repo
-            echo "$SCHEMA_CONTENT" | base64 -d > ./backend/config/schema.sql
 
             # Créer le fichier nginx.conf depuis le contenu du repo
             echo "$NGINX_CONTENT" | base64 -d > ./nginx/nginx.conf
@@ -101,9 +93,6 @@ jobs:
             # Démarrer les conteneurs
             docker-compose up -d --remove-orphans
 
-            # Exécuter les migrations Prisma
-            echo "=== Running Prisma Migrations ==="
-            docker-compose exec -T backend npx prisma migrate deploy
 
             # Recharger nginx
             docker-compose exec nginx nginx -s reload
