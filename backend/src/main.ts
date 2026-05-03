@@ -92,6 +92,17 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
+
+  // The /countries endpoint is the bootstrap endpoint: clients call it
+  // *to discover* which countries exist, so showing a country selector
+  // on it would be circular. Strip the global param from that operation.
+  const countriesPath = document.paths?.['/countries'];
+  if (countriesPath?.get?.parameters) {
+    countriesPath.get.parameters = countriesPath.get.parameters.filter(
+      (p: any) => p.name !== 'country',
+    );
+  }
+
   SwaggerModule.setup('api', app, document);
 
   await app.listen(process.env.PORT || 3000);
