@@ -35,7 +35,11 @@ export class CountryMiddleware implements NestMiddleware {
             );
         }
 
+        // The middleware consumes the param. Removing it from req.query keeps
+        // the global ValidationPipe (forbidNonWhitelisted: true) from rejecting
+        // every endpoint whose @Query DTO doesn't declare a `country` field.
         (req as any).country = country;
+        delete (req.query as any).country;
         this.context.run(country, () => next());
     }
 }
