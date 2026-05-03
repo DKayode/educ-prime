@@ -7,16 +7,48 @@ Short notes on conventions that are not obvious from the code alone.
 The backend is migrating from Prisma to TypeORM. **TypeORM is the runtime ORM
 for new code.** Prisma is being phased out but currently still used by:
 
-- `competences`, `types`, `services` services (their entity files exist as
-  TypeORM but their service files still call `prisma.<table>`)
-- `avis`, `recruteurs` services
 - `notification-email` module
 - `comments-polymorphic` and `likes-polymorphic` services
-- Cross-cutting prisma calls inside otherwise-TypeORM services
-  (e.g. `offres.service.ts` aggregates `avis` via prisma)
+- Cross-cutting prisma calls inside `offres.service.ts` (avis aggregations,
+  utilisateur/recruteur lookups)
 
 When adding new code, use TypeORM. When touching a still-prisma file, prefer
 finishing its migration over piling onto the prisma usage.
+
+## Multi-country configuration: `backend/config/config.json`
+
+The backend is being expanded to multiple countries (Benin, Senegal, Congo).
+Each country has its own database; the URL list is in
+`backend/config/config.json`:
+
+```json
+[
+    { "country": "benin",   "config": { "database": "postgresql://...", "storage": "" } },
+    { "country": "senegal", "config": { "database": "postgresql://...", "storage": "" } },
+    { "country": "congo",   "config": { "database": "postgresql://...", "storage": "" } }
+]
+```
+
+Important properties:
+
+- The file is **gitignored** (root `.gitignore`) — it contains live DB
+  credentials and must never be committed.
+- It is **injected at Docker build time** by `.github/workflows/docker-build.yml`
+  from the `COUNTRY_CONFIG` GitHub secret. Same pattern as
+  `firebase-serviceaccount.json`.
+- The `Dockerfile` already copies the entire `config/` directory into the
+  image (`COPY --from=builder /app/config ./config`).
+- Loaded by `backend/src/config/country-config.ts` (helper) and
+  `CountryConfigService` (DI-injectable). The helper is also called at
+  module-definition time in `app.module.ts` to register one **named TypeORM
+  connection per country** (in addition to the legacy default connection
+  driven by `DATABASE_URL`).
+- For local dev, drop a `config.json` in `backend/config/` with the same
+  shape. If the file is missing, no named connections are registered and
+  the backend falls back to the default `DATABASE_URL` connection.
+
+**Phase A only sets up the connections**; per-request routing to the
+correct DB based on a country parameter lands in Phase B.
 
 ## Schema: managed in the edukia-db sister repository
 

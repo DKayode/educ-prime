@@ -70,3 +70,6 @@ README.md
 /.build
 /out
 /.out
+
+
+config/config.json

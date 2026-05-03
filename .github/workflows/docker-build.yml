@@ -40,6 +40,11 @@ jobs:
           mkdir -p backend/config
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > backend/config/firebase-serviceaccount.json
 
+      - name: Create country config file
+        run: |
+          mkdir -p backend/config
+          echo '${{ secrets.COUNTRY_CONFIG }}' > backend/config/config.json
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5

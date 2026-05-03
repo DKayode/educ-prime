@@ -58,6 +58,24 @@ import { CompetencesModule } from './competences/competences.module';
 import { OffresModule } from './offres/offres.module';
 import { NotificationEmailModule } from './notification-email/notification-email.module';
 import { BullModule } from '@nestjs/bullmq';
+import { CountryConfigModule } from './config/country-config.module';
+import { loadCountryConfigs } from './config/country-config';
+
+const sslOptionsFor = (url: string) => url?.includes('sslmode=require')
+  ? { ssl: true as const, extra: { ssl: { rejectUnauthorized: false } } }
+  : { ssl: false as const, extra: undefined };
+
+const countryConnections = loadCountryConfigs().map(({ country, config }) => {
+  const ssl = sslOptionsFor(config.database);
+  return TypeOrmModule.forRoot({
+    name: country,
+    type: 'postgres',
+    url: config.database,
+    autoLoadEntities: true,
+    ssl: ssl.ssl,
+    extra: ssl.extra,
+  });
+});
 
 @Module({
   imports: [
@@ -66,6 +84,7 @@ import { BullModule } from '@nestjs/bullmq';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    CountryConfigModule,
     BullModule.forRoot({
       connection: {
         host: process.env.REDIS_HOST || 'localhost',
@@ -83,6 +102,7 @@ import { BullModule } from '@nestjs/bullmq';
         },
       } : undefined,
     }),
+    ...countryConnections,
     TypeOrmModule.forFeature([
       Utilisateur,
       Etablissement,
