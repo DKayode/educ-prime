@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import * as path from 'path';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -168,6 +168,8 @@ const countryConnections = loadCountryConfigs().map(({ country, config }) => {
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CountryMiddleware).forRoutes('*');
+    consumer
+      .apply(CountryMiddleware)
+      .forRoutes({ path: '*', method: RequestMethod.ALL });
   }
 }

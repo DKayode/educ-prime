@@ -16,13 +16,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(req: any, payload: JwtPayload) {
-    const reqCountry = req.country;
-    if (!reqCountry) {
-      throw new UnauthorizedException('Country context not set for this request');
-    }
-    if (payload.country !== reqCountry) {
+    const reqCountry = req.country ?? 'benin';
+    const tokenCountry = payload.country ?? 'benin';
+    if (tokenCountry !== reqCountry) {
       throw new UnauthorizedException(
-        `Token issued for '${payload.country}' but request is for '${reqCountry}'`,
+        `Token issued for '${tokenCountry}' but request is for '${reqCountry}'`,
       );
     }
 
@@ -37,7 +35,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       utilisateurId: payload.sub,
       email: payload.email,
       role: payload.role,
-      country: payload.country,
+      country: tokenCountry,
     };
   }
 }
