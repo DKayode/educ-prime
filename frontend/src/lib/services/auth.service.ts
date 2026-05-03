@@ -2,9 +2,12 @@ import { api } from '../api';
 import type { LoginCredentials, LoginResponse, Utilisateur } from '../types';
 
 export const authService = {
-  async login(credentials: LoginCredentials): Promise<LoginResponse> {
+  async login(credentials: LoginCredentials, country: string): Promise<LoginResponse> {
     try {
-      // Login with appareil field as per API spec
+      // Set country BEFORE the login request so it's appended as ?country=
+      // and persists in localStorage for every subsequent request.
+      api.setCountry(country);
+
       const response = await api.post<{ access_token: string; refresh_token: string }>(
         '/auth/connexion',
         { ...credentials, appareil: 'web' }
@@ -33,6 +36,7 @@ export const authService = {
       // Server logout failed, clear tokens anyway
     } finally {
       api.clearToken();
+      api.clearCountry();
     }
   },
 
