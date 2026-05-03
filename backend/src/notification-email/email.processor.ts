@@ -1,9 +1,11 @@
 import { Processor, WorkerHost, OnWorkerEvent, InjectQueue } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
+import { Brackets, IsNull, Repository } from 'typeorm';
 import { MailService } from '../mail/mail.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { SendEmailDto } from './dto/send-email.dto';
+import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
+import { CountryContextService } from '../config/country-context.service';
 
 @Processor('email')
 export class EmailProcessor extends WorkerHost {
@@ -11,38 +13,41 @@ export class EmailProcessor extends WorkerHost {
 
   constructor(
     private readonly mailService: MailService,
-    private readonly prisma: PrismaService,
+    private readonly resolver: DataSourceResolver,
+    private readonly context: CountryContextService,
     @InjectQueue('email') private readonly emailQueue: Queue,
   ) {
     super();
   }
 
-  async process(job: Job<any, any, string>): Promise<any> {
-    const { name, data } = job;
-
-    if (name === 'prepare-broadcast') {
-      return this.handlePrepareBroadcast(job);
-    }
-
-    if (name === 'send-single-email') {
-      return this.handleSendSingleEmail(job);
-    }
-    
-    this.logger.warn(`Unknown job name: ${name}`);
-    return null;
+  private get utilisateursRepository(): Repository<Utilisateur> {
+    return this.resolver.getRepository(Utilisateur);
   }
 
-  private async handlePrepareBroadcast(job: Job<SendEmailDto>) {
-    const { data } = job;
-    
-    // 1. Fetch all users to receive the email
-    const targetUsers = await this.prisma.utilisateurs.findMany({
-      where: {
-        desabonnement_email: null,
-        email: { not: '' }
-      },
-      select: { id: true, email: true, uuid: true }
+  async process(job: Job<any, any, string>): Promise<any> {
+    const { name, data } = job;
+    const country: string = data?.country ?? 'benin';
+
+    return this.context.run(country, async () => {
+      if (name === 'prepare-broadcast') return this.handlePrepareBroadcast(job);
+      if (name === 'send-single-email') return this.handleSendSingleEmail(job);
+      this.logger.warn(`Unknown job name: ${name}`);
+      return null;
     });
+  }
+
+  private async handlePrepareBroadcast(job: Job<any>) {
+    const { data } = job;
+
+    // 1. Fetch all subscribers (no desabonnement_email row, non-empty email).
+    const targetUsers = await this.utilisateursRepository.createQueryBuilder('u')
+      .leftJoin('desabonnement_email', 'de', 'de.utilisateur_uuid = u.uuid')
+      .where('de.id IS NULL')
+      .andWhere(new Brackets(b => {
+        b.where('u.email IS NOT NULL').andWhere("u.email <> ''");
+      }))
+      .select(['u.id', 'u.email', 'u.uuid'])
+      .getMany();
 
     const validUsers = targetUsers.filter(u => !!u.email && !!u.uuid);
     const total = validUsers.length;
@@ -54,7 +59,7 @@ export class EmailProcessor extends WorkerHost {
       return { sent: 0, total: 0 };
     }
 
-    // 2. Add individual jobs to the queue
+    const country = data?.country ?? 'benin';
     const jobs = validUsers.map(user => ({
       name: 'send-single-email',
       data: {
@@ -62,10 +67,11 @@ export class EmailProcessor extends WorkerHost {
         uuid: user.uuid,
         title: data.title,
         body: data.body,
-        parentId: job.id
+        parentId: job.id,
+        country,
       },
       opts: {
-        jobId: `email-${job.id}-${user.uuid}`, // Prevent duplicates
+        jobId: `email-${job.id}-${user.uuid}`,
         attempts: 10,
         backoff: {
           type: 'exponential',
