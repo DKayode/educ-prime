@@ -1,12 +1,13 @@
 import { Processor, WorkerHost, OnWorkerEvent, InjectQueue } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Utilisateur } from 'src/utilisateurs/entities/utilisateur.entity';
 import { Notification } from './entities/notification.entity';
 import { NotificationUtilisateur } from './entities/notification-utilisateur.entity';
 import { FirebaseService, NotificationPayload } from '../firebase/firebase.service';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
+import { CountryContextService } from '../config/country-context.service';
 
 @Processor('push')
 export class PushProcessor extends WorkerHost {
@@ -14,24 +15,28 @@ export class PushProcessor extends WorkerHost {
 
   constructor(
     private readonly firebaseService: FirebaseService,
-    @InjectRepository(Utilisateur)
-    private utilisateurRepository: Repository<Utilisateur>,
-    @InjectRepository(Notification)
-    private notificationRepository: Repository<Notification>,
-    @InjectRepository(NotificationUtilisateur)
-    private notificationUtilisateurRepository: Repository<NotificationUtilisateur>,
+    private readonly resolver: DataSourceResolver,
+    private readonly context: CountryContextService,
     @InjectQueue('push') private readonly pushQueue: Queue,
   ) {
     super();
   }
 
+  private get utilisateurRepository(): Repository<Utilisateur> { return this.resolver.getRepository(Utilisateur); }
+  private get notificationRepository(): Repository<Notification> { return this.resolver.getRepository(Notification); }
+  private get notificationUtilisateurRepository(): Repository<NotificationUtilisateur> { return this.resolver.getRepository(NotificationUtilisateur); }
+
   async process(job: Job<any, any, string>): Promise<any> {
-    const { name } = job;
-    if (name === 'prepare-push-broadcast') {
-      return this.handlePreparePushBroadcast(job);
-    }
-    this.logger.warn(`Unknown job name: ${name}`);
-    return null;
+    const { name, data } = job;
+    const country: string = data?.country ?? 'benin';
+
+    return this.context.run(country, async () => {
+      if (name === 'prepare-push-broadcast') {
+        return this.handlePreparePushBroadcast(job);
+      }
+      this.logger.warn(`Unknown job name: ${name}`);
+      return null;
+    });
   }
 
   private async handlePreparePushBroadcast(job: Job<any>) {

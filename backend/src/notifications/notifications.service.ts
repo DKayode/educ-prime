@@ -3,13 +3,14 @@ import { FirebaseService, NotificationPayload } from '../firebase/firebase.servi
 import { SendNotificationDto } from './dto/send-notification.dto';
 import { Utilisateur } from 'src/utilisateurs/entities/utilisateur.entity';
 import { Repository, In } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Notification } from './entities/notification.entity';
 import { NotificationUtilisateur } from './entities/notification-utilisateur.entity';
 import { BadRequestException } from '@nestjs/common';
 import { MarkNotificationAsReadDto } from './dto/mark-notification-read.dto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
+import { CountryContextService } from '../config/country-context.service';
 
 @Injectable()
 export class NotificationsService {
@@ -17,14 +18,14 @@ export class NotificationsService {
 
   constructor(
     private readonly firebaseService: FirebaseService,
-    @InjectRepository(Utilisateur)
-    private utilisateurRepository: Repository<Utilisateur>,
-    @InjectRepository(Notification)
-    private notificationRepository: Repository<Notification>,
-    @InjectRepository(NotificationUtilisateur)
-    private notificationUtilisateurRepository: Repository<NotificationUtilisateur>,
+    private readonly resolver: DataSourceResolver,
+    private readonly context: CountryContextService,
     @InjectQueue('push') private readonly pushQueue: Queue,
   ) { }
+
+  private get utilisateurRepository(): Repository<Utilisateur> { return this.resolver.getRepository(Utilisateur); }
+  private get notificationRepository(): Repository<Notification> { return this.resolver.getRepository(Notification); }
+  private get notificationUtilisateurRepository(): Repository<NotificationUtilisateur> { return this.resolver.getRepository(NotificationUtilisateur); }
 
   // emitParcoursNotifEvent(event: ParcoursNotifEvent) {
   //   this.eventEmitter.emit(NotificationEventType.PARCOURS_CREATED, event);
@@ -51,12 +52,15 @@ export class NotificationsService {
     const notificationCreated = await this.createAndStoreNotification(dto);
     this.logger.log(`Notification ${notificationCreated.id} créée. Mise en file d'attente...`);
 
-    // 2. Ajouter en file d'attente BullMQ
-    const job = await this.pushQueue.add('prepare-push-broadcast', 
+    // 2. Ajouter en file d'attente BullMQ — country embedded for the worker
+    //    since BullMQ workers run outside the HTTP request ALS context.
+    const country = this.context.getCountryOrNull() ?? 'benin';
+    const job = await this.pushQueue.add('prepare-push-broadcast',
       {
         dto,
-        notificationId: notificationCreated.id
-      }, 
+        notificationId: notificationCreated.id,
+        country,
+      },
       {
         attempts: 3,
         backoff: {
