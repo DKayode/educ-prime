@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { Filiere } from './entities/filiere.entity';
 import { CreerFiliereDto } from './dto/creer-filiere.dto';
@@ -8,15 +7,19 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { FilterFiliereDto } from './dto/filter-filiere.dto';
 import { FiliereResponseDto } from './dto/filiere-response.dto';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class FilieresService {
   private readonly logger = new Logger(FilieresService.name);
 
   constructor(
-    @InjectRepository(Filiere)
-    private readonly filieresRepository: Repository<Filiere>,
+    private readonly resolver: DataSourceResolver,
   ) { }
+
+  private get filieresRepository(): Repository<Filiere> {
+    return this.resolver.getRepository(Filiere);
+  }
 
   async create(creerFiliereDto: CreerFiliereDto) {
     this.logger.log(`Création d'une filière: ${creerFiliereDto.nom} (Établissement ID: ${creerFiliereDto.etablissement_id})`);

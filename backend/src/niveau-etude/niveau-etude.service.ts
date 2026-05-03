@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { NiveauEtude } from './entities/niveau-etude.entity';
 import { CreerNiveauEtudeDto } from './dto/creer-niveau-etude.dto';
@@ -7,15 +6,19 @@ import { MajNiveauEtudeDto } from './dto/maj-niveau-etude.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { FilterNiveauEtudeDto } from './dto/filter-niveau-etude.dto';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class NiveauEtudeService {
   private readonly logger = new Logger(NiveauEtudeService.name);
 
   constructor(
-    @InjectRepository(NiveauEtude)
-    private readonly niveauEtudeRepository: Repository<NiveauEtude>,
+    private readonly resolver: DataSourceResolver,
   ) { }
+
+  private get niveauEtudeRepository(): Repository<NiveauEtude> {
+    return this.resolver.getRepository(NiveauEtude);
+  }
 
   async create(creerNiveauEtudeDto: CreerNiveauEtudeDto) {
     this.logger.log(`Création d'un niveau d'étude: ${creerNiveauEtudeDto.nom} (Durée: ${creerNiveauEtudeDto.duree_mois} mois)`);

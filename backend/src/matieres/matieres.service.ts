@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { Matiere } from './entities/matiere.entity';
 import { CreerMatiereDto } from './dto/creer-matiere.dto';
@@ -7,15 +6,19 @@ import { MajMatiereDto } from './dto/maj-matiere.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { FilterMatiereDto } from './dto/filter-matiere.dto';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class MatieresService {
   private readonly logger = new Logger(MatieresService.name);
 
   constructor(
-    @InjectRepository(Matiere)
-    private readonly matieresRepository: Repository<Matiere>,
+    private readonly resolver: DataSourceResolver,
   ) { }
+
+  private get matieresRepository(): Repository<Matiere> {
+    return this.resolver.getRepository(Matiere);
+  }
 
   async create(creerMatiereDto: CreerMatiereDto) {
     this.logger.log(`Création d'une matière: ${creerMatiereDto.nom}`);
