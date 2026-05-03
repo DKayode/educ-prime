@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like as TypeOrmLike, FindOptionsWhere, ILike, In, Raw } from 'typeorm';
 import { CreateParcourDto } from './dto/create-parcour.dto';
 import { UpdateParcourDto } from './dto/update-parcour.dto';
@@ -9,21 +8,18 @@ import { ParcourQueryDto } from './dto/parcour-query.dto';
 import { Commentaire } from '../commentaires/entities/commentaire.entity';
 import { Like } from '../likes/entities/like.entity';
 import { Favori } from 'src/favoris/entities/favoris.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class ParcoursService {
   constructor(
-    @InjectRepository(Parcour)
-    private parcoursRepository: Repository<Parcour>,
-    @InjectRepository(Commentaire)
-    private commentaireRepository: Repository<Commentaire>,
-
-    @InjectRepository(Like)
-    private likeRepository: Repository<Like>,
-
-    @InjectRepository(Favori)
-    private favoriRepository: Repository<Favori>,
+    private readonly resolver: DataSourceResolver,
   ) { }
+
+  private get parcoursRepository(): Repository<Parcour> { return this.resolver.getRepository(Parcour); }
+  private get commentaireRepository(): Repository<Commentaire> { return this.resolver.getRepository(Commentaire); }
+  private get likeRepository(): Repository<Like> { return this.resolver.getRepository(Like); }
+  private get favoriRepository(): Repository<Favori> { return this.resolver.getRepository(Favori); }
 
   /**
    * Crée un nouveau parcours

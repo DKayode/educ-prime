@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { CreateLikeDto } from './dto/create-like.dto';
 import { UpdateLikeDto } from './dto/update-like.dto';
@@ -7,15 +6,19 @@ import { Like } from './entities/like.entity';
 import { LikeQueryDto, LikeType } from './dto/like-query.dto';
 import { ParcoursService } from '../parcours/parcours.service';
 import { CommentairesService } from '../commentaires/commentaires.service';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class LikesService {
   constructor(
-    @InjectRepository(Like)
-    private likeRepository: Repository<Like>,
+    private readonly resolver: DataSourceResolver,
     private parcoursService: ParcoursService,
     private commentairesService: CommentairesService,
   ) { }
+
+  private get likeRepository(): Repository<Like> {
+    return this.resolver.getRepository(Like);
+  }
 
   /**
    * Ajoute un like/dislike
