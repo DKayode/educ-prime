@@ -46,7 +46,10 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           envs: COMPOSE_CONTENT,NGINX_CONTENT
           script: |
-            DEPLOY_DIR=${{ '/root/edukia' }}
+            set -e
+            DEPLOY_DIR=/root/edukia
+            PRIMARY_DOMAIN=educ-prime.com
+            CERT_EMAIL=support@educ-prime.cloud
 
             # Créer le répertoire de déploiement
             mkdir -p "$DEPLOY_DIR/backend/config"
@@ -57,9 +60,6 @@ jobs:
 
             # Créer le fichier .env avec les secrets
             cat > .env << 'ENV_EOF'
-            DB_USERNAME=${{ secrets.DB_USERNAME }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            DB_NAME=${{ secrets.DB_NAME }}
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
@@ -83,19 +83,61 @@ jobs:
             # Créer le fichier nginx.conf depuis le contenu du repo
             echo "$NGINX_CONTENT" | base64 -d > ./nginx/nginx.conf
 
-            # Arrêter les conteneurs
-            docker-compose stop backend frontend redis
-            docker-compose rm -f backend frontend redis
+            # Bootstrap Let's Encrypt: si aucun certificat n'existe pour le
+            # domaine, créer un certificat auto-signé temporaire pour que
+            # nginx puisse démarrer. Sinon le challenge HTTP-01 est bloqué
+            # par le fait que nginx refuse de démarrer sans certificat.
+            CERT_DIR="$DEPLOY_DIR/certbot/conf/live/$PRIMARY_DOMAIN"
+            BOOTSTRAP_NEEDED=0
+            if [ ! -s "$CERT_DIR/fullchain.pem" ]; then
+              echo "=== Aucun certificat trouvé pour $PRIMARY_DOMAIN — création d'un dummy"
+              mkdir -p "$CERT_DIR"
+              docker run --rm \
+                -v "$DEPLOY_DIR/certbot/conf:/etc/letsencrypt" \
+                --entrypoint openssl certbot/certbot \
+                req -x509 -nodes -newkey rsa:4096 -days 1 \
+                -keyout "/etc/letsencrypt/live/$PRIMARY_DOMAIN/privkey.pem" \
+                -out "/etc/letsencrypt/live/$PRIMARY_DOMAIN/fullchain.pem" \
+                -subj "/CN=localhost"
+              BOOTSTRAP_NEEDED=1
+            fi
+
+            # Arrêter les conteneurs applicatifs (laisser db, redis, certbot, nginx)
+            docker-compose stop backend frontend
+            docker-compose rm -f backend frontend
 
             # Pull les dernières images
             docker-compose pull backend frontend redis
 
-            # Démarrer les conteneurs
+            # Démarrer la pile (nginx avec dummy cert si nécessaire)
             docker-compose up -d --remove-orphans
 
+            # Si on a démarré avec un dummy cert, demander un vrai certificat
+            # à Let's Encrypt via webroot (nginx est maintenant up sur le 80).
+            if [ "$BOOTSTRAP_NEEDED" = "1" ]; then
+              echo "=== Suppression du dummy cert et émission du vrai certificat"
+              docker run --rm \
+                -v "$DEPLOY_DIR/certbot/conf:/etc/letsencrypt" \
+                --entrypoint sh certbot/certbot \
+                -c "rm -rf /etc/letsencrypt/live/$PRIMARY_DOMAIN /etc/letsencrypt/archive/$PRIMARY_DOMAIN /etc/letsencrypt/renewal/$PRIMARY_DOMAIN.conf"
 
-            # Recharger nginx
-            docker-compose exec nginx nginx -s reload
+              docker run --rm \
+                -v "$DEPLOY_DIR/certbot/conf:/etc/letsencrypt" \
+                -v "$DEPLOY_DIR/certbot/www:/var/www/certbot" \
+                certbot/certbot certonly --webroot \
+                  --webroot-path=/var/www/certbot \
+                  --email "$CERT_EMAIL" --agree-tos --no-eff-email \
+                  --rsa-key-size 4096 \
+                  -d "$PRIMARY_DOMAIN" -d "api.$PRIMARY_DOMAIN"
+
+              # Recharger nginx avec le vrai certificat
+              docker-compose exec -T nginx nginx -s reload
+            fi
+
+            # Recharger nginx pour prendre en compte d'éventuels changements
+            # de configuration. On ne fail pas si nginx n'est pas up — le
+            # diagnostic ci-dessous montrera l'état réel.
+            docker-compose exec -T nginx nginx -s reload || true
 
             # Attendre un peu pour que les conteneurs démarrent
             sleep 10
@@ -103,9 +145,11 @@ jobs:
             # Afficher l'état des conteneurs
             docker-compose ps
 
-            # Afficher les logs du backend pour diagnostic
+            # Afficher les logs pour diagnostic
             echo "=== Backend logs ==="
             docker-compose logs --tail=50 backend
+            echo "=== Nginx logs ==="
+            docker-compose logs --tail=20 nginx
 
       - name: Notify deployment status
         if: always()
