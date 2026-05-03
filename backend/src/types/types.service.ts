@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 import { Type } from './entities/type.entity';
 import { Service } from '../services/entities/service.entity';
 import { EntiteType } from '../common/enums/entite-type.enum';
 import { CreateTypeDto, UpdateTypeDto } from './dto/type.dto';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 const slugify = (input: string) =>
     input.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -12,11 +12,16 @@ const slugify = (input: string) =>
 @Injectable()
 export class TypesService {
     constructor(
-        @InjectRepository(Type)
-        private readonly typesRepository: Repository<Type>,
-        @InjectRepository(Service)
-        private readonly servicesRepository: Repository<Service>,
+        private readonly resolver: DataSourceResolver,
     ) { }
+
+    private get typesRepository(): Repository<Type> {
+        return this.resolver.getRepository(Type);
+    }
+
+    private get servicesRepository(): Repository<Service> {
+        return this.resolver.getRepository(Service);
+    }
 
     async create(createTypeDto: CreateTypeDto) {
         const slug = slugify(createTypeDto.nom);
