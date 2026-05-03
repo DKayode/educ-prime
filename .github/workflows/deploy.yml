@@ -46,7 +46,7 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           envs: COMPOSE_CONTENT,NGINX_CONTENT
           script: |
-            DEPLOY_DIR=${{ secrets.VPS_PROJECT_PATH || '/root/educ-prime' }}
+            DEPLOY_DIR=${{ '/root/edukia' }}
 
             # Créer le répertoire de déploiement
             mkdir -p "$DEPLOY_DIR/backend/config"
@@ -57,7 +57,9 @@ jobs:
 
             # Créer le fichier .env avec les secrets
             cat > .env << 'ENV_EOF'
-
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_NAME=${{ secrets.DB_NAME }}
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
