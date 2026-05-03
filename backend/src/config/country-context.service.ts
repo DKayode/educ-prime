@@ -32,16 +32,15 @@ export class CountryContextService {
         return results;
     }
 
+    /**
+     * Returns the current country. If no context is set (NestJS middleware
+     * → controller ALS propagation can be lossy, and non-HTTP code paths
+     * never set it at all), falls back to 'benin'. Wrap non-HTTP code paths
+     * with run() / runForEachCountry() to operate on the right country
+     * explicitly.
+     */
     getCountry(): string {
-        const store = this.als.getStore();
-        if (!store) {
-            throw new Error(
-                'Country context is not set. Make sure CountryMiddleware ran ' +
-                'for this request, or wrap non-HTTP code paths with ' +
-                'CountryContextService.run() / runForEachCountry().',
-            );
-        }
-        return store.country;
+        return this.als.getStore()?.country ?? 'benin';
     }
 
     getCountryOrNull(): string | null {

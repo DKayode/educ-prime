@@ -26,14 +26,7 @@ export class CountryMiddleware implements NestMiddleware {
         let country = (req.query.country as string | undefined)?.toLowerCase();
 
         if (!country) {
-            const fallback = process.env.COUNTRY_DEFAULT?.toLowerCase();
-            if (fallback) {
-                country = fallback;
-            } else {
-                throw new BadRequestException(
-                    'Missing required query parameter: country (e.g. ?country=benin)',
-                );
-            }
+            country = process.env.COUNTRY_DEFAULT?.toLowerCase() || 'benin';
         }
 
         if (!this.config.hasCountry(country)) {
