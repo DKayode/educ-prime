@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany, OneToOne, CreateDateColumn } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { Etablissement } from '../../etablissements/entities/etablissement.entity';
 import { Filiere } from '../../filieres/entities/filiere.entity';
@@ -6,6 +6,9 @@ import { NiveauEtude } from '../../niveau-etude/entities/niveau-etude.entity';
 import { Commentaire } from 'src/commentaires/entities/commentaire.entity';
 import { Exclude } from 'class-transformer';
 import { NotificationUtilisateur } from 'src/notifications/entities/notification-utilisateur.entity';
+import { Offre } from '../../offres/entities/offre.entity';
+import { Service } from '../../services/entities/service.entity';
+import { Prestataire } from '../../prestataires/entities/prestataire.entity';
 
 export enum RoleType {
   ADMIN = 'admin',
@@ -119,6 +122,15 @@ export class Utilisateur {
 
   @OneToMany(() => Utilisateur, (utilisateur) => utilisateur.parrain)
   filleuls: Utilisateur[];
+
+  @OneToMany(() => Offre, offre => offre.utilisateur)
+  offres: Offre[];
+
+  @OneToMany(() => Service, service => service.utilisateur)
+  services: Service[];
+
+  @OneToOne(() => Prestataire, prestataire => prestataire.utilisateur)
+  prestataire: Prestataire;
 
   unreadNotificationsCount?: number;
 }
