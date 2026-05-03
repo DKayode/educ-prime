@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 import { Competence } from './entities/competence.entity';
 import { CreateCompetenceDto, UpdateCompetenceDto } from './dto/competence.dto';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 const slugify = (input: string) =>
     input.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -10,9 +10,12 @@ const slugify = (input: string) =>
 @Injectable()
 export class CompetencesService {
     constructor(
-        @InjectRepository(Competence)
-        private readonly competencesRepository: Repository<Competence>,
+        private readonly resolver: DataSourceResolver,
     ) { }
+
+    private get competencesRepository(): Repository<Competence> {
+        return this.resolver.getRepository(Competence);
+    }
 
     async create(createCompetenceDto: CreateCompetenceDto) {
         const slug = slugify(createCompetenceDto.nom);
