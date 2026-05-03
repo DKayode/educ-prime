@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import * as path from 'path';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
@@ -60,10 +61,14 @@ import { NotificationEmailModule } from './notification-email/notification-email
 import { BullModule } from '@nestjs/bullmq';
 import { CountryConfigModule } from './config/country-config.module';
 import { loadCountryConfigs } from './config/country-config';
+import { CountryMiddleware } from './config/country.middleware';
 
 const sslOptionsFor = (url: string) => url?.includes('sslmode=require')
   ? { ssl: true as const, extra: { ssl: { rejectUnauthorized: false } } }
   : { ssl: false as const, extra: undefined };
+
+// Glob picks up *.entity.ts in dev (ts-node) and *.entity.js in prod (compiled).
+const ENTITY_GLOB = path.join(__dirname, '..', '**', '*.entity.{ts,js}');
 
 const countryConnections = loadCountryConfigs().map(({ country, config }) => {
   const ssl = sslOptionsFor(config.database);
@@ -71,7 +76,7 @@ const countryConnections = loadCountryConfigs().map(({ country, config }) => {
     name: country,
     type: 'postgres',
     url: config.database,
-    autoLoadEntities: true,
+    entities: [ENTITY_GLOB],
     ssl: ssl.ssl,
     extra: ssl.extra,
   });
@@ -161,4 +166,8 @@ const countryConnections = loadCountryConfigs().map(({ country, config }) => {
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CountryMiddleware).forRoutes('*');
+  }
+}
