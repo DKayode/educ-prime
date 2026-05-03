@@ -1,54 +1,50 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Not, Repository } from 'typeorm';
+import { Competence } from './entities/competence.entity';
 import { CreateCompetenceDto, UpdateCompetenceDto } from './dto/competence.dto';
+
+const slugify = (input: string) =>
+    input.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
 @Injectable()
 export class CompetencesService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        @InjectRepository(Competence)
+        private readonly competencesRepository: Repository<Competence>,
+    ) { }
 
     async create(createCompetenceDto: CreateCompetenceDto) {
-        const slug = createCompetenceDto.nom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        const slug = slugify(createCompetenceDto.nom);
 
-        const existing = await this.prisma.competences.findUnique({
-            where: { slug }
-        });
-
+        const existing = await this.competencesRepository.findOne({ where: { slug } });
         if (existing) {
-            throw new ConflictException("Cette compétence existe déjà.");
+            throw new ConflictException('Cette compétence existe déjà.');
         }
 
-        return this.prisma.competences.create({
-            data: { ...createCompetenceDto, slug }
-        });
+        const competence = this.competencesRepository.create({ ...createCompetenceDto, slug });
+        return this.competencesRepository.save(competence);
     }
 
     async findAll(options: { page?: number, limit?: number } = {}) {
         const { page = 1, limit = 10 } = options;
-        const skip = (page - 1) * limit;
-
-        const [data, total] = await Promise.all([
-            this.prisma.competences.findMany({
-                skip,
-                take: limit,
-                orderBy: { nom: 'asc' }
-            }),
-            this.prisma.competences.count()
-        ]);
+        const [data, total] = await this.competencesRepository.findAndCount({
+            skip: (page - 1) * limit,
+            take: limit,
+            order: { nom: 'ASC' },
+        });
 
         return {
             data,
             total,
             page,
             limit,
-            totalPages: Math.ceil(total / limit)
+            totalPages: Math.ceil(total / limit),
         };
     }
 
     async findOne(id: number) {
-        const competence = await this.prisma.competences.findUnique({
-            where: { id }
-        });
-
+        const competence = await this.competencesRepository.findOne({ where: { id } });
         if (!competence) {
             throw new NotFoundException(`Compétence #${id} introuvable`);
         }
@@ -56,38 +52,24 @@ export class CompetencesService {
     }
 
     async update(id: number, updateCompetenceDto: UpdateCompetenceDto) {
-        await this.findOne(id);
-
-        const dataToUpdate: any = { ...updateCompetenceDto };
+        const competence = await this.findOne(id);
 
         if (updateCompetenceDto.nom) {
-            const slug = updateCompetenceDto.nom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-            const existing = await this.prisma.competences.findFirst({
-                where: {
-                    slug,
-                    NOT: { id }
-                }
-            });
-
+            const slug = slugify(updateCompetenceDto.nom);
+            const existing = await this.competencesRepository.findOne({ where: { slug, id: Not(id) } });
             if (existing) {
-                throw new ConflictException("Ce nom de compétence est déjà utilisé.");
+                throw new ConflictException('Ce nom de compétence est déjà utilisé.');
             }
-            dataToUpdate.slug = slug;
+            competence.slug = slug;
         }
 
-        return this.prisma.competences.update({
-            where: { id },
-            data: dataToUpdate
-        });
+        Object.assign(competence, updateCompetenceDto);
+        return this.competencesRepository.save(competence);
     }
 
     async remove(id: number) {
-        await this.findOne(id);
-
-        await this.prisma.competences.delete({
-            where: { id }
-        });
-
-        return { message: "Compétence supprimée avec succès." };
+        const competence = await this.findOne(id);
+        await this.competencesRepository.remove(competence);
+        return { message: 'Compétence supprimée avec succès.' };
     }
 }
