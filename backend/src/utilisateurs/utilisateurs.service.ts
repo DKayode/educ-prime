@@ -4,6 +4,7 @@ import { Utilisateur } from './entities/utilisateur.entity';
 import { Prestataire } from '../prestataires/entities/prestataire.entity';
 import { Recruteur } from '../recruteurs/entities/recruteur.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
+import { CountryContextService } from '../config/country-context.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
 import { InscriptionDto } from './dto/inscription.dto';
@@ -27,6 +28,7 @@ export class UtilisateursService {
 
   constructor(
     private readonly resolver: DataSourceResolver,
+    private readonly context: CountryContextService,
     private readonly fichiersService: FichiersService,
     private readonly firebaseService: FirebaseService,
     private readonly mailService: MailService,
@@ -576,20 +578,22 @@ export class UtilisateursService {
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleCron() {
-    this.logger.log('Exécution du Cron de suppression des utilisateurs...');
+    await this.context.runForEachCountry(async (country) => {
+      this.logger.log(`Cron de suppression des utilisateurs pour ${country}...`);
 
-    const usersToDelete = await this.utilisateursRepository.find({
-      where: {
-        est_desactive: true,
-        date_suppression_prevue: LessThan(new Date()),
-      },
+      const usersToDelete = await this.utilisateursRepository.find({
+        where: {
+          est_desactive: true,
+          date_suppression_prevue: LessThan(new Date()),
+        },
+      });
+
+      for (const user of usersToDelete) {
+        this.logger.log(`Suppression définitive: pays=${country}, ID=${user.id}`);
+        await this.utilisateursRepository.remove(user);
+      }
+
+      this.logger.log(`${country}: ${usersToDelete.length} utilisateurs supprimés définitivement.`);
     });
-
-    for (const user of usersToDelete) {
-      this.logger.log(`Suppression définitive de l'utilisateur ID ${user.id}`);
-      await this.utilisateursRepository.remove(user);
-    }
-
-    this.logger.log(`${usersToDelete.length} utilisateurs supprimés définitivement.`);
   }
 }
