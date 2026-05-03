@@ -7,6 +7,9 @@ export class Etablissement {
   @PrimaryGeneratedColumn()
   id: number;
 
+    @Column({ type: 'uuid', unique: true, default: () => 'gen_random_uuid()' })
+    uuid: string;
+
   @ApiProperty({ description: "Le nom de l'établissement" })
   @Column()
   nom: string;

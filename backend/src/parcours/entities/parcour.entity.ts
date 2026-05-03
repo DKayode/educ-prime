@@ -16,6 +16,10 @@ export class Parcour {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @ApiProperty({ description: 'UUID du parcours' })
+  @Column({ type: 'uuid', unique: true, default: () => 'gen_random_uuid()' })
+  uuid: string;
+
   @ApiProperty({ description: 'Titre du parcours' })
   @Column({ type: 'varchar', length: 255 })
   titre: string;
