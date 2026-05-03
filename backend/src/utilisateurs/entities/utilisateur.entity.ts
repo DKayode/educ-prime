@@ -11,6 +11,7 @@ import { Offre } from '../../offres/entities/offre.entity';
 import { Service } from '../../services/entities/service.entity';
 import { Prestataire } from '../../prestataires/entities/prestataire.entity';
 import { Avis } from '../../avis/entities/avis.entity';
+import { Recruteur } from '../../recruteurs/entities/recruteur.entity';
 
 export enum RoleType {
   ADMIN = 'admin',
@@ -136,6 +137,9 @@ export class Utilisateur {
 
   @OneToOne(() => Prestataire, prestataire => prestataire.utilisateur)
   prestataire: Prestataire;
+
+  @OneToOne(() => Recruteur, recruteur => recruteur.utilisateur)
+  recruteur: Recruteur;
 
   @OneToMany(() => Avis, avis => avis.utilisateur)
   avis: Avis[];
