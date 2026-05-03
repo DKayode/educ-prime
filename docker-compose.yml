@@ -1,26 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  db:
-    image: postgres:15-alpine
-    container_name: educ_prime_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/config/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-    networks:
-      - educ-prime-network
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # Redis for BullMQ Queue
   redis:
     image: redis:7-alpine
@@ -116,7 +96,7 @@ services:
   # Certbot
   certbot:
     image: certbot/certbot
-    container_name: educ_prime_certbot
+    container_name: edukia_certbot
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
