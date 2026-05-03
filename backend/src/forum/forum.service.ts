@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Repository, IsNull, ILike } from 'typeorm';
-import { PrismaService } from '../prisma/prisma.service';
 import { LikesPolymorphicService } from '../likes-polymorphic/likes-polymorphic.service';
 import { CreateForumDto } from './dto/create-forum.dto';
 import { UpdateForumDto } from './dto/update-forum.dto';
@@ -9,20 +8,21 @@ import { PaginationResponse } from '../common/interfaces/pagination-response.int
 
 import { FichiersService } from '../fichiers/fichiers.service';
 import { Forum } from './entities/forum.entity';
+import { CommentaireUser } from '../comments-polymorphic/entities/commentaire-user.entity';
+import { LikeUser } from '../likes-polymorphic/entities/like-user.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class ForumService {
     constructor(
         private readonly resolver: DataSourceResolver,
-        private readonly prisma: PrismaService,
         private readonly likesService: LikesPolymorphicService,
         private readonly fichiersService: FichiersService,
     ) { }
 
-    private get forumRepository(): Repository<Forum> {
-        return this.resolver.getRepository(Forum);
-    }
+    private get forumRepository(): Repository<Forum> { return this.resolver.getRepository(Forum); }
+    private get commentsRepository(): Repository<CommentaireUser> { return this.resolver.getRepository(CommentaireUser); }
+    private get likesRepository(): Repository<LikeUser> { return this.resolver.getRepository(LikeUser); }
 
     async create(createForumDto: CreateForumDto, userId: number) {
         const forum = this.forumRepository.create({
@@ -87,12 +87,12 @@ export class ForumService {
         const forumsWithCounts = await Promise.all(forums.map(async (forum) => {
             const nb_like = await this.likesService.countLikes('Forums', forum.id);
 
-            const nb_comment = await this.prisma.commentaireUser.count({
+            const nb_comment = await this.commentsRepository.count({
                 where: {
                     commentable_type: 'Forums',
-                    commentable_id: BigInt(forum.id),
-                    deleted_at: null
-                }
+                    commentable_id: String(forum.id),
+                    deleted_at: IsNull(),
+                },
             });
 
             const { user_id, user, ...forumWithoutUserId } = forum;
@@ -140,12 +140,12 @@ export class ForumService {
         if (!forum) return null;
 
         const nb_like = await this.likesService.countLikes('Forums', forum.id);
-        const nb_comment = await this.prisma.commentaireUser.count({
+        const nb_comment = await this.commentsRepository.count({
             where: {
                 commentable_type: 'Forums',
-                commentable_id: BigInt(forum.id),
-                deleted_at: null
-            }
+                commentable_id: String(forum.id),
+                deleted_at: IsNull(),
+            },
         });
 
         const isLiked = await this.likesService.isLiked('Forums', forum.id, userId);
@@ -173,20 +173,18 @@ export class ForumService {
 
     async remove(id: number) {
         // 1. Remove all likes associated to the forum
-        await this.prisma.likeUser.deleteMany({
-            where: {
-                likeable_type: 'Forums',
-                likeable_id: BigInt(id)
-            }
+        await this.likesRepository.delete({
+            likeable_type: 'Forums',
+            likeable_id: String(id),
         });
 
         // 2. Remove all comments associated to the forum
-        const rootComments = await this.prisma.commentaireUser.findMany({
+        const rootComments = await this.commentsRepository.find({
             where: {
                 commentable_type: 'Forums',
-                commentable_id: BigInt(id),
-                deleted_at: null
-            }
+                commentable_id: String(id),
+                deleted_at: IsNull(),
+            },
         });
 
         for (const comment of rootComments) {
@@ -199,23 +197,22 @@ export class ForumService {
     }
 
     private async deleteCommentRecursively(commentId: number) {
-        // Find children (replies)
-        const children = await this.prisma.commentaireUser.findMany({
+        const children = await this.commentsRepository.find({
             where: {
                 commentable_type: 'Commentaires',
-                commentable_id: BigInt(commentId),
-                deleted_at: null
-            }
+                commentable_id: String(commentId),
+                deleted_at: IsNull(),
+            },
         });
 
         for (const child of children) {
             await this.deleteCommentRecursively(child.id);
         }
 
-        // Delete self
-        await this.prisma.commentaireUser.delete({
-            where: { id: commentId }
-        });
+        const self = await this.commentsRepository.findOne({ where: { id: commentId } });
+        if (self) {
+            await this.commentsRepository.remove(self);
+        }
     }
 
     async uploadPhoto(id: number, file: Express.Multer.File, userId: number) {

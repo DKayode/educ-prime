@@ -1,9 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Repository, In, ILike } from 'typeorm';
-import { PrismaService } from '../prisma/prisma.service';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CreateOffreDto, UpdateOffreDto } from './dto/offre.dto';
-import { services_status_enum } from '@prisma/client';
 
 import { FichiersService } from '../fichiers/fichiers.service';
 import { TypeFichier } from '../fichiers/entities/fichier.entity';
@@ -12,6 +10,9 @@ import { MailService } from '../mail/mail.service';
 import { Offre, ServiceStatusEnum } from './entities/offre.entity';
 import { Type } from '../types/entities/type.entity';
 import { Competence } from '../competences/entities/competence.entity';
+import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
+import { Avis } from '../avis/entities/avis.entity';
+import { EntiteType } from '../common/enums/entite-type.enum';
 
 export interface OffreFilterDto {
     type?: string;
@@ -22,11 +23,15 @@ export interface OffreFilterDto {
     limit?: number;
 }
 
+export interface AvisStats {
+    moyenne: number;
+    total: number;
+}
+
 @Injectable()
 export class OffresService {
     constructor(
         private readonly resolver: DataSourceResolver,
-        private prisma: PrismaService,
         private fichiersService: FichiersService,
         private mailService: MailService
     ) { }
@@ -34,35 +39,38 @@ export class OffresService {
     private get offresRepository(): Repository<Offre> { return this.resolver.getRepository(Offre); }
     private get typesRepository(): Repository<Type> { return this.resolver.getRepository(Type); }
     private get competencesRepository(): Repository<Competence> { return this.resolver.getRepository(Competence); }
+    private get utilisateursRepository(): Repository<Utilisateur> { return this.resolver.getRepository(Utilisateur); }
+    private get avisRepository(): Repository<Avis> { return this.resolver.getRepository(Avis); }
 
-    private async getAvisStats(offreId: number) {
-        const avisAgg = await this.prisma.avis.aggregate({
-            where: { avisable_type: 'Offres', avisable_id: offreId },
-            _avg: { note: true },
-            _count: { id: true }
-        });
-        const count = avisAgg._count as { id: number };
+    private async getAvisStats(offreId: number): Promise<AvisStats> {
+        const row = await this.avisRepository.createQueryBuilder('avis')
+            .select('AVG(avis.note)', 'avg_note')
+            .addSelect('COUNT(avis.id)', 'total')
+            .where('avis.avisable_type = :type', { type: EntiteType.OFFRES })
+            .andWhere('avis.avisable_id = :id', { id: offreId })
+            .getRawOne<{ avg_note: string | null, total: string }>();
+
         return {
-            moyenne: avisAgg._avg.note ? parseFloat(Number(avisAgg._avg.note).toFixed(1)) : 0,
-            total: count.id
+            moyenne: row?.avg_note ? parseFloat(Number(row.avg_note).toFixed(1)) : 0,
+            total: parseInt(row?.total ?? '0', 10),
         };
     }
 
-    private async getManyAvisStats(offreIds: number[]) {
+    private async getManyAvisStats(offreIds: number[]): Promise<Map<number, AvisStats>> {
         if (!offreIds.length) return new Map();
-        const avisAgg = await this.prisma.avis.groupBy({
-            by: ['avisable_id'],
-            where: { avisable_type: 'Offres', avisable_id: { in: offreIds } },
-            _avg: { note: true },
-            _count: { id: true }
-        });
-        return new Map(avisAgg.map(a => {
-            const count = a._count as { id: number };
-            return [Number(a.avisable_id), {
-                moyenne: a._avg.note ? parseFloat(Number(a._avg.note).toFixed(1)) : 0,
-                total: count.id
-            }];
-        }));
+        const rows = await this.avisRepository.createQueryBuilder('avis')
+            .select('avis.avisable_id', 'avisable_id')
+            .addSelect('AVG(avis.note)', 'avg_note')
+            .addSelect('COUNT(avis.id)', 'total')
+            .where('avis.avisable_type = :type', { type: EntiteType.OFFRES })
+            .andWhere('avis.avisable_id IN (:...ids)', { ids: offreIds })
+            .groupBy('avis.avisable_id')
+            .getRawMany<{ avisable_id: string | number, avg_note: string | null, total: string }>();
+
+        return new Map(rows.map(r => [Number(r.avisable_id), {
+            moyenne: r.avg_note ? parseFloat(Number(r.avg_note).toFixed(1)) : 0,
+            total: parseInt(r.total, 10),
+        }]));
     }
 
     private formatUtilisateur(user: any) {
@@ -76,37 +84,36 @@ export class OffresService {
         };
     }
 
+    private buildRecruteur(userWithRecruteur: any) {
+        if (!userWithRecruteur) return { mappedUser: null, recruteur: null };
+        const mappedUser = this.formatUtilisateur(userWithRecruteur);
+        let recruteur = null;
+        if (userWithRecruteur.recruteur) {
+            const { utilisateur_id, ...recruteurRest } = userWithRecruteur.recruteur;
+            recruteur = {
+                ...recruteurRest,
+                uuid: userWithRecruteur.uuid,
+                utilisateur: mappedUser,
+            };
+        }
+        return { mappedUser, recruteur };
+    }
+
     private async formatOffre(offre: Offre) {
         if (!offre) return null;
         const avis = await this.getAvisStats(offre.id);
 
-        let recruteur = null;
         let mappedUser = null;
+        let recruteur = null;
         if (offre.utilisateur_id) {
-            const userWithRecruteur = await this.prisma.utilisateurs.findUnique({
+            const userWithRecruteur = await this.utilisateursRepository.findOne({
                 where: { id: offre.utilisateur_id },
-                include: { recruteur: true }
+                relations: ['recruteur'],
             });
-            
-            if (userWithRecruteur) {
-                mappedUser = this.formatUtilisateur(userWithRecruteur);
-                if (userWithRecruteur.recruteur) {
-                    const { utilisateur_id, ...recruteurRest } = userWithRecruteur.recruteur;
-                    recruteur = {
-                        ...recruteurRest,
-                        uuid: userWithRecruteur.uuid,
-                        utilisateur: mappedUser
-                    };
-                }
-            }
+            ({ mappedUser, recruteur } = this.buildRecruteur(userWithRecruteur));
         }
 
-        return {
-            ...offre,
-            utilisateur: mappedUser,
-            recruteur,
-            avis
-        };
+        return { ...offre, utilisateur: mappedUser, recruteur, avis };
     }
 
     private async formatManyOffres(offres: Offre[]) {
@@ -114,54 +121,37 @@ export class OffresService {
         const offreIds = offres.map(o => o.id);
         const avisMap = await this.getManyAvisStats(offreIds);
 
-        // Fetch users and recruteurs
         const userIds = [...new Set(offres.map(o => o.utilisateur_id))].filter(Boolean);
-        const users = await this.prisma.utilisateurs.findMany({
-            where: { id: { in: userIds } },
-            include: { recruteur: true }
-        });
+        const users = userIds.length
+            ? await this.utilisateursRepository.find({
+                where: { id: In(userIds) },
+                relations: ['recruteur'],
+            })
+            : [];
         const userMap = new Map(users.map(u => [u.id, u]));
 
         return offres.map(offre => {
-            const userWithRecruteur = userMap.get(offre.utilisateur_id);
-            let recruteur = null;
-            let mappedUser = null;
-
-            if (userWithRecruteur) {
-                mappedUser = this.formatUtilisateur(userWithRecruteur);
-                if (userWithRecruteur.recruteur) {
-                    const { utilisateur_id, ...recruteurRest } = userWithRecruteur.recruteur;
-                    recruteur = {
-                        ...recruteurRest,
-                        uuid: userWithRecruteur.uuid,
-                        utilisateur: mappedUser
-                    };
-                }
-            }
-
+            const { mappedUser, recruteur } = this.buildRecruteur(userMap.get(offre.utilisateur_id));
             return {
                 ...offre,
                 utilisateur: mappedUser,
                 recruteur,
-                avis: avisMap.get(offre.id) || { moyenne: 0, total: 0 }
+                avis: avisMap.get(offre.id) || { moyenne: 0, total: 0 },
             };
         });
     }
 
     async create(userId: number, createOffreDto: CreateOffreDto) {
-        const user = await this.prisma.utilisateurs.findUnique({
-            where: { id: userId }
+        const user = await this.utilisateursRepository.findOne({
+            where: { id: userId },
+            relations: ['recruteur'],
         });
 
         if (!user || !user.verifier) {
             throw new ForbiddenException("Vous devez vérifier votre adresse email pour poster une offre.");
         }
 
-        const recruteurProfile = await this.prisma.recruteurs.findUnique({
-            where: { utilisateur_id: userId }
-        });
-
-        if (!recruteurProfile) {
+        if (!user.recruteur) {
             throw new ForbiddenException("Seuls les recruteurs peuvent publier des offres.");
         }
 
@@ -365,7 +355,7 @@ export class OffresService {
         return this.formatOffre(fullOffre);
     }
 
-    async updateStatus(id: number, status: services_status_enum) {
+    async updateStatus(id: number, status: ServiceStatusEnum) {
         const offre = await this.offresRepository.findOne({ where: { id } });
         if (!offre) throw new NotFoundException(`Offre #${id} introuvable`);
         
@@ -381,7 +371,7 @@ export class OffresService {
 
         // Send email notification if status changed
         if (oldStatus !== status) {
-            const user = await this.prisma.utilisateurs.findUnique({
+            const user = await this.utilisateursRepository.findOne({
                 where: { id: offre.utilisateur_id }
             });
             

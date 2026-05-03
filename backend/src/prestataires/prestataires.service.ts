@@ -1,24 +1,24 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Repository, In } from 'typeorm';
-import { PrismaService } from '../prisma/prisma.service';
 import { CreatePrestataireDto, UpdatePrestataireDto } from './dto/prestataire.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { TypeFichier } from '../fichiers/entities/fichier.entity';
 
 import { Prestataire } from './entities/prestataire.entity';
 import { Competence } from '../competences/entities/competence.entity';
+import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class PrestatairesService {
     constructor(
         private readonly resolver: DataSourceResolver,
-        private prisma: PrismaService,
         private fichiersService: FichiersService
     ) { }
 
     private get prestatairesRepository(): Repository<Prestataire> { return this.resolver.getRepository(Prestataire); }
     private get competencesRepository(): Repository<Competence> { return this.resolver.getRepository(Competence); }
+    private get utilisateursRepository(): Repository<Utilisateur> { return this.resolver.getRepository(Utilisateur); }
 
     private formatUtilisateur(user: any) {
         if (!user) return null;
@@ -33,10 +33,10 @@ export class PrestatairesService {
 
     private async formatPrestataire(prestataire: Prestataire) {
         if (!prestataire) return prestataire;
-        
+
         let mappedUser = null;
         if (prestataire.utilisateur_id) {
-            const user = await this.prisma.utilisateurs.findUnique({
+            const user = await this.utilisateursRepository.findOne({
                 where: { id: prestataire.utilisateur_id }
             });
             mappedUser = this.formatUtilisateur(user);
@@ -52,8 +52,8 @@ export class PrestatairesService {
         if (!prestataires.length) return [];
 
         const userIds = [...new Set(prestataires.map(p => p.utilisateur_id))].filter(Boolean);
-        const users = await this.prisma.utilisateurs.findMany({
-            where: { id: { in: userIds } }
+        const users = await this.utilisateursRepository.find({
+            where: { id: In(userIds) }
         });
         const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -67,7 +67,7 @@ export class PrestatairesService {
     }
 
     async create(createPrestataireDto: CreatePrestataireDto, utilisateurId: number) {
-        const user = await this.prisma.utilisateurs.findUnique({
+        const user = await this.utilisateursRepository.findOne({
             where: { id: utilisateurId },
         });
 

@@ -1,6 +1,6 @@
 import { IsString, IsNotEmpty, IsNumber, IsOptional, IsArray, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { services_status_enum } from '@prisma/client';
+import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
 
 export class CreateOffreDto {
     @ApiProperty({ description: 'Titre de l\'offre', example: 'Recherche développeur React' })
@@ -84,8 +84,8 @@ export class UpdateOffreDto {
 }
 
 export class UpdateOffreStatusDto {
-    @ApiProperty({ description: 'Nouveau statut de l\'offre', enum: services_status_enum, example: services_status_enum.approved })
+    @ApiProperty({ description: 'Nouveau statut de l\'offre', enum: ServiceStatusEnum, example: ServiceStatusEnum.APPROVED })
     @IsNotEmpty()
-    @IsEnum(services_status_enum)
-    status: services_status_enum;
+    @IsEnum(ServiceStatusEnum)
+    status: ServiceStatusEnum;
 }
