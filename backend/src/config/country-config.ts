@@ -9,7 +9,10 @@ export interface CountryConfigEntry {
     };
 }
 
-const CONFIG_PATH = path.resolve(__dirname, '..', '..', 'config', 'config.json');
+// Resolve from cwd (project root in dev, /app in Docker) rather than __dirname
+// which differs between src/ and dist/ layouts.
+const CONFIG_PATH = process.env.COUNTRY_CONFIG_PATH
+    ?? path.resolve(process.cwd(), 'config', 'config.json');
 
 let cached: CountryConfigEntry[] | null = null;
 
