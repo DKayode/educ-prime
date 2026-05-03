@@ -1,108 +1,92 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Avis } from './entities/avis.entity';
+import { Service } from '../services/entities/service.entity';
+import { Offre } from '../offres/entities/offre.entity';
+import { EntiteType } from '../common/enums/entite-type.enum';
 import { CreateAvisDto, UpdateAvisDto } from './dto/avis.dto';
-import { PrismaService } from '../prisma/prisma.service';
-import { entite_type_enum } from '@prisma/client';
 
 @Injectable()
 export class AvisService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        @InjectRepository(Avis)
+        private readonly avisRepository: Repository<Avis>,
+        @InjectRepository(Service)
+        private readonly servicesRepository: Repository<Service>,
+        @InjectRepository(Offre)
+        private readonly offresRepository: Repository<Offre>,
+    ) { }
 
     async create(userId: number, createAvisDto: CreateAvisDto) {
         const { avisable_id, avisable_type, note, comment } = createAvisDto;
 
-        // Valider que l'entité cible existe
-        let targetEntity: any;
-        if (avisable_type === entite_type_enum.Services) {
-            targetEntity = await this.prisma.services.findUnique({
-                where: { id: avisable_id }
-            });
-        } else if (avisable_type === entite_type_enum.Offres) {
-            targetEntity = await this.prisma.offres.findUnique({
-                where: { id: avisable_id }
-            });
+        let targetEntity: Service | Offre | null = null;
+        if (avisable_type === EntiteType.SERVICES) {
+            targetEntity = await this.servicesRepository.findOne({ where: { id: avisable_id } });
+        } else if (avisable_type === EntiteType.OFFRES) {
+            targetEntity = await this.offresRepository.findOne({ where: { id: avisable_id } });
         }
 
         if (!targetEntity) {
             throw new NotFoundException(`${avisable_type} introuvable.`);
         }
 
-        // Empêcher de noter sa propre entité
         if (targetEntity.utilisateur_id === userId) {
             throw new ForbiddenException(`Vous ne pouvez pas noter votre propre ${avisable_type.toLowerCase()}.`);
         }
 
-        // Vérifier si un avis existe déjà
-        const existingAvis = await this.prisma.avis.findFirst({
-            where: {
-                avisable_id,
-                avisable_type,
-                utilisateur_id: userId,
-            }
+        const existingAvis = await this.avisRepository.findOne({
+            where: { avisable_id, avisable_type, utilisateur_id: userId },
         });
 
         if (existingAvis) {
             throw new ForbiddenException(`Vous avez déjà laissé un avis pour ce ${avisable_type.toLowerCase()}.`);
         }
 
-        return this.prisma.avis.create({
-            data: {
-                note,
-                comment,
-                avisable_id,
-                avisable_type,
-                utilisateur_id: userId,
-            }
+        const avis = this.avisRepository.create({
+            note,
+            comment,
+            avisable_id,
+            avisable_type,
+            utilisateur_id: userId,
         });
+        return this.avisRepository.save(avis);
     }
 
     async findAllByModel(model: string, id: number, pagination: { page: number, limit: number }) {
-        let entityType: entite_type_enum;
+        let entityType: EntiteType;
         if (model.toLowerCase() === 'services') {
-            entityType = entite_type_enum.Services;
+            entityType = EntiteType.SERVICES;
         } else if (model.toLowerCase() === 'offres') {
-            entityType = entite_type_enum.Offres;
+            entityType = EntiteType.OFFRES;
         } else {
             throw new BadRequestException('Modèle invalide. Utilisez "Services" ou "Offres".');
         }
         return this.findAllByEntity(id, entityType, pagination);
     }
 
-    private async findAllByEntity(entityId: number, entityType: entite_type_enum, pagination: { page: number, limit: number }) {
+    private async findAllByEntity(entityId: number, entityType: EntiteType, pagination: { page: number, limit: number }) {
         const { page, limit } = pagination;
 
-        const total = await this.prisma.avis.count({
-            where: {
-                avisable_id: entityId,
-                avisable_type: entityType
-            }
-        });
-
-        const avisList = await this.prisma.avis.findMany({
-            where: {
-                avisable_id: entityId,
-                avisable_type: entityType
-            },
+        const [avisList, total] = await this.avisRepository.findAndCount({
+            where: { avisable_id: entityId, avisable_type: entityType },
+            relations: ['utilisateur'],
             skip: (page - 1) * limit,
             take: limit,
-            include: {
-                utilisateurs: {
-                    select: { id: true, uuid: true, nom: true, prenom: true, email: true }
-                }
-            },
-            orderBy: { created_at: 'desc' },
+            order: { created_at: 'DESC' },
         });
 
         const enrichedAvis = avisList.map((avis) => {
-            const { utilisateur_id, utilisateurs, ...restAvis } = avis;
-
+            const { utilisateur_id, utilisateur, ...restAvis } = avis;
             return {
                 ...restAvis,
-                utilisateur: utilisateurs ? {
-                    id: utilisateurs.id,
-                    ui: utilisateurs.uuid,
-                    nom: utilisateurs.nom,
-                    prenom: utilisateurs.prenom,
-                    email: utilisateurs.email,
+                utilisateur: utilisateur ? {
+                    id: utilisateur.id,
+                    ui: utilisateur.uuid,
+                    nom: utilisateur.nom,
+                    prenom: utilisateur.prenom,
+                    email: utilisateur.email,
                 } : null,
             };
         });
@@ -117,14 +101,10 @@ export class AvisService {
     }
 
     async findOne(id: number) {
-        const avis = await this.prisma.avis.findUnique({
-            where: { id },
-        });
-
+        const avis = await this.avisRepository.findOne({ where: { id } });
         if (!avis) {
             throw new NotFoundException(`Avis #${id} introuvable`);
         }
-
         return avis;
     }
 
@@ -135,18 +115,11 @@ export class AvisService {
             throw new ForbiddenException("Vous n'êtes pas autorisé à modifier cet avis.");
         }
 
-        const dataToUpdate: any = {};
-        if (updateAvisDto.note !== undefined) dataToUpdate.note = updateAvisDto.note;
-        if (updateAvisDto.comment !== undefined) dataToUpdate.comment = updateAvisDto.comment;
+        if (updateAvisDto.note !== undefined) avis.note = updateAvisDto.note;
+        if (updateAvisDto.comment !== undefined) avis.comment = updateAvisDto.comment;
+        await this.avisRepository.save(avis);
 
-        if (Object.keys(dataToUpdate).length > 0) {
-            await this.prisma.avis.update({
-                where: { id },
-                data: dataToUpdate,
-            });
-        }
-
-        return { message: "Avis mis à jour avec succès." };
+        return { message: 'Avis mis à jour avec succès.' };
     }
 
     async remove(id: number, userId: number) {
@@ -156,10 +129,7 @@ export class AvisService {
             throw new ForbiddenException("Vous n'êtes pas autorisé à supprimer cet avis.");
         }
 
-        await this.prisma.avis.delete({
-            where: { id }
-        });
-
-        return { message: "Avis supprimé avec succès." };
+        await this.avisRepository.remove(avis);
+        return { message: 'Avis supprimé avec succès.' };
     }
 }

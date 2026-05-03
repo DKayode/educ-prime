@@ -10,6 +10,7 @@ import { Forum } from '../../forum/entities/forum.entity';
 import { Offre } from '../../offres/entities/offre.entity';
 import { Service } from '../../services/entities/service.entity';
 import { Prestataire } from '../../prestataires/entities/prestataire.entity';
+import { Avis } from '../../avis/entities/avis.entity';
 
 export enum RoleType {
   ADMIN = 'admin',
@@ -135,6 +136,9 @@ export class Utilisateur {
 
   @OneToOne(() => Prestataire, prestataire => prestataire.utilisateur)
   prestataire: Prestataire;
+
+  @OneToMany(() => Avis, avis => avis.utilisateur)
+  avis: Avis[];
 
   unreadNotificationsCount?: number;
 }
