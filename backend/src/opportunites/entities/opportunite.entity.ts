@@ -10,6 +10,9 @@ export class Opportunite {
     @PrimaryGeneratedColumn()
     id: number;
 
+    @Column({ type: 'uuid', unique: true, default: () => 'gen_random_uuid()' })
+    uuid: string;
+
     @Column()
     titre: string;
 

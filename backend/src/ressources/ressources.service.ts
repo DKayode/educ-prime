@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { FichiersService } from '../fichiers/fichiers.service';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { Ressource, RessourceType } from './entities/ressource.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CreerRessourceDto } from './dto/creer-ressource.dto';
 import { MajRessourceDto } from './dto/maj-ressource.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -15,10 +15,13 @@ export class RessourcesService {
   private readonly logger = new Logger(RessourcesService.name);
 
   constructor(
-    @InjectRepository(Ressource)
-    private readonly ressourcesRepository: Repository<Ressource>,
+    private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
   ) { }
+
+  private get ressourcesRepository(): Repository<Ressource> {
+    return this.resolver.getRepository(Ressource);
+  }
 
   async create(creerRessourceDto: CreerRessourceDto, professeurId: number) {
     this.logger.log(`Création d'une ressource: ${creerRessourceDto.titre} (Type: ${creerRessourceDto.type}) par professeur ID: ${professeurId}`);

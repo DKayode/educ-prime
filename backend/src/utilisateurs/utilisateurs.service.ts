@@ -1,8 +1,10 @@
 import { Injectable, ConflictException, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets, LessThan, IsNull } from 'typeorm';
 import { Utilisateur } from './entities/utilisateur.entity';
-import { PrismaService } from '../prisma/prisma.service';
+import { Prestataire } from '../prestataires/entities/prestataire.entity';
+import { Recruteur } from '../recruteurs/entities/recruteur.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
+import { CountryContextService } from '../config/country-context.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
 import { InscriptionDto } from './dto/inscription.dto';
@@ -25,13 +27,16 @@ export class UtilisateursService {
   private readonly logger = new Logger(UtilisateursService.name);
 
   constructor(
-    @InjectRepository(Utilisateur)
-    private readonly utilisateursRepository: Repository<Utilisateur>,
+    private readonly resolver: DataSourceResolver,
+    private readonly context: CountryContextService,
     private readonly fichiersService: FichiersService,
     private readonly firebaseService: FirebaseService,
     private readonly mailService: MailService,
-    private readonly prisma: PrismaService,
   ) { }
+
+  private get utilisateursRepository(): Repository<Utilisateur> {
+    return this.resolver.getRepository(Utilisateur);
+  }
 
   async findByEmail(email: string) {
     this.logger.log(`Recherche de l'utilisateur par email: ${email}`);
@@ -347,15 +352,15 @@ export class UtilisateursService {
   }
 
   async isPrestataire(userId: number): Promise<{ isPrestataire: boolean }> {
-    const prestataire = await this.prisma.prestataires.findUnique({
-      where: { utilisateur_id: userId }
+    const prestataire = await this.resolver.getRepository(Prestataire).findOne({
+      where: { utilisateur_id: userId },
     });
     return { isPrestataire: !!prestataire };
   }
 
   async isRecruteur(userId: number): Promise<{ isRecruteur: boolean }> {
-    const recruteur = await this.prisma.recruteurs.findUnique({
-      where: { utilisateur_id: userId }
+    const recruteur = await this.resolver.getRepository(Recruteur).findOne({
+      where: { utilisateur_id: userId },
     });
     return { isRecruteur: !!recruteur };
   }
@@ -573,20 +578,22 @@ export class UtilisateursService {
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleCron() {
-    this.logger.log('Exécution du Cron de suppression des utilisateurs...');
+    await this.context.runForEachCountry(async (country) => {
+      this.logger.log(`Cron de suppression des utilisateurs pour ${country}...`);
 
-    const usersToDelete = await this.utilisateursRepository.find({
-      where: {
-        est_desactive: true,
-        date_suppression_prevue: LessThan(new Date()),
-      },
+      const usersToDelete = await this.utilisateursRepository.find({
+        where: {
+          est_desactive: true,
+          date_suppression_prevue: LessThan(new Date()),
+        },
+      });
+
+      for (const user of usersToDelete) {
+        this.logger.log(`Suppression définitive: pays=${country}, ID=${user.id}`);
+        await this.utilisateursRepository.remove(user);
+      }
+
+      this.logger.log(`${country}: ${usersToDelete.length} utilisateurs supprimés définitivement.`);
     });
-
-    for (const user of usersToDelete) {
-      this.logger.log(`Suppression définitive de l'utilisateur ID ${user.id}`);
-      await this.utilisateursRepository.remove(user);
-    }
-
-    this.logger.log(`${usersToDelete.length} utilisateurs supprimés définitivement.`);
   }
 }

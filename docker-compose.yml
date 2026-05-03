@@ -24,7 +24,7 @@ services:
   # Redis for BullMQ Queue
   redis:
     image: redis:7-alpine
-    container_name: educ_prime_redis
+    container_name: edukia_redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -38,7 +38,7 @@ services:
 
   # NestJS Backend API
   backend:
-    image: ${DOCKER_IMAGE_BACKEND:-ghcr.io/dkayode/educ-prime-backend:latest}
+    image: ${DOCKER_IMAGE_BACKEND:-ghcr.io/dkayode/edukia-backend:latest}
     container_name: edukia_backend
     restart: unless-stopped
     environment:
@@ -82,7 +82,7 @@ services:
 
   # React Frontend Admin Dashboard
   frontend:
-    image: ${DOCKER_IMAGE_FRONTEND:-ghcr.io/dkayode/educ-prime-frontend:latest}
+    image: ${DOCKER_IMAGE_FRONTEND:-ghcr.io/dkayode/edukia-frontend:latest}
     container_name: edukia_frontend
     restart: unless-stopped
     networks:

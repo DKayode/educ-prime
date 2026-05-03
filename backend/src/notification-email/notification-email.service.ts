@@ -1,9 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Repository } from 'typeorm';
 import { MailService } from '../mail/mail.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { SendEmailDto } from './dto/send-email.dto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
+import { DesabonnementEmail } from './entities/desabonnement-email.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
+import { CountryContextService } from '../config/country-context.service';
 
 @Injectable()
 export class NotificationEmailService {
@@ -11,13 +15,18 @@ export class NotificationEmailService {
 
   constructor(
     private readonly mailService: MailService,
-    private readonly prisma: PrismaService,
+    private readonly resolver: DataSourceResolver,
+    private readonly context: CountryContextService,
     @InjectQueue('email') private readonly emailQueue: Queue,
   ) { }
 
+  private get utilisateursRepository(): Repository<Utilisateur> { return this.resolver.getRepository(Utilisateur); }
+  private get desabonnementRepository(): Repository<DesabonnementEmail> { return this.resolver.getRepository(DesabonnementEmail); }
+
   async sendBroadcast(dto: SendEmailDto) {
-    // Create a PREPARATION job that will later spawn individual email jobs
-    const job = await this.emailQueue.add('prepare-broadcast', dto, {
+    // Country embedded so the BullMQ worker can re-establish ALS context.
+    const country = this.context.getCountryOrNull() ?? 'benin';
+    const job = await this.emailQueue.add('prepare-broadcast', { ...dto, country }, {
       attempts: 3,
       backoff: {
         type: 'exponential',
@@ -81,22 +90,17 @@ export class NotificationEmailService {
   }
 
   async unsubscribe(uuid: string) {
-    const user = await this.prisma.utilisateurs.findUnique({
-      where: { uuid: uuid }
-    });
-
+    const user = await this.utilisateursRepository.findOne({ where: { uuid } });
     if (!user || !user.uuid) {
-      throw new Error("Utilisateur introuvable avec ce UUID.");
+      throw new NotFoundException('Utilisateur introuvable avec ce UUID.');
     }
 
-    const existing = await this.prisma.desabonnement_email.findUnique({
-      where: { utilisateur_uuid: user.uuid }
+    const existing = await this.desabonnementRepository.findOne({
+      where: { utilisateur_uuid: user.uuid },
     });
-
     if (!existing) {
-      await this.prisma.desabonnement_email.create({
-        data: { utilisateur_uuid: user.uuid }
-      });
+      const entry = this.desabonnementRepository.create({ utilisateur_uuid: user.uuid });
+      await this.desabonnementRepository.save(entry);
       this.logger.log(`Utilisateur ${user.uuid} a été ajouté à la liste de désabonnement email.`);
     }
 

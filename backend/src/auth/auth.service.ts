@@ -1,6 +1,5 @@
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { UtilisateursService } from '../utilisateurs/utilisateurs.service';
 import { LoginDto } from './dto/login.dto';
@@ -12,6 +11,8 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
+import { CountryContextService } from '../config/country-context.service';
 
 @Injectable()
 export class AuthService {
@@ -20,12 +21,18 @@ export class AuthService {
   constructor(
     private readonly utilisateursService: UtilisateursService,
     private readonly jwtService: JwtService,
-    @InjectRepository(RefreshToken)
-    private readonly refreshTokenRepository: Repository<RefreshToken>,
-    @InjectRepository(BlacklistedToken)
-    private readonly blacklistedTokenRepository: Repository<BlacklistedToken>,
+    private readonly resolver: DataSourceResolver,
+    private readonly context: CountryContextService,
     private readonly mailService: MailService
   ) { }
+
+  private get refreshTokenRepository(): Repository<RefreshToken> {
+    return this.resolver.getRepository(RefreshToken);
+  }
+
+  private get blacklistedTokenRepository(): Repository<BlacklistedToken> {
+    return this.resolver.getRepository(BlacklistedToken);
+  }
 
   async register(registerDto: RegisterDto): Promise<Utilisateur> {
     this.logger.log(`Tentative d'inscription via /auth/register pour: ${registerDto.email}`);
@@ -69,7 +76,8 @@ export class AuthService {
     }
 
     // Generate access token (1d)
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const country = this.context.getCountry();
+    const payload = { sub: user.id, email: user.email, role: user.role, country };
     const accessToken = this.jwtService.sign(payload);
 
     // Generate refresh token (30 days)
@@ -158,7 +166,8 @@ export class AuthService {
     }
 
     // Generate new access token
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const country = this.context.getCountry();
+    const payload = { sub: user.id, email: user.email, role: user.role, country };
     const accessToken = this.jwtService.sign(payload);
 
     this.logger.log(`Access token rafraîchi pour utilisateur: ${user.email} (ID: ${user.id})`);

@@ -1,50 +1,53 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { IsNull, Repository } from 'typeorm';
 import { LikesPolymorphicService } from '../likes-polymorphic/likes-polymorphic.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { CreateCommentPolymorphicDto } from './dto/create-comment-polymorphic.dto';
 import { UpdateCommentPolymorphicDto } from './dto/update-comment-polymorphic.dto';
+import { CommentaireUser } from './entities/commentaire-user.entity';
+import { Forum } from '../forum/entities/forum.entity';
+import { Avis } from '../avis/entities/avis.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
+
+const VALID_MODELS = ['Forums', 'Parcours', 'Commentaires', 'Avis'];
+const USER_FIELDS = ['id', 'nom', 'prenom', 'pseudo', 'email', 'sexe'] as const;
+
+const userSelect = USER_FIELDS.reduce((acc, f) => ({ ...acc, [f]: true }), {} as Record<string, true>);
 
 @Injectable()
 export class CommentsPolymorphicService {
     constructor(
-        private readonly prisma: PrismaService,
+        private readonly resolver: DataSourceResolver,
         private readonly likesService: LikesPolymorphicService,
     ) { }
 
+    private get commentsRepository(): Repository<CommentaireUser> {
+        return this.resolver.getRepository(CommentaireUser);
+    }
+
     private validateModel(model: string) {
-        const validModels = ['Forums', 'Parcours', 'Commentaires', 'Avis'];
-        if (!validModels.includes(model)) {
-            throw new BadRequestException(`Invalid model: ${model}. Valid models are: ${validModels.join(', ')}`);
+        if (!VALID_MODELS.includes(model)) {
+            throw new BadRequestException(
+                `Invalid model: ${model}. Valid models are: ${VALID_MODELS.join(', ')}`,
+            );
         }
     }
 
     private async checkEntityExists(model: string, id: number) {
-        let entity;
+        let entity: unknown;
         switch (model) {
             case 'Forums':
-                entity = await this.prisma.forum.findUnique({ where: { id: id } });
+                entity = await this.resolver.getRepository(Forum).findOne({ where: { id } });
                 break;
-            // case 'Parcours':
-            //     entity = await this.prisma.parcours.findUnique({ where: { id: id } });
-            //     break;
             case 'Commentaires':
-                entity = await this.prisma.commentaireUser.findUnique({ where: { id: id } });
+                entity = await this.commentsRepository.findOne({ where: { id } });
                 break;
             case 'Avis':
-                entity = await this.prisma.avis.findUnique({ where: { id: id } });
+                entity = await this.resolver.getRepository(Avis).findOne({ where: { id } });
                 break;
             default:
-                // If model is valid but not handled in switch (e.g. Parcours if not yet generated), allow or throw?
-                // For now, if we don't have the model in Prisma, we can't check.
-                // Assuming 'Parcours' might be present in DB but maybe not in this code version?
-                // Users requested specifically for "model with this id isn't present in DB".
-                // I will add Parcours if accessible, otherwise throw/warn. 
-                // Let's assume Parcours exists in Prisma client based on validModels.
-                // If not, I'll comment it out.
-                // Just Forums and Commentaires are currently active in this modification context.
-                break;
+                return; // Parcours not validated here for now
         }
 
         if (!entity) {
@@ -56,185 +59,99 @@ export class CommentsPolymorphicService {
         this.validateModel(model);
         await this.checkEntityExists(model, id);
 
-        let parentId = createDto.commentaire_id ? createDto.commentaire_id : null;
-
-        // If we represent a reply to a comment (model === 'Commentaires'), 
-        // the ID in the path is the parent comment ID.
+        let parentId: number | null = createDto.commentaire_id ?? null;
         if (model === 'Commentaires') {
             parentId = id;
         }
 
-        const commentData = {
-            commentable_id: BigInt(id),
+        const comment = this.commentsRepository.create({
+            commentable_id: String(id),
             commentable_type: model,
             content: createDto.content,
             user_id: userId,
-            commentaire_id: parentId
-        };
-
-        const result = await this.prisma.commentaireUser.create({
-            data: commentData,
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        nom: true,
-                        prenom: true,
-                        pseudo: true,
-                        email: true,
-                        sexe: true,
-                    }
-                }
-            }
+            commentaire_id: parentId,
         });
+        const saved = await this.commentsRepository.save(comment);
 
-        return this.mapResponse(result);
+        const full = await this.commentsRepository.findOne({
+            where: { id: saved.id },
+            relations: ['user'],
+        });
+        return this.mapResponse(full);
     }
 
     async update(id: number, updateCommentDto: UpdateCommentPolymorphicDto, userId: number) {
-        const comment = await this.prisma.commentaireUser.findUnique({ where: { id } });
+        const comment = await this.commentsRepository.findOne({ where: { id } });
         if (!comment) {
             throw new NotFoundException(`Comment with ID ${id} not found`);
         }
-
         if (comment.user_id !== userId) {
-            throw new ForbiddenException(`You are not authorized to update this comment`);
+            throw new ForbiddenException('You are not authorized to update this comment');
         }
 
-        const result = await this.prisma.commentaireUser.update({
-            where: { id },
-            data: {
-                content: updateCommentDto.content
-            }
-        });
-
-        return this.mapResponse(result);
+        comment.content = updateCommentDto.content;
+        const saved = await this.commentsRepository.save(comment);
+        return this.mapResponse(saved);
     }
 
-    async findAllByEntity(model: string, id: number, paginationDto: PaginationDto = {}, userId?: number): Promise<PaginationResponse<any>> {
+    async findAllByEntity(
+        model: string,
+        id: number,
+        paginationDto: PaginationDto = {},
+        userId?: number,
+    ): Promise<PaginationResponse<any>> {
         this.validateModel(model);
         const { page = 1, limit = 10 } = paginationDto;
-        const skip = (page - 1) * limit;
-        const take = limit;
 
-        const [comments, total] = await Promise.all([
-            this.prisma.commentaireUser.findMany({
-                where: {
-                    commentable_type: model,
-                    commentable_id: BigInt(id),
-                    commentaire_id: null, // Get roots
-                    deleted_at: null
-                },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            nom: true,
-                            prenom: true,
-                            pseudo: true,
-                            email: true,
-                            sexe: true,
-                        }
-                    },
+        // Load four levels of children — matches the previous Prisma include depth.
+        const childrenRelations = {
+            user: true,
+            children: {
+                user: true,
+                children: {
+                    user: true,
                     children: {
-                        include: {
-                            user: {
-                                select: {
-                                    id: true,
-                                    nom: true,
-                                    prenom: true,
-                                    pseudo: true,
-                                    email: true,
-                                    sexe: true,
-                                }
-                            },
-                            children: { // Level 2
-                                include: {
-                                    user: {
-                                        select: {
-                                            id: true,
-                                            nom: true,
-                                            prenom: true,
-                                            pseudo: true,
-                                            email: true,
-                                            sexe: true,
-                                        }
-                                    },
-                                    children: { // Level 3
-                                        include: {
-                                            user: {
-                                                select: {
-                                                    id: true,
-                                                    nom: true,
-                                                    prenom: true,
-                                                    pseudo: true,
-                                                    email: true,
-                                                    sexe: true,
-                                                }
-                                            },
-                                            children: { // Level 4
-                                                include: {
-                                                    user: {
-                                                        select: {
-                                                            id: true,
-                                                            nom: true,
-                                                            prenom: true,
-                                                            pseudo: true,
-                                                            email: true,
-                                                            sexe: true,
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                        user: true,
+                        children: { user: true },
+                    },
                 },
-                orderBy: { created_at: 'desc' },
-                skip,
-                take,
-            }),
-            this.prisma.commentaireUser.count({
-                where: {
-                    commentable_type: model,
-                    commentable_id: BigInt(id),
-                    commentaire_id: null,
-                    deleted_at: null
-                }
-            })
-        ]);
+            },
+        };
 
-        let likedSet = new Set<number>();
-        let likesCounts = new Map<number, number>();
+        const [comments, total] = await this.commentsRepository.findAndCount({
+            where: {
+                commentable_type: model,
+                commentable_id: String(id),
+                commentaire_id: IsNull(),
+                deleted_at: IsNull(),
+            },
+            relations: { user: true, ...childrenRelations },
+            order: { created_at: 'DESC' },
+            skip: (page - 1) * limit,
+            take: limit,
+        });
 
-        // Flatten comments to get all IDs
         const allCommentIds: number[] = [];
         const collectIds = (nodes: any[]) => {
             for (const node of nodes) {
                 allCommentIds.push(node.id);
-                if (node.children && node.children.length > 0) {
-                    collectIds(node.children);
-                }
+                if (node.children?.length) collectIds(node.children);
             }
         };
         collectIds(comments);
 
+        let likedSet = new Set<number>();
+        let likesCounts = new Map<number, number>();
         if (allCommentIds.length > 0) {
-            // Get user likes
             if (userId) {
                 const likedIds = await this.likesService.getLikedIdsByUser('Commentaires', allCommentIds, userId);
                 likedSet = new Set(likedIds);
             }
-
-            // Get like counts
             likesCounts = await this.likesService.getLikesCounts('Commentaires', allCommentIds);
         }
 
         return {
-            data: comments.map((comment) => this.mapResponse(comment, likedSet, likesCounts)),
+            data: comments.map(comment => this.mapResponse(comment, likedSet, likesCounts)),
             total,
             page,
             limit,
@@ -245,35 +162,33 @@ export class CommentsPolymorphicService {
     async remove(model: string, id: number) {
         this.validateModel(model);
 
-        // Recursive delete: Find children of THIS comment
-        const children = await this.prisma.commentaireUser.findMany({
+        const children = await this.commentsRepository.find({
             where: {
                 commentable_type: 'Commentaires',
-                commentable_id: BigInt(id),
-                deleted_at: null
-            }
+                commentable_id: String(id),
+                deleted_at: IsNull(),
+            },
         });
-
         for (const child of children) {
             await this.remove('Commentaires', child.id);
         }
 
-        // Now delete the comment itself
-        const result = await this.prisma.commentaireUser.delete({
-            where: { id },
-        });
-
-        return this.mapResponse(result);
+        const comment = await this.commentsRepository.findOne({ where: { id } });
+        if (!comment) {
+            throw new NotFoundException(`Comment with ID ${id} not found`);
+        }
+        await this.commentsRepository.remove(comment);
+        return this.mapResponse(comment);
     }
 
     async countComments(model: string, id: number) {
         this.validateModel(model);
-        const count = await this.prisma.commentaireUser.count({
+        const count = await this.commentsRepository.count({
             where: {
                 commentable_type: model,
-                commentable_id: BigInt(id),
-                deleted_at: null
-            }
+                commentable_id: String(id),
+                deleted_at: IsNull(),
+            },
         });
         return { totalCommentaires: count };
     }
@@ -286,21 +201,34 @@ export class CommentsPolymorphicService {
             day: '2-digit',
             hour: '2-digit',
             minute: '2-digit',
-            second: '2-digit'
+            second: '2-digit',
         }).format(date);
     }
 
-    private mapResponse(comment: any, likedSet: Set<number> = new Set(), likesCounts: Map<number, number> = new Map()) {
+    private narrowUser(user: any) {
+        if (!user) return null;
+        return USER_FIELDS.reduce((acc, f) => ({ ...acc, [f]: user[f] }), {} as Record<string, any>);
+    }
+
+    private mapResponse(
+        comment: any,
+        likedSet: Set<number> = new Set(),
+        likesCounts: Map<number, number> = new Map(),
+    ): any {
+        if (!comment) return null;
         return {
             ...comment,
-            created_at: this.formatToParisTime(comment.created_at),
-            updated_at: this.formatToParisTime(comment.updated_at),
+            user: this.narrowUser(comment.user),
+            created_at: comment.created_at ? this.formatToParisTime(comment.created_at) : null,
+            updated_at: comment.updated_at ? this.formatToParisTime(comment.updated_at) : null,
             commentable_id: comment.commentable_id ? comment.commentable_id.toString() : null,
-            commentaire_id: comment.commentaire_id ? comment.commentaire_id.toString() : null,
+            commentaire_id: comment.commentaire_id != null ? comment.commentaire_id.toString() : null,
             isLiked: likedSet.has(comment.id),
             nb_like: likesCounts.get(comment.id) || 0,
             nb_comment: comment.children ? comment.children.length : 0,
-            children: comment.children ? comment.children.map(c => this.mapResponse(c, likedSet, likesCounts)) : []
+            children: comment.children
+                ? comment.children.map((c: any) => this.mapResponse(c, likedSet, likesCounts))
+                : [],
         };
     }
 }

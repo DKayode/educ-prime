@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger, BadRequestException, ConflictException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindOptionsWhere, Brackets, Raw } from 'typeorm';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { Etablissement } from './entities/etablissement.entity';
 import { Filiere } from '../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../niveau-etude/entities/niveau-etude.entity';
@@ -25,20 +25,16 @@ export class EtablissementsService {
   private readonly logger = new Logger(EtablissementsService.name);
 
   constructor(
-    @InjectRepository(Etablissement)
-    private readonly etablissementsRepository: Repository<Etablissement>,
-    @InjectRepository(Filiere)
-    private readonly filieresRepository: Repository<Filiere>,
-    @InjectRepository(NiveauEtude)
-    private readonly niveauEtudeRepository: Repository<NiveauEtude>,
-    @InjectRepository(Matiere)
-    private readonly matieresRepository: Repository<Matiere>,
-    @InjectRepository(Epreuve)
-    private readonly epreuvesRepository: Repository<Epreuve>,
-    @InjectRepository(Ressource)
-    private readonly ressourcesRepository: Repository<Ressource>,
+    private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
   ) { }
+
+  private get etablissementsRepository(): Repository<Etablissement> { return this.resolver.getRepository(Etablissement); }
+  private get filieresRepository(): Repository<Filiere> { return this.resolver.getRepository(Filiere); }
+  private get niveauEtudeRepository(): Repository<NiveauEtude> { return this.resolver.getRepository(NiveauEtude); }
+  private get matieresRepository(): Repository<Matiere> { return this.resolver.getRepository(Matiere); }
+  private get epreuvesRepository(): Repository<Epreuve> { return this.resolver.getRepository(Epreuve); }
+  private get ressourcesRepository(): Repository<Ressource> { return this.resolver.getRepository(Ressource); }
 
   async create(creerEtablissementDto: CreerEtablissementDto) {
     this.logger.log(`Création d'un établissement: ${creerEtablissementDto.nom}`);

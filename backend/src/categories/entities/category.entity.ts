@@ -15,6 +15,10 @@ export class Category {
     @PrimaryGeneratedColumn()
     id: number;
 
+    @ApiProperty({ description: 'UUID de la catégorie' })
+    @Column({ type: 'uuid', unique: true, default: () => 'gen_random_uuid()' })
+    uuid: string;
+
     @ApiProperty({ description: 'Nom de la catégorie' })
     @Column({ unique: true })
     nom: string;

@@ -1,20 +1,23 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContactsProfessionnel } from './entities/contacts-professionnel.entity';
 import { CreerContactsProfessionnelDto } from './dto/create-contacts-professionnel.dto';
 import { UpdateContactsProfessionnelDto } from './dto/update-contacts-professionnel.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class ContactsProfessionnelsService {
   private readonly logger = new Logger(ContactsProfessionnelsService.name);
 
   constructor(
-    @InjectRepository(ContactsProfessionnel)
-    private readonly contactsProfessionnelRepository: Repository<ContactsProfessionnel>,
+    private readonly resolver: DataSourceResolver,
   ) { }
+
+  private get contactsProfessionnelRepository(): Repository<ContactsProfessionnel> {
+    return this.resolver.getRepository(ContactsProfessionnel);
+  }
 
   async create(creerContactsProfessionnelDto: CreerContactsProfessionnelDto) {
     this.logger.log(`Création d'un contact professionnel: ${creerContactsProfessionnelDto.nom}`);

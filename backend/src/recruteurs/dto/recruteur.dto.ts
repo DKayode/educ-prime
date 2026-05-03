@@ -95,11 +95,11 @@ export class UpdateRecruteurDto {
   biographie?: string;
 }
 
-import { services_status_enum } from '@prisma/client';
+import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
 
 export class UpdateRecruteurStatusDto {
-  @ApiProperty({ description: 'Nouveau statut du recruteur', enum: services_status_enum, example: services_status_enum.approved })
+  @ApiProperty({ description: 'Nouveau statut du recruteur', enum: ServiceStatusEnum, example: ServiceStatusEnum.APPROVED })
   @IsNotEmpty()
-  @IsEnum(services_status_enum)
-  status: services_status_enum;
+  @IsEnum(ServiceStatusEnum)
+  status: ServiceStatusEnum;
 }

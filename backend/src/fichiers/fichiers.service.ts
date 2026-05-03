@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, BadRequestException, Logger, Inject } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TypeFichier, TypeRessource } from './entities/fichier.entity';
 import { Matiere } from '../matieres/entities/matiere.entity';
@@ -8,21 +7,21 @@ import { Ressource, RessourceType } from '../ressources/entities/ressource.entit
 import { FirebaseConfig } from '../config/firebase.config';
 import { FichierUploadData } from './interfaces/fichier-upload-data.interface';
 import * as sharp from 'sharp';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class FichiersService {
   private readonly logger = new Logger(FichiersService.name);
 
   constructor(
-    @InjectRepository(Matiere)
-    private readonly matiereRepository: Repository<Matiere>,
-    @InjectRepository(Epreuve)
-    private readonly epreuveRepository: Repository<Epreuve>,
-    @InjectRepository(Ressource)
-    private readonly ressourceRepository: Repository<Ressource>,
+    private readonly resolver: DataSourceResolver,
     @Inject('FirebaseConfig')
     private readonly firebaseConfig: any,
   ) { }
+
+  private get matiereRepository(): Repository<Matiere> { return this.resolver.getRepository(Matiere); }
+  private get epreuveRepository(): Repository<Epreuve> { return this.resolver.getRepository(Epreuve); }
+  private get ressourceRepository(): Repository<Ressource> { return this.resolver.getRepository(Ressource); }
 
   private async compressImage(buffer: Buffer): Promise<Buffer> {
     try {

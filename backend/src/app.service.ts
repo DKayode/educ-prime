@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not } from 'typeorm';
 import { Utilisateur, RoleType } from './utilisateurs/entities/utilisateur.entity';
 import { Etablissement } from './etablissements/entities/etablissement.entity';
@@ -14,37 +13,27 @@ import { Concours } from './concours/entities/concours.entity';
 import { ContactsProfessionnel } from './contacts-professionnels/entities/contacts-professionnel.entity';
 import { Parcour } from './parcours/entities/parcour.entity';
 import { Category } from './categories/entities/category.entity';
+import { DataSourceResolver } from './config/data-source-resolver.service';
 
 @Injectable()
 export class AppService {
   constructor(
-    @InjectRepository(Utilisateur)
-    private utilisateursRepository: Repository<Utilisateur>,
-    @InjectRepository(Etablissement)
-    private etablissementsRepository: Repository<Etablissement>,
-    @InjectRepository(Filiere)
-    private filieresRepository: Repository<Filiere>,
-    @InjectRepository(Matiere)
-    private matieresRepository: Repository<Matiere>,
-    @InjectRepository(Epreuve)
-    private epreuvesRepository: Repository<Epreuve>,
-    @InjectRepository(Ressource)
-    private ressourcesRepository: Repository<Ressource>,
-    @InjectRepository(Publicite)
-    private publicitesRepository: Repository<Publicite>,
-    @InjectRepository(Evenement)
-    private evenementsRepository: Repository<Evenement>,
-    @InjectRepository(Opportunite)
-    private opportunitesRepository: Repository<Opportunite>,
-    @InjectRepository(Concours)
-    private concoursRepository: Repository<Concours>,
-    @InjectRepository(ContactsProfessionnel)
-    private contactsProfessionnelsRepository: Repository<ContactsProfessionnel>,
-    @InjectRepository(Parcour)
-    private parcoursRepository: Repository<Parcour>,
-    @InjectRepository(Category)
-    private categoriesRepository: Repository<Category>,
+    private readonly resolver: DataSourceResolver,
   ) { }
+
+  private get utilisateursRepository(): Repository<Utilisateur> { return this.resolver.getRepository(Utilisateur); }
+  private get etablissementsRepository(): Repository<Etablissement> { return this.resolver.getRepository(Etablissement); }
+  private get filieresRepository(): Repository<Filiere> { return this.resolver.getRepository(Filiere); }
+  private get matieresRepository(): Repository<Matiere> { return this.resolver.getRepository(Matiere); }
+  private get epreuvesRepository(): Repository<Epreuve> { return this.resolver.getRepository(Epreuve); }
+  private get ressourcesRepository(): Repository<Ressource> { return this.resolver.getRepository(Ressource); }
+  private get publicitesRepository(): Repository<Publicite> { return this.resolver.getRepository(Publicite); }
+  private get evenementsRepository(): Repository<Evenement> { return this.resolver.getRepository(Evenement); }
+  private get opportunitesRepository(): Repository<Opportunite> { return this.resolver.getRepository(Opportunite); }
+  private get concoursRepository(): Repository<Concours> { return this.resolver.getRepository(Concours); }
+  private get contactsProfessionnelsRepository(): Repository<ContactsProfessionnel> { return this.resolver.getRepository(ContactsProfessionnel); }
+  private get parcoursRepository(): Repository<Parcour> { return this.resolver.getRepository(Parcour); }
+  private get categoriesRepository(): Repository<Category> { return this.resolver.getRepository(Category); }
 
   async getStats(): Promise<{
     usersCount: number;

@@ -10,12 +10,14 @@ interface ApiError {
 class ApiClient {
   private baseURL: string;
   private token: string | null = null;
+  private country: string | null = null;
   private isRefreshing: boolean = false;
   private refreshSubscribers: Array<(token: string) => void> = [];
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
     this.token = localStorage.getItem('access_token');
+    this.country = localStorage.getItem('country');
   }
 
   setToken(token: string) {
@@ -29,13 +31,33 @@ class ApiClient {
     localStorage.removeItem('refresh_token');
   }
 
+  setCountry(country: string) {
+    this.country = country;
+    localStorage.setItem('country', country);
+  }
+
+  getCountry(): string | null {
+    return this.country;
+  }
+
+  clearCountry() {
+    this.country = null;
+    localStorage.removeItem('country');
+  }
+
+  private withCountry(endpoint: string): string {
+    if (!this.country) return endpoint;
+    const separator = endpoint.includes('?') ? '&' : '?';
+    return `${endpoint}${separator}country=${encodeURIComponent(this.country)}`;
+  }
+
   private async refreshToken(): Promise<string> {
     const refreshToken = localStorage.getItem('refresh_token');
     if (!refreshToken) {
       throw new Error('No refresh token available');
     }
 
-    const response = await fetch(`${this.baseURL}/auth/refresh`, {
+    const response = await fetch(`${this.baseURL}${this.withCountry('/auth/refresh')}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken }),
@@ -82,7 +104,7 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const url = `${this.baseURL}${endpoint}`;
+    const url = `${this.baseURL}${this.withCountry(endpoint)}`;
     const method = options.method || 'GET';
 
     try {
@@ -184,7 +206,7 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
+    const response = await fetch(`${this.baseURL}${this.withCountry(endpoint)}`, {
       method: 'GET',
       headers,
     });

@@ -4,7 +4,6 @@ import {
     NotFoundException,
     ConflictException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AppVersion, AppPlatform } from './entities/app-version.entity';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
@@ -12,13 +11,17 @@ import { CreateAppVersionDto } from './dto/create-app-version.dto';
 import { UpdateAppVersionDto } from './dto/update-app-version.dto';
 import { CheckVersionResponseDto } from './dto/check-version-response.dto';
 import { FilterAppVersionDto } from './dto/filter-app-version.dto';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class AppVersionService {
     constructor(
-        @InjectRepository(AppVersion)
-        private readonly appVersionRepository: Repository<AppVersion>,
+        private readonly resolver: DataSourceResolver,
     ) { }
+
+    private get appVersionRepository(): Repository<AppVersion> {
+        return this.resolver.getRepository(AppVersion);
+    }
 
     /**
      * Compare two semantic versions (x.y.z).

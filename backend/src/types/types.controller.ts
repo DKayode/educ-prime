@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Put, Param, Delete, ParseIntPipe, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiQuery } from '@nestjs/swagger';
-import { entite_type_enum } from '@prisma/client';
+import { EntiteType } from '../common/enums/entite-type.enum';
 import { TypesService } from './types.service';
 import { CreateTypeDto, UpdateTypeDto } from './dto/type.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -17,11 +17,11 @@ export class TypesController {
 
     @Get()
     @ApiOperation({ summary: 'Récupérer tous les types (paginé)' })
-    @ApiQuery({ name: 'entite_type', required: false, enum: entite_type_enum })
+    @ApiQuery({ name: 'entite_type', required: false, enum: EntiteType })
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAll(
-        @Query('entite_type') entite_type?: entite_type_enum,
+        @Query('entite_type') entite_type?: EntiteType,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {

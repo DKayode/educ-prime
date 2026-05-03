@@ -57,16 +57,14 @@ jobs:
 
             # Créer le fichier .env avec les secrets
             cat > .env << 'ENV_EOF'
-            DB_USERNAME=${{ secrets.DB_USERNAME }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            DB_NAME=${{ secrets.DB_NAME }}
+
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
             FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
             FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
-            DOCKER_IMAGE_BACKEND=ghcr.io/dkayode/educ-prime-backend:latest
-            DOCKER_IMAGE_FRONTEND=ghcr.io/dkayode/educ-prime-frontend:latest
+            DOCKER_IMAGE_BACKEND=ghcr.io/dkayode/edukia-backend:latest
+            DOCKER_IMAGE_FRONTEND=ghcr.io/dkayode/edukia-frontend:latest
             PORT=3000
             SMTP_HOST=${{ secrets.SMTP_HOST }}
             SMTP_PORT=${{ secrets.SMTP_PORT }}

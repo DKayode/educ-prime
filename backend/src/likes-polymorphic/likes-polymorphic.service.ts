@@ -1,116 +1,87 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { In, Repository } from 'typeorm';
+import { LikeUser } from './entities/like-user.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
+
+const VALID_MODELS = ['Forums', 'Parcours', 'Commentaires'];
 
 @Injectable()
 export class LikesPolymorphicService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(private readonly resolver: DataSourceResolver) { }
+
+    private get likesRepository(): Repository<LikeUser> {
+        return this.resolver.getRepository(LikeUser);
+    }
+
+    private assertValidModel(model: string) {
+        if (!VALID_MODELS.includes(model)) {
+            throw new BadRequestException(
+                `Invalid model: ${model}. Valid models are: ${VALID_MODELS.join(', ')}`,
+            );
+        }
+    }
 
     async toggleLike(model: string, id: number, userId: number) {
-        // Validate model if necessary
-        const validModels = ['Forums', 'Parcours', 'Commentaires'];
-        if (!validModels.includes(model)) {
-            throw new BadRequestException(`Invalid model: ${model}. Valid models are: Forums, Parcours, Commentaires`);
-        }
+        this.assertValidModel(model);
 
-        // Check if like exists
-        const existingLike = await this.prisma.likeUser.findFirst({
-            where: {
-                likeable_id: BigInt(id), // Assuming ID passed is number, convert to BigInt
-                likeable_type: model,
-                user_id: userId,
-            },
+        const existing = await this.likesRepository.findOne({
+            where: { likeable_id: String(id), likeable_type: model, user_id: userId },
         });
 
-        if (existingLike) {
-            // Remove like
-            await this.prisma.likeUser.delete({
-                where: { id: existingLike.id },
-            });
+        if (existing) {
+            await this.likesRepository.remove(existing);
             return { status: 'unliked', model, id };
-        } else {
-            // Create like
-            await this.prisma.likeUser.create({
-                data: {
-                    likeable_id: BigInt(id),
-                    likeable_type: model,
-                    user_id: userId,
-                },
-            });
-            return { status: 'liked', model, id };
         }
+
+        const like = this.likesRepository.create({
+            likeable_id: String(id),
+            likeable_type: model,
+            user_id: userId,
+        });
+        await this.likesRepository.save(like);
+        return { status: 'liked', model, id };
     }
 
-    // Helper to count likes (can be used by other services)
-    // Helper to count likes (can be used by other services)
     async countLikes(model: string, id: number): Promise<number> {
-        const validModels = ['Forums', 'Parcours', 'Commentaires'];
-        if (!validModels.includes(model)) {
-            throw new BadRequestException(`Invalid model: ${model}. Valid models are: Forums, Parcours, Commentaires`);
-        }
-
-        return this.prisma.likeUser.count({
-            where: {
-                likeable_id: BigInt(id),
-                likeable_type: model,
-            },
+        this.assertValidModel(model);
+        return this.likesRepository.count({
+            where: { likeable_id: String(id), likeable_type: model },
         });
     }
 
-    // Helper to check if user liked
     async isLiked(model: string, id: number, userId: number): Promise<boolean> {
-        const count = await this.prisma.likeUser.count({
-            where: {
-                likeable_id: BigInt(id),
-                likeable_type: model,
-                user_id: userId,
-            },
+        const count = await this.likesRepository.count({
+            where: { likeable_id: String(id), likeable_type: model, user_id: userId },
         });
         return count > 0;
     }
 
-    // Helper to get a list of IDs liked by a user from a given list of IDs
     async getLikedIdsByUser(model: string, ids: number[], userId: number): Promise<number[]> {
-        const validModels = ['Forums', 'Parcours', 'Commentaires'];
-        if (!validModels.includes(model)) {
-            throw new BadRequestException(`Invalid model: ${model}. Valid models are: Forums, Parcours, Commentaires`);
-        }
-
+        this.assertValidModel(model);
         if (ids.length === 0) return [];
 
-        const likes = await this.prisma.likeUser.findMany({
+        const likes = await this.likesRepository.find({
             where: {
                 likeable_type: model,
                 user_id: userId,
-                likeable_id: {
-                    in: ids.map(id => BigInt(id))
-                }
+                likeable_id: In(ids.map(id => String(id))),
             },
-            select: {
-                likeable_id: true
-            }
+            select: ['likeable_id'],
         });
-
         return likes.map(like => Number(like.likeable_id));
     }
+
     async getLikesCounts(model: string, ids: number[]): Promise<Map<number, number>> {
         if (ids.length === 0) return new Map();
 
-        const counts = await this.prisma.likeUser.groupBy({
-            by: ['likeable_id'],
-            where: {
-                likeable_type: model,
-                likeable_id: { in: ids.map(id => BigInt(id)) }
-            },
-            _count: {
-                likeable_id: true
-            }
-        });
+        const rows = await this.likesRepository.createQueryBuilder('like')
+            .select('like.likeable_id', 'likeable_id')
+            .addSelect('COUNT(like.id)', 'count')
+            .where('like.likeable_type = :type', { type: model })
+            .andWhere('like.likeable_id IN (:...ids)', { ids: ids.map(id => String(id)) })
+            .groupBy('like.likeable_id')
+            .getRawMany<{ likeable_id: string, count: string }>();
 
-        const map = new Map<number, number>();
-        counts.forEach(c => {
-            map.set(Number(c.likeable_id), c._count.likeable_id);
-        });
-
-        return map;
+        return new Map(rows.map(r => [Number(r.likeable_id), parseInt(r.count, 10)]));
     }
 }

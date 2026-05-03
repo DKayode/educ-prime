@@ -12,8 +12,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/educ-prime-backend
-
+  BACKEND_IMAGE_NAME: ${{ github.repository_owner }}/edukia-backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository_owner }}/edukia-frontend
 jobs:
   build-and-push-backend:
     runs-on: ubuntu-latest
@@ -40,11 +40,16 @@ jobs:
           mkdir -p backend/config
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > backend/config/firebase-serviceaccount.json
 
+      - name: Create country config file
+        run: |
+          mkdir -p backend/config
+          echo '${{ secrets.COUNTRY_CONFIG }}' > backend/config/config.json
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=sha,prefix={{branch}}-
@@ -89,7 +94,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/educ-prime-frontend
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=sha,prefix={{branch}}-

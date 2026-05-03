@@ -1,19 +1,22 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { CreateFavoriDto } from './dto/create-favoris.dto';
 import { UpdateFavorisDto } from './dto/update-favoris.dto';
 import { Favori } from './entities/favoris.entity';
 import { FavoriQueryDto } from './dto/favoris-query.dto';
 import { ParcoursService } from '../parcours/parcours.service';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class FavorisService {
   constructor(
-    @InjectRepository(Favori)
-    private favoriRepository: Repository<Favori>,
+    private readonly resolver: DataSourceResolver,
     private parcoursService: ParcoursService,
   ) { }
+
+  private get favoriRepository(): Repository<Favori> {
+    return this.resolver.getRepository(Favori);
+  }
 
   /**
    * Ajoute un parcours aux favoris d'un utilisateur

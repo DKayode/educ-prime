@@ -6,7 +6,7 @@ interface AuthContextType {
   user: Utilisateur | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, country: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -40,10 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    console.log('[Auth] Connexion en cours...');
+  const login = async (email: string, password: string, country: string) => {
+    console.log(`[Auth] Connexion en cours (country=${country})...`);
     try {
-      const response = await authService.login({ email, mot_de_passe: password });
+      const response = await authService.login({ email, mot_de_passe: password }, country);
       setUser(response.utilisateur || null);
       console.log('[Auth] ✓ Connexion réussie');
     } catch (error) {

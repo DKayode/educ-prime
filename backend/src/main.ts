@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { CountryConfigService } from './config/country-config.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -54,10 +55,35 @@ async function bootstrap() {
   }));
 
   // Configuration Swagger
+  const countryConfig = app.get(CountryConfigService);
+  const configuredCountries = countryConfig.getCountries();
+
   const config = new DocumentBuilder()
-    .setTitle('API Blog - Parcours')
-    .setDescription('API pour la gestion des categories, parcours, commentaires, likes et favoris')
+    .setTitle('API Edukia')
+    .setDescription(
+      'API multi-pays. Toutes les requêtes acceptent un paramètre de requête `country` ' +
+      '(slug du pays cible). En son absence, le backend utilise `benin` par défaut. ' +
+      `Pays configurés: ${configuredCountries.join(', ') || 'aucun'}.`,
+    )
     .setVersion('1.0')
+    .addBearerAuth()
+    .addGlobalParameters({
+      name: 'country',
+      in: 'query',
+      required: false,
+      description:
+        'Slug du pays cible. Détermine la base de données utilisée pour la requête. ' +
+        "Si omis, le backend utilise 'benin' par défaut.",
+      schema: {
+        type: 'string',
+        ...(configuredCountries.length > 0 ? { enum: configuredCountries } : {}),
+        default: 'benin',
+        example: 'benin',
+      },
+    })
+    .addTag('countries')
+    .addTag('Auth')
+    .addTag('utilisateurs')
     .addTag('categories')
     .addTag('parcours')
     .addTag('commentaires')
@@ -66,6 +92,17 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
+
+  // The /countries endpoint is the bootstrap endpoint: clients call it
+  // *to discover* which countries exist, so showing a country selector
+  // on it would be circular. Strip the global param from that operation.
+  const countriesPath = document.paths?.['/countries'];
+  if (countriesPath?.get?.parameters) {
+    countriesPath.get.parameters = countriesPath.get.parameters.filter(
+      (p: any) => p.name !== 'country',
+    );
+  }
+
   SwaggerModule.setup('api', app, document);
 
   await app.listen(process.env.PORT || 3000);

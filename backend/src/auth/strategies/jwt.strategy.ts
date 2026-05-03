@@ -16,6 +16,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(req: any, payload: JwtPayload) {
+    const reqCountry = req.country ?? 'benin';
+    const tokenCountry = payload.country ?? 'benin';
+    if (tokenCountry !== reqCountry) {
+      throw new UnauthorizedException(
+        `Token issued for '${tokenCountry}' but request is for '${reqCountry}'`,
+      );
+    }
+
     const token = req.headers.authorization?.split(' ')[1];
     if (token) {
       const isBlacklisted = await this.authService.isTokenBlacklisted(token);
@@ -23,6 +31,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Token blacklisté/révoqué');
       }
     }
-    return { utilisateurId: payload.sub, email: payload.email, role: payload.role };
+    return {
+      utilisateurId: payload.sub,
+      email: payload.email,
+      role: payload.role,
+      country: tokenCountry,
+    };
   }
 }

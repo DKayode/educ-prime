@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -7,14 +6,18 @@ import { Category } from './entities/category.entity';
 import { CategoryQueryDto } from './dto/category-query.dto';
 import { slugify } from '../utils/slugify';
 import { FichiersService } from 'src/fichiers/fichiers.service';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class CategoriesService {
   constructor(
-    @InjectRepository(Category)
-    private categoryRepository: Repository<Category>,
+    private readonly resolver: DataSourceResolver,
     private fichiersService: FichiersService,
   ) { }
+
+  private get categoryRepository(): Repository<Category> {
+    return this.resolver.getRepository(Category);
+  }
 
   async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
     // Générer le slug à partir du nom

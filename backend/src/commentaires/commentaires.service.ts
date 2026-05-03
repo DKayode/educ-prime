@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, MoreThanOrEqual } from 'typeorm';
 import { CreateCommentaireDto } from './dto/create-commentaire.dto';
 import { UpdateCommentaireDto } from './dto/update-commentaire.dto';
@@ -7,15 +6,19 @@ import { Commentaire } from './entities/commentaire.entity';
 import { CommentaireQueryDto } from './dto/commentaire-query.dto';
 import { ParcoursService } from '../parcours/parcours.service';
 import { UtilisateursService } from '../utilisateurs/utilisateurs.service';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class CommentairesService {
   constructor(
-    @InjectRepository(Commentaire)
-    private commentaireRepository: Repository<Commentaire>,
+    private readonly resolver: DataSourceResolver,
     private parcoursService: ParcoursService,
     private utilisateursService: UtilisateursService,
   ) { }
+
+  private get commentaireRepository(): Repository<Commentaire> {
+    return this.resolver.getRepository(Commentaire);
+  }
 
   /**
    * Crée un nouveau commentaire

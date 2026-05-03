@@ -1,6 +1,6 @@
 import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { entite_type_enum } from '@prisma/client';
+import { EntiteType } from '../../common/enums/entite-type.enum';
 
 export class CreateTypeDto {
     @ApiProperty({ description: 'Nom du type', example: 'Développement Web' })
@@ -13,10 +13,10 @@ export class CreateTypeDto {
     @IsOptional()
     description?: string;
 
-    @ApiPropertyOptional({ description: 'Entité à laquelle ce type est lié', enum: entite_type_enum, example: entite_type_enum.Services })
-    @IsEnum(entite_type_enum)
+    @ApiPropertyOptional({ description: 'Entité à laquelle ce type est lié', enum: EntiteType, example: EntiteType.SERVICES })
+    @IsEnum(EntiteType)
     @IsOptional()
-    entite_type?: entite_type_enum;
+    entite_type?: EntiteType;
 }
 
 export class UpdateTypeDto {
@@ -30,8 +30,8 @@ export class UpdateTypeDto {
     @IsOptional()
     description?: string;
 
-    @ApiPropertyOptional({ description: 'Entité à laquelle ce type est lié', enum: entite_type_enum, example: entite_type_enum.Services })
-    @IsEnum(entite_type_enum)
+    @ApiPropertyOptional({ description: 'Entité à laquelle ce type est lié', enum: EntiteType, example: EntiteType.SERVICES })
+    @IsEnum(EntiteType)
     @IsOptional()
-    entite_type?: entite_type_enum;
+    entite_type?: EntiteType;
 }

@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { FichiersService } from '../fichiers/fichiers.service';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Evenement } from './entities/evenement.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CreerEvenementDto } from './dto/create-evenement.dto';
 import { UpdateEvenementDto } from './dto/update-evenement.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -14,10 +14,13 @@ export class EvenementsService {
   private readonly logger = new Logger(EvenementsService.name);
 
   constructor(
-    @InjectRepository(Evenement)
-    private readonly evenementRepository: Repository<Evenement>,
+    private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
   ) { }
+
+  private get evenementRepository(): Repository<Evenement> {
+    return this.resolver.getRepository(Evenement);
+  }
 
   async create(creerEvenementDto: CreerEvenementDto) {
     this.logger.log(`Création d'un événement: ${creerEvenementDto.titre}`);
