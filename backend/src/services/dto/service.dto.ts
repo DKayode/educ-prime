@@ -1,6 +1,6 @@
 import { IsString, IsNotEmpty, IsNumber, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { services_status_enum } from '@prisma/client';
+import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
 
 export class CreateServiceDto {
     @ApiProperty({ description: 'Titre du service', example: 'Développement d\'une application web' })
@@ -92,8 +92,8 @@ export class UpdateServiceDto {
 }
 
 export class UpdateServiceStatusDto {
-    @ApiProperty({ description: 'Nouveau statut du service', enum: services_status_enum, example: services_status_enum.approved })
-    @IsEnum(services_status_enum)
+    @ApiProperty({ description: 'Nouveau statut du service', enum: ServiceStatusEnum, example: ServiceStatusEnum.APPROVED })
+    @IsEnum(ServiceStatusEnum)
     @IsNotEmpty()
-    status: services_status_enum;
+    status: ServiceStatusEnum;
 }

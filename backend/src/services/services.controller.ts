@@ -7,7 +7,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
-import { services_status_enum } from '@prisma/client';
+import { ServiceStatusEnum } from '../common/enums/service-status.enum';
 
 @ApiTags('services')
 @Controller('services')
@@ -73,11 +73,11 @@ export class ServicesController {
     @Get('all')
     @Roles(RoleType.ADMIN)
     @ApiOperation({ summary: 'Récupérer tous les services (Admin)' })
-    @ApiQuery({ name: 'status', required: false, enum: services_status_enum })
+    @ApiQuery({ name: 'status', required: false, enum: ServiceStatusEnum })
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAllAdmin(
-        @Query('status') status?: services_status_enum,
+        @Query('status') status?: ServiceStatusEnum,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {

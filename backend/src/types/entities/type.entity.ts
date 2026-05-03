@@ -1,11 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 import { Service } from '../../services/entities/service.entity';
 import { Offre } from '../../offres/entities/offre.entity';
+import { EntiteType } from '../../common/enums/entite-type.enum';
 
-export enum EntiteType {
-    SERVICES = 'Services',
-    OFFRES = 'Offres',
-}
+export { EntiteType };
 
 @Entity('types')
 export class Type {
