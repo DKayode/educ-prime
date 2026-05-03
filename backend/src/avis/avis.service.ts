@@ -1,22 +1,21 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Avis } from './entities/avis.entity';
 import { Service } from '../services/entities/service.entity';
 import { Offre } from '../offres/entities/offre.entity';
 import { EntiteType } from '../common/enums/entite-type.enum';
 import { CreateAvisDto, UpdateAvisDto } from './dto/avis.dto';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class AvisService {
     constructor(
-        @InjectRepository(Avis)
-        private readonly avisRepository: Repository<Avis>,
-        @InjectRepository(Service)
-        private readonly servicesRepository: Repository<Service>,
-        @InjectRepository(Offre)
-        private readonly offresRepository: Repository<Offre>,
+        private readonly resolver: DataSourceResolver,
     ) { }
+
+    private get avisRepository(): Repository<Avis> { return this.resolver.getRepository(Avis); }
+    private get servicesRepository(): Repository<Service> { return this.resolver.getRepository(Service); }
+    private get offresRepository(): Repository<Offre> { return this.resolver.getRepository(Offre); }
 
     async create(userId: number, createAvisDto: CreateAvisDto) {
         const { avisable_id, avisable_type, note, comment } = createAvisDto;

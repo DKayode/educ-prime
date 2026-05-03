@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePrestataireDto, UpdatePrestataireDto } from './dto/prestataire.dto';
@@ -8,17 +7,18 @@ import { TypeFichier } from '../fichiers/entities/fichier.entity';
 
 import { Prestataire } from './entities/prestataire.entity';
 import { Competence } from '../competences/entities/competence.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class PrestatairesService {
     constructor(
-        @InjectRepository(Prestataire)
-        private prestatairesRepository: Repository<Prestataire>,
-        @InjectRepository(Competence)
-        private competencesRepository: Repository<Competence>,
+        private readonly resolver: DataSourceResolver,
         private prisma: PrismaService,
         private fichiersService: FichiersService
     ) { }
+
+    private get prestatairesRepository(): Repository<Prestataire> { return this.resolver.getRepository(Prestataire); }
+    private get competencesRepository(): Repository<Competence> { return this.resolver.getRepository(Competence); }
 
     private formatUtilisateur(user: any) {
         if (!user) return null;

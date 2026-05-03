@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, ILike } from 'typeorm';
 import { PrismaService } from '../prisma/prisma.service';
 import { LikesPolymorphicService } from '../likes-polymorphic/likes-polymorphic.service';
@@ -10,16 +9,20 @@ import { PaginationResponse } from '../common/interfaces/pagination-response.int
 
 import { FichiersService } from '../fichiers/fichiers.service';
 import { Forum } from './entities/forum.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class ForumService {
     constructor(
-        @InjectRepository(Forum)
-        private readonly forumRepository: Repository<Forum>,
+        private readonly resolver: DataSourceResolver,
         private readonly prisma: PrismaService,
         private readonly likesService: LikesPolymorphicService,
         private readonly fichiersService: FichiersService,
     ) { }
+
+    private get forumRepository(): Repository<Forum> {
+        return this.resolver.getRepository(Forum);
+    }
 
     async create(createForumDto: CreateForumDto, userId: number) {
         const forum = this.forumRepository.create({

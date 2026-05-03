@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Recruteur } from './entities/recruteur.entity';
 import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
@@ -9,17 +8,18 @@ import { FilterRecruteurDto } from './dto/filter-recruteur.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { TypeFichier } from '../fichiers/entities/fichier.entity';
 import { MailService } from '../mail/mail.service';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class RecruteursService {
     constructor(
-        @InjectRepository(Recruteur)
-        private readonly recruteursRepository: Repository<Recruteur>,
-        @InjectRepository(Utilisateur)
-        private readonly utilisateursRepository: Repository<Utilisateur>,
+        private readonly resolver: DataSourceResolver,
         private readonly fichiersService: FichiersService,
         private readonly mailService: MailService,
     ) { }
+
+    private get recruteursRepository(): Repository<Recruteur> { return this.resolver.getRepository(Recruteur); }
+    private get utilisateursRepository(): Repository<Utilisateur> { return this.resolver.getRepository(Utilisateur); }
 
     private formatRecruteur(recruteur: Recruteur | null) {
         if (!recruteur) return recruteur;

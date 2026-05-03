@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, ILike, In, Repository } from 'typeorm';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { Service } from './entities/service.entity';
 import { Type } from '../types/entities/type.entity';
 import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
@@ -33,19 +33,16 @@ export class ServicesService {
     private readonly logger = new Logger(ServicesService.name);
 
     constructor(
-        @InjectRepository(Service)
-        private readonly servicesRepository: Repository<Service>,
-        @InjectRepository(Type)
-        private readonly typesRepository: Repository<Type>,
-        @InjectRepository(Utilisateur)
-        private readonly utilisateursRepository: Repository<Utilisateur>,
-        @InjectRepository(Prestataire)
-        private readonly prestatairesRepository: Repository<Prestataire>,
-        @InjectRepository(Avis)
-        private readonly avisRepository: Repository<Avis>,
+        private readonly resolver: DataSourceResolver,
         private readonly mailService: MailService,
         private readonly fichiersService: FichiersService,
     ) { }
+
+    private get servicesRepository(): Repository<Service> { return this.resolver.getRepository(Service); }
+    private get typesRepository(): Repository<Type> { return this.resolver.getRepository(Type); }
+    private get utilisateursRepository(): Repository<Utilisateur> { return this.resolver.getRepository(Utilisateur); }
+    private get prestatairesRepository(): Repository<Prestataire> { return this.resolver.getRepository(Prestataire); }
+    private get avisRepository(): Repository<Avis> { return this.resolver.getRepository(Avis); }
 
     private async getAvisStats(serviceId: number): Promise<AvisStats> {
         const row = await this.avisRepository.createQueryBuilder('avis')

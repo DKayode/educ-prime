@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, ILike } from 'typeorm';
 import { PrismaService } from '../prisma/prisma.service';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CreateOffreDto, UpdateOffreDto } from './dto/offre.dto';
 import { services_status_enum } from '@prisma/client';
 
@@ -25,16 +25,15 @@ export interface OffreFilterDto {
 @Injectable()
 export class OffresService {
     constructor(
-        @InjectRepository(Offre)
-        private offresRepository: Repository<Offre>,
-        @InjectRepository(Type)
-        private typesRepository: Repository<Type>,
-        @InjectRepository(Competence)
-        private competencesRepository: Repository<Competence>,
+        private readonly resolver: DataSourceResolver,
         private prisma: PrismaService,
         private fichiersService: FichiersService,
         private mailService: MailService
     ) { }
+
+    private get offresRepository(): Repository<Offre> { return this.resolver.getRepository(Offre); }
+    private get typesRepository(): Repository<Type> { return this.resolver.getRepository(Type); }
+    private get competencesRepository(): Repository<Competence> { return this.resolver.getRepository(Competence); }
 
     private async getAvisStats(offreId: number) {
         const avisAgg = await this.prisma.avis.aggregate({
