@@ -1,8 +1,9 @@
 import { Injectable, ConflictException, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets, LessThan, IsNull } from 'typeorm';
 import { Utilisateur } from './entities/utilisateur.entity';
-import { PrismaService } from '../prisma/prisma.service';
+import { Prestataire } from '../prestataires/entities/prestataire.entity';
+import { Recruteur } from '../recruteurs/entities/recruteur.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { FilterUtilisateurDto } from './dto/filter-utilisateur.dto';
 import { InscriptionDto } from './dto/inscription.dto';
@@ -25,13 +26,15 @@ export class UtilisateursService {
   private readonly logger = new Logger(UtilisateursService.name);
 
   constructor(
-    @InjectRepository(Utilisateur)
-    private readonly utilisateursRepository: Repository<Utilisateur>,
+    private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
     private readonly firebaseService: FirebaseService,
     private readonly mailService: MailService,
-    private readonly prisma: PrismaService,
   ) { }
+
+  private get utilisateursRepository(): Repository<Utilisateur> {
+    return this.resolver.getRepository(Utilisateur);
+  }
 
   async findByEmail(email: string) {
     this.logger.log(`Recherche de l'utilisateur par email: ${email}`);
@@ -347,15 +350,15 @@ export class UtilisateursService {
   }
 
   async isPrestataire(userId: number): Promise<{ isPrestataire: boolean }> {
-    const prestataire = await this.prisma.prestataires.findUnique({
-      where: { utilisateur_id: userId }
+    const prestataire = await this.resolver.getRepository(Prestataire).findOne({
+      where: { utilisateur_id: userId },
     });
     return { isPrestataire: !!prestataire };
   }
 
   async isRecruteur(userId: number): Promise<{ isRecruteur: boolean }> {
-    const recruteur = await this.prisma.recruteurs.findUnique({
-      where: { utilisateur_id: userId }
+    const recruteur = await this.resolver.getRepository(Recruteur).findOne({
+      where: { utilisateur_id: userId },
     });
     return { isRecruteur: !!recruteur };
   }
