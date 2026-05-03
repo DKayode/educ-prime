@@ -6,6 +6,7 @@ import { NiveauEtude } from '../../niveau-etude/entities/niveau-etude.entity';
 import { Commentaire } from 'src/commentaires/entities/commentaire.entity';
 import { Exclude } from 'class-transformer';
 import { NotificationUtilisateur } from 'src/notifications/entities/notification-utilisateur.entity';
+import { Forum } from '../../forum/entities/forum.entity';
 import { Offre } from '../../offres/entities/offre.entity';
 import { Service } from '../../services/entities/service.entity';
 import { Prestataire } from '../../prestataires/entities/prestataire.entity';
@@ -122,6 +123,9 @@ export class Utilisateur {
 
   @OneToMany(() => Utilisateur, (utilisateur) => utilisateur.parrain)
   filleuls: Utilisateur[];
+
+  @OneToMany(() => Forum, forum => forum.user)
+  forums: Forum[];
 
   @OneToMany(() => Offre, offre => offre.utilisateur)
   offres: Offre[];

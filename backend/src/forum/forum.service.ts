@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, IsNull, ILike } from 'typeorm';
 import { PrismaService } from '../prisma/prisma.service';
 import { LikesPolymorphicService } from '../likes-polymorphic/likes-polymorphic.service';
 import { CreateForumDto } from './dto/create-forum.dto';
@@ -7,26 +9,28 @@ import { FilterForumDto } from './dto/filter-forum.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 
 import { FichiersService } from '../fichiers/fichiers.service';
+import { Forum } from './entities/forum.entity';
 
 @Injectable()
 export class ForumService {
     constructor(
+        @InjectRepository(Forum)
+        private readonly forumRepository: Repository<Forum>,
         private readonly prisma: PrismaService,
         private readonly likesService: LikesPolymorphicService,
         private readonly fichiersService: FichiersService,
     ) { }
 
     async create(createForumDto: CreateForumDto, userId: number) {
-        return this.prisma.forum.create({
-            data: {
-                ...createForumDto,
-                user_id: userId,
-            },
+        const forum = this.forumRepository.create({
+            ...createForumDto,
+            user_id: userId,
         });
+        return this.forumRepository.save(forum);
     }
 
     async update(id: number, updateForumDto: UpdateForumDto, userId: number) {
-        const forum = await this.prisma.forum.findUnique({ where: { id } });
+        const forum = await this.forumRepository.findOne({ where: { id } });
         if (!forum) {
             throw new NotFoundException(`Forum with ID ${id} not found`);
         }
@@ -35,10 +39,8 @@ export class ForumService {
             throw new ForbiddenException(`You are not authorized to update this forum`);
         }
 
-        return this.prisma.forum.update({
-            where: { id },
-            data: updateForumDto,
-        });
+        Object.assign(forum, updateForumDto);
+        return this.forumRepository.save(forum);
     }
 
     private formatToParisTime(date: Date): string {
@@ -58,39 +60,20 @@ export class ForumService {
         const skip = (page - 1) * limit;
         const take = limit;
 
-        const where = search
-            ? {
-                theme: {
-                    contains: search,
-                    mode: 'insensitive' as const,
-                },
-                deleted_at: null,
-            }
-            : { deleted_at: null };
+        const where: any = { deleted_at: IsNull() };
+        if (search) {
+            where.theme = ILike(`%${search}%`);
+        }
 
-        const [forums, total] = await Promise.all([
-            this.prisma.forum.findMany({
-                where,
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            nom: true,
-                            prenom: true,
-                            pseudo: true,
-                            email: true,
-                            sexe: true,
-                        },
-                    },
-                },
-                orderBy: {
-                    created_at: sort_order.toLowerCase() as 'asc' | 'desc',
-                },
-                skip,
-                take,
-            }),
-            this.prisma.forum.count({ where }),
-        ]);
+        const [forums, total] = await this.forumRepository.findAndCount({
+            where,
+            relations: ['user'],
+            order: {
+                created_at: sort_order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC',
+            },
+            skip,
+            take,
+        });
 
         // Get list of forum IDs to check likes efficiently
         const forumIds = forums.map(f => f.id);
@@ -109,10 +92,19 @@ export class ForumService {
                 }
             });
 
-            const { user_id, ...forumWithoutUserId } = forum;
+            const { user_id, user, ...forumWithoutUserId } = forum;
+            const safeUser = user ? {
+                id: user.id,
+                nom: user.nom,
+                prenom: user.prenom,
+                pseudo: user.pseudo,
+                email: user.email,
+                sexe: user.sexe,
+            } : null;
 
             return {
                 ...forumWithoutUserId,
+                user: safeUser,
                 created_at: this.formatToParisTime(forum.created_at),
                 updated_at: this.formatToParisTime(forum.updated_at),
                 nb_comment,
@@ -137,20 +129,9 @@ export class ForumService {
     }
 
     async findOne(id: number, userId: number) {
-        const forum = await this.prisma.forum.findFirst({
-            where: { id, deleted_at: null },
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        nom: true,
-                        prenom: true,
-                        pseudo: true,
-                        email: true,
-                        sexe: true,
-                    },
-                },
-            },
+        const forum = await this.forumRepository.findOne({
+            where: { id, deleted_at: IsNull() },
+            relations: ['user'],
         });
 
         if (!forum) return null;
@@ -166,10 +147,19 @@ export class ForumService {
 
         const isLiked = await this.likesService.isLiked('Forums', forum.id, userId);
 
-        const { user_id, ...forumWithoutUserId } = forum;
+        const { user_id, user, ...forumWithoutUserId } = forum;
+        const safeUser = user ? {
+            id: user.id,
+            nom: user.nom,
+            prenom: user.prenom,
+            pseudo: user.pseudo,
+            email: user.email,
+            sexe: user.sexe,
+        } : null;
 
         return {
             ...forumWithoutUserId,
+            user: safeUser,
             created_at: this.formatToParisTime(forum.created_at),
             updated_at: this.formatToParisTime(forum.updated_at),
             nb_like,
@@ -200,10 +190,9 @@ export class ForumService {
             await this.deleteCommentRecursively(comment.id);
         }
 
-        // 3. Remove the Forum itself
-        return this.prisma.forum.delete({
-            where: { id },
-        });
+        // 3. Soft Remove the Forum itself
+        await this.forumRepository.softDelete(id);
+        return { message: "Forum deleted successfully" };
     }
 
     private async deleteCommentRecursively(commentId: number) {
@@ -228,32 +217,26 @@ export class ForumService {
 
     async uploadPhoto(id: number, file: Express.Multer.File, userId: number) {
         // Check if forum exists
-        const forum = await this.prisma.forum.findUnique({ where: { id } });
+        const forum = await this.forumRepository.findOne({ where: { id } });
         if (!forum) {
             throw new Error(`Forum with ID ${id} not found`);
         }
 
-        // Prepare upload data
-        // We reuse FichierUploadData interface structure roughly
         const uploadData = {
-            type: 'FORUMS', // TypeFichier.FORUMS
+            type: 'FORUMS',
             entityId: id,
         } as any;
 
-        // Call FichiersService
         const result = await this.fichiersService.uploadFile(file, userId, uploadData);
 
-        // Update Forum with photo URL
-        await this.prisma.forum.update({
-            where: { id },
-            data: { photo: result.url }
-        });
+        forum.photo = result.url;
+        await this.forumRepository.save(forum);
 
         return result;
     }
 
     async getPhoto(id: number) {
-        const forum = await this.prisma.forum.findUnique({ where: { id } });
+        const forum = await this.forumRepository.findOne({ where: { id } });
         if (!forum) {
             throw new Error(`Forum with ID ${id} not found`);
         }

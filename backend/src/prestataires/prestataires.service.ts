@@ -1,40 +1,72 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In } from 'typeorm';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePrestataireDto, UpdatePrestataireDto } from './dto/prestataire.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { TypeFichier } from '../fichiers/entities/fichier.entity';
 
+import { Prestataire } from './entities/prestataire.entity';
+import { Competence } from '../competences/entities/competence.entity';
+
 @Injectable()
 export class PrestatairesService {
     constructor(
+        @InjectRepository(Prestataire)
+        private prestatairesRepository: Repository<Prestataire>,
+        @InjectRepository(Competence)
+        private competencesRepository: Repository<Competence>,
         private prisma: PrismaService,
         private fichiersService: FichiersService
     ) { }
 
-    private readonly includeRelations = {
-        competences: true,
-        utilisateurs: {
-            select: {
-                id: true,
-                uuid: true,
-                nom: true,
-                prenom: true,
-                email: true
-            }
-        }
-    };
-
-    private formatPrestataire(prestataire: any) {
-        if (!prestataire) return prestataire;
-        const { utilisateur_id, utilisateurs, ...rest } = prestataire;
+    private formatUtilisateur(user: any) {
+        if (!user) return null;
         return {
-            ...rest,
-            utilisateur: utilisateurs || null
+            id: user.id,
+            uuid: user.uuid,
+            nom: user.nom,
+            prenom: user.prenom,
+            email: user.email
         };
     }
 
+    private async formatPrestataire(prestataire: Prestataire) {
+        if (!prestataire) return prestataire;
+        
+        let mappedUser = null;
+        if (prestataire.utilisateur_id) {
+            const user = await this.prisma.utilisateurs.findUnique({
+                where: { id: prestataire.utilisateur_id }
+            });
+            mappedUser = this.formatUtilisateur(user);
+        }
+
+        return {
+            ...prestataire,
+            utilisateur: mappedUser
+        };
+    }
+
+    private async formatManyPrestataires(prestataires: Prestataire[]) {
+        if (!prestataires.length) return [];
+
+        const userIds = [...new Set(prestataires.map(p => p.utilisateur_id))].filter(Boolean);
+        const users = await this.prisma.utilisateurs.findMany({
+            where: { id: { in: userIds } }
+        });
+        const userMap = new Map(users.map(u => [u.id, u]));
+
+        return prestataires.map(prestataire => {
+            const user = userMap.get(prestataire.utilisateur_id);
+            return {
+                ...prestataire,
+                utilisateur: this.formatUtilisateur(user)
+            };
+        });
+    }
+
     async create(createPrestataireDto: CreatePrestataireDto, utilisateurId: number) {
-        // Check if user exists and is verified
         const user = await this.prisma.utilisateurs.findUnique({
             where: { id: utilisateurId },
         });
@@ -47,8 +79,7 @@ export class PrestatairesService {
             throw new ForbiddenException("User email is not verified");
         }
 
-        // Check if prestataire profile already exists for this user
-        const existingProfile = await this.prisma.prestataires.findUnique({
+        const existingProfile = await this.prestatairesRepository.findOne({
             where: { utilisateur_id: utilisateurId },
         });
 
@@ -58,44 +89,45 @@ export class PrestatairesService {
 
         const { utilisateur_id: _excluded, competences, ...prestataireData } = createPrestataireDto as any;
 
-        // Verify if competences exist before connecting
+        let resolvedCompetences: Competence[] = [];
         if (competences && competences.length > 0) {
-            const existingCompetences = await this.prisma.competences.findMany({
-                where: { slug: { in: competences } },
+            resolvedCompetences = await this.competencesRepository.find({
+                where: { slug: In(competences) },
             });
-            if (existingCompetences.length !== competences.length) {
-                const existingSlugs = existingCompetences.map(c => c.slug);
+            if (resolvedCompetences.length !== competences.length) {
+                const existingSlugs = resolvedCompetences.map(c => c.slug);
                 const missingSlugs = competences.filter((slug: string) => !existingSlugs.includes(slug));
                 throw new BadRequestException(`Les compétences suivantes sont introuvables: ${missingSlugs.join(', ')}`);
             }
         }
 
-        // Create the profile
-        const prestataire = await this.prisma.prestataires.create({
-            data: {
-                ...prestataireData,
-                utilisateur_id: utilisateurId,
-                competences: competences ? {
-                    connect: competences.map(slug => ({ slug }))
-                } : undefined
-            },
-            include: this.includeRelations
+        const newPrestataire: Prestataire = this.prestatairesRepository.create({
+            ...prestataireData,
+            utilisateur_id: utilisateurId,
+            competences: resolvedCompetences
+        } as Partial<Prestataire>);
+
+        const savedPrestataire = await this.prestatairesRepository.save(newPrestataire);
+
+        const fullPrestataire = await this.prestatairesRepository.findOne({
+            where: { id: savedPrestataire.id },
+            relations: ['competences']
         });
 
-        return this.formatPrestataire(prestataire);
+        return this.formatPrestataire(fullPrestataire);
     }
 
     async findAll() {
-        const prestataires = await this.prisma.prestataires.findMany({
-            include: this.includeRelations
+        const prestataires = await this.prestatairesRepository.find({
+            relations: ['competences']
         });
-        return prestataires.map(p => this.formatPrestataire(p));
+        return this.formatManyPrestataires(prestataires);
     }
 
     async findOne(id: number) {
-        const prestataire = await this.prisma.prestataires.findUnique({
+        const prestataire = await this.prestatairesRepository.findOne({
             where: { id },
-            include: this.includeRelations
+            relations: ['competences']
         });
 
         if (!prestataire) {
@@ -106,9 +138,9 @@ export class PrestatairesService {
     }
 
     async findProfile(utilisateurId: number) {
-        const profile = await this.prisma.prestataires.findUnique({
+        const profile = await this.prestatairesRepository.findOne({
             where: { utilisateur_id: utilisateurId },
-            include: this.includeRelations
+            relations: ['competences']
         });
 
         if (!profile) {
@@ -119,45 +151,51 @@ export class PrestatairesService {
     }
 
     async update(utilisateurId: number, updatePrestataireDto: UpdatePrestataireDto) {
-        await this.findProfile(utilisateurId); // Ensure it exists
+        const profile = await this.prestatairesRepository.findOne({
+            where: { utilisateur_id: utilisateurId },
+            relations: ['competences']
+        });
+
+        if (!profile) {
+            throw new NotFoundException(`Prestataire profile not found for user ID ${utilisateurId}`);
+        }
 
         const { utilisateur_id: _excluded, competences, ...prestataireData } = updatePrestataireDto as any;
 
-        // Verify if competences exist before setting
+        Object.assign(profile, prestataireData);
+
         if (competences && competences.length > 0) {
-            const existingCompetences = await this.prisma.competences.findMany({
-                where: { slug: { in: competences } },
+            const resolvedCompetences = await this.competencesRepository.find({
+                where: { slug: In(competences) },
             });
-            if (existingCompetences.length !== competences.length) {
-                const existingSlugs = existingCompetences.map(c => c.slug);
+            if (resolvedCompetences.length !== competences.length) {
+                const existingSlugs = resolvedCompetences.map(c => c.slug);
                 const missingSlugs = competences.filter((slug: string) => !existingSlugs.includes(slug));
                 throw new BadRequestException(`Les compétences suivantes sont introuvables: ${missingSlugs.join(', ')}`);
             }
+            profile.competences = resolvedCompetences;
         }
 
-        const updated = await this.prisma.prestataires.update({
-            where: { utilisateur_id: utilisateurId },
-            data: {
-                ...prestataireData,
-                competences: competences ? {
-                    set: competences.map(slug => ({ slug }))
-                } : undefined
-            },
-            include: this.includeRelations
+        const updated = await this.prestatairesRepository.save(profile);
+
+        const fullPrestataire = await this.prestatairesRepository.findOne({
+            where: { id: updated.id },
+            relations: ['competences']
         });
 
-        return this.formatPrestataire(updated);
+        return this.formatPrestataire(fullPrestataire);
     }
 
     async remove(id: number) {
-        await this.findOne(id); // Ensure it exists
-
-        return this.prisma.prestataires.delete({
-            where: { id },
-        });
+        const prestataire = await this.prestatairesRepository.findOne({ where: { id } });
+        if (!prestataire) {
+            throw new NotFoundException(`Prestataire with ID ${id} not found`);
+        }
+        return this.prestatairesRepository.remove(prestataire);
     }
+
     async uploadPhotoProfil(utilisateurId: number, file: any) {
-        const prestataire = await this.prisma.prestataires.findUnique({ where: { utilisateur_id: utilisateurId } });
+        const prestataire = await this.prestatairesRepository.findOne({ where: { utilisateur_id: utilisateurId } });
         if (!prestataire) throw new NotFoundException('Prestataire introuvable');
 
         const uploadResult = await this.fichiersService.uploadFile(file, utilisateurId, {
@@ -165,14 +203,14 @@ export class PrestatairesService {
             entityId: prestataire.id,
         });
 
-        return this.prisma.prestataires.update({
-            where: { utilisateur_id: utilisateurId },
-            data: { photo_profil: uploadResult.url }
-        });
+        prestataire.photo_profil = uploadResult.url;
+        await this.prestatairesRepository.save(prestataire);
+
+        return prestataire;
     }
 
     async downloadPhotoProfil(utilisateurId: number) {
-        const prestataire = await this.prisma.prestataires.findUnique({ where: { utilisateur_id: utilisateurId } });
+        const prestataire = await this.prestatairesRepository.findOne({ where: { utilisateur_id: utilisateurId } });
         if (!prestataire || !prestataire.photo_profil) {
             throw new NotFoundException('Aucune photo de profil (prestataire) disponible');
         }
@@ -181,7 +219,7 @@ export class PrestatairesService {
     }
 
     async uploadPhotoIdentite(utilisateurId: number, file: any) {
-        const prestataire = await this.prisma.prestataires.findUnique({ where: { utilisateur_id: utilisateurId } });
+        const prestataire = await this.prestatairesRepository.findOne({ where: { utilisateur_id: utilisateurId } });
         if (!prestataire) throw new NotFoundException('Prestataire introuvable');
 
         const uploadResult = await this.fichiersService.uploadFile(file, utilisateurId, {
@@ -189,14 +227,14 @@ export class PrestatairesService {
             entityId: prestataire.id,
         });
 
-        return this.prisma.prestataires.update({
-            where: { utilisateur_id: utilisateurId },
-            data: { photo_identite: uploadResult.url }
-        });
+        prestataire.photo_identite = uploadResult.url;
+        await this.prestatairesRepository.save(prestataire);
+
+        return prestataire;
     }
 
     async downloadPhotoIdentite(utilisateurId: number) {
-        const prestataire = await this.prisma.prestataires.findUnique({ where: { utilisateur_id: utilisateurId } });
+        const prestataire = await this.prestatairesRepository.findOne({ where: { utilisateur_id: utilisateurId } });
         if (!prestataire || !prestataire.photo_identite) {
             throw new NotFoundException('Aucune photo d\'identité (prestataire) disponible');
         }

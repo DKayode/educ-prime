@@ -5,7 +5,7 @@ import { CreateForumDto } from './dto/create-forum.dto';
 import { UpdateForumDto } from './dto/update-forum.dto';
 import { FilterForumDto } from './dto/filter-forum.dto';
 import { ApiTags, ApiBearerAuth, ApiQuery, ApiOkResponse, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
-import { ForumEntity } from './entities/forum.entity';
+import { Forum } from './entities/forum.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Forums')
@@ -17,7 +17,7 @@ export class ForumController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Créer un nouveau forum' })
-    @ApiResponse({ status: 201, description: 'Le forum a été créé avec succès.', type: ForumEntity })
+    @ApiResponse({ status: 201, description: 'Le forum a été créé avec succès.', type: Forum })
     @ApiResponse({ status: 401, description: 'Non autorisé.' })
     create(@Body() createForumDto: CreateForumDto, @Req() req) {
         const userId = req.user.utilisateurId;
@@ -28,7 +28,7 @@ export class ForumController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Récupérer la liste des forums' })
-    @ApiResponse({ status: 200, description: 'Liste des forums récupérée avec succès.', type: [ForumEntity] })
+    @ApiResponse({ status: 200, description: 'Liste des forums récupérée avec succès.', type: [Forum] })
     findAll(@Query() filterDto: FilterForumDto, @Req() req) {
         const userId = req.user.utilisateurId;
         return this.forumService.findAll(filterDto, userId);
@@ -39,7 +39,7 @@ export class ForumController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Récupérer un forum par ID' })
     @ApiParam({ name: 'id', description: 'ID du forum' })
-    @ApiResponse({ status: 200, description: 'Le forum a été trouvé.', type: ForumEntity })
+    @ApiResponse({ status: 200, description: 'Le forum a été trouvé.', type: Forum })
     @ApiResponse({ status: 404, description: 'Forum introuvable.' })
     findOne(@Param('id') id: string, @Req() req) {
         const userId = req.user.utilisateurId;
@@ -116,7 +116,7 @@ export class ForumController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Mettre à jour un forum' })
     @ApiParam({ name: 'id', description: 'ID du forum' })
-    @ApiResponse({ status: 200, description: 'Le forum a été mis à jour.', type: ForumEntity })
+    @ApiResponse({ status: 200, description: 'Le forum a été mis à jour.', type: Forum })
     @ApiResponse({ status: 404, description: 'Forum introuvable.' })
     @ApiResponse({ status: 403, description: 'Non autorisé à modifier ce forum.' })
     update(@Param('id') id: string, @Body() updateForumDto: UpdateForumDto, @Req() req) {
