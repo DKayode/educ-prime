@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Logger, BadRequestException, Inject } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import { Publicite } from './entities/publicite.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { CreerPubliciteDto } from './dto/creer-publicite.dto';
 import { MajPubliciteDto } from './dto/maj-publicite.dto';
@@ -13,10 +13,13 @@ export class PublicitesService {
     private readonly logger = new Logger(PublicitesService.name);
 
     constructor(
-        @InjectRepository(Publicite)
-        private readonly publiciteRepository: Repository<Publicite>,
+        private readonly resolver: DataSourceResolver,
         private readonly fichiersService: FichiersService,
     ) { }
+
+    private get publiciteRepository(): Repository<Publicite> {
+        return this.resolver.getRepository(Publicite);
+    }
 
     async create(creerPubliciteDto: CreerPubliciteDto) {
         this.logger.log(`Création d'une publicité: ${creerPubliciteDto.titre}`);

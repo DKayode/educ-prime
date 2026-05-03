@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { FichiersService } from '../fichiers/fichiers.service';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Opportunite, OpportuniteType } from './entities/opportunite.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CreerOpportuniteDto } from './dto/create-opportunite.dto';
 import { UpdateOpportuniteDto } from './dto/update-opportunite.dto';
 import { FilterOpportuniteDto, OpportuniteSortBy, OpportuniteSortOrder } from './dto/filter-opportunite.dto';
@@ -14,10 +14,13 @@ export class OpportunitesService {
   private readonly logger = new Logger(OpportunitesService.name);
 
   constructor(
-    @InjectRepository(Opportunite)
-    private readonly opportuniteRepository: Repository<Opportunite>,
+    private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
   ) { }
+
+  private get opportuniteRepository(): Repository<Opportunite> {
+    return this.resolver.getRepository(Opportunite);
+  }
 
   async create(creerOpportuniteDto: CreerOpportuniteDto) {
     this.logger.log(`Création d'une opportunité: ${creerOpportuniteDto.titre}`);

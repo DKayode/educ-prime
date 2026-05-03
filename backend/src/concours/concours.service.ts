@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { FichiersService } from '../fichiers/fichiers.service';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Concours } from './entities/concours.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CreateConcoursDto } from './dto/create-concours.dto';
 import { UpdateConcoursDto } from './dto/update-concours.dto';
 import { FilterConcoursDto } from './dto/filter-concours.dto';
@@ -14,10 +14,13 @@ export class ConcoursService {
   private readonly logger = new Logger(ConcoursService.name);
 
   constructor(
-    @InjectRepository(Concours)
-    private readonly concoursRepository: Repository<Concours>,
+    private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
   ) { }
+
+  private get concoursRepository(): Repository<Concours> {
+    return this.resolver.getRepository(Concours);
+  }
 
   async create(createConcoursDto: CreateConcoursDto) {
     this.logger.log(`Création d'un concours: ${createConcoursDto.titre}`);

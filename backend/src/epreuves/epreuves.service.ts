@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, ForbiddenException, Logger, BadRequestException } from '@nestjs/common';
 import { FichiersService } from '../fichiers/fichiers.service';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { Epreuve } from './entities/epreuve.entity';
+import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
 import { MajEpreuveDto } from './dto/maj-epreuve.dto';
 import { FilterEpreuveDto } from './dto/filter-epreuve.dto';
@@ -15,10 +15,13 @@ export class EpreuvesService {
   private readonly logger = new Logger(EpreuvesService.name);
 
   constructor(
-    @InjectRepository(Epreuve)
-    private readonly epreuvesRepository: Repository<Epreuve>,
+    private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
   ) { }
+
+  private get epreuvesRepository(): Repository<Epreuve> {
+    return this.resolver.getRepository(Epreuve);
+  }
 
   async create(creerEpreuveDto: CreerEpreuveDto, professeurId: number) {
     this.logger.log(`Création d'une épreuve: ${creerEpreuveDto.titre} par professeur ID: ${professeurId}`);
