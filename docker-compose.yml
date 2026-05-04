@@ -22,12 +22,6 @@ services:
     container_name: edukia_backend
     restart: unless-stopped
     environment:
-      # Database
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
       DATABASE_URL: ${DATABASE_URL}
       # JWT
       JWT_SECRET: ${JWT_SECRET}
