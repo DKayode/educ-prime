@@ -3,6 +3,7 @@ import { AvisService } from './avis.service';
 import { CreateAvisDto, UpdateAvisDto } from './dto/avis.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('avis')
 @Controller('avis')
@@ -16,9 +17,9 @@ export class AvisController {
     @ApiResponse({
         status: 201, description: 'L\'avis a été créé.'
     })
-    create(@Request() req, @Body() createAvisDto: CreateAvisDto) {
+    create(@CurrentCountry() pays: string, @Request() req, @Body() createAvisDto: CreateAvisDto) {
         const userId = req.user.utilisateurId;
-        return this.avisService.create(userId, createAvisDto);
+        return this.avisService.create(pays, userId, createAvisDto);
     }
 
     @Get(':model/:id')
@@ -28,12 +29,13 @@ export class AvisController {
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAllByModel(
+        @CurrentCountry() pays: string,
         @Param('model') model: string,
         @Param('id', ParseIntPipe) id: number,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
-        return this.avisService.findAllByModel(model, id, {
+        return this.avisService.findAllByModel(pays, model, id, {
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 10,
         });

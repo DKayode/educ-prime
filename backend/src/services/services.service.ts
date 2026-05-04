@@ -129,7 +129,7 @@ export class ServicesService {
             .leftJoinAndSelect('prestataire.competences', 'competences');
     }
 
-    async create(userId: number, createServiceDto: CreateServiceDto) {
+    async create(pays: string, userId: number, createServiceDto: CreateServiceDto) {
         const user = await this.utilisateursRepository.findOne({ where: { id: userId } });
         if (!user || !user.verifier) {
             throw new ForbiddenException('Vous devez vérifier votre adresse email pour poster un service.');
@@ -156,17 +156,19 @@ export class ServicesService {
 
         const service: Service = this.servicesRepository.create({
             ...serviceData,
+            pays,
             type_id: finalTypeId,
             utilisateur_id: userId,
         } as Partial<Service>);
         return this.servicesRepository.save(service);
     }
 
-    async findAll(filters: ServiceFilterDto) {
+    async findAll(pays: string, filters: ServiceFilterDto) {
         const { localisation, type, tarifMin, tarifMax, search, page = 1, limit = 10 } = filters;
 
         const qb = this.servicesWithRelations()
-            .where('service.status IN (:...statuses)', { statuses: [ServiceStatusEnum.APPROVED, ServiceStatusEnum.ACTIVE] });
+            .where('service.pays = :pays', { pays })
+            .andWhere('service.status IN (:...statuses)', { statuses: [ServiceStatusEnum.APPROVED, ServiceStatusEnum.ACTIVE] });
 
         if (localisation) {
             qb.andWhere('service.localisation ILIKE :localisation', { localisation: `%${localisation}%` });
@@ -202,11 +204,12 @@ export class ServicesService {
         };
     }
 
-    async findAllByUser(userId: number, pagination: { page: number, limit: number }) {
+    async findAllByUser(pays: string, userId: number, pagination: { page: number, limit: number }) {
         const { page, limit } = pagination;
 
         const [data, total] = await this.servicesWithRelations()
-            .where('service.utilisateur_id = :userId', { userId })
+            .where('service.pays = :pays', { pays })
+            .andWhere('service.utilisateur_id = :userId', { userId })
             .orderBy('service.created_at', 'DESC')
             .skip((page - 1) * limit)
             .take(limit)
@@ -309,11 +312,12 @@ export class ServicesService {
         return { message: 'Service supprimé avec succès.' };
     }
 
-    async findAllAdmin(pagination: { status?: ServiceStatusEnum, page: number, limit: number }) {
+    async findAllAdmin(pays: string, pagination: { status?: ServiceStatusEnum, page: number, limit: number }) {
         const { status, page, limit } = pagination;
-        const qb = this.servicesWithRelations();
+        const qb = this.servicesWithRelations()
+            .where('service.pays = :pays', { pays });
         if (status) {
-            qb.where('service.status = :status', { status });
+            qb.andWhere('service.status = :status', { status });
         }
 
         const [data, total] = await qb

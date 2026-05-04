@@ -8,6 +8,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { ServiceStatusEnum } from '../common/enums/service-status.enum';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('services')
 @Controller('services')
@@ -20,9 +21,9 @@ export class ServicesController {
     @ApiOperation({ summary: 'Créer un nouveau service' })
     @ApiResponse({ status: 201, description: 'Service créé avec succès.' })
     @ApiResponse({ status: 403, description: 'L\'utilisateur n\'a pas vérifié son email.' })
-    create(@Request() req, @Body() createServiceDto: CreateServiceDto) {
+    create(@CurrentCountry() pays: string, @Request() req, @Body() createServiceDto: CreateServiceDto) {
         const userId = req.user.utilisateurId;
-        return this.servicesService.create(userId, createServiceDto);
+        return this.servicesService.create(pays, userId, createServiceDto);
     }
 
     @Get()
@@ -35,6 +36,7 @@ export class ServicesController {
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAll(
+        @CurrentCountry() pays: string,
         @Query('localisation') localisation?: string,
         @Query('type') type?: string,
         @Query('tarifMin') tarifMin?: string,
@@ -43,7 +45,7 @@ export class ServicesController {
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
-        return this.servicesService.findAll({
+        return this.servicesService.findAll(pays, {
             localisation,
             type,
             tarifMin: tarifMin ? parseFloat(tarifMin) : undefined,
@@ -59,12 +61,13 @@ export class ServicesController {
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAllByUser(
+        @CurrentCountry() pays: string,
         @Request() req,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
         const userId = req.user.utilisateurId;
-        return this.servicesService.findAllByUser(userId, {
+        return this.servicesService.findAllByUser(pays, userId, {
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 10,
         });
@@ -77,11 +80,12 @@ export class ServicesController {
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAllAdmin(
+        @CurrentCountry() pays: string,
         @Query('status') status?: ServiceStatusEnum,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
-        return this.servicesService.findAllAdmin({
+        return this.servicesService.findAllAdmin(pays, {
             status,
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 10,

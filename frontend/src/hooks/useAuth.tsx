@@ -1,12 +1,14 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { authService } from "@/lib/services/auth.service";
+import { countriesService } from "@/lib/services/countries.service";
+import { api } from "@/lib/api";
 import type { Utilisateur } from "@/lib/types";
 
 interface AuthContextType {
   user: Utilisateur | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, country: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -18,9 +20,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in
+    // Bootstrap the country slug BEFORE any other request fires so every
+    // subsequent call carries ?country=. Without this seeding, requests sent
+    // between mount and the CountrySwitcher's own effect would silently fall
+    // back to the backend's default scope.
+    const bootstrapCountry = async () => {
+      // Already chosen previously? Keep it.
+      if (localStorage.getItem('country')) return;
+      try {
+        const list = await countriesService.list();
+        if (list.length > 0) api.setCountry(list[0].country);
+      } catch (err) {
+        console.error('[Auth] Échec du bootstrap pays:', err);
+      }
+    };
+
     const initAuth = async () => {
       console.log('[Auth] Initialisation...');
+      await bootstrapCountry();
       if (authService.isAuthenticated()) {
         try {
           const profile = await authService.getProfile();
@@ -40,10 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string, country: string) => {
-    console.log(`[Auth] Connexion en cours (country=${country})...`);
+  const login = async (email: string, password: string) => {
+    console.log('[Auth] Connexion en cours...');
     try {
-      const response = await authService.login({ email, mot_de_passe: password }, country);
+      const response = await authService.login({ email, mot_de_passe: password });
       setUser(response.utilisateur || null);
       console.log('[Auth] ✓ Connexion réussie');
     } catch (error) {

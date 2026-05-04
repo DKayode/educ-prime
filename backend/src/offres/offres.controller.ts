@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('offres')
 @Controller('offres')
@@ -22,6 +23,7 @@ export class OffresController {
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAll(
+        @CurrentCountry() pays: string,
         @Query('type') type?: string,
         @Query('prixMin') prixMin?: string,
         @Query('prixMax') prixMax?: string,
@@ -29,7 +31,7 @@ export class OffresController {
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
-        return this.offresService.findAll({
+        return this.offresService.findAll(pays, {
             type,
             prixMin: prixMin ? parseFloat(prixMin) : undefined,
             prixMax: prixMax ? parseFloat(prixMax) : undefined,
@@ -46,12 +48,13 @@ export class OffresController {
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAllByUser(
+        @CurrentCountry() pays: string,
         @Request() req,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
         const userId = req.user.utilisateurId;
-        return this.offresService.findAllByUser(userId, {
+        return this.offresService.findAllByUser(pays, userId, {
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 10,
         });
@@ -65,10 +68,11 @@ export class OffresController {
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAllAdmin(
+        @CurrentCountry() pays: string,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
-        return this.offresService.findAllAdmin({
+        return this.offresService.findAllAdmin(pays, {
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 10,
         });
@@ -84,8 +88,8 @@ export class OffresController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Créer une offre (Nécessite connexion)' })
-    create(@Request() req, @Body() createOffreDto: CreateOffreDto) {
-        return this.offresService.create(req.user.utilisateurId, createOffreDto);
+    create(@CurrentCountry() pays: string, @Request() req, @Body() createOffreDto: CreateOffreDto) {
+        return this.offresService.create(pays, req.user.utilisateurId, createOffreDto);
     }
 
     @Put(':id')

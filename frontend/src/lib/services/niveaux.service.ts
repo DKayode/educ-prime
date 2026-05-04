@@ -39,6 +39,12 @@ export const niveauxService = {
     return api.delete(`/niveau-etude/${id}`);
   },
   async deleteGroup(nom: string): Promise<{ message: string }> {
-    return api.delete(`/niveau-etude/grouper-par-nom/${encodeURIComponent(nom)}`);
+    // This endpoint deletes every row matching the name, so it needs the
+    // country scope explicit in the URL — DELETE doesn't carry a body and
+    // api.delete does not auto-append ?country=.
+    const country = api.getCountry();
+    return api.delete(
+      `/niveau-etude/grouper-par-nom/${encodeURIComponent(nom)}?country=${encodeURIComponent(country)}`,
+    );
   },
 };

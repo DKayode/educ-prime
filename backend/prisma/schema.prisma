@@ -28,6 +28,7 @@ model blacklisted_tokens {
 
 model categories {
   id          Int        @id @default(autoincrement())
+  pays        String     @default("benin") @db.VarChar(50)
   nom         String     @unique @db.VarChar(100)
   slug        String     @unique @db.VarChar(100)
   description String?
@@ -42,6 +43,7 @@ model categories {
 
 model commentaires {
   id                                                                    Int                    @id @default(autoincrement())
+  pays                                                                  String                 @default("benin") @db.VarChar(50)
   parcours_id                                                           Int
   utilisateur_id                                                        Int
   contenu                                                               String
@@ -71,6 +73,7 @@ model commentaires_closure {
 
 model concours {
   id                     Int     @id(map: "concours_examens_pkey") @default(autoincrement())
+  pays                   String  @default("benin") @db.VarChar(50)
   titre                  String  @db.VarChar(255)
   lieu                   String? @db.VarChar(255)
   url                    String?
@@ -81,6 +84,7 @@ model concours {
 
 model contacts_professionnels {
   id              Int      @id @default(autoincrement())
+  pays            String   @default("benin") @db.VarChar(50)
   nom             String   @db.VarChar(255)
   email           String   @db.VarChar(255)
   telephone       String?  @db.VarChar(50)
@@ -92,6 +96,7 @@ model contacts_professionnels {
 
 model epreuves {
   id                     Int                 @id @default(autoincrement())
+  pays                   String              @default("benin") @db.VarChar(50)
   titre                  String              @db.VarChar(255)
   url                    String
   professeur_id          Int
@@ -108,6 +113,7 @@ model epreuves {
 
 model etablissements {
   id           Int            @id @default(autoincrement())
+  pays         String         @default("benin") @db.VarChar(50)
   nom          String         @db.VarChar(255)
   ville        String?        @db.VarChar(100)
   code_postal  String?        @db.VarChar(20)
@@ -118,6 +124,7 @@ model etablissements {
 
 model evenements {
   id               Int       @id @default(autoincrement())
+  pays             String    @default("benin") @db.VarChar(50)
   titre            String    @db.VarChar(255)
   description      String?
   date             DateTime? @db.Timestamptz(6)
@@ -130,6 +137,7 @@ model evenements {
 
 model favoris {
   id             Int          @id @default(autoincrement())
+  pays           String       @default("benin") @db.VarChar(50)
   parcours_id    Int
   utilisateur_id Int
   date_favoris   DateTime     @default(now()) @db.Timestamptz(6)
@@ -141,6 +149,7 @@ model favoris {
 
 model filieres {
   id               Int            @id @default(autoincrement())
+  pays             String         @default("benin") @db.VarChar(50)
   nom              String         @db.VarChar(255)
   etablissement_id Int
   etablissements   etablissements @relation(fields: [etablissement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -151,6 +160,7 @@ model filieres {
 
 model likes {
   id             Int              @id @default(autoincrement())
+  pays           String           @default("benin") @db.VarChar(50)
   parcours_id    Int?
   commentaire_id Int?
   utilisateur_id Int
@@ -167,6 +177,7 @@ model likes {
 
 model matieres {
   id              Int          @id @default(autoincrement())
+  pays            String       @default("benin") @db.VarChar(50)
   nom             String       @db.VarChar(255)
   description     String?
   niveau_etude_id Int
@@ -179,6 +190,7 @@ model matieres {
 
 model niveau_etude {
   id           Int            @id @default(autoincrement())
+  pays         String         @default("benin") @db.VarChar(50)
   nom          String         @db.VarChar(100)
   duree_mois   Int?
   filiere_id   Int
@@ -217,6 +229,7 @@ model notifications {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model opportunites {
   id               Int       @id @default(autoincrement())
+  pays             String    @default("benin") @db.VarChar(50)
   titre            String    @db.VarChar(255)
   type             String    @db.VarChar(50)
   organisme        String?   @db.VarChar(255)
@@ -230,6 +243,7 @@ model opportunites {
 
 model parcours {
   id               Int                      @id @default(autoincrement())
+  pays             String                   @default("benin") @db.VarChar(50)
   titre            String                   @db.VarChar(255)
   image_couverture String?                  @db.VarChar(500)
   lien_video       String?                  @db.VarChar(500)
@@ -246,6 +260,7 @@ model parcours {
 
 model publicites {
   id               Int                         @id @default(autoincrement())
+  pays             String                      @default("benin") @db.VarChar(50)
   titre            String                      @db.VarChar(255)
   image            String?
   media            String?
@@ -268,6 +283,7 @@ model refresh_tokens {
 
 model ressources {
   id                     Int                  @id @default(autoincrement())
+  pays                   String               @default("benin") @db.VarChar(50)
   titre                  String               @db.VarChar(255)
   type                   ressources_type_enum
   url                    String
@@ -283,6 +299,7 @@ model ressources {
 
 model utilisateurs {
   id                        Int                         @id @default(autoincrement())
+  pays                      String                      @default("benin") @db.VarChar(50)
   nom                       String                      @db.VarChar(100)
   prenom                    String                      @db.VarChar(100)
   pseudo                    String?                     @db.VarChar(100)
@@ -386,6 +403,7 @@ enum entite_type_enum {
 
 model Forum {
   id      Int     @id @default(autoincrement())
+  pays    String  @default("benin") @db.VarChar(50)
   theme   String
   content String  @db.Text
   photo   String?
@@ -402,6 +420,7 @@ model Forum {
 
 model LikeUser {
   id            Int      @id @default(autoincrement())
+  pays          String   @default("benin") @db.VarChar(50)
   likeable_id   BigInt
   likeable_type String
   user_id       Int
@@ -414,6 +433,7 @@ model LikeUser {
 
 model CommentaireUser {
   id               Int    @id @default(autoincrement())
+  pays             String @default("benin") @db.VarChar(50)
   commentable_id   BigInt
   commentable_type String
   commentaire_id   Int?
@@ -451,6 +471,7 @@ model types {
 
 model services {
   id               Int                  @id @default(autoincrement())
+  pays             String               @default("benin") @db.VarChar(50)
   titre            String               @db.VarChar(255)
   description      String               @db.Text
   localisation     String               @db.VarChar(255)
@@ -470,6 +491,7 @@ model services {
 
 model avis {
   id             Int              @id @default(autoincrement())
+  pays           String           @default("benin") @db.VarChar(50)
   avisable_id    Int
   avisable_type  entite_type_enum
   utilisateur_id Int
@@ -483,6 +505,7 @@ model avis {
 
 model prestataires {
   id                 Int      @id @default(autoincrement())
+  pays               String   @default("benin") @db.VarChar(50)
   nom                String   @db.VarChar(100)
   prenom             String   @db.VarChar(100)
   utilisateur_id     Int      @unique
@@ -500,6 +523,7 @@ model prestataires {
 
 model recruteurs {
   id             Int                  @id @default(autoincrement())
+  pays           String               @default("benin") @db.VarChar(50)
   numero_ifu     String?              @db.VarChar(100)
   nom            String               @db.VarChar(100)
   nom_recruteur  String               @db.VarChar(100)
@@ -527,17 +551,17 @@ model competences {
 }
 
 model offres {
-  id               Int      @id @default(autoincrement())
-  titre            String   @db.VarChar(255)
-  description      String   @db.Text
+  id               Int                  @id @default(autoincrement())
+  titre            String               @db.VarChar(255)
+  description      String               @db.Text
   type_id          Int
-  prix             Decimal? @db.Decimal(10, 2)
-  temps            String?  @db.VarChar(100)
+  prix             Decimal?             @db.Decimal(10, 2)
+  temps            String?              @db.VarChar(100)
   image_couverture String?
   utilisateur_id   Int
   status           services_status_enum @default(pending_approval)
-  created_at       DateTime @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  created_at       DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime             @default(now()) @updatedAt @db.Timestamptz(6)
 
   types        types         @relation(fields: [type_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   utilisateurs utilisateurs  @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -545,9 +569,9 @@ model offres {
 }
 
 model desabonnement_email {
-  id               Int          @id @default(autoincrement())
-  utilisateur_uuid String       @unique @db.Uuid
-  date_creation    DateTime     @default(now()) @db.Timestamptz(6)
+  id               Int      @id @default(autoincrement())
+  utilisateur_uuid String   @unique @db.Uuid
+  date_creation    DateTime @default(now()) @db.Timestamptz(6)
 
-  utilisateurs     utilisateurs @relation(fields: [utilisateur_uuid], references: [uuid], onDelete: Cascade, onUpdate: NoAction)
+  utilisateurs utilisateurs @relation(fields: [utilisateur_uuid], references: [uuid], onDelete: Cascade, onUpdate: NoAction)
 }

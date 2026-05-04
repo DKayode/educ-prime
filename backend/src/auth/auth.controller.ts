@@ -9,6 +9,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -16,8 +17,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
   @Post('register')
-  async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+  async register(@CurrentCountry() pays: string, @Body() registerDto: RegisterDto) {
+    return this.authService.register(pays, registerDto);
   }
 
   @Post('connexion')

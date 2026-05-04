@@ -5,6 +5,9 @@ export class ContactsProfessionnel {
     @PrimaryGeneratedColumn()
     id: number;
 
+
+    @Column({ type: "varchar", length: 50, default: "benin" })
+    pays: string;
     @Column()
     nom: string;
 

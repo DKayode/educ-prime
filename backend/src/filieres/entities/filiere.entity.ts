@@ -8,6 +8,9 @@ export class Filiere {
   @PrimaryGeneratedColumn()
   id: number;
 
+
+  @Column({ type: "varchar", length: 50, default: "benin" })
+  pays: string;
   @ApiProperty()
   @Column()
   nom: string;

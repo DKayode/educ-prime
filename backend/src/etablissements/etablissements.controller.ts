@@ -17,6 +17,7 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { FiliereResponseDto } from '../filieres/dto/filiere-response.dto';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('etablissements')
 @Controller('etablissements')
@@ -30,8 +31,8 @@ export class EtablissementsController {
   @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Créer un établissement' })
   @Post()
-  async create(@Body() creerEtablissementDto: CreerEtablissementDto) {
-    return this.etablissementsService.create(creerEtablissementDto);
+  async create(@CurrentCountry() pays: string, @Body() creerEtablissementDto: CreerEtablissementDto) {
+    return this.etablissementsService.create(pays, creerEtablissementDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -41,8 +42,8 @@ export class EtablissementsController {
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (nom ou ville)' })
-  async findAll(@Query() filterDto: FilterEtablissementDto) {
-    return this.etablissementsService.findAll(filterDto);
+  async findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterEtablissementDto) {
+    return this.etablissementsService.findAll(pays, filterDto);
   }
 
   @Get(':id/logo')
@@ -94,8 +95,8 @@ export class EtablissementsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiResponse({ type: FiliereResponseDto })
-  async findFilieres(@Param('id') id: string, @Query() filterDto: FilterFiliereDto) {
-    return this.etablissementsService.findFilieresById(id, filterDto);
+  async findFilieres(@CurrentCountry() pays: string, @Param('id') id: string, @Query() filterDto: FilterFiliereDto) {
+    return this.etablissementsService.findFilieresById(pays, id, filterDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -107,11 +108,12 @@ export class EtablissementsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   async findNiveauEtude(
+    @CurrentCountry() pays: string,
     @Param('id') etablissementId: string,
     @Param('filiereId') filiereId: string,
     @Query() filterDto: FilterNiveauEtudeDto,
   ) {
-    return this.etablissementsService.findNiveauEtudeByFiliere(etablissementId, filiereId, filterDto);
+    return this.etablissementsService.findNiveauEtudeByFiliere(pays, etablissementId, filiereId, filterDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -124,12 +126,13 @@ export class EtablissementsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   async findMatieres(
+    @CurrentCountry() pays: string,
     @Param('id') etablissementId: string,
     @Param('filiereId') filiereId: string,
     @Param('niveauId') niveauEtudeId: string,
     @Query() filterDto: FilterMatiereDto,
   ) {
-    return this.etablissementsService.findMatieresByNiveauEtude(etablissementId, filiereId, niveauEtudeId, filterDto);
+    return this.etablissementsService.findMatieresByNiveauEtude(pays, etablissementId, filiereId, niveauEtudeId, filterDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -144,12 +147,14 @@ export class EtablissementsController {
   @ApiQuery({ name: 'type', required: false, type: String })
   @ApiQuery({ name: 'matiere', required: false, type: String })
   async findEpreuves(
+    @CurrentCountry() pays: string,
     @Param('id') etablissementId: string,
     @Param('filiereId') filiereId: string,
     @Param('niveauId') niveauEtudeId: string,
     @Query() filterDto: FilterEpreuveDto,
   ) {
     return this.etablissementsService.findEpreuvesByNiveauEtudeAndFilters(
+      pays,
       etablissementId,
       filiereId,
       niveauEtudeId,
@@ -169,12 +174,14 @@ export class EtablissementsController {
   @ApiQuery({ name: 'type', required: false, type: String })
   @ApiQuery({ name: 'matiere', required: false, type: String })
   async findRessources(
+    @CurrentCountry() pays: string,
     @Param('id') etablissementId: string,
     @Param('filiereId') filiereId: string,
     @Param('niveauId') niveauEtudeId: string,
     @Query() filterDto: FilterRessourceDto,
   ) {
     return this.etablissementsService.findRessourcesByNiveauEtudeAndFilters(
+      pays,
       etablissementId,
       filiereId,
       niveauEtudeId,

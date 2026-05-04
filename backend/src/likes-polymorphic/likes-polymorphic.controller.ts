@@ -2,6 +2,7 @@ import { Controller, Get, Post, Param, ParseIntPipe, Req, UseGuards } from '@nes
 import { LikesPolymorphicService } from './likes-polymorphic.service';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('likes')
 @Controller('likes')
@@ -15,6 +16,7 @@ export class LikesPolymorphicController {
     @ApiParam({ name: 'model', description: 'Nom du modèle cible (Valeurs acceptées: Forum, Commentaire, CommentaireAll, Parcours)' })
     @ApiParam({ name: 'id', description: 'ID de l\'entité cible' })
     async toggleLike(
+        @CurrentCountry() pays: string,
         @Param('model') model: string,
         @Param('id', ParseIntPipe) id: number,
         @Req() req,
@@ -22,7 +24,7 @@ export class LikesPolymorphicController {
         const userId = req.user.utilisateurId;
         // Map URL param to internal model name if needed, but requirements say "Forum" and "Commentaire".
         // We pass them directly.
-        return this.likesService.toggleLike(model, id, userId);
+        return this.likesService.toggleLike(pays, model, id, userId);
     }
 
     @Get(':model/:id/count')

@@ -3,10 +3,8 @@ import * as path from 'path';
 
 export interface CountryConfigEntry {
     country: string;
-    config: {
-        database: string;
-        storage: string;
-    };
+    logo?: string;
+    storage?: string;
 }
 
 // Resolve from cwd (project root in dev, /app in Docker) rather than __dirname
@@ -39,12 +37,6 @@ export function loadCountryConfigs(): CountryConfigEntry[] {
     parsed.forEach((entry: any, i: number) => {
         if (!entry?.country || typeof entry.country !== 'string') {
             throw new Error(`config.json entry ${i}: missing or invalid 'country'`);
-        }
-        if (!entry.config?.database || typeof entry.config.database !== 'string') {
-            throw new Error(`config.json entry ${i} (${entry.country}): missing 'config.database'`);
-        }
-        if (entry.config.storage === undefined || typeof entry.config.storage !== 'string') {
-            throw new Error(`config.json entry ${i} (${entry.country}): missing 'config.storage' (use empty string if not yet set)`);
         }
     });
 

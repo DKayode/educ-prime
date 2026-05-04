@@ -61,26 +61,13 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('API Edukia')
     .setDescription(
-      'API multi-pays. Toutes les requêtes acceptent un paramètre de requête `country` ' +
-      '(slug du pays cible). En son absence, le backend utilise `benin` par défaut. ' +
-      `Pays configurés: ${configuredCountries.join(', ') || 'aucun'}.`,
+      'API multi-pays scopée par `pays`. Reads (GET) acceptent `?country=<slug>` ; ' +
+      'writes JSON (POST/PUT/PATCH) acceptent `pays` dans le corps. Multipart uploads ' +
+      'restent sur `?country=`. DELETE cible une ressource par id, donc le scope est ' +
+      `implicite. Pays configurés: ${configuredCountries.join(', ') || 'aucun'}.`,
     )
     .setVersion('1.0')
     .addBearerAuth()
-    .addGlobalParameters({
-      name: 'country',
-      in: 'query',
-      required: false,
-      description:
-        'Slug du pays cible. Détermine la base de données utilisée pour la requête. ' +
-        "Si omis, le backend utilise 'benin' par défaut.",
-      schema: {
-        type: 'string',
-        ...(configuredCountries.length > 0 ? { enum: configuredCountries } : {}),
-        default: 'benin',
-        example: 'benin',
-      },
-    })
     .addTag('countries')
     .addTag('Auth')
     .addTag('utilisateurs')
@@ -93,14 +80,74 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
 
-  // The /countries endpoint is the bootstrap endpoint: clients call it
-  // *to discover* which countries exist, so showing a country selector
-  // on it would be circular. Strip the global param from that operation.
-  const countriesPath = document.paths?.['/countries'];
-  if (countriesPath?.get?.parameters) {
-    countriesPath.get.parameters = countriesPath.get.parameters.filter(
-      (p: any) => p.name !== 'country',
-    );
+  // Reflect the country contract in OpenAPI: GET carries a ?country= query
+  // param, JSON write methods (POST/PUT/PATCH) carry a `pays` body field,
+  // multipart writes fall back to ?country=. DELETE has no scope param —
+  // the row is identified by id.
+  const COUNTRY_PARAM = {
+    name: 'country',
+    in: 'query',
+    required: false,
+    description: 'Country slug used to scope responses (e.g. benin, senegal). See GET /countries for accepted values.',
+    schema: { type: 'string' },
+  };
+  const PAYS_PROP = {
+    type: 'string',
+    description: 'Country slug recorded on the resource (e.g. benin, senegal). See GET /countries for accepted values.',
+  };
+  const hasCountryQuery = (op: any) =>
+    (op.parameters || []).some((p: any) => p?.name === 'country' && p?.in === 'query');
+  const addCountryQuery = (op: any) => {
+    op.parameters = op.parameters || [];
+    if (!hasCountryQuery(op)) op.parameters.push(COUNTRY_PARAM);
+  };
+  const injectPaysIntoSchema = (schema: any) => {
+    if (!schema) return schema;
+    if (schema.$ref) {
+      return {
+        allOf: [
+          schema,
+          { type: 'object', properties: { pays: PAYS_PROP } },
+        ],
+      };
+    }
+    schema.properties = schema.properties || {};
+    if (!schema.properties.pays) schema.properties.pays = PAYS_PROP;
+    return schema;
+  };
+
+  for (const [pathKey, pathItem] of Object.entries(document.paths || {})) {
+    if (pathKey === '/countries' || pathKey.startsWith('/countries/')) continue;
+
+    for (const method of ['get'] as const) {
+      const op = (pathItem as any)[method];
+      if (op) addCountryQuery(op);
+    }
+
+    for (const method of ['post', 'put', 'patch'] as const) {
+      const op = (pathItem as any)[method];
+      if (!op) continue;
+      const content = op.requestBody?.content;
+      if (!content) {
+        addCountryQuery(op);
+        continue;
+      }
+      let injectedAnywhere = false;
+      for (const mediaType of Object.keys(content)) {
+        if (mediaType.startsWith('multipart/')) {
+          addCountryQuery(op);
+          continue;
+        }
+        const entry = content[mediaType];
+        if (entry?.schema) {
+          entry.schema = injectPaysIntoSchema(entry.schema);
+          injectedAnywhere = true;
+        }
+      }
+      if (!injectedAnywhere && !hasCountryQuery(op)) {
+        addCountryQuery(op);
+      }
+    }
   }
 
   SwaggerModule.setup('api', app, document);

@@ -6,6 +6,9 @@ export class LikeUser {
     @PrimaryGeneratedColumn()
     id: number;
 
+
+    @Column({ type: "varchar", length: 50, default: "benin" })
+    pays: string;
     @Column({ type: 'bigint' })
     likeable_id: string;
 

@@ -21,7 +21,7 @@ export class LikesPolymorphicService {
         }
     }
 
-    async toggleLike(model: string, id: number, userId: number) {
+    async toggleLike(pays: string, model: string, id: number, userId: number) {
         this.assertValidModel(model);
 
         const existing = await this.likesRepository.findOne({
@@ -34,6 +34,7 @@ export class LikesPolymorphicService {
         }
 
         const like = this.likesRepository.create({
+            pays,
             likeable_id: String(id),
             likeable_type: model,
             user_id: userId,

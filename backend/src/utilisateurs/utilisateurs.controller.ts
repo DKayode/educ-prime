@@ -13,6 +13,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from './entities/utilisateur.entity';
 import { OwnerOrAdminGuard } from '../auth/guards/owner-or-admin.guard';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('utilisateurs')
 @Controller('utilisateurs')
@@ -20,8 +21,8 @@ export class UtilisateursController {
   constructor(private readonly utilisateursService: UtilisateursService) { }
 
   @Post('inscription')
-  async inscription(@Body() inscriptionDto: InscriptionDto) {
-    return this.utilisateursService.inscription(inscriptionDto);
+  async inscription(@CurrentCountry() pays: string, @Body() inscriptionDto: InscriptionDto) {
+    return this.utilisateursService.inscription(pays, inscriptionDto);
   }
 
 
@@ -37,8 +38,8 @@ export class UtilisateursController {
   @ApiQuery({ name: 'role', required: false, enum: RoleType, description: 'Filtrer par rôle' })
   @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Champ de tri (ex: date_creation, filleuls)' })
   @ApiQuery({ name: 'sort_order', required: false, enum: ['ASC', 'DESC'], description: 'Ordre de tri' })
-  async findAll(@Query() filterDto: FilterUtilisateurDto) {
-    return this.utilisateursService.findAll(filterDto);
+  async findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterUtilisateurDto) {
+    return this.utilisateursService.findAll(pays, filterDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -68,8 +69,8 @@ export class UtilisateursController {
   @Post()
   @ApiOperation({ summary: 'Créer un nouvel utilisateur (Admin)' })
   @ApiResponse({ status: 201, description: 'Utilisateur créé avec succès' })
-  async create(@Body() inscriptionDto: InscriptionDto) {
-    return this.utilisateursService.inscription(inscriptionDto);
+  async create(@CurrentCountry() pays: string, @Body() inscriptionDto: InscriptionDto) {
+    return this.utilisateursService.inscription(pays, inscriptionDto);
   }
 
   @UseGuards(JwtAuthGuard, RoleGuard)

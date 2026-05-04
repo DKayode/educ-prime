@@ -55,7 +55,7 @@ export class CommentsPolymorphicService {
         }
     }
 
-    async create(model: string, id: number, createDto: CreateCommentPolymorphicDto, userId: number) {
+    async create(pays: string, model: string, id: number, createDto: CreateCommentPolymorphicDto, userId: number) {
         this.validateModel(model);
         await this.checkEntityExists(model, id);
 
@@ -65,6 +65,7 @@ export class CommentsPolymorphicService {
         }
 
         const comment = this.commentsRepository.create({
+            pays,
             commentable_id: String(id),
             commentable_type: model,
             content: createDto.content,
@@ -95,6 +96,7 @@ export class CommentsPolymorphicService {
     }
 
     async findAllByEntity(
+        pays: string,
         model: string,
         id: number,
         paginationDto: PaginationDto = {},
@@ -120,6 +122,7 @@ export class CommentsPolymorphicService {
 
         const [comments, total] = await this.commentsRepository.findAndCount({
             where: {
+                pays,
                 commentable_type: model,
                 commentable_id: String(id),
                 commentaire_id: IsNull(),

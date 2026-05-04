@@ -2,6 +2,7 @@ import { ReactNode, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { CountrySwitcher } from "@/components/CountrySwitcher";
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -62,6 +63,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-card px-6">
             <SidebarTrigger className="text-foreground" />
             <div className="flex-1" />
+            <CountrySwitcher />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">

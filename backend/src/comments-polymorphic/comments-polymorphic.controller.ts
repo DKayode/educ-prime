@@ -5,6 +5,7 @@ import { UpdateCommentPolymorphicDto } from './dto/update-comment-polymorphic.dt
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { ApiTags, ApiOperation, ApiParam, ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('commentaires')
 @Controller('commentaires')
@@ -18,13 +19,14 @@ export class CommentsPolymorphicController {
     @ApiParam({ name: 'model', description: 'Nom du modèle cible (Valeurs acceptées: Forums, Parcours, Commentaires, etc.)' })
     @ApiParam({ name: 'id', description: 'ID de l\'entité cible' })
     create(
+        @CurrentCountry() pays: string,
         @Param('model') model: string,
         @Param('id', ParseIntPipe) id: number,
         @Body() createDto: CreateCommentPolymorphicDto,
         @Req() req
     ) {
         const userId = req.user.utilisateurId;
-        return this.commentsService.create(model, id, createDto, userId);
+        return this.commentsService.create(pays, model, id, createDto, userId);
     }
 
     @Get(':model/:id/count')
@@ -46,13 +48,14 @@ export class CommentsPolymorphicController {
     @ApiParam({ name: 'id', description: 'ID de l\'entité commentée' })
     @ApiResponse({ status: 200, description: 'Liste des commentaires récupérée.' })
     findAllByEntity(
+        @CurrentCountry() pays: string,
         @Param('model') model: string,
         @Param('id') id: string,
         @Query() paginationDto: PaginationDto,
         @Req() req
     ) {
         const userId = req.user.utilisateurId;
-        return this.commentsService.findAllByEntity(model, +id, paginationDto, userId);
+        return this.commentsService.findAllByEntity(pays, model, +id, paginationDto, userId);
     }
 
     @Put(':id')

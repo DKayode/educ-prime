@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger, BadRequestException, ConflictException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindOptionsWhere, Brackets, Raw } from 'typeorm';
-import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { Etablissement } from './entities/etablissement.entity';
 import { Filiere } from '../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../niveau-etude/entities/niveau-etude.entity';
@@ -25,30 +25,35 @@ export class EtablissementsService {
   private readonly logger = new Logger(EtablissementsService.name);
 
   constructor(
-    private readonly resolver: DataSourceResolver,
+    @InjectRepository(Etablissement)
+    private readonly etablissementsRepository: Repository<Etablissement>,
+    @InjectRepository(Filiere)
+    private readonly filieresRepository: Repository<Filiere>,
+    @InjectRepository(NiveauEtude)
+    private readonly niveauEtudeRepository: Repository<NiveauEtude>,
+    @InjectRepository(Matiere)
+    private readonly matieresRepository: Repository<Matiere>,
+    @InjectRepository(Epreuve)
+    private readonly epreuvesRepository: Repository<Epreuve>,
+    @InjectRepository(Ressource)
+    private readonly ressourcesRepository: Repository<Ressource>,
     private readonly fichiersService: FichiersService,
   ) { }
 
-  private get etablissementsRepository(): Repository<Etablissement> { return this.resolver.getRepository(Etablissement); }
-  private get filieresRepository(): Repository<Filiere> { return this.resolver.getRepository(Filiere); }
-  private get niveauEtudeRepository(): Repository<NiveauEtude> { return this.resolver.getRepository(NiveauEtude); }
-  private get matieresRepository(): Repository<Matiere> { return this.resolver.getRepository(Matiere); }
-  private get epreuvesRepository(): Repository<Epreuve> { return this.resolver.getRepository(Epreuve); }
-  private get ressourcesRepository(): Repository<Ressource> { return this.resolver.getRepository(Ressource); }
-
-  async create(creerEtablissementDto: CreerEtablissementDto) {
-    this.logger.log(`Création d'un établissement: ${creerEtablissementDto.nom}`);
-    const newEtablissement = this.etablissementsRepository.create(creerEtablissementDto);
+  async create(pays: string, creerEtablissementDto: CreerEtablissementDto) {
+    this.logger.log(`Création d'un établissement (pays=${pays}): ${creerEtablissementDto.nom}`);
+    const newEtablissement = this.etablissementsRepository.create({ ...creerEtablissementDto, pays });
     const saved = await this.etablissementsRepository.save(newEtablissement);
     this.logger.log(`Établissement créé: ${saved.nom} (ID: ${saved.id})`);
     return saved;
   }
 
-  async findAll(filterDto: FilterEtablissementDto): Promise<PaginationResponse<Etablissement>> {
+  async findAll(pays: string, filterDto: FilterEtablissementDto): Promise<PaginationResponse<Etablissement>> {
     const { page = 1, limit = 10, search } = filterDto;
-    this.logger.log(`Récupération des établissements - Page: ${page}, Limite: ${limit}, Search: ${search}`);
+    this.logger.log(`Récupération des établissements (pays=${pays}) - Page: ${page}, Limite: ${limit}, Search: ${search}`);
 
-    const queryBuilder = this.etablissementsRepository.createQueryBuilder('etablissement');
+    const queryBuilder = this.etablissementsRepository.createQueryBuilder('etablissement')
+      .where('etablissement.pays = :pays', { pays });
 
     if (search) {
       queryBuilder.andWhere(
@@ -148,12 +153,13 @@ export class EtablissementsService {
   }
 
   // Hierarchical navigation methods
-  async findFilieresById(id: string, filterDto: FilterFiliereDto): Promise<PaginationResponse<FiliereResponseDto>> {
+  async findFilieresById(pays: string, id: string, filterDto: FilterFiliereDto): Promise<PaginationResponse<FiliereResponseDto>> {
     const { page = 1, limit = 10, search } = filterDto;
-    this.logger.log(`Récupération des filières pour établissement ID: ${id} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
+    this.logger.log(`Récupération des filières (pays=${pays}) pour établissement ID: ${id} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
     await this.findOne(id); // Verify etablissement exists
 
     const whereCondition: FindOptionsWhere<Filiere> = {
+      pays,
       etablissement: { id: parseInt(id) },
     };
 
@@ -184,9 +190,9 @@ export class EtablissementsService {
     };
   }
 
-  async findNiveauEtudeByFiliere(etablissementId: string, filiereId: string, filterDto: FilterNiveauEtudeDto): Promise<PaginationResponse<NiveauEtude>> {
+  async findNiveauEtudeByFiliere(pays: string, etablissementId: string, filiereId: string, filterDto: FilterNiveauEtudeDto): Promise<PaginationResponse<NiveauEtude>> {
     const { page = 1, limit = 10, search } = filterDto;
-    this.logger.log(`Récupération des niveaux d'étude pour filière ID: ${filiereId} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
+    this.logger.log(`Récupération des niveaux d'étude (pays=${pays}) pour filière ID: ${filiereId} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
 
     // Verify filiere belongs to etablissement
     const filiere = await this.filieresRepository.findOne({
@@ -201,6 +207,7 @@ export class EtablissementsService {
     }
 
     const whereCondition: FindOptionsWhere<NiveauEtude> = {
+      pays,
       filiere: { id: parseInt(filiereId) },
     };
 
@@ -236,9 +243,9 @@ export class EtablissementsService {
     };
   }
 
-  async findMatieresByNiveauEtude(etablissementId: string, filiereId: string, niveauEtudeId: string, filterDto: FilterMatiereDto): Promise<PaginationResponse<Matiere>> {
+  async findMatieresByNiveauEtude(pays: string, etablissementId: string, filiereId: string, niveauEtudeId: string, filterDto: FilterMatiereDto): Promise<PaginationResponse<Matiere>> {
     const { page = 1, limit = 10, search } = filterDto;
-    this.logger.log(`Récupération des matières pour niveau d'étude ID: ${niveauEtudeId} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
+    this.logger.log(`Récupération des matières (pays=${pays}) pour niveau d'étude ID: ${niveauEtudeId} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
 
     // Verify niveau_etude belongs to filiere and etablissement
     const niveauEtude = await this.niveauEtudeRepository.findOne({
@@ -259,7 +266,8 @@ export class EtablissementsService {
       .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
-      .where('niveau_etude.id = :niveauEtudeId', { niveauEtudeId });
+      .where('matiere.pays = :pays', { pays })
+      .andWhere('niveau_etude.id = :niveauEtudeId', { niveauEtudeId });
 
     if (search) {
       queryBuilder.andWhere(
@@ -301,13 +309,14 @@ export class EtablissementsService {
   }
 
   async findEpreuvesByNiveauEtudeAndFilters(
+    pays: string,
     etablissementId: string,
     filiereId: string,
     niveauEtudeId: string,
     filterDto: FilterEpreuveDto
   ): Promise<PaginationResponse<Epreuve>> {
     const { page = 1, limit = 10, search, type, matiere } = filterDto;
-    this.logger.log(`Recherche des épreuves pour niveau ID: ${niveauEtudeId} - Search: ${search}, Type: ${type}, Matière: ${matiere}`);
+    this.logger.log(`Recherche des épreuves (pays=${pays}) pour niveau ID: ${niveauEtudeId} - Search: ${search}, Type: ${type}, Matière: ${matiere}`);
 
     // Verify niveau_etude belongs to filiere and etablissement
     const niveauEtude = await this.niveauEtudeRepository.findOne({
@@ -330,7 +339,8 @@ export class EtablissementsService {
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .leftJoinAndSelect('epreuve.professeur', 'professeur')
-      .where('niveau_etude.id = :niveauEtudeId', { niveauEtudeId })
+      .where('epreuve.pays = :pays', { pays })
+      .andWhere('niveau_etude.id = :niveauEtudeId', { niveauEtudeId })
       .orderBy('epreuve.date_creation', filterDto.sort_order || 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -396,13 +406,14 @@ export class EtablissementsService {
   }
 
   async findRessourcesByNiveauEtudeAndFilters(
+    pays: string,
     etablissementId: string,
     filiereId: string,
     niveauEtudeId: string,
     filterDto: FilterRessourceDto
   ): Promise<PaginationResponse<Ressource>> {
     const { page = 1, limit = 10, search, type, matiere } = filterDto;
-    this.logger.log(`Recherche des ressources pour niveau ID: ${niveauEtudeId} - Search: ${search}, Type: ${type}, Matière: ${matiere}`);
+    this.logger.log(`Recherche des ressources (pays=${pays}) pour niveau ID: ${niveauEtudeId} - Search: ${search}, Type: ${type}, Matière: ${matiere}`);
 
     // Verify niveau_etude belongs to filiere and etablissement
     const niveauEtude = await this.niveauEtudeRepository.findOne({
@@ -425,7 +436,8 @@ export class EtablissementsService {
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .leftJoinAndSelect('ressource.professeur', 'professeur')
-      .where('niveau_etude.id = :niveauEtudeId', { niveauEtudeId })
+      .where('ressource.pays = :pays', { pays })
+      .andWhere('niveau_etude.id = :niveauEtudeId', { niveauEtudeId })
       .orderBy('ressource.date_creation', filterDto.sort_order || 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
