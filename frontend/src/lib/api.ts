@@ -1,6 +1,11 @@
 // API configuration and base client
 export const API_URL = import.meta.env.VITE_API_URL || '/backend';
 
+const DEFAULT_COUNTRY = 'benin';
+
+// Endpoints the country middleware allowlists — no ?country= needed.
+const COUNTRY_FREE_PATHS = [/^\/countries(\/|$)/, /^\/health/];
+
 interface ApiError {
   message: string;
   statusCode: number;
@@ -10,14 +15,14 @@ interface ApiError {
 class ApiClient {
   private baseURL: string;
   private token: string | null = null;
-  private country: string | null = null;
+  private country: string;
   private isRefreshing: boolean = false;
   private refreshSubscribers: Array<(token: string) => void> = [];
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
     this.token = localStorage.getItem('access_token');
-    this.country = localStorage.getItem('country');
+    this.country = localStorage.getItem('country') || DEFAULT_COUNTRY;
   }
 
   setToken(token: string) {
@@ -36,19 +41,34 @@ class ApiClient {
     localStorage.setItem('country', country);
   }
 
-  getCountry(): string | null {
+  getCountry(): string {
     return this.country;
   }
 
   clearCountry() {
-    this.country = null;
+    this.country = DEFAULT_COUNTRY;
     localStorage.removeItem('country');
   }
 
-  private withCountry(endpoint: string): string {
-    if (!this.country) return endpoint;
+  private isCountryFree(endpoint: string): boolean {
+    const path = endpoint.split('?')[0];
+    return COUNTRY_FREE_PATHS.some((re) => re.test(path));
+  }
+
+  private withCountryQuery(endpoint: string): string {
+    if (this.isCountryFree(endpoint)) return endpoint;
     const separator = endpoint.includes('?') ? '&' : '?';
     return `${endpoint}${separator}country=${encodeURIComponent(this.country)}`;
+  }
+
+  // For JSON write requests we put pays in the body instead of as a query
+  // param; FormData / non-objects fall back to the query path.
+  private withCountryBody<T>(data: T, endpoint: string): T {
+    if (this.isCountryFree(endpoint)) return data;
+    if (data == null || typeof data !== 'object' || Array.isArray(data) || data instanceof FormData) {
+      return data;
+    }
+    return { ...(data as any), pays: this.country } as T;
   }
 
   private async refreshToken(): Promise<string> {
@@ -57,10 +77,10 @@ class ApiClient {
       throw new Error('No refresh token available');
     }
 
-    const response = await fetch(`${this.baseURL}${this.withCountry('/auth/refresh')}`, {
+    const response = await fetch(`${this.baseURL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      body: JSON.stringify({ refresh_token: refreshToken, pays: this.country }),
     });
 
     if (!response.ok) {
@@ -104,7 +124,7 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const url = `${this.baseURL}${this.withCountry(endpoint)}`;
+    const url = `${this.baseURL}${endpoint}`;
     const method = options.method || 'GET';
 
     try {
@@ -166,15 +186,23 @@ class ApiClient {
   }
 
   async get<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET' });
+    return this.request<T>(this.withCountryQuery(endpoint), { method: 'GET' });
   }
 
   async post<T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> {
     const isFormData = data instanceof FormData;
-
+    if (isFormData) {
+      // Body is multipart — fall back to ?country= so the middleware can pick
+      // it up before multer parses the form fields.
+      return this.request<T>(this.withCountryQuery(endpoint), {
+        method: 'POST',
+        body: data,
+        ...options,
+      });
+    }
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: isFormData ? data : JSON.stringify(data),
+      body: JSON.stringify(this.withCountryBody(data, endpoint)),
       ...options,
     });
   }
@@ -182,20 +210,28 @@ class ApiClient {
   async put<T>(endpoint: string, data?: any): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify(this.withCountryBody(data, endpoint)),
     });
   }
 
   async patch<T>(endpoint: string, data?: any): Promise<T> {
     const isFormData = data instanceof FormData;
-
+    if (isFormData) {
+      return this.request<T>(this.withCountryQuery(endpoint), {
+        method: 'PATCH',
+        body: data,
+      });
+    }
     return this.request<T>(endpoint, {
       method: 'PATCH',
-      body: isFormData ? data : JSON.stringify(data),
+      body: JSON.stringify(this.withCountryBody(data, endpoint)),
     });
   }
 
   async delete<T>(endpoint: string): Promise<T> {
+    // DELETE targets a resource by id, so the row's pays is implicit. The
+    // rare endpoints that delete across rows by name take ?country= in the
+    // URL they pass us — we don't auto-append.
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
@@ -206,7 +242,7 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(`${this.baseURL}${this.withCountry(endpoint)}`, {
+    const response = await fetch(`${this.baseURL}${this.withCountryQuery(endpoint)}`, {
       method: 'GET',
       headers,
     });

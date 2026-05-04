@@ -36,7 +36,7 @@ export class RecruteursService {
         };
     }
 
-    async create(createRecruteurDto: CreateRecruteurDto, utilisateurId: number) {
+    async create(pays: string, createRecruteurDto: CreateRecruteurDto, utilisateurId: number) {
         const user = await this.utilisateursRepository.findOne({ where: { id: utilisateurId } });
         if (!user) {
             throw new NotFoundException(`User with ID ${utilisateurId} not found`);
@@ -54,6 +54,7 @@ export class RecruteursService {
 
         const recruteur: Recruteur = this.recruteursRepository.create({
             ...recruteurData,
+            pays,
             utilisateur_id: utilisateurId,
             status: ServiceStatusEnum.PENDING_APPROVAL,
         } as Partial<Recruteur>);
@@ -66,15 +67,15 @@ export class RecruteursService {
         return this.formatRecruteur(fullRecruteur);
     }
 
-    async findAll() {
+    async findAll(pays: string) {
         const recruteurs = await this.recruteursRepository.find({
-            where: { status: In([ServiceStatusEnum.ACTIVE, ServiceStatusEnum.APPROVED]) },
+            where: { pays, status: In([ServiceStatusEnum.ACTIVE, ServiceStatusEnum.APPROVED]) },
             relations: ['utilisateur'],
         });
         return recruteurs.map(r => this.formatRecruteur(r));
     }
 
-    async findAllAdmin(filterDto?: FilterRecruteurDto) {
+    async findAllAdmin(pays: string, filterDto?: FilterRecruteurDto) {
         const order: Record<string, 'ASC' | 'DESC'> = {};
         const direction = filterDto?.sort_order?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
         if (filterDto?.sort_by) {
@@ -85,6 +86,7 @@ export class RecruteursService {
         }
 
         const recruteurs = await this.recruteursRepository.find({
+            where: { pays },
             relations: ['utilisateur'],
             order,
         });

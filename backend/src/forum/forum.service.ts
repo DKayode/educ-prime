@@ -24,9 +24,10 @@ export class ForumService {
     private get commentsRepository(): Repository<CommentaireUser> { return this.resolver.getRepository(CommentaireUser); }
     private get likesRepository(): Repository<LikeUser> { return this.resolver.getRepository(LikeUser); }
 
-    async create(createForumDto: CreateForumDto, userId: number) {
+    async create(pays: string, createForumDto: CreateForumDto, userId: number) {
         const forum = this.forumRepository.create({
             ...createForumDto,
+            pays,
             user_id: userId,
         });
         return this.forumRepository.save(forum);
@@ -58,12 +59,12 @@ export class ForumService {
         }).format(date);
     }
 
-    async findAll(filterDto: FilterForumDto, userId: number): Promise<PaginationResponse<any>> {
+    async findAll(pays: string, filterDto: FilterForumDto, userId: number): Promise<PaginationResponse<any>> {
         const { page = 1, limit = 10, search, sortBy = 'date_creation', sort_order = 'DESC' } = filterDto;
         const skip = (page - 1) * limit;
         const take = limit;
 
-        const where: any = { deleted_at: IsNull() };
+        const where: any = { pays, deleted_at: IsNull() };
         if (search) {
             where.theme = ILike(`%${search}%`);
         }

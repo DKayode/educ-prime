@@ -87,6 +87,9 @@ export class Utilisateur {
   @Column({ type: 'enum', enum: RoleType })
   role: RoleType;
 
+  @Column({ type: 'varchar', length: 50, default: 'benin' })
+  pays: string;
+
   @Column({ nullable: true })
   etablissement_id: number;
 

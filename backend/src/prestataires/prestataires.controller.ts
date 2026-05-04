@@ -4,6 +4,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { PrestatairesService } from './prestataires.service';
 import { CreatePrestataireDto, UpdatePrestataireDto } from './dto/prestataire.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; // Assuming this exists based on common NestJS patterns
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('Prestataires')
 @Controller('prestataires')
@@ -14,15 +15,15 @@ export class PrestatairesController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Créer un nouveau prestataire (Nécessite connexion)' })
     @Post()
-    create(@Body() createPrestataireDto: CreatePrestataireDto, @Request() req) {
+    create(@CurrentCountry() pays: string, @Body() createPrestataireDto: CreatePrestataireDto, @Request() req) {
         const userId = req.user.utilisateurId; // user id should come from jwt payload
-        return this.prestatairesService.create(createPrestataireDto, userId);
+        return this.prestatairesService.create(pays, createPrestataireDto, userId);
     }
 
     @Get()
     @ApiOperation({ summary: 'Récupérer la liste de tous les prestataires' })
-    findAll() {
-        return this.prestatairesService.findAll();
+    findAll(@CurrentCountry() pays: string) {
+        return this.prestatairesService.findAll(pays);
     }
 
     @UseGuards(JwtAuthGuard)

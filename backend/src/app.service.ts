@@ -35,7 +35,7 @@ export class AppService {
   private get parcoursRepository(): Repository<Parcour> { return this.resolver.getRepository(Parcour); }
   private get categoriesRepository(): Repository<Category> { return this.resolver.getRepository(Category); }
 
-  async getStats(): Promise<{
+  async getStats(pays: string): Promise<{
     usersCount: number;
     etablissementsCount: number;
     filieresCount: number;
@@ -65,19 +65,19 @@ export class AppService {
       parcoursCount,
       categoriesCount,
     ] = await Promise.all([
-      this.utilisateursRepository.count({ where: { role: Not(RoleType.ADMIN) } }),
-      this.etablissementsRepository.count(),
-      this.filieresRepository.count(),
-      this.matieresRepository.count(),
-      this.epreuvesRepository.count(),
-      this.ressourcesRepository.count(),
-      this.publicitesRepository.count(),
-      this.evenementsRepository.count(),
-      this.opportunitesRepository.count(),
-      this.concoursRepository.count(),
-      this.contactsProfessionnelsRepository.count(),
-      this.parcoursRepository.count(),
-      this.categoriesRepository.count()
+      this.utilisateursRepository.count({ where: { role: Not(RoleType.ADMIN), pays } }),
+      this.etablissementsRepository.count({ where: { pays } }),
+      this.filieresRepository.count({ where: { pays } }),
+      this.matieresRepository.count({ where: { pays } }),
+      this.epreuvesRepository.count({ where: { pays } }),
+      this.ressourcesRepository.count({ where: { pays } }),
+      this.publicitesRepository.count({ where: { pays } }),
+      this.evenementsRepository.count({ where: { pays } }),
+      this.opportunitesRepository.count({ where: { pays } }),
+      this.concoursRepository.count({ where: { pays } }),
+      this.contactsProfessionnelsRepository.count({ where: { pays } }),
+      this.parcoursRepository.count({ where: { pays } }),
+      this.categoriesRepository.count({ where: { pays } })
 
     ]);
 

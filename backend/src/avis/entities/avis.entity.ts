@@ -7,6 +7,9 @@ export class Avis {
     @PrimaryGeneratedColumn()
     id: number;
 
+
+    @Column({ type: "varchar", length: 50, default: "benin" })
+    pays: string;
     @Column()
     avisable_id: number;
 

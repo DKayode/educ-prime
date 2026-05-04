@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { NiveauEtude } from './entities/niveau-etude.entity';
 import { CreerNiveauEtudeDto } from './dto/creer-niveau-etude.dto';
@@ -6,35 +7,32 @@ import { MajNiveauEtudeDto } from './dto/maj-niveau-etude.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { FilterNiveauEtudeDto } from './dto/filter-niveau-etude.dto';
-import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class NiveauEtudeService {
   private readonly logger = new Logger(NiveauEtudeService.name);
 
   constructor(
-    private readonly resolver: DataSourceResolver,
+    @InjectRepository(NiveauEtude)
+    private readonly niveauEtudeRepository: Repository<NiveauEtude>,
   ) { }
 
-  private get niveauEtudeRepository(): Repository<NiveauEtude> {
-    return this.resolver.getRepository(NiveauEtude);
-  }
-
-  async create(creerNiveauEtudeDto: CreerNiveauEtudeDto) {
-    this.logger.log(`Création d'un niveau d'étude: ${creerNiveauEtudeDto.nom} (Durée: ${creerNiveauEtudeDto.duree_mois} mois)`);
-    const newNiveauEtude = this.niveauEtudeRepository.create(creerNiveauEtudeDto);
+  async create(pays: string, creerNiveauEtudeDto: CreerNiveauEtudeDto) {
+    this.logger.log(`Création d'un niveau d'étude (pays=${pays}): ${creerNiveauEtudeDto.nom}`);
+    const newNiveauEtude = this.niveauEtudeRepository.create({ ...creerNiveauEtudeDto, pays });
     const saved = await this.niveauEtudeRepository.save(newNiveauEtude);
     this.logger.log(`Niveau d'étude créé: ${saved.nom} (ID: ${saved.id})`);
     return saved;
   }
 
-  async findAll(filterDto: FilterNiveauEtudeDto): Promise<PaginationResponse<any>> {
+  async findAll(pays: string, filterDto: FilterNiveauEtudeDto): Promise<PaginationResponse<any>> {
     const { page = 1, limit = 10, search, filiere } = filterDto;
-    this.logger.log(`Récupération des niveaux d'étude - Page: ${page}, Limite: ${limit}, Search: ${search}, Filière: ${filiere}`);
+    this.logger.log(`Récupération des niveaux d'étude (pays=${pays}) - Page: ${page}, Limite: ${limit}, Search: ${search}, Filière: ${filiere}`);
 
     const queryBuilder = this.niveauEtudeRepository.createQueryBuilder('niveau')
       .leftJoinAndSelect('niveau.filiere', 'filiere')
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
+      .where('niveau.pays = :pays', { pays })
       .skip((page - 1) * limit)
       .take(limit)
       .orderBy('niveau.nom', filterDto.sort_order || 'ASC')
@@ -156,16 +154,17 @@ export class NiveauEtudeService {
     this.logger.log(`${niveaux.length} niveau(x) d'étude trouvé(s) pour filière ${filiereId}`);
     return niveaux;
   }
-  async findGroupByName(paginationDto: PaginationDto): Promise<PaginationResponse<any>> {
+  async findGroupByName(pays: string, paginationDto: PaginationDto): Promise<PaginationResponse<any>> {
     const { page = 1, limit = 10, search } = paginationDto;
-    this.logger.log(`Récupération des niveaux groupés par nom (Page: ${page}, Limit: ${limit}, Search: ${search})`);
+    this.logger.log(`Récupération des niveaux groupés par nom (pays=${pays}, Page: ${page}, Limit: ${limit}, Search: ${search})`);
 
     // 1. Compter le total des noms distincts
     const countQuery = this.niveauEtudeRepository.createQueryBuilder('niveau')
-      .select('COUNT(DISTINCT(niveau.nom))', 'count');
+      .select('COUNT(DISTINCT(niveau.nom))', 'count')
+      .where('niveau.pays = :pays', { pays });
 
     if (search) {
-      countQuery.where('unaccent(niveau.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
+      countQuery.andWhere('unaccent(niveau.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
     }
 
     const countResult = await countQuery.getRawOne();
@@ -174,12 +173,13 @@ export class NiveauEtudeService {
     // 2. Récupérer les noms de la page courante
     const namesQuery = this.niveauEtudeRepository.createQueryBuilder('niveau')
       .select('DISTINCT(niveau.nom)', 'nom')
+      .where('niveau.pays = :pays', { pays })
       .orderBy('nom', 'ASC') // Sorting by alias 'nom'
       .limit(limit)
       .offset((page - 1) * limit);
 
     if (search) {
-      namesQuery.where('unaccent(niveau.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
+      namesQuery.andWhere('unaccent(niveau.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
     }
 
     const rawNames = await namesQuery.getRawMany();
@@ -200,7 +200,8 @@ export class NiveauEtudeService {
     const details = await this.niveauEtudeRepository.createQueryBuilder('niveau')
       .leftJoinAndSelect('niveau.filiere', 'filiere')
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
-      .where("niveau.nom IN (:...names)", { names })
+      .where('niveau.pays = :pays', { pays })
+      .andWhere("niveau.nom IN (:...names)", { names })
       .orderBy('niveau.nom', 'ASC')
       .getMany();
 
@@ -234,15 +235,15 @@ export class NiveauEtudeService {
       totalPages: Math.ceil(total / limit),
     };
   }
-  async removeGroup(nom: string) {
-    this.logger.log(`Suppression du groupe de niveaux: ${nom}`);
-    const niveaux = await this.niveauEtudeRepository.find({ where: { nom } });
+  async removeGroup(pays: string, nom: string) {
+    this.logger.log(`Suppression du groupe de niveaux (pays=${pays}): ${nom}`);
+    const niveaux = await this.niveauEtudeRepository.find({ where: { nom, pays } });
     if (niveaux.length === 0) {
       throw new NotFoundException('Groupe introuvable');
     }
 
     try {
-      await this.niveauEtudeRepository.delete({ nom });
+      await this.niveauEtudeRepository.delete({ nom, pays });
       this.logger.log(`Groupe de niveaux ${nom} supprimé`);
       return { message: `Groupe ${nom} supprimé avec succès` };
     } catch (error) {

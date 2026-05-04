@@ -220,6 +220,7 @@ export default function Users() {
                     <TableHead>Nom</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Rôle</TableHead>
+                    <TableHead>Pays</TableHead>
                     <TableHead>Actif</TableHead>
                     <TableHead>Date création</TableHead>
                     <TableHead>Suppression définitive</TableHead>
@@ -229,7 +230,7 @@ export default function Users() {
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground">
                         Aucun utilisateur trouvé
                       </TableCell>
                     </TableRow>
@@ -244,6 +245,9 @@ export default function Users() {
                           <Badge variant={user.role === "admin" ? "default" : "secondary"}>
                             {user.role}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="capitalize text-muted-foreground">
+                          {user.pays || "-"}
                         </TableCell>
                         <TableCell>
                           <Badge variant={user.est_desactive ? "destructive" : "outline"}>

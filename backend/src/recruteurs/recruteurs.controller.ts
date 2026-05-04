@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('Recruteurs')
 @Controller('recruteurs')
@@ -18,15 +19,15 @@ export class RecruteursController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Créer un nouveau recruteur (Nécessite connexion)' })
     @Post()
-    create(@Body() createRecruteurDto: CreateRecruteurDto, @Request() req) {
+    create(@CurrentCountry() pays: string, @Body() createRecruteurDto: CreateRecruteurDto, @Request() req) {
         const userId = req.user.utilisateurId; // user id should come from jwt payload
-        return this.recruteursService.create(createRecruteurDto, userId);
+        return this.recruteursService.create(pays, createRecruteurDto, userId);
     }
 
     @Get()
     @ApiOperation({ summary: 'Récupérer la liste des recruteurs actifs ou approuvés' })
-    findAll() {
-        return this.recruteursService.findAll();
+    findAll(@CurrentCountry() pays: string) {
+        return this.recruteursService.findAll(pays);
     }
 
     @UseGuards(JwtAuthGuard)
@@ -35,8 +36,8 @@ export class RecruteursController {
     @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Champ de tri (ex: date_creation, created_at)' })
     @ApiQuery({ name: 'sort_order', required: false, enum: ['ASC', 'DESC'], description: 'Ordre de tri' })
     @Get('all')
-    findAllAdmin(@Query() filterDto: FilterRecruteurDto) {
-        return this.recruteursService.findAllAdmin(filterDto);
+    findAllAdmin(@CurrentCountry() pays: string, @Query() filterDto: FilterRecruteurDto) {
+        return this.recruteursService.findAllAdmin(pays, filterDto);
     }
 
     @UseGuards(JwtAuthGuard)

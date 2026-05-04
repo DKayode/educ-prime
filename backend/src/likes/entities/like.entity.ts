@@ -11,6 +11,9 @@ export class Like {
     @PrimaryGeneratedColumn()
     id: number;
 
+
+    @Column({ type: "varchar", length: 50, default: "benin" })
+    pays: string;
     @ApiProperty({ description: 'ID du parcours', nullable: true })
     @Column({ name: 'parcours_id', type: 'integer', nullable: true })
     parcours_id: number;

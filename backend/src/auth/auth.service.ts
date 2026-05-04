@@ -34,10 +34,10 @@ export class AuthService {
     return this.resolver.getRepository(BlacklistedToken);
   }
 
-  async register(registerDto: RegisterDto): Promise<Utilisateur> {
-    this.logger.log(`Tentative d'inscription via /auth/register pour: ${registerDto.email}`);
+  async register(pays: string, registerDto: RegisterDto): Promise<Utilisateur> {
+    this.logger.log(`Tentative d'inscription via /auth/register pour: ${registerDto.email} (pays=${pays})`);
     const hashedPassword = await bcrypt.hash(registerDto.mot_de_passe, 10);
-    const user = await this.utilisateursService.inscription({
+    const user = await this.utilisateursService.inscription(pays, {
       nom: registerDto.nom,
       prenom: registerDto.prenom,
       email: registerDto.email,

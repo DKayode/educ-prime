@@ -11,6 +11,9 @@ export class Commentaire {
     @PrimaryGeneratedColumn()
     id: number;
 
+
+    @Column({ type: "varchar", length: 50, default: "benin" })
+    pays: string;
     @ApiProperty({ description: 'ID du parcours' })
     @Column({ name: 'parcours_id', type: 'integer' })
     parcours_id: number;

@@ -10,6 +10,7 @@ export interface PaginatedResponse<T> {
 
 export interface Etablissement {
   id: number;
+  pays?: string;
   nom: string;
   ville?: string;
   code_postal?: string;
@@ -18,12 +19,14 @@ export interface Etablissement {
 
 export interface Filiere {
   id: number;
+  pays?: string;
   nom: string;
   etablissement?: Etablissement;
 }
 
 export interface NiveauEtude {
   id: number;
+  pays?: string;
   nom: string;
   duree_mois?: number;
   filiere?: Filiere;
@@ -31,6 +34,7 @@ export interface NiveauEtude {
 
 export interface Matiere {
   id: number;
+  pays?: string;
   nom: string;
   description?: string;
   niveau_etude?: NiveauEtude;
@@ -44,6 +48,7 @@ export interface Utilisateur {
   pseudo?: string;
   email: string;
   photo?: string;
+  pays?: string;
   etablissement?: Etablissement;
   filiere?: Filiere;
   niveau_etude?: NiveauEtude;
@@ -61,6 +66,7 @@ export type EpreuveType = 'Interrogation' | 'Devoirs' | 'Concours' | 'Examens';
 
 export interface Epreuve {
   id: number;
+  pays?: string;
   titre: string;
   url: string;
   professeur?: Utilisateur;
@@ -75,6 +81,7 @@ export interface Epreuve {
 
 export interface Ressource {
   id: number;
+  pays?: string;
   titre: string;
   type: 'Quiz' | 'Exercices' | 'Document';
   url: string;
@@ -104,6 +111,7 @@ export interface ApiResponse<T> {
 
 export interface Forum {
   id: number;
+  pays?: string;
   theme: string;
   content: string;
   photo?: string;
@@ -120,6 +128,7 @@ export interface Forum {
 
 export interface ForumCommentaire {
   id: number;
+  pays?: string;
   commentable_id: string; // BigInt from backend
   commentable_type: string;
   commentaire_id?: number;

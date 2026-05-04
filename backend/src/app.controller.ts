@@ -4,6 +4,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RoleGuard } from './auth/guards/role.guard';
 import { Roles } from './auth/decorators/roles.decorator';
 import { RoleType } from './utilisateurs/entities/utilisateur.entity';
+import { CurrentCountry } from './common/decorators/current-country.decorator';
 
 @Controller()
 export class AppController {
@@ -11,7 +12,7 @@ export class AppController {
 
   @Get('stats')
   @UseGuards(JwtAuthGuard, RoleGuard)
-  async getStats() {
-    return this.appService.getStats();
+  async getStats(@CurrentCountry() pays: string) {
+    return this.appService.getStats(pays);
   }
 }

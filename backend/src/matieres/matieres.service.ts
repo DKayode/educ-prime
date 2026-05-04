@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { Matiere } from './entities/matiere.entity';
 import { CreerMatiereDto } from './dto/creer-matiere.dto';
@@ -6,36 +7,33 @@ import { MajMatiereDto } from './dto/maj-matiere.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { FilterMatiereDto } from './dto/filter-matiere.dto';
-import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 @Injectable()
 export class MatieresService {
   private readonly logger = new Logger(MatieresService.name);
 
   constructor(
-    private readonly resolver: DataSourceResolver,
+    @InjectRepository(Matiere)
+    private readonly matieresRepository: Repository<Matiere>,
   ) { }
 
-  private get matieresRepository(): Repository<Matiere> {
-    return this.resolver.getRepository(Matiere);
-  }
-
-  async create(creerMatiereDto: CreerMatiereDto) {
-    this.logger.log(`Création d'une matière: ${creerMatiereDto.nom}`);
-    const newMatiere = this.matieresRepository.create(creerMatiereDto);
+  async create(pays: string, creerMatiereDto: CreerMatiereDto) {
+    this.logger.log(`Création d'une matière (pays=${pays}): ${creerMatiereDto.nom}`);
+    const newMatiere = this.matieresRepository.create({ ...creerMatiereDto, pays });
     const saved = await this.matieresRepository.save(newMatiere);
     this.logger.log(`Matière créée: ${saved.nom} (ID: ${saved.id})`);
     return saved;
   }
 
-  async findAll(filterDto: FilterMatiereDto): Promise<PaginationResponse<any>> {
+  async findAll(pays: string, filterDto: FilterMatiereDto): Promise<PaginationResponse<any>> {
     const { page = 1, limit = 10, search } = filterDto;
-    this.logger.log(`Récupération des matières - Page: ${page}, Limite: ${limit}, Search: ${search}`);
+    this.logger.log(`Récupération des matières (pays=${pays}) - Page: ${page}, Limite: ${limit}, Search: ${search}`);
 
     const queryBuilder = this.matieresRepository.createQueryBuilder('matiere')
       .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
+      .where('matiere.pays = :pays', { pays })
       .skip((page - 1) * limit)
       .take(limit)
       .orderBy('matiere.nom', filterDto.sort_order || 'ASC');
@@ -165,16 +163,17 @@ export class MatieresService {
     return matieres;
   }
 
-  async findGroupedByName(paginationDto: PaginationDto): Promise<PaginationResponse<any>> {
+  async findGroupedByName(pays: string, paginationDto: PaginationDto): Promise<PaginationResponse<any>> {
     const { page = 1, limit = 10, search } = paginationDto;
-    this.logger.log(`Récupération des matières groupées par nom (Page: ${page}, Limit: ${limit}, Search: ${search})`);
+    this.logger.log(`Récupération des matières groupées par nom (pays=${pays}, Page: ${page}, Limit: ${limit}, Search: ${search})`);
 
     // 1. Compter le total des noms distincts
     const countQuery = this.matieresRepository.createQueryBuilder('matiere')
-      .select('COUNT(DISTINCT(matiere.nom))', 'count');
+      .select('COUNT(DISTINCT(matiere.nom))', 'count')
+      .where('matiere.pays = :pays', { pays });
 
     if (search) {
-      countQuery.where('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
+      countQuery.andWhere('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
     }
 
     const countResult = await countQuery.getRawOne();
@@ -183,12 +182,13 @@ export class MatieresService {
     // 2. Récupérer les noms de la page courante
     const namesQuery = this.matieresRepository.createQueryBuilder('matiere')
       .select('DISTINCT(matiere.nom)', 'nom')
+      .where('matiere.pays = :pays', { pays })
       .orderBy('nom', 'ASC')
       .limit(limit)
       .offset((page - 1) * limit);
 
     if (search) {
-      namesQuery.where('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
+      namesQuery.andWhere('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
     }
 
     const rawNames = await namesQuery.getRawMany();
@@ -209,7 +209,8 @@ export class MatieresService {
       .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
-      .where("matiere.nom IN (:...names)", { names })
+      .where('matiere.pays = :pays', { pays })
+      .andWhere("matiere.nom IN (:...names)", { names })
       .orderBy('matiere.nom', 'ASC')
       .getMany();
 

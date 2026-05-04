@@ -66,7 +66,7 @@ export class PrestatairesService {
         });
     }
 
-    async create(createPrestataireDto: CreatePrestataireDto, utilisateurId: number) {
+    async create(pays: string, createPrestataireDto: CreatePrestataireDto, utilisateurId: number) {
         const user = await this.utilisateursRepository.findOne({
             where: { id: utilisateurId },
         });
@@ -103,6 +103,7 @@ export class PrestatairesService {
 
         const newPrestataire: Prestataire = this.prestatairesRepository.create({
             ...prestataireData,
+            pays,
             utilisateur_id: utilisateurId,
             competences: resolvedCompetences
         } as Partial<Prestataire>);
@@ -117,8 +118,9 @@ export class PrestatairesService {
         return this.formatPrestataire(fullPrestataire);
     }
 
-    async findAll() {
+    async findAll(pays: string) {
         const prestataires = await this.prestatairesRepository.find({
+            where: { pays },
             relations: ['competences']
         });
         return this.formatManyPrestataires(prestataires);

@@ -1,37 +1,33 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CountryConfigEntry, loadCountryConfigs } from './country-config';
+
+export interface CountrySummary {
+    country: string;
+    logo: string | null;
+}
 
 @Injectable()
 export class CountryConfigService {
     private readonly configs: CountryConfigEntry[];
-    private readonly byCountry: Map<string, CountryConfigEntry>;
+    private readonly slugs: Set<string>;
 
     constructor() {
         this.configs = loadCountryConfigs();
-        this.byCountry = new Map(this.configs.map(c => [c.country, c]));
+        this.slugs = new Set(this.configs.map(c => c.country));
     }
 
     getCountries(): string[] {
-        return this.configs.map(c => c.country);
+        return [...this.slugs];
+    }
+
+    listCountries(): CountrySummary[] {
+        return this.configs.map(c => ({
+            country: c.country,
+            logo: c.logo ?? null,
+        }));
     }
 
     hasCountry(country: string): boolean {
-        return this.byCountry.has(country);
-    }
-
-    getDatabaseUrl(country: string): string {
-        return this.requireEntry(country).config.database;
-    }
-
-    getStorageUrl(country: string): string {
-        return this.requireEntry(country).config.storage;
-    }
-
-    private requireEntry(country: string): CountryConfigEntry {
-        const entry = this.byCountry.get(country);
-        if (!entry) {
-            throw new NotFoundException(`Country '${country}' is not configured`);
-        }
-        return entry;
+        return this.slugs.has(country);
     }
 }

@@ -1,8 +1,13 @@
 import { api } from '../api';
 
+export interface CountrySummary {
+  country: string;
+  logo: string | null;
+}
+
 export const countriesService = {
-  async list(): Promise<string[]> {
-    const response = await api.get<{ countries: string[] }>('/countries');
+  async list(): Promise<CountrySummary[]> {
+    const response = await api.get<{ countries: CountrySummary[] }>('/countries');
     return response.countries;
   },
 };

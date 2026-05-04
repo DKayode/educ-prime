@@ -17,7 +17,7 @@ export class AvisService {
     private get servicesRepository(): Repository<Service> { return this.resolver.getRepository(Service); }
     private get offresRepository(): Repository<Offre> { return this.resolver.getRepository(Offre); }
 
-    async create(userId: number, createAvisDto: CreateAvisDto) {
+    async create(pays: string, userId: number, createAvisDto: CreateAvisDto) {
         const { avisable_id, avisable_type, note, comment } = createAvisDto;
 
         let targetEntity: Service | Offre | null = null;
@@ -44,6 +44,7 @@ export class AvisService {
         }
 
         const avis = this.avisRepository.create({
+            pays,
             note,
             comment,
             avisable_id,
@@ -53,7 +54,7 @@ export class AvisService {
         return this.avisRepository.save(avis);
     }
 
-    async findAllByModel(model: string, id: number, pagination: { page: number, limit: number }) {
+    async findAllByModel(pays: string, model: string, id: number, pagination: { page: number, limit: number }) {
         let entityType: EntiteType;
         if (model.toLowerCase() === 'services') {
             entityType = EntiteType.SERVICES;
@@ -62,14 +63,14 @@ export class AvisService {
         } else {
             throw new BadRequestException('Modèle invalide. Utilisez "Services" ou "Offres".');
         }
-        return this.findAllByEntity(id, entityType, pagination);
+        return this.findAllByEntity(pays, id, entityType, pagination);
     }
 
-    private async findAllByEntity(entityId: number, entityType: EntiteType, pagination: { page: number, limit: number }) {
+    private async findAllByEntity(pays: string, entityId: number, entityType: EntiteType, pagination: { page: number, limit: number }) {
         const { page, limit } = pagination;
 
         const [avisList, total] = await this.avisRepository.findAndCount({
-            where: { avisable_id: entityId, avisable_type: entityType },
+            where: { pays, avisable_id: entityId, avisable_type: entityType },
             relations: ['utilisateur'],
             skip: (page - 1) * limit,
             take: limit,

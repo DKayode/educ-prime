@@ -7,6 +7,7 @@ import { FilterForumDto } from './dto/filter-forum.dto';
 import { ApiTags, ApiBearerAuth, ApiQuery, ApiOkResponse, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
 import { Forum } from './entities/forum.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('Forums')
 @Controller('forums')
@@ -19,9 +20,9 @@ export class ForumController {
     @ApiOperation({ summary: 'Créer un nouveau forum' })
     @ApiResponse({ status: 201, description: 'Le forum a été créé avec succès.', type: Forum })
     @ApiResponse({ status: 401, description: 'Non autorisé.' })
-    create(@Body() createForumDto: CreateForumDto, @Req() req) {
+    create(@CurrentCountry() pays: string, @Body() createForumDto: CreateForumDto, @Req() req) {
         const userId = req.user.utilisateurId;
-        return this.forumService.create(createForumDto, userId);
+        return this.forumService.create(pays, createForumDto, userId);
     }
 
     @Get()
@@ -29,9 +30,9 @@ export class ForumController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Récupérer la liste des forums' })
     @ApiResponse({ status: 200, description: 'Liste des forums récupérée avec succès.', type: [Forum] })
-    findAll(@Query() filterDto: FilterForumDto, @Req() req) {
+    findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterForumDto, @Req() req) {
         const userId = req.user.utilisateurId;
-        return this.forumService.findAll(filterDto, userId);
+        return this.forumService.findAll(pays, filterDto, userId);
     }
 
     @Get(':id')

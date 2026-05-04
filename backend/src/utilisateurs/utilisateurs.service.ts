@@ -55,8 +55,8 @@ export class UtilisateursService {
     });
   }
 
-  async inscription(inscriptionDto: InscriptionDto) {
-    this.logger.log(`Tentative d'inscription pour: ${inscriptionDto.email}`);
+  async inscription(pays: string, inscriptionDto: InscriptionDto) {
+    this.logger.log(`Tentative d'inscription pour: ${inscriptionDto.email} (pays=${pays})`);
 
     // Check if email already exists
     const existingUser = await this.utilisateursRepository.findOne({
@@ -143,6 +143,7 @@ export class UtilisateursService {
     // Create new user with hashed password
     const newUser = this.utilisateursRepository.create({
       ...inscriptionDto,
+      pays,
       mot_de_passe: hashedPassword,
       parrain: parrain,
       mon_code_parrainage: monCodeParrainage,
@@ -224,16 +225,17 @@ export class UtilisateursService {
     return { code_parrainage: user.mon_code_parrainage };
   }
 
-  async findAll(filterDto: FilterUtilisateurDto): Promise<PaginationResponse<Utilisateur>> {
+  async findAll(pays: string, filterDto: FilterUtilisateurDto): Promise<PaginationResponse<Utilisateur>> {
     const { page = 1, limit = 10, search, role, activated, sort_by, sort_order, parrain_id } = filterDto;
-    this.logger.log(`Récupération des utilisateurs - Page: ${page}, Limite: ${limit}, Search: ${search}, Role: ${role}, Activated: ${activated}, SortBy: ${sort_by}, Order: ${sort_order}, ParrainId: ${parrain_id}`);
+    this.logger.log(`Récupération des utilisateurs (pays=${pays}) - Page: ${page}, Limite: ${limit}, Search: ${search}, Role: ${role}, Activated: ${activated}, SortBy: ${sort_by}, Order: ${sort_order}, ParrainId: ${parrain_id}`);
 
     const queryBuilder = this.utilisateursRepository.createQueryBuilder('utilisateur')
       .leftJoinAndSelect('utilisateur.etablissement', 'etablissement')
       .leftJoinAndSelect('utilisateur.filiere', 'filiere')
       .leftJoinAndSelect('utilisateur.niveau_etude', 'niveau_etude')
       .loadRelationCountAndMap('utilisateur.filleulsCount', 'utilisateur.filleuls')
-      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'etablissement', 'filiere', 'niveau_etude'])
+      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.pays', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'etablissement', 'filiere', 'niveau_etude'])
+      .where('utilisateur.pays = :pays', { pays })
       .skip((page - 1) * limit)
       .take(limit);
 

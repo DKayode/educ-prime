@@ -6,6 +6,9 @@ export class CommentaireUser {
     @PrimaryGeneratedColumn()
     id: number;
 
+
+    @Column({ type: "varchar", length: 50, default: "benin" })
+    pays: string;
     @Column({ type: 'bigint' })
     commentable_id: string;
 

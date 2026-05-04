@@ -7,6 +7,9 @@ export class Prestataire {
     @PrimaryGeneratedColumn()
     id: number;
 
+
+    @Column({ type: "varchar", length: 50, default: "benin" })
+    pays: string;
     @Column({ type: 'uuid', unique: true, default: () => 'gen_random_uuid()' })
     uuid: string;
 

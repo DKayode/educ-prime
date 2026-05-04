@@ -8,6 +8,9 @@ export class Forum {
     @PrimaryGeneratedColumn()
     id: number;
 
+
+    @Column({ type: "varchar", length: 50, default: "benin" })
+    pays: string;
     @ApiProperty({ description: 'UUID of the forum' })
     @Column({ type: 'uuid', unique: true, default: () => 'gen_random_uuid()' })
     uuid: string;

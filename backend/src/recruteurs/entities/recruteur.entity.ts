@@ -7,6 +7,9 @@ export class Recruteur {
     @PrimaryGeneratedColumn()
     id: number;
 
+
+    @Column({ type: "varchar", length: 50, default: "benin" })
+    pays: string;
     @Column({ type: 'varchar', length: 100, nullable: true })
     numero_ifu: string;
 

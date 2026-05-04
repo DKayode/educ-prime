@@ -10,6 +10,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterMatiereDto } from './dto/filter-matiere.dto';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('matieres')
 @Controller('matieres')
@@ -19,8 +20,8 @@ export class MatieresController {
   @UseGuards(JwtAuthGuard, RoleGuard)
   @Roles(RoleType.ADMIN, RoleType.PROFESSEUR)
   @Post()
-  async create(@Body() creerMatiereDto: CreerMatiereDto) {
-    return this.matieresService.create(creerMatiereDto);
+  async create(@CurrentCountry() pays: string, @Body() creerMatiereDto: CreerMatiereDto) {
+    return this.matieresService.create(pays, creerMatiereDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -37,8 +38,8 @@ export class MatieresController {
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (nom matière, nom niveau, nom filière)' })
   @ApiQuery({ name: 'filiere', required: false, type: String, description: 'Filtrer par nom de filière' })
-  async findAll(@Query() filterDto: FilterMatiereDto) {
-    return this.matieresService.findAll(filterDto);
+  async findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterMatiereDto) {
+    return this.matieresService.findAll(pays, filterDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -48,8 +49,8 @@ export class MatieresController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
-  async findGroupedByName(@Query() paginationDto: PaginationDto) {
-    return this.matieresService.findGroupedByName(paginationDto);
+  async findGroupedByName(@CurrentCountry() pays: string, @Query() paginationDto: PaginationDto) {
+    return this.matieresService.findGroupedByName(pays, paginationDto);
   }
 
   @UseGuards(JwtAuthGuard)

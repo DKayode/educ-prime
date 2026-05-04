@@ -141,7 +141,7 @@ export class OffresService {
         });
     }
 
-    async create(userId: number, createOffreDto: CreateOffreDto) {
+    async create(pays: string, userId: number, createOffreDto: CreateOffreDto) {
         const user = await this.utilisateursRepository.findOne({
             where: { id: userId },
             relations: ['recruteur'],
@@ -187,6 +187,7 @@ export class OffresService {
 
         const newOffre: Offre = this.offresRepository.create({
             ...offreData,
+            pays,
             type_id: typeId,
             utilisateur_id: userId,
             competences: resolvedCompetences
@@ -203,13 +204,14 @@ export class OffresService {
         return this.formatOffre(fullOffre);
     }
 
-    async findAll(filters: OffreFilterDto) {
+    async findAll(pays: string, filters: OffreFilterDto) {
         const { type, prixMin, prixMax, search, page = 1, limit = 10 } = filters;
 
         const queryBuilder = this.offresRepository.createQueryBuilder('offre')
             .leftJoinAndSelect('offre.type', 'type')
             .leftJoinAndSelect('offre.competences', 'competences')
-            .where('offre.status IN (:...statuses)', { statuses: [ServiceStatusEnum.APPROVED, 'active'] });
+            .where('offre.pays = :pays', { pays })
+            .andWhere('offre.status IN (:...statuses)', { statuses: [ServiceStatusEnum.APPROVED, 'active'] });
 
         if (type) {
             queryBuilder.andWhere('type.slug = :type', { type });
@@ -241,11 +243,11 @@ export class OffresService {
         };
     }
 
-    async findAllByUser(userId: number, pagination: { page: number, limit: number }) {
+    async findAllByUser(pays: string, userId: number, pagination: { page: number, limit: number }) {
         const { page = 1, limit = 10 } = pagination;
 
         const [data, total] = await this.offresRepository.findAndCount({
-            where: { utilisateur_id: userId },
+            where: { pays, utilisateur_id: userId },
             relations: ['type', 'competences'],
             order: { created_at: 'DESC' },
             skip: (page - 1) * limit,
@@ -261,10 +263,11 @@ export class OffresService {
         };
     }
 
-    async findAllAdmin(pagination: { page: number, limit: number }) {
+    async findAllAdmin(pays: string, pagination: { page: number, limit: number }) {
         const { page = 1, limit = 10 } = pagination;
 
         const [data, total] = await this.offresRepository.findAndCount({
+            where: { pays },
             relations: ['type', 'competences'],
             order: { created_at: 'DESC' },
             skip: (page - 1) * limit,

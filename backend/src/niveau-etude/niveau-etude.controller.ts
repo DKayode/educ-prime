@@ -7,6 +7,7 @@ import { NiveauEtudeResponseDto } from './dto/niveau-etude-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterNiveauEtudeDto } from './dto/filter-niveau-etude.dto';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('niveau-etude')
 @Controller('niveau-etude')
@@ -15,8 +16,8 @@ export class NiveauEtudeController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() creerNiveauEtudeDto: CreerNiveauEtudeDto) {
-    return this.niveauEtudeService.create(creerNiveauEtudeDto);
+  async create(@CurrentCountry() pays: string, @Body() creerNiveauEtudeDto: CreerNiveauEtudeDto) {
+    return this.niveauEtudeService.create(pays, creerNiveauEtudeDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -27,15 +28,15 @@ export class NiveauEtudeController {
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (nom niveau, nom filière)' })
   @ApiQuery({ name: 'filiere', required: false, type: String, description: 'Filtrer par nom de filière' })
-  async findAll(@Query() filterDto: FilterNiveauEtudeDto) {
-    return this.niveauEtudeService.findAll(filterDto);
+  async findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterNiveauEtudeDto) {
+    return this.niveauEtudeService.findAll(pays, filterDto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('grouper-par-nom')
   @ApiOperation({ summary: 'Récupérer les niveaux groupés par nom avec pagination' })
-  async findGroupByName(@Query() paginationDto: PaginationDto) {
-    return this.niveauEtudeService.findGroupByName(paginationDto);
+  async findGroupByName(@CurrentCountry() pays: string, @Query() paginationDto: PaginationDto) {
+    return this.niveauEtudeService.findGroupByName(pays, paginationDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -57,8 +58,10 @@ export class NiveauEtudeController {
   }
   @UseGuards(JwtAuthGuard)
   @Delete('grouper-par-nom/:nom')
-  async removeGroup(@Param('nom') nom: string) {
-    return this.niveauEtudeService.removeGroup(nom);
+  @ApiOperation({ summary: 'Supprimer tous les niveaux portant un nom dans un pays donné' })
+  @ApiQuery({ name: 'country', required: true, description: 'Country slug; this DELETE targets rows by name and needs the scope explicit.' })
+  async removeGroup(@CurrentCountry() pays: string, @Param('nom') nom: string) {
+    return this.niveauEtudeService.removeGroup(pays, nom);
   }
 
 
