@@ -9,6 +9,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { DataSource } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import {
     FILE_FIELD_REGISTRY,
     FileSlotConfig,
@@ -34,11 +35,24 @@ export class FilesService {
     private readonly client: S3Client;
     private readonly bucket: string;
 
-    constructor(@InjectDataSource() private readonly dataSource: DataSource) {
-        const endpoint = process.env.R2_ENDPOINT;
-        const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-        const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-        this.bucket = process.env.R2_BUCKET ?? '';
+    constructor(
+        @InjectDataSource() private readonly dataSource: DataSource,
+        private readonly config: ConfigService,
+    ) {
+        const endpoint = this.config.get<string>('R2_ENDPOINT');
+        const accessKeyId = this.config.get<string>('R2_ACCESS_KEY_ID');
+        const secretAccessKey = this.config.get<string>('R2_SECRET_ACCESS_KEY');
+        this.bucket = this.config.get<string>('R2_BUCKET') ?? '';
+
+        // Diagnostic log at boot — shows which vars are present without
+        // leaking values. Helps figure out misconfigurations without
+        // restarting the dev server in the dark.
+        this.logger.log(
+            `R2 config: endpoint=${endpoint ? 'set' : 'MISSING'}, ` +
+            `bucket=${this.bucket ? 'set' : 'MISSING'}, ` +
+            `accessKeyId=${accessKeyId ? 'set' : 'MISSING'}, ` +
+            `secretAccessKey=${secretAccessKey ? 'set' : 'MISSING'}`,
+        );
 
         if (!endpoint || !accessKeyId || !secretAccessKey || !this.bucket) {
             this.logger.warn(
