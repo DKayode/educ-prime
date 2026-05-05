@@ -16,13 +16,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(req: any, payload: JwtPayload) {
-    const reqCountry = req.country ?? 'benin';
-    const tokenCountry = payload.country ?? 'benin';
-    if (tokenCountry !== reqCountry) {
-      throw new UnauthorizedException(
-        `Token issued for '${tokenCountry}' but request is for '${reqCountry}'`,
-      );
-    }
+    // Auth is intentionally cross-country: a single account can switch
+    // scope via the country switcher without re-authenticating, so we
+    // don't compare the request's country against the token's any more.
 
     const token = req.headers.authorization?.split(' ')[1];
     if (token) {
@@ -35,7 +31,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       utilisateurId: payload.sub,
       email: payload.email,
       role: payload.role,
-      country: tokenCountry,
     };
   }
 }

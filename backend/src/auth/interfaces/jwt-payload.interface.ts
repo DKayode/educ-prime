@@ -4,7 +4,6 @@ export interface JwtPayload {
   sub: number;
   email: string;
   role: RoleType;
-  country: string;
   iat?: number;
   exp?: number;
 }
