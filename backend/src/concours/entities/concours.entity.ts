@@ -6,6 +6,12 @@ export class Concours {
     id: number;
 
 
+
+    @Column({ type: 'text', default: '' })
+    file_path: string;
+
+    @Column({ type: 'varchar', length: 10, default: '' })
+    file_extension: string;
     @Column({ type: "varchar", length: 50, default: "benin" })
     pays: string;
     @Column({ type: 'uuid', unique: true, default: () => 'gen_random_uuid()' })

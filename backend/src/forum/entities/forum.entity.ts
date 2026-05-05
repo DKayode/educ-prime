@@ -9,6 +9,12 @@ export class Forum {
     id: number;
 
 
+
+    @Column({ type: 'text', default: '' })
+    file_path: string;
+
+    @Column({ type: 'varchar', length: 10, default: '' })
+    file_extension: string;
     @Column({ type: "varchar", length: 50, default: "benin" })
     pays: string;
     @ApiProperty({ description: 'UUID of the forum' })

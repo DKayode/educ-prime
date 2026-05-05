@@ -10,6 +10,7 @@ import { MatieresModule } from './matieres/matieres.module';
 import { EpreuvesModule } from './epreuves/epreuves.module';
 import { RessourcesModule } from './ressources/ressources.module';
 import { FichiersModule } from './fichiers/fichiers.module';
+import { FilesModule } from './files/files.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { Utilisateur } from './utilisateurs/entities/utilisateur.entity';
@@ -114,6 +115,7 @@ import { CountryMiddleware } from './config/country.middleware';
     EpreuvesModule,
     RessourcesModule,
     FichiersModule,
+    FilesModule,
     PublicitesModule,
     EvenementsModule,
     OpportunitesModule,

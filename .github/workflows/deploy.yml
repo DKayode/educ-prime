@@ -75,6 +75,10 @@ jobs:
             SMTP_SECURE=${{ secrets.SMTP_SECURE }}
             REDIS_HOST=redis
             REDIS_PORT=6379
+            R2_ENDPOINT=${{ secrets.R2_ENDPOINT }}
+            R2_BUCKET=${{ secrets.R2_BUCKET }}
+            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}
+            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
             ENV_EOF
 
             # Créer le fichier docker-compose.yml depuis le contenu du repo
