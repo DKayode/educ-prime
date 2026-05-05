@@ -83,6 +83,24 @@ jobs:
             # Créer le fichier nginx.conf depuis le contenu du repo
             echo "$NGINX_CONTENT" | base64 -d > ./nginx/nginx.conf
 
+            # Use Docker Compose v2 (the Go plugin, invoked as `docker compose`).
+            # The legacy v1 Python binary (`docker-compose`, 1.29.2) crashes with
+            # `KeyError: 'ContainerConfig'` against modern Docker engines that
+            # stopped emitting that field. Install the plugin if it's missing.
+            if ! docker compose version >/dev/null 2>&1; then
+              echo "=== Installation du plugin docker compose v2"
+              apt-get update -qq
+              apt-get install -y -qq docker-compose-plugin
+            fi
+            COMPOSE="docker compose"
+
+            # Sweep leftover hash-prefixed containers from previous failed
+            # v1 recreate attempts (e.g. 1ab776779dd5_edukia_certbot). They
+            # block v2 from cleanly creating the real names.
+            docker ps -a --format '{{.Names}}' \
+              | grep -E '^[0-9a-f]{12}_edukia_' \
+              | xargs -r docker rm -f || true
+
             # Bootstrap Let's Encrypt: si aucun certificat n'existe pour le
             # domaine, créer un certificat auto-signé temporaire pour que
             # nginx puisse démarrer. Sinon le challenge HTTP-01 est bloqué
@@ -103,14 +121,14 @@ jobs:
             fi
 
             # Arrêter les conteneurs applicatifs (laisser db, redis, certbot, nginx)
-            docker-compose stop backend frontend
-            docker-compose rm -f backend frontend
+            $COMPOSE stop backend frontend
+            $COMPOSE rm -f backend frontend
 
             # Pull les dernières images
-            docker-compose pull backend frontend redis
+            $COMPOSE pull backend frontend redis
 
             # Démarrer la pile (nginx avec dummy cert si nécessaire)
-            docker-compose up -d --remove-orphans
+            $COMPOSE up -d --remove-orphans
 
             # Si on a démarré avec un dummy cert, demander un vrai certificat
             # à Let's Encrypt via webroot (nginx est maintenant up sur le 80).
@@ -131,25 +149,25 @@ jobs:
                   -d "$PRIMARY_DOMAIN" -d "api.$PRIMARY_DOMAIN"
 
               # Recharger nginx avec le vrai certificat
-              docker-compose exec -T nginx nginx -s reload
+              $COMPOSE exec -T nginx nginx -s reload
             fi
 
             # Recharger nginx pour prendre en compte d'éventuels changements
             # de configuration. On ne fail pas si nginx n'est pas up — le
             # diagnostic ci-dessous montrera l'état réel.
-            docker-compose exec -T nginx nginx -s reload || true
+            $COMPOSE exec -T nginx nginx -s reload || true
 
             # Attendre un peu pour que les conteneurs démarrent
             sleep 10
 
             # Afficher l'état des conteneurs
-            docker-compose ps
+            $COMPOSE ps
 
             # Afficher les logs pour diagnostic
             echo "=== Backend logs ==="
-            docker-compose logs --tail=50 backend
+            $COMPOSE logs --tail=50 backend
             echo "=== Nginx logs ==="
-            docker-compose logs --tail=20 nginx
+            $COMPOSE logs --tail=20 nginx
 
       - name: Notify deployment status
         if: always()

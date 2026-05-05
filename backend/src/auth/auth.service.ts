@@ -12,7 +12,6 @@ import * as crypto from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
-import { CountryContextService } from '../config/country-context.service';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +21,6 @@ export class AuthService {
     private readonly utilisateursService: UtilisateursService,
     private readonly jwtService: JwtService,
     private readonly resolver: DataSourceResolver,
-    private readonly context: CountryContextService,
     private readonly mailService: MailService
   ) { }
 
@@ -75,9 +73,10 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides');
     }
 
-    // Generate access token (1d)
-    const country = this.context.getCountry();
-    const payload = { sub: user.id, email: user.email, role: user.role, country };
+    // Generate access token (1d). Country is intentionally not in the
+    // payload — accounts are cross-country and switch scope via the
+    // request's ?country= / body.pays without re-authenticating.
+    const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwtService.sign(payload);
 
     // Generate refresh token (30 days)
@@ -165,9 +164,8 @@ export class AuthService {
       throw new UnauthorizedException('Utilisateur introuvable');
     }
 
-    // Generate new access token
-    const country = this.context.getCountry();
-    const payload = { sub: user.id, email: user.email, role: user.role, country };
+    // Generate new access token (cross-country, see login())
+    const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwtService.sign(payload);
 
     this.logger.log(`Access token rafraîchi pour utilisateur: ${user.email} (ID: ${user.id})`);
