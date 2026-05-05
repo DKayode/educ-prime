@@ -22,6 +22,10 @@ services:
     container_name: edukia_backend
     restart: unless-stopped
     environment:
+      # Database — managed Postgres on Neon. Connection string carries
+      # credentials, host, db name, and sslmode=require; the previous
+      # DB_HOST / DB_PORT / DB_USERNAME / DB_PASSWORD / DB_NAME variables
+      # were leftovers from a local-db setup and are no longer read.
       DATABASE_URL: ${DATABASE_URL}
       # JWT
       JWT_SECRET: ${JWT_SECRET}
