@@ -1,5 +1,7 @@
 import { api } from '../api';
 
+export type TypeContrat = 'presentiel' | 'hybride' | 'remote';
+
 export interface OffreItem {
     id: number;
     titre: string;
@@ -8,6 +10,7 @@ export interface OffreItem {
     prix?: number;
     type_id: number;
     status: 'pending_approval' | 'declined' | 'approved' | 'active' | 'inactive';
+    type_contrat: TypeContrat;
     temps?: string | null;
     image_couverture?: string | null;
     created_at: string;

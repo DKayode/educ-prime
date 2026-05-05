@@ -8,6 +8,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { ServiceStatusEnum } from '../common/enums/service-status.enum';
+import { TypeContratEnum } from '../common/enums/type-contrat.enum';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('services')
@@ -33,6 +34,7 @@ export class ServicesController {
     @ApiQuery({ name: 'tarifMin', required: false, type: Number })
     @ApiQuery({ name: 'tarifMax', required: false, type: Number })
     @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche dans titre et description' })
+    @ApiQuery({ name: 'type_contrat', required: false, enum: TypeContratEnum })
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAll(
@@ -42,6 +44,7 @@ export class ServicesController {
         @Query('tarifMin') tarifMin?: string,
         @Query('tarifMax') tarifMax?: string,
         @Query('search') search?: string,
+        @Query('type_contrat') type_contrat?: TypeContratEnum,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
@@ -51,6 +54,7 @@ export class ServicesController {
             tarifMin: tarifMin ? parseFloat(tarifMin) : undefined,
             tarifMax: tarifMax ? parseFloat(tarifMax) : undefined,
             search,
+            type_contrat,
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 10,
         });

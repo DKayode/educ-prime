@@ -471,6 +471,7 @@ model types {
 
 model services {
   id               Int                  @id @default(autoincrement())
+  type_contrat     String               @default("hybride") @db.VarChar(20)
   pays             String               @default("benin") @db.VarChar(50)
   titre            String               @db.VarChar(255)
   description      String               @db.Text
@@ -552,6 +553,7 @@ model competences {
 
 model offres {
   id               Int                  @id @default(autoincrement())
+  type_contrat     String               @default("hybride") @db.VarChar(20)
   titre            String               @db.VarChar(255)
   description      String               @db.Text
   type_id          Int

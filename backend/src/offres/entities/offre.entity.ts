@@ -3,6 +3,7 @@ import { Type } from '../../types/entities/type.entity';
 import { Utilisateur } from '../../utilisateurs/entities/utilisateur.entity';
 import { Competence } from '../../competences/entities/competence.entity';
 import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
+import { TypeContratEnum } from '../../common/enums/type-contrat.enum';
 
 export { ServiceStatusEnum };
 
@@ -40,6 +41,9 @@ export class Offre {
 
     @Column({ type: 'enum', enum: ServiceStatusEnum, default: ServiceStatusEnum.PENDING_APPROVAL })
     status: ServiceStatusEnum;
+
+    @Column({ type: 'varchar', length: 20, default: TypeContratEnum.HYBRIDE })
+    type_contrat: TypeContratEnum;
 
     @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;

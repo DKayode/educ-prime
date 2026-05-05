@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { Type } from '../../types/entities/type.entity';
 import { Utilisateur } from '../../utilisateurs/entities/utilisateur.entity';
 import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
+import { TypeContratEnum } from '../../common/enums/type-contrat.enum';
 
 @Entity('services')
 export class Service {
@@ -34,6 +35,9 @@ export class Service {
 
     @Column({ type: 'enum', enum: ServiceStatusEnum, default: ServiceStatusEnum.PENDING_APPROVAL })
     status: ServiceStatusEnum;
+
+    @Column({ type: 'varchar', length: 20, default: TypeContratEnum.HYBRIDE })
+    type_contrat: TypeContratEnum;
 
     @Column({ name: 'disponibilite', type: 'int', nullable: true })
     delai: number;
