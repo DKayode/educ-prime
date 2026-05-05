@@ -1,6 +1,7 @@
 import { IsString, IsNotEmpty, IsNumber, IsOptional, IsArray, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
+import { TypeContratEnum } from '../../common/enums/type-contrat.enum';
 
 export class CreateOffreDto {
     @ApiProperty({ description: 'Titre de l\'offre', example: 'Recherche développeur React' })
@@ -43,6 +44,11 @@ export class CreateOffreDto {
     @IsOptional()
     @IsString({ each: true })
     competences?: string[];
+
+    @ApiProperty({ description: 'Modalité de travail', enum: TypeContratEnum, example: TypeContratEnum.HYBRIDE })
+    @IsEnum(TypeContratEnum)
+    @IsNotEmpty()
+    type_contrat: TypeContratEnum;
 }
 
 export class UpdateOffreDto {
@@ -81,6 +87,11 @@ export class UpdateOffreDto {
     @IsOptional()
     @IsString({ each: true })
     competences?: string[];
+
+    @ApiPropertyOptional({ description: 'Modalité de travail', enum: TypeContratEnum })
+    @IsEnum(TypeContratEnum)
+    @IsOptional()
+    type_contrat?: TypeContratEnum;
 }
 
 export class UpdateOffreStatusDto {

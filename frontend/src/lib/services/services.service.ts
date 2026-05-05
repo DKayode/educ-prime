@@ -1,4 +1,7 @@
 import { api } from '../api';
+import type { TypeContrat } from './offres.service';
+
+export type { TypeContrat };
 
 export interface ServiceItem {
     id: number;
@@ -9,6 +12,7 @@ export interface ServiceItem {
     prix?: number;
     type_id: number;
     status: 'pending_approval' | 'declined' | 'approved' | 'active' | 'inactive';
+    type_contrat: TypeContrat;
     delai?: number | null;
     created_at: string;
     updated_at: string;

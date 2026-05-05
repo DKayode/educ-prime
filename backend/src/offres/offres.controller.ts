@@ -8,6 +8,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
+import { TypeContratEnum } from '../common/enums/type-contrat.enum';
 
 @ApiTags('offres')
 @Controller('offres')
@@ -20,6 +21,7 @@ export class OffresController {
     @ApiQuery({ name: 'prixMin', required: false, type: Number })
     @ApiQuery({ name: 'prixMax', required: false, type: Number })
     @ApiQuery({ name: 'search', required: false })
+    @ApiQuery({ name: 'type_contrat', required: false, enum: TypeContratEnum })
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAll(
@@ -28,6 +30,7 @@ export class OffresController {
         @Query('prixMin') prixMin?: string,
         @Query('prixMax') prixMax?: string,
         @Query('search') search?: string,
+        @Query('type_contrat') type_contrat?: TypeContratEnum,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
@@ -36,6 +39,7 @@ export class OffresController {
             prixMin: prixMin ? parseFloat(prixMin) : undefined,
             prixMax: prixMax ? parseFloat(prixMax) : undefined,
             search,
+            type_contrat,
             page: page ? parseInt(page, 10) : 1,
             limit: limit ? parseInt(limit, 10) : 10,
         });

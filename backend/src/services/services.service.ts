@@ -12,6 +12,7 @@ import { CreateServiceDto, UpdateServiceDto } from './dto/service.dto';
 import { MailService } from '../mail/mail.service';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { TypeFichier } from '../fichiers/entities/fichier.entity';
+import { TypeContratEnum } from '../common/enums/type-contrat.enum';
 
 export interface ServiceFilterDto {
     localisation?: string;
@@ -19,6 +20,7 @@ export interface ServiceFilterDto {
     tarifMin?: number;
     tarifMax?: number;
     search?: string;
+    type_contrat?: TypeContratEnum;
     page?: number;
     limit?: number;
 }
@@ -164,7 +166,7 @@ export class ServicesService {
     }
 
     async findAll(pays: string, filters: ServiceFilterDto) {
-        const { localisation, type, tarifMin, tarifMax, search, page = 1, limit = 10 } = filters;
+        const { localisation, type, tarifMin, tarifMax, search, type_contrat, page = 1, limit = 10 } = filters;
 
         const qb = this.servicesWithRelations()
             .where('service.pays = :pays', { pays })
@@ -175,6 +177,9 @@ export class ServicesService {
         }
         if (type) {
             qb.andWhere('type.slug = :typeSlug', { typeSlug: type });
+        }
+        if (type_contrat) {
+            qb.andWhere('service.type_contrat = :type_contrat', { type_contrat });
         }
         if (tarifMin !== undefined) {
             qb.andWhere('service.prix >= :tarifMin', { tarifMin });
@@ -244,7 +249,7 @@ export class ServicesService {
             throw new ForbiddenException("Vous n'êtes pas autorisé à modifier ce service.");
         }
 
-        const { titre, description, prix, localisation, type, type_id, delai, livrable } = updateServiceDto;
+        const { titre, description, prix, localisation, type, type_id, delai, livrable, type_contrat } = updateServiceDto;
 
         if (type || type_id) {
             let finalTypeId = type_id;
@@ -264,6 +269,7 @@ export class ServicesService {
         if (localisation !== undefined) service.localisation = localisation;
         if (delai !== undefined) service.delai = delai;
         if (livrable !== undefined) service.livrable = livrable;
+        if (type_contrat !== undefined) service.type_contrat = type_contrat;
         service.status = ServiceStatusEnum.PENDING_APPROVAL;
 
         return this.servicesRepository.save(service);

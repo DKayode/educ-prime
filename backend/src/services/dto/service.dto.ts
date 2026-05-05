@@ -1,6 +1,7 @@
 import { IsString, IsNotEmpty, IsNumber, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
+import { TypeContratEnum } from '../../common/enums/type-contrat.enum';
 
 export class CreateServiceDto {
     @ApiProperty({ description: 'Titre du service', example: 'Développement d\'une application web' })
@@ -47,6 +48,11 @@ export class CreateServiceDto {
     @IsString()
     @IsOptional()
     image_couverture?: string;
+
+    @ApiProperty({ description: 'Modalité de travail', enum: TypeContratEnum, example: TypeContratEnum.HYBRIDE })
+    @IsEnum(TypeContratEnum)
+    @IsNotEmpty()
+    type_contrat: TypeContratEnum;
 }
 
 export class UpdateServiceDto {
@@ -89,6 +95,11 @@ export class UpdateServiceDto {
     @IsString()
     @IsOptional()
     livrable?: string;
+
+    @ApiPropertyOptional({ description: 'Modalité de travail', enum: TypeContratEnum })
+    @IsEnum(TypeContratEnum)
+    @IsOptional()
+    type_contrat?: TypeContratEnum;
 }
 
 export class UpdateServiceStatusDto {

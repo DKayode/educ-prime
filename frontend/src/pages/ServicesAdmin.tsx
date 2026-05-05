@@ -213,6 +213,7 @@ export default function ServicesAdmin() {
                                         <TableHead>Titre</TableHead>
                                         <TableHead>Auteur</TableHead>
                                         <TableHead>Type</TableHead>
+                                        <TableHead>Modalité</TableHead>
                                         <TableHead>Prix</TableHead>
                                         <TableHead>Statut</TableHead>
                                         <TableHead>Date</TableHead>
@@ -222,7 +223,7 @@ export default function ServicesAdmin() {
                                 <TableBody>
                                     {services.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                            <TableCell colSpan={8} className="text-center text-muted-foreground">
                                                 Aucun service trouvé.
                                             </TableCell>
                                         </TableRow>
@@ -237,6 +238,9 @@ export default function ServicesAdmin() {
                                                 </TableCell>
                                                 <TableCell>
                                                     {service.type?.nom || '-'}
+                                                </TableCell>
+                                                <TableCell className="capitalize text-muted-foreground">
+                                                    {service.type_contrat || '-'}
                                                 </TableCell>
                                                 <TableCell>
                                                     {service.prix ? `${service.prix} FCFA` : '-'}

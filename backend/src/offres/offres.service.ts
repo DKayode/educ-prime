@@ -13,12 +13,14 @@ import { Competence } from '../competences/entities/competence.entity';
 import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
 import { Avis } from '../avis/entities/avis.entity';
 import { EntiteType } from '../common/enums/entite-type.enum';
+import { TypeContratEnum } from '../common/enums/type-contrat.enum';
 
 export interface OffreFilterDto {
     type?: string;
     prixMin?: number;
     prixMax?: number;
     search?: string;
+    type_contrat?: TypeContratEnum;
     page?: number;
     limit?: number;
 }
@@ -205,7 +207,7 @@ export class OffresService {
     }
 
     async findAll(pays: string, filters: OffreFilterDto) {
-        const { type, prixMin, prixMax, search, page = 1, limit = 10 } = filters;
+        const { type, prixMin, prixMax, search, type_contrat, page = 1, limit = 10 } = filters;
 
         const queryBuilder = this.offresRepository.createQueryBuilder('offre')
             .leftJoinAndSelect('offre.type', 'type')
@@ -215,6 +217,10 @@ export class OffresService {
 
         if (type) {
             queryBuilder.andWhere('type.slug = :type', { type });
+        }
+
+        if (type_contrat) {
+            queryBuilder.andWhere('offre.type_contrat = :type_contrat', { type_contrat });
         }
 
         if (prixMin !== undefined) {
