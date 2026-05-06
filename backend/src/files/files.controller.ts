@@ -30,6 +30,46 @@ import { UploadUrlRequestDto } from './dto/upload-url.dto';
 export class FilesController {
     constructor(private readonly filesService: FilesService) { }
 
+    @Get('registry')
+    @ApiOperation({
+        summary: 'Discover supported (entity, slot) pairs and their extension allowlists',
+        description:
+            'Returns the full file-slot registry: which entities accept uploads, which ' +
+            'slots each entity exposes (e.g. categories.icone, parcours.covert + content), ' +
+            'and the list of extensions allowed on each slot. Clients should fetch this ' +
+            'once at startup and cache it; the contract changes rarely. Use the keys here ' +
+            'to construct calls to /files/:entity/:uuid/:slot/upload-url and ' +
+            '/files/:entity/:uuid/:slot/download-url.',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Registry as a nested map: entity → slot → { authorized: string[] }.',
+        schema: {
+            type: 'object',
+            additionalProperties: {
+                type: 'object',
+                additionalProperties: {
+                    type: 'object',
+                    properties: {
+                        authorized: { type: 'array', items: { type: 'string' } },
+                    },
+                },
+            },
+            example: {
+                categories: { icone: { authorized: ['jpg', 'jpeg', 'png', 'webp', 'avif'] } },
+                concours: { file: { authorized: ['pdf'] } },
+                etablissements: { logo: { authorized: ['jpg', 'jpeg', 'png', 'webp', 'avif', 'svg'] } },
+                parcours: {
+                    covert: { authorized: ['jpg', 'jpeg', 'png', 'webp', 'avif'] },
+                    content: { authorized: ['jpg', 'jpeg', 'png', 'webp', 'avif'] },
+                },
+            },
+        },
+    })
+    getRegistry() {
+        return this.filesService.getPublicRegistry();
+    }
+
     @Post(':entity/:uuid/:slot/upload-url')
     @ApiOperation({
         summary: 'Get a presigned PUT URL for direct R2 upload',

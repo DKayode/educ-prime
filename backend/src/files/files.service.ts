@@ -67,6 +67,22 @@ export class FilesService {
         });
     }
 
+    /**
+     * Public-safe view of the registry. Strips internal fields (DB column
+     * names) and only exposes what a client needs to construct calls and
+     * pick a valid extension.
+     */
+    getPublicRegistry(): Record<string, Record<string, { authorized: readonly string[] }>> {
+        const out: Record<string, Record<string, { authorized: readonly string[] }>> = {};
+        for (const [entity, slots] of Object.entries(FILE_FIELD_REGISTRY)) {
+            out[entity] = {};
+            for (const [slot, cfg] of Object.entries(slots)) {
+                out[entity][slot] = { authorized: cfg.authorized };
+            }
+        }
+        return out;
+    }
+
     private resolveSlot(entity: string, slot: string): FileSlotConfig {
         const cfg = getSlotConfig(entity, slot);
         if (!cfg) {
