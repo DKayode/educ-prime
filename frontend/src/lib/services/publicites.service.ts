@@ -4,9 +4,16 @@ import { buildPaginationQuery } from '../types/pagination';
 
 export interface Publicite {
     id: number;
+    uuid?: string;
     titre: string;
+    /** Legacy URL — prefer FileImage with slot='covert'. */
     image?: string;
+    /** Legacy URL — prefer FileImage with slot='content' when type_media === 'Image'. */
     media?: string;
+    covert_image_path?: string;
+    covert_image_extension?: string;
+    content_image_path?: string;
+    content_image_extension?: string;
     type_media?: 'Image' | 'Video';
     lien_inscription?: string;
     ordre: number;

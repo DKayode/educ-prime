@@ -4,11 +4,15 @@ import { buildPaginationQuery } from '../types/pagination';
 
 export interface Ressource {
     id: number;
+    uuid?: string;
     titre: string;
     type: 'Quiz' | 'Exercices' | 'Document';
     nombre_pages?: number;
     nombre_telechargements?: number;
+    /** Legacy URL — prefer download-url with slot='file'. */
     url: string;
+    file_path?: string;
+    file_extension?: string;
     date_creation: string;
     date_publication?: string;
     professeur_id: number;

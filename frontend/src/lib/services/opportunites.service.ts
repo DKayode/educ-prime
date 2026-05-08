@@ -6,12 +6,16 @@ export type OpportuniteType = 'Bourses' | 'Stages';
 
 export interface Opportunite {
     id: number;
+    uuid?: string;
     titre: string;
     type: OpportuniteType;
     organisme?: string;
     lieu?: string;
     date_publication?: string;
+    /** Legacy URL — prefer FileImage with slot='image'. */
     image?: string;
+    image_path?: string;
+    image_extension?: string;
     lien_postuler?: string;
     actif: boolean;
     date_creation: string;

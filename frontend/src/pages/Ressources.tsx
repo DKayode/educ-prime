@@ -51,6 +51,7 @@ import { filieresService } from "@/lib/services/filieres.service";
 import { niveauxService } from "@/lib/services/niveaux.service";
 import { etablissementsService } from "@/lib/services/etablissements.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
+import { filesService } from "@/lib/services/files.service";
 import { useDebounce } from "@/hooks/use-debounce";
 
 export default function Ressources() {
@@ -134,15 +135,28 @@ export default function Ressources() {
     const matieres = matieresResponse?.data || [];
 
     const createMutation = useMutation({
-        mutationFn: (data: { file: File; titre: string; type: "Document" | "Quiz" | "Exercices"; matiere_id: number; nombre_pages?: string }) =>
-            fichiersService.uploadRessource({
-                file: data.file,
-                type: 'ressource',
-                typeRessource: data.type,
-                matiereId: data.matiere_id,
-                ressourceTitre: data.titre,
-                nombrePages: data.nombre_pages ? parseInt(data.nombre_pages, 10) : undefined,
-            }),
+        mutationFn: async (data: { file: File; titre: string; type: "Document" | "Quiz" | "Exercices"; matiere_id: number; nombre_pages?: string }) => {
+            // 1. Create the ressource row. The legacy service expected a
+            //    `url` on create; pass an empty string and let the file
+            //    upload populate file_path/file_extension instead.
+            const created = await ressourcesService.create({
+                titre: data.titre,
+                type: data.type,
+                matiere_id: data.matiere_id,
+                url: '',
+            });
+            if (data.nombre_pages) {
+                await ressourcesService.update(created.id.toString(), {
+                    nombre_pages: parseInt(data.nombre_pages, 10),
+                });
+            }
+
+            // 2. PUT bytes to R2 via presigned URL.
+            if (created.uuid) {
+                await filesService.uploadFile('ressources', created.uuid, 'file', data.file);
+            }
+            return created;
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['ressources'] });
             toast.success("Ressource créée avec succès");

@@ -4,6 +4,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { concoursService, type Concours } from "@/lib/services/concours.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
+import { filesService } from "@/lib/services/files.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -147,22 +148,12 @@ export default function Concours() {
                 url: formData.url || undefined,
             });
 
-            // Step 2: Upload file if selected
-            if (selectedFile && createdItem.id) {
+            // Step 2: PUT bytes to R2 via presigned URL (PDFs go through
+            // the same `file` slot — registry restricts to PDF).
+            if (selectedFile && createdItem.uuid) {
                 try {
-                    const uploadResult = await fichiersService.uploadImage({
-                        file: selectedFile,
-                        type: 'CONCOURS',
-                        entityId: createdItem.id,
-                        entitySubtype: 'document',
-                    });
-
-                    // Step 3: Update entity with file URL
-                    await concoursService.update(createdItem.id.toString(), {
-                        url: uploadResult.url,
-                    });
+                    await filesService.uploadFile('concours', createdItem.uuid, 'file', selectedFile);
                 } catch (uploadError: any) {
-                    // Rollback
                     await concoursService.delete(createdItem.id.toString());
                     throw new Error("Échec de l'upload du fichier: " + (uploadError.message || "Erreur inconnue"));
                 }
@@ -198,32 +189,10 @@ export default function Concours() {
                 url: editingItem.url || undefined
             });
 
-            // Step 2: Upload file if selected
-            if (selectedFile) {
-                // Keep track of old URL for deletion
-                const oldUrl = editingItem.url;
-
-                const uploadResult = await fichiersService.uploadImage({
-                    file: selectedFile,
-                    type: 'CONCOURS',
-                    entityId: editingItem.id,
-                    entitySubtype: 'document',
-                });
-
-                // Step 3: Update with new file URL
-                await concoursService.update(editingItem.id.toString(), {
-                    url: uploadResult.url
-                });
-
-                // Step 4: Delete old file if it existed
-                if (oldUrl) {
-                    try {
-                        await fichiersService.deleteFile(oldUrl);
-                        console.log("Deleted old file:", oldUrl);
-                    } catch (deleteError) {
-                        console.error("Failed to delete old file:", deleteError);
-                    }
-                }
+            // Step 2: PUT bytes to R2 (deterministic key — same key
+            // overwrites in place, no old-file cleanup needed).
+            if (selectedFile && editingItem.uuid) {
+                await filesService.uploadFile('concours', editingItem.uuid, 'file', selectedFile);
             }
 
             // Success

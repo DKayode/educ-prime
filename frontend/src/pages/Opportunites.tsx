@@ -4,6 +4,8 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { Briefcase, Plus, Pencil, Trash2, Loader2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { opportunitesService, type Opportunite, type OpportuniteType } from "@/lib/services/opportunites.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
+import { filesService } from "@/lib/services/files.service";
+import { FileImage } from "@/components/FileImage";
 import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -138,22 +140,11 @@ export default function Opportunites() {
                 lien_postuler: formData.lien_postuler || undefined,
             });
 
-            // Step 2: Upload file if selected
-            if (selectedFile && createdOpportunite.id) {
+            // Step 2: PUT bytes to R2 via presigned URL.
+            if (selectedFile && createdOpportunite.uuid) {
                 try {
-                    const uploadResult = await fichiersService.uploadImage({
-                        file: selectedFile,
-                        type: 'OPPORTUNITE',
-                        entityId: createdOpportunite.id,
-                        entitySubtype: formData.type.toLowerCase(), // 'bourses' or 'stages'
-                    });
-
-                    // Step 3: Update entity with image URL
-                    await opportunitesService.update(createdOpportunite.id.toString(), {
-                        image: uploadResult.url,
-                    });
+                    await filesService.uploadFile('opportunites', createdOpportunite.uuid, 'image', selectedFile);
                 } catch (uploadError: any) {
-                    // Rollback: Delete the created entity
                     await opportunitesService.delete(createdOpportunite.id.toString());
                     throw new Error("Échec de l'upload de l'image: " + (uploadError.message || "Erreur inconnue"));
                 }
@@ -192,32 +183,10 @@ export default function Opportunites() {
                 actif: editingOpportunite.actif
             });
 
-            // Step 2: Upload file if selected
-            if (selectedFile) {
-                // Keep track of old image URL for deletion
-                const oldImageUrl = editingOpportunite.image;
-
-                const uploadResult = await fichiersService.uploadImage({
-                    file: selectedFile,
-                    type: 'OPPORTUNITE',
-                    entityId: editingOpportunite.id,
-                    entitySubtype: editingOpportunite.type.toLowerCase(),
-                });
-
-                // Step 3: Update with new image URL
-                await opportunitesService.update(editingOpportunite.id.toString(), {
-                    image: uploadResult.url
-                });
-
-                // Step 4: Delete old file if it existed
-                if (oldImageUrl) {
-                    try {
-                        await fichiersService.deleteFile(oldImageUrl);
-                        console.log("Deleted old file:", oldImageUrl);
-                    } catch (deleteError) {
-                        console.error("Failed to delete old file:", deleteError);
-                    }
-                }
+            // Step 2: Upload to R2 (deterministic key, overwrite-safe — no
+            // old-file cleanup needed, same key replaces in place).
+            if (selectedFile && editingOpportunite.uuid) {
+                await filesService.uploadFile('opportunites', editingOpportunite.uuid, 'image', selectedFile);
             }
 
             // Success
@@ -401,19 +370,20 @@ export default function Opportunites() {
                                 {opportunites.map((opp) => (
                                     <TableRow key={opp.id}>
                                         <TableCell>
-                                            {opp.image ? (
-                                                <img
-                                                    key={imageVersion}
-                                                    src={`${API_URL}/opportunites/${opp.id}/image?v=${imageVersion}`}
-                                                    alt={opp.titre}
-                                                    className="h-10 w-10 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
-                                                    onClick={() => handlePreview(opp)}
-                                                />
-                                            ) : (
-                                                <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center">
-                                                    <Briefcase className="h-5 w-5 text-muted-foreground" />
-                                                </div>
-                                            )}
+                                            <FileImage
+                                                entity="opportunites"
+                                                uuid={opp.uuid}
+                                                slot="image"
+                                                fallback={opp.image ? `${API_URL}/opportunites/${opp.id}/image?v=${imageVersion}` : null}
+                                                alt={opp.titre}
+                                                className="h-10 w-10 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
+                                                onClick={() => handlePreview(opp)}
+                                                placeholder={
+                                                    <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center">
+                                                        <Briefcase className="h-5 w-5 text-muted-foreground" />
+                                                    </div>
+                                                }
+                                            />
                                         </TableCell>
                                         <TableCell className="font-medium">{opp.titre}</TableCell>
                                         <TableCell><Badge variant={opp.type === "Bourses" ? "default" : "secondary"}>{opp.type}</Badge></TableCell>
@@ -527,10 +497,13 @@ export default function Opportunites() {
                                                 <Trash2 className="h-3 w-3" />
                                             </Button>
                                         </div>
-                                    ) : editingOpportunite?.image ? (
+                                    ) : editingOpportunite?.uuid || editingOpportunite?.image ? (
                                         <div className="relative h-16 w-16">
-                                            <img
-                                                src={`${API_URL}/opportunites/${editingOpportunite.id}/image?v=${imageVersion}`}
+                                            <FileImage
+                                                entity="opportunites"
+                                                uuid={editingOpportunite.uuid}
+                                                slot="image"
+                                                fallback={editingOpportunite.image ? `${API_URL}/opportunites/${editingOpportunite.id}/image?v=${imageVersion}` : null}
                                                 alt="Current Image"
                                                 className="h-full w-full object-cover rounded-md border"
                                             />
