@@ -4,6 +4,8 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { Building2, Plus, Pencil, Trash2, Loader2, Search, Upload, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { etablissementsService } from "@/lib/services/etablissements.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
+import { filesService } from "@/lib/services/files.service";
+import { FileImage } from "@/components/FileImage";
 import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,7 +51,7 @@ export default function Etablissements() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [editingEtablissement, setEditingEtablissement] = useState<{ id: number } & EtablissementFormData | null>(null);
+  const [editingEtablissement, setEditingEtablissement] = useState<{ id: number; uuid?: string } & EtablissementFormData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -167,44 +169,23 @@ export default function Etablissements() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsUploading(true);
-    let uploadedLogoUrl = "";
 
     try {
-      // Create user first
+      // Create the row first; backend assigns the uuid we use as the R2 key.
       const newEtablissement = await etablissementsService.create(formData);
 
-      if (logoFile) {
+      if (logoFile && newEtablissement.uuid) {
         try {
-          const uploadResult = await fichiersService.uploadImage({
-            file: logoFile,
-            type: 'ETABLISSEMENT', // Need to ensure this type exists or use a generic one
-            entityId: newEtablissement.id,
-            entitySubtype: 'logo',
-          });
-          uploadedLogoUrl = uploadResult.url;
-
-          await etablissementsService.update(newEtablissement.id, {
-            ...formData, // Keep existing data
-            logo: uploadedLogoUrl
-          });
-
-          toast({
-            title: "Succès",
-            description: "Établissement créé avec logo",
-          });
+          // PUT bytes directly to R2 via a presigned URL — backend only
+          // records the path/extension on the row, never proxies bytes.
+          await filesService.uploadFile('etablissements', newEtablissement.uuid, 'logo', logoFile);
+          toast({ title: "Succès", description: "Établissement créé avec logo" });
         } catch (uploadError) {
           console.error("Failed to upload logo", uploadError);
-          toast({
-            title: "Attention",
-            description: "Établissement créé mais échec de l'upload du logo",
-            // variant: "warning", // Not supported
-          });
+          toast({ title: "Attention", description: "Établissement créé mais échec de l'upload du logo" });
         }
       } else {
-        toast({
-          title: "Succès",
-          description: "Établissement créé avec succès",
-        });
+        toast({ title: "Succès", description: "Établissement créé avec succès" });
       }
 
       queryClient.invalidateQueries({ queryKey: ["etablissements"] });
@@ -213,11 +194,7 @@ export default function Etablissements() {
       setLogoFile(null);
 
     } catch (error: any) {
-      toast({
-        title: "Erreur",
-        description: error.message || "Échec de la création",
-        variant: "destructive",
-      });
+      toast({ title: "Erreur", description: error.message || "Échec de la création", variant: "destructive" });
     } finally {
       setIsUploading(false);
     }
@@ -229,39 +206,23 @@ export default function Etablissements() {
     setIsUploading(true);
 
     try {
-      let currentLogoUrl = editingEtablissement.logo;
-      const oldLogo = editingEtablissement.logo;
-
-      if (logoFile) {
-        const uploadResult = await fichiersService.uploadImage({
-          file: logoFile,
-          type: 'ETABLISSEMENT',
-          entityId: editingEtablissement.id,
-          entitySubtype: 'logo',
-        });
-        currentLogoUrl = uploadResult.url;
-      }
-
+      // Update text fields first.
       await updateMutation.mutateAsync({
         id: editingEtablissement.id,
         data: {
           nom: editingEtablissement.nom,
           ville: editingEtablissement.ville,
           code_postal: editingEtablissement.code_postal,
-          logo: currentLogoUrl,
         },
       });
 
-      // Cleanup old logo after successful update
-      if (logoFile && oldLogo && oldLogo !== currentLogoUrl) {
-        try {
-          await fichiersService.deleteFile(oldLogo);
-        } catch (e) {
-          console.error("Failed to delete old logo", e);
-        }
+      // PUT a new logo to R2 if the user picked one. Path/extension columns
+      // are written by the backend at presign time, so we don't need a
+      // follow-up update().
+      if (logoFile && editingEtablissement.uuid) {
+        await filesService.uploadFile('etablissements', editingEtablissement.uuid, 'logo', logoFile);
       }
     } catch (error: any) {
-      // Error handled by mutation onError or here if needed
       console.error("Update failed", error);
     } finally {
       setIsUploading(false);
@@ -272,6 +233,7 @@ export default function Etablissements() {
   const openEditDialog = (etablissement: any) => {
     setEditingEtablissement({
       id: etablissement.id,
+      uuid: etablissement.uuid,
       nom: etablissement.nom,
       ville: etablissement.ville || "",
       code_postal: etablissement.code_postal || "",
@@ -429,17 +391,19 @@ export default function Etablissements() {
                   {etablissements.map((etablissement) => (
                     <TableRow key={etablissement.id}>
                       <TableCell>
-                        {etablissement.logo ? (
-                          <img
-                            src={`${API_URL}/etablissements/${etablissement.id}/logo`}
-                            alt={`Logo ${etablissement.nom}`}
-                            className="h-10 w-10 object-contain rounded-md"
-                          />
-                        ) : (
-                          <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center">
-                            <Building2 className="h-5 w-5 text-muted-foreground" />
-                          </div>
-                        )}
+                        <FileImage
+                          entity="etablissements"
+                          uuid={etablissement.uuid}
+                          slot="logo"
+                          fallback={etablissement.logo ? `${API_URL}/etablissements/${etablissement.id}/logo` : null}
+                          alt={`Logo ${etablissement.nom}`}
+                          className="h-10 w-10 object-contain rounded-md"
+                          placeholder={
+                            <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center">
+                              <Building2 className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                          }
+                        />
                       </TableCell>
                       <TableCell className="font-medium">{etablissement.nom}</TableCell>
                       <TableCell>{etablissement.ville || "—"}</TableCell>
@@ -563,10 +527,13 @@ export default function Etablissements() {
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
-                ) : editingEtablissement?.logo ? (
+                ) : editingEtablissement?.uuid || editingEtablissement?.logo ? (
                   <div className="relative h-16 w-16">
-                    <img
-                      src={`${API_URL}/etablissements/${editingEtablissement.id}/logo`}
+                    <FileImage
+                      entity="etablissements"
+                      uuid={editingEtablissement.uuid}
+                      slot="logo"
+                      fallback={editingEtablissement.logo ? `${API_URL}/etablissements/${editingEtablissement.id}/logo` : null}
                       alt="Current Logo"
                       className="h-full w-full object-contain rounded-md border"
                     />

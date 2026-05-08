@@ -4,10 +4,14 @@ import { buildPaginationQuery } from '../types/pagination';
 
 export interface Category {
     id: number;
+    uuid?: string;
     nom: string;
     slug: string;
     description?: string;
+    /** Legacy Firebase URL — prefer FileImage with slot='icone'. */
     icone?: string;
+    icone_path?: string;
+    icone_extension?: string;
     is_active: boolean;
     ordre: number;
     created_at: string;

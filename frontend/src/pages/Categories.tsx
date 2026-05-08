@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layers, Plus, Pencil, Trash2, Loader2, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { categoriesService, type Category } from "@/lib/services/categories.service";
+import { filesService } from "@/lib/services/files.service";
+import { FileImage } from "@/components/FileImage";
 import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,12 +107,15 @@ export default function Categories() {
 
     const createMutation = useMutation({
         mutationFn: async (data: CategoryFormData) => {
-            // 1. Create Category first
+            // 1. Create the category — backend assigns a uuid we use for the
+            //    R2 file key on the next step.
             const created = await categoriesService.create(data);
 
-            // 2. Upload Icon if selected
-            if (selectedIconFile && created.id) {
-                await categoriesService.uploadIcon(created.id.toString(), selectedIconFile);
+            // 2. Push the icon directly to R2 via a presigned URL. Backend
+            //    only writes path/extension on the row; bytes go straight to
+            //    R2 and never touch our server.
+            if (selectedIconFile && created.uuid) {
+                await filesService.uploadFile('categories', created.uuid, 'icone', selectedIconFile);
             }
             return created;
         },
@@ -127,18 +132,14 @@ export default function Categories() {
     });
 
     const updateMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: Partial<CategoryFormData> }) => {
+        mutationFn: async ({ id, uuid, data }: { id: string; uuid?: string; data: Partial<CategoryFormData> }) => {
             let updatedCategory;
-            // 1. Update basic info
             if (Object.keys(data).length > 0) {
                 updatedCategory = await categoriesService.update(id, data);
             }
-
-            // 2. Upload Icon if selected
-            if (selectedIconFile) {
-                updatedCategory = await categoriesService.uploadIcon(id, selectedIconFile);
+            if (selectedIconFile && uuid) {
+                await filesService.uploadFile('categories', uuid, 'icone', selectedIconFile);
             }
-
             return updatedCategory;
         },
         onSuccess: () => {
@@ -177,6 +178,7 @@ export default function Categories() {
         setIsUploading(true);
         updateMutation.mutate({
             id: editingCategory.id.toString(),
+            uuid: editingCategory.uuid,
             data: {
                 nom: editingCategory.nom,
                 description: editingCategory.description,
@@ -330,17 +332,19 @@ export default function Categories() {
                                 {categories.map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell>
-                                            {item.icone ? (
-                                                <img
-                                                    src={`${API_URL}/categories/${item.id}/icone`}
-                                                    alt={item.nom}
-                                                    className="h-10 w-10 object-contain rounded-md bg-muted/20"
-                                                />
-                                            ) : (
-                                                <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center">
-                                                    <Layers className="h-5 w-5 text-muted-foreground" />
-                                                </div>
-                                            )}
+                                            <FileImage
+                                                entity="categories"
+                                                uuid={item.uuid}
+                                                slot="icone"
+                                                fallback={item.icone ? `${API_URL}/categories/${item.id}/icone` : null}
+                                                alt={item.nom}
+                                                className="h-10 w-10 object-contain rounded-md bg-muted/20"
+                                                placeholder={
+                                                    <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center">
+                                                        <Layers className="h-5 w-5 text-muted-foreground" />
+                                                    </div>
+                                                }
+                                            />
                                         </TableCell>
                                         <TableCell className="font-medium">{item.nom}</TableCell>
                                         <TableCell className="text-muted-foreground text-sm">{item.slug}</TableCell>
@@ -444,10 +448,13 @@ export default function Categories() {
                                                     <X className="h-3 w-3" />
                                                 </Button>
                                             </div>
-                                        ) : editingCategory.icone ? (
+                                        ) : editingCategory.uuid || editingCategory.icone ? (
                                             <div className="relative h-16 w-16">
-                                                <img
-                                                    src={`${API_URL}/categories/${editingCategory.id}/icone`}
+                                                <FileImage
+                                                    entity="categories"
+                                                    uuid={editingCategory.uuid}
+                                                    slot="icone"
+                                                    fallback={editingCategory.icone ? `${API_URL}/categories/${editingCategory.id}/icone` : null}
                                                     alt="Current Icon"
                                                     className="h-full w-full object-contain rounded-md border"
                                                 />
