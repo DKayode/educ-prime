@@ -3,6 +3,8 @@ import { api } from '../api';
 export interface CountrySummary {
   country: string;
   logo: string | null;
+  timezone: string | null;
+  currency: string | null;
 }
 
 export const countriesService = {

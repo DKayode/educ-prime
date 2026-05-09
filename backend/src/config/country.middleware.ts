@@ -11,6 +11,7 @@ const ALLOWLIST: RegExp[] = [
     /^\/api-docs/,
     /^\/api\/docs/,
     /^\/countries\/?$/,
+    /^\/app\/?$/,
 ];
 
 const DEFAULT_COUNTRY = 'benin';

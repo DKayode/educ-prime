@@ -2,6 +2,10 @@
 .env
 .env.local
 .env.production
+# Catch dev variants like backend/my.env / staging.env so they can't
+# leak the way `backend/my.env` did once.
+*.env
+!.env.example
 
 #Docker Image Orchestration
 docker-compose.dev.yml
@@ -41,3 +45,6 @@ Thumbs.db
 *.tmp
 
 backend/config/config.json
+
+CLAUDE.md 
+AGENTS.md

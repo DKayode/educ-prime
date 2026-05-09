@@ -1,15 +1,67 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { ConfigService } from '@nestjs/config';
-import * as path from 'path';
+import { CountryConfigService } from '../config/country-config.service';
 
 @Injectable()
 export class MailService {
     private transporter: nodemailer.Transporter;
     private readonly logger = new Logger(MailService.name);
+    /**
+     * Cached app logo bytes for inline email attachment (cid:edukia-logo).
+     * We download once on first send and reuse — most email clients block
+     * remote images, so we keep the CID attachment shape rather than
+     * pointing the <img src> at the URL directly.
+     */
+    private logoBuffer: Buffer | null = null;
+    private logoFetchPromise: Promise<Buffer | null> | null = null;
+    private get appName(): string { return this.countryConfig.getAppConfig().name; }
+    private get appLogoUrl(): string { return this.countryConfig.getAppConfig().logo; }
 
-    constructor(private configService: ConfigService) {
+    constructor(
+        private configService: ConfigService,
+        private countryConfig: CountryConfigService,
+    ) {
         this.initTransporter();
+    }
+
+    /** Fetch the app logo once, cache the bytes for the life of the process. */
+    private async loadLogo(): Promise<Buffer | null> {
+        if (this.logoBuffer) return this.logoBuffer;
+        if (this.logoFetchPromise) return this.logoFetchPromise;
+        const url = this.appLogoUrl;
+        if (!url) return null;
+
+        this.logoFetchPromise = (async () => {
+            try {
+                const r = await fetch(url);
+                if (!r.ok) {
+                    this.logger.warn(`Failed to fetch app logo from ${url}: ${r.status}`);
+                    return null;
+                }
+                const ab = await r.arrayBuffer();
+                this.logoBuffer = Buffer.from(ab);
+                this.logger.log(`Cached app logo (${this.logoBuffer.length} bytes) from ${url}`);
+                return this.logoBuffer;
+            } catch (err) {
+                this.logger.warn(`Failed to fetch app logo from ${url}: ${(err as Error).message}`);
+                return null;
+            }
+        })();
+        return this.logoFetchPromise;
+    }
+
+    /**
+     * Build the attachments array for a transactional mail. Returns an empty
+     * array if the logo wasn't fetchable — the email still sends, the
+     * <img cid:edukia-logo> just renders broken in clients that don't ignore
+     * it. Cheap fallback that doesn't hold up SMTP.
+     */
+    private async logoAttachment(): Promise<Array<{ filename: string; content: Buffer; cid: string }>> {
+        const buf = await this.loadLogo();
+        if (!buf) return [];
+        const ext = (this.appLogoUrl.split('.').pop() ?? 'png').toLowerCase();
+        return [{ filename: `logo.${ext}`, content: buf, cid: 'edukia-logo' }];
     }
 
     private initTransporter() {
@@ -40,14 +92,15 @@ export class MailService {
         }
     }
 
-    private wrapHtmlTemplate(content: string, title: string = 'Edukia'): string {
+    private wrapHtmlTemplate(content: string, title?: string): string {
+        const docTitle = title ?? this.appName;
         return `
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>${title}</title>
+            <title>${docTitle}</title>
         </head>
         <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f8;">
             <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f6f8; padding: 20px 0;">
@@ -102,15 +155,11 @@ export class MailService {
         `;
 
         const mailOptions = {
-            from: `"Edukia" <${from}>`,
+            from: `"${this.appName}" <${from}>`,
             to: email,
             subject: 'Réinitialisation de votre mot de passe',
             html: this.wrapHtmlTemplate(innerContent, 'Réinitialisation de mot de passe'),
-            attachments: [{
-                filename: 'logo.png',
-                path: path.join(process.cwd(), 'assets', 'logo.png'),
-                cid: 'edukia-logo'
-            }]
+            attachments: await this.logoAttachment()
         };
 
         try {
@@ -140,15 +189,11 @@ export class MailService {
         `;
 
         const mailOptions = {
-            from: `"Edukia" <${from}>`,
+            from: `"${this.appName}" <${from}>`,
             to: email,
             subject: 'Vérification de votre adresse email',
             html: this.wrapHtmlTemplate(innerContent, 'Vérification d\'email'),
-            attachments: [{
-                filename: 'logo.png',
-                path: path.join(process.cwd(), 'assets', 'logo.png'),
-                cid: 'edukia-logo'
-            }]
+            attachments: await this.logoAttachment()
         };
 
         try {
@@ -191,15 +236,11 @@ export class MailService {
         `;
 
         const mailOptions = {
-            from: `"Edukia" <${from}>`,
+            from: `"${this.appName}" <${from}>`,
             to: email,
             subject: `Mise à jour de votre ${entityType} : ${statusText}`,
             html: this.wrapHtmlTemplate(innerContent, `Mise à jour de ${entityType}`),
-            attachments: [{
-                filename: 'logo.png',
-                path: path.join(process.cwd(), 'assets', 'logo.png'),
-                cid: 'edukia-logo'
-            }]
+            attachments: await this.logoAttachment()
         };
 
         try {
@@ -247,15 +288,11 @@ export class MailService {
         `;
 
         const mailOptions = {
-            from: `"Edukia" <${from}>`,
+            from: `"${this.appName}" <${from}>`,
             to: email,
             subject: `Mise à jour de votre profil Recruteur : ${statusText}`,
             html: this.wrapHtmlTemplate(innerContent, 'Mise à jour profil Recruteur'),
-            attachments: [{
-                filename: 'logo.png',
-                path: path.join(process.cwd(), 'assets', 'logo.png'),
-                cid: 'edukia-logo'
-            }]
+            attachments: await this.logoAttachment()
         };
 
         try {
@@ -276,15 +313,11 @@ export class MailService {
         const from = this.configService.get<string>('SMTP_USER') || 'support@educ-prime.cloud';
 
         const mailOptions = {
-            from: `"Edukia" <${from}>`,
+            from: `"${this.appName}" <${from}>`,
             to: email, // Sending directly uniquely
             subject: subject,
             html: this.wrapHtmlTemplate(htmlMessage, subject),
-            attachments: [{
-                filename: 'logo.png',
-                path: path.join(process.cwd(), 'assets', 'logo.png'),
-                cid: 'edukia-logo'
-            }]
+            attachments: await this.logoAttachment()
         };
 
         try {
