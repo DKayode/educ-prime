@@ -11,7 +11,8 @@ export interface UploadUrlResponse {
     content_type: string;
     path: string;        // logical /<entity>/<uuid>/<slot>
     extension: string;
-    expires_in: number;
+    expires_in: number;  // 0 for public slots (deterministic anonymous URL)
+    public: boolean;
 }
 
 export interface DownloadUrlResponse {
@@ -19,10 +20,11 @@ export interface DownloadUrlResponse {
     method: 'GET';
     path: string;
     extension: string;
-    expires_in: number;
+    expires_in: number;  // 0 for public slots (URL never expires)
+    public: boolean;
 }
 
-export type FileRegistry = Record<string, Record<string, { authorized: string[] }>>;
+export type FileRegistry = Record<string, Record<string, { authorized: string[]; public: boolean }>>;
 
 export const filesService = {
     /**

@@ -8,11 +8,16 @@
  * - `pathColumn` / `extColumn` are the TypeORM/Postgres columns the service
  *   updates after generating a presigned URL.
  * - `authorized` is the allowlist of file extensions accepted on this slot.
+ * - `public` (optional, default false) routes uploads to the public R2 bucket
+ *   and makes downloads return a deterministic anonymous URL with no
+ *   expiry. Use only for content meant to be world-visible (brand assets,
+ *   country logos). Private slots stay on the existing presigned-URL flow.
  */
 export interface FileSlotConfig {
     pathColumn: string;
     extColumn: string;
     authorized: readonly string[];
+    public?: boolean;
 }
 
 const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'avif'] as const;
@@ -22,7 +27,7 @@ const IMAGE_OR_PDF = [...IMAGE_EXTS, 'pdf'] as const;
 
 export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>> = {
     categories: {
-        icone: { pathColumn: 'icone_path', extColumn: 'icone_extension', authorized: IMAGE_EXTS },
+        icone: { pathColumn: 'icone_path', extColumn: 'icone_extension', authorized: IMAGE_EXTS, public: true },
     },
     concours: {
         file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY },
@@ -31,7 +36,7 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
         file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY },
     },
     etablissements: {
-        logo: { pathColumn: 'logo_path', extColumn: 'logo_extension', authorized: IMAGE_EXTS_WITH_SVG },
+        logo: { pathColumn: 'logo_path', extColumn: 'logo_extension', authorized: IMAGE_EXTS_WITH_SVG, public: true },
     },
     evenements: {
         image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS },
