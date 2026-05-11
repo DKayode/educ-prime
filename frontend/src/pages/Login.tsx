@@ -6,11 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/useAuth";
+import { useApp } from "@/hooks/useApp";
 import { Loader2, AlertCircle } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { data: app } = useApp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -36,8 +38,19 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
       <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Educ-Prime Admin</CardTitle>
+        <CardHeader className="space-y-3">
+          {app?.logo && (
+            <div className="flex justify-center">
+              <img
+                src={app.logo}
+                alt={app.name ?? "Logo"}
+                className="h-12 w-12 object-contain"
+              />
+            </div>
+          )}
+          <CardTitle className="text-2xl font-bold text-center">
+            {app?.name ?? "Admin"} Admin
+          </CardTitle>
           <CardDescription className="text-center">
             Connectez-vous pour accéder au tableau de bord
           </CardDescription>
@@ -103,7 +116,7 @@ export default function Login() {
           </form>
 
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            <p>Plateforme de gestion des examens</p>
+            <p>{app?.name ?? "Edukia"} — Console d'administration</p>
           </div>
         </CardContent>
       </Card>

@@ -25,6 +25,16 @@ appService
       // aren't clobbered.
       if (document.title === "Edukia Admin") document.title = `${app.name} Admin`;
     }
+    if (app.logo) {
+      // Social crawlers don't run JS, so og:image / twitter:image picked up
+      // by them is whatever index.html ships. We still update at runtime for
+      // any client that re-reads the DOM (in-app preview screens, RSS-ish
+      // tools, screen readers surfacing meta).
+      const og = document.querySelector('meta[property="og:image"]') as HTMLMetaElement | null;
+      if (og) og.content = app.logo;
+      const tw = document.querySelector('meta[name="twitter:image"]') as HTMLMetaElement | null;
+      if (tw) tw.content = app.logo;
+    }
   })
   .catch(() => {
     // Backend unreachable — keep the index.html defaults silently.

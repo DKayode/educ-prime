@@ -15,6 +15,7 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useApp } from "@/hooks/useApp";
 
 const academicItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -57,26 +58,35 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
+  const { data: app } = useApp();
 
   const isActive = (path: string) => currentPath === path;
+
+  const brandName = app?.name ?? "Admin Panel";
+  const Logo = () =>
+    app?.logo ? (
+      <img src={app.logo} alt={brandName} className="h-5 w-5 object-contain" />
+    ) : (
+      <BookOpen className="h-5 w-5 text-sidebar-primary-foreground" />
+    );
 
   return (
     <Sidebar className={state === "collapsed" ? "w-14" : "w-64"} collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border p-4">
         {state !== "collapsed" && (
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
-              <BookOpen className="h-5 w-5 text-sidebar-primary-foreground" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary overflow-hidden">
+              <Logo />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-sidebar-foreground">Admin Panel</h2>
-              <p className="text-xs text-sidebar-foreground/60">Épreuves d'examens</p>
+              <h2 className="text-sm font-semibold text-sidebar-foreground">{brandName}</h2>
+              <p className="text-xs text-sidebar-foreground/60">Console d'administration</p>
             </div>
           </div>
         )}
         {state === "collapsed" && (
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
-            <BookOpen className="h-5 w-5 text-sidebar-primary-foreground" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary overflow-hidden">
+            <Logo />
           </div>
         )}
       </SidebarHeader>
