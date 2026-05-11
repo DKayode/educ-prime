@@ -29,7 +29,7 @@ export interface FullConfig {
 
 // Resolve from cwd (project root in dev, /app in Docker) rather than __dirname
 // which differs between src/ and dist/ layouts.
-const CONFIG_PATH = process.env.COUNTRY_CONFIG_PATH
+const CONFIG_PATH = process.env.CONFIG_PATH
     ?? path.resolve(process.cwd(), 'config', 'config.json');
 
 let cached: FullConfig | null = null;
@@ -62,21 +62,11 @@ export function loadConfig(): FullConfig {
         if (!name || typeof name !== 'string') {
             throw new Error(`config.json country[${i}]: missing 'name'`);
         }
-        // Tolerate the `cuurency` typo present in early configs; log so it
-        // gets fixed at the source.
-        let currency: string | undefined = entry?.currency;
-        if (!currency && typeof entry?.cuurency === 'string') {
-            console.warn(
-                `[country-config] '${name}' uses the legacy 'cuurency' spelling. ` +
-                `Rename to 'currency' in config.json (and the COUNTRY_CONFIG secret).`,
-            );
-            currency = entry.cuurency;
-        }
         return {
             name,
             logo: typeof entry?.logo === 'string' ? entry.logo : undefined,
             timezone: typeof entry?.timezone === 'string' ? entry.timezone : undefined,
-            currency,
+            currency: typeof entry?.currency === 'string' ? entry.currency : undefined,
         };
     });
 

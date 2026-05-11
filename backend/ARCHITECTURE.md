@@ -34,7 +34,7 @@ Important properties:
 - The file is **gitignored** (root `.gitignore`) — it contains live DB
   credentials and must never be committed.
 - It is **injected at Docker build time** by `.github/workflows/docker-build.yml`
-  from the `COUNTRY_CONFIG` GitHub secret. Same pattern as
+  from the `CONFIG` GitHub secret. Same pattern as
   `firebase-serviceaccount.json`.
 - The `Dockerfile` already copies the entire `config/` directory into the
   image (`COPY --from=builder /app/config ./config`).
