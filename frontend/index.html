@@ -7,10 +7,11 @@
     <meta name="description" content="Dashboard administrateur Edukia" />
     <meta name="author" content="Edukia" />
 
-    <!-- Brand assets are served from the shared assets host. The same URLs
-         are surfaced by GET /app so the runtime UI can pull a fresh copy
-         without redeploying the bundle. -->
-    <link rel="icon" type="image/png" href="https://assets.edukia.net/app/favicon.png" />
+    <!-- Brand assets are served from the shared assets host. The href below
+         is the default; on boot, main.tsx fetches GET /app and updates this
+         link to whatever app.favicon is in the runtime config, so future
+         changes to config.json take effect without a frontend redeploy. -->
+    <link id="app-favicon" rel="icon" type="image/x-icon" href="https://assets.edukia.net/app/favicon.ico" />
 
     <meta property="og:title" content="Edukia Admin" />
     <meta property="og:description" content="Dashboard administrateur Edukia" />
