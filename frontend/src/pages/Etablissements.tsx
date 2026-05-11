@@ -6,7 +6,6 @@ import { etablissementsService } from "@/lib/services/etablissements.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { filesService } from "@/lib/services/files.service";
 import { FileImage } from "@/components/FileImage";
-import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -395,7 +394,6 @@ export default function Etablissements() {
                           entity="etablissements"
                           uuid={etablissement.uuid}
                           slot="logo"
-                          fallback={etablissement.logo ? `${API_URL}/etablissements/${etablissement.id}/logo` : null}
                           alt={`Logo ${etablissement.nom}`}
                           className="h-10 w-10 object-contain rounded-md"
                           placeholder={
@@ -527,13 +525,12 @@ export default function Etablissements() {
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
-                ) : editingEtablissement?.uuid || editingEtablissement?.logo ? (
+                ) : editingEtablissement?.uuid ? (
                   <div className="relative h-16 w-16">
                     <FileImage
                       entity="etablissements"
                       uuid={editingEtablissement.uuid}
                       slot="logo"
-                      fallback={editingEtablissement.logo ? `${API_URL}/etablissements/${editingEtablissement.id}/logo` : null}
                       alt="Current Logo"
                       className="h-full w-full object-contain rounded-md border"
                     />

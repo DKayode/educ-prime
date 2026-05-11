@@ -4,7 +4,6 @@ import { Layers, Plus, Pencil, Trash2, Loader2, Search, X, ChevronLeft, ChevronR
 import { categoriesService, type Category } from "@/lib/services/categories.service";
 import { filesService } from "@/lib/services/files.service";
 import { FileImage } from "@/components/FileImage";
-import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -336,7 +335,6 @@ export default function Categories() {
                                                 entity="categories"
                                                 uuid={item.uuid}
                                                 slot="icone"
-                                                fallback={item.icone ? `${API_URL}/categories/${item.id}/icone` : null}
                                                 alt={item.nom}
                                                 className="h-10 w-10 object-contain rounded-md bg-muted/20"
                                                 placeholder={
@@ -448,13 +446,12 @@ export default function Categories() {
                                                     <X className="h-3 w-3" />
                                                 </Button>
                                             </div>
-                                        ) : editingCategory.uuid || editingCategory.icone ? (
+                                        ) : editingCategory.uuid ? (
                                             <div className="relative h-16 w-16">
                                                 <FileImage
                                                     entity="categories"
                                                     uuid={editingCategory.uuid}
                                                     slot="icone"
-                                                    fallback={editingCategory.icone ? `${API_URL}/categories/${editingCategory.id}/icone` : null}
                                                     alt="Current Icon"
                                                     className="h-full w-full object-contain rounded-md border"
                                                 />
