@@ -51,7 +51,7 @@ export class FilesService {
         this.bucket = this.config.get<string>('R2_BUCKET') ?? '';
         this.publicBucket = this.config.get<string>('R2_PUBLIC_BUCKET') ?? '';
         // Strip trailing slash so concatenation with the key is idempotent.
-        this.publicBaseUrl = (this.config.get<string>('R2_PUBLIC_BASE_URL') ?? '').replace(/\/+$/, '');
+        this.publicBaseUrl = (this.config.get<string>('R2_PUBLIC_BUCKET_URL') ?? '').replace(/\/+$/, '');
 
         this.logger.log(
             `R2 config: endpoint=${endpoint ? 'set' : 'MISSING'}, ` +
@@ -69,7 +69,7 @@ export class FilesService {
         }
         if (!this.publicBucket || !this.publicBaseUrl) {
             this.logger.warn(
-                'R2 public bucket is not configured. Set R2_PUBLIC_BUCKET + R2_PUBLIC_BASE_URL to enable public-flagged slots.',
+                'R2 public bucket is not configured. Set R2_PUBLIC_BUCKET + R2_PUBLIC_BUCKET_URL to enable public-flagged slots.',
             );
         }
 
@@ -126,7 +126,7 @@ export class FilesService {
     /** Anonymous read URL for a public-bucket object. */
     private publicUrl(key: string): string {
         if (!this.publicBaseUrl) {
-            throw new InternalServerErrorException('R2_PUBLIC_BASE_URL is not configured.');
+            throw new InternalServerErrorException('R2_PUBLIC_BUCKET_URL is not configured.');
         }
         return `${this.publicBaseUrl}/${key}`;
     }

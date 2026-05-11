@@ -43,13 +43,13 @@ services:
       # Cloudflare R2 storage — used by the /files presign + proxy endpoints.
       # The private bucket holds default content; the public one is used for
       # slots flagged `public: true` in the registry (categories.icone +
-      # etablissements.logo) and is anonymously readable via PUBLIC_BASE_URL.
+      # etablissements.logo) and is anonymously readable via R2_PUBLIC_BUCKET_URL.
       R2_ENDPOINT: ${R2_ENDPOINT}
       R2_BUCKET: ${R2_BUCKET}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
       R2_PUBLIC_BUCKET: ${R2_PUBLIC_BUCKET}
-      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL}
+      R2_PUBLIC_BUCKET_URL: ${R2_PUBLIC_BUCKET_URL}
     networks:
       - edukia_network
     depends_on:
