@@ -1,33 +1,54 @@
 import { Injectable } from '@nestjs/common';
-import { CountryConfigEntry, loadCountryConfigs } from './country-config';
+import { AppConfig, CountryConfigEntry, loadConfig } from './country-config';
 
 export interface CountrySummary {
     country: string;
     logo: string | null;
+    timezone: string | null;
+    currency: string | null;
 }
 
 @Injectable()
 export class CountryConfigService {
     private readonly configs: CountryConfigEntry[];
+    private readonly app: AppConfig;
     private readonly slugs: Set<string>;
 
     constructor() {
-        this.configs = loadCountryConfigs();
-        this.slugs = new Set(this.configs.map(c => c.country));
+        const full = loadConfig();
+        this.configs = full.country;
+        this.app = full.app;
+        this.slugs = new Set(this.configs.map(c => c.name));
     }
 
     getCountries(): string[] {
         return [...this.slugs];
     }
 
+    /**
+     * Public-safe shape for the GET /countries response. We expose
+     * `country` (the slug) rather than `name` so the frontend contract
+     * stays stable, and surface the new metadata (timezone, currency)
+     * the mobile + admin clients want for localized formatting.
+     */
     listCountries(): CountrySummary[] {
         return this.configs.map(c => ({
-            country: c.country,
+            country: c.name,
             logo: c.logo ?? null,
+            timezone: c.timezone ?? null,
+            currency: c.currency ?? null,
         }));
     }
 
     hasCountry(country: string): boolean {
         return this.slugs.has(country);
+    }
+
+    getAppConfig(): AppConfig {
+        return { ...this.app };
+    }
+
+    getCountryEntry(country: string): CountryConfigEntry | null {
+        return this.configs.find(c => c.name === country) ?? null;
     }
 }

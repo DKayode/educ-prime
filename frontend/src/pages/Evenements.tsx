@@ -4,6 +4,8 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { Calendar, Plus, Pencil, Trash2, Loader2, X, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { evenementsService, type Evenement } from "@/lib/services/evenements.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
+import { filesService } from "@/lib/services/files.service";
+import { FileImage } from "@/components/FileImage";
 import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -154,19 +156,11 @@ export default function Evenements() {
                 date: formData.date || undefined,
             });
 
-            // Step 2: Upload file if selected
-            if (selectedFile && createdEvenement.id) {
+            // Step 2: Upload to R2 if a file was selected. Backend writes
+            // image_path/image_extension on the row at presign time.
+            if (selectedFile && createdEvenement.uuid) {
                 try {
-                    const uploadResult = await fichiersService.uploadImage({
-                        file: selectedFile,
-                        type: 'EVENEMENT',
-                        entityId: createdEvenement.id,
-                    });
-
-                    // Step 3: Update entity with image URL
-                    await evenementsService.update(createdEvenement.id.toString(), {
-                        image: uploadResult.url,
-                    });
+                    await filesService.uploadFile('evenements', createdEvenement.uuid, 'image', selectedFile);
                 } catch (uploadError: any) {
                     // Rollback: Delete the created entity
                     await evenementsService.delete(createdEvenement.id.toString());
@@ -208,32 +202,11 @@ export default function Evenements() {
                 lien_inscription: editingEvenement.lien_inscription || undefined,
             });
 
-            // Step 2: Upload file if selected
-            if (selectedFile) {
-                // Keep track of old image URL for deletion
-                const oldImageUrl = editingEvenement.image;
-
-                const uploadResult = await fichiersService.uploadImage({
-                    file: selectedFile,
-                    type: 'EVENEMENT',
-                    entityId: editingEvenement.id,
-                });
-
-                // Step 3: Update with new image URL
-                await evenementsService.update(editingEvenement.id.toString(), {
-                    image: uploadResult.url
-                });
-
-                // Step 4: Delete old file if it existed and is different from new file
-                if (oldImageUrl && oldImageUrl !== uploadResult.url) {
-                    try {
-                        await fichiersService.deleteFile(oldImageUrl);
-                        console.log("Deleted old file:", oldImageUrl);
-                    } catch (deleteError) {
-                        console.error("Failed to delete old file:", deleteError);
-                        // Non-blocking error
-                    }
-                }
+            // Step 2: Upload to R2 if a new file was picked. The R2 key is
+            // deterministic from (entity, uuid, slot), so re-uploads
+            // overwrite cleanly and there's nothing to clean up.
+            if (selectedFile && editingEvenement.uuid) {
+                await filesService.uploadFile('evenements', editingEvenement.uuid, 'image', selectedFile);
             }
 
             // Success
@@ -422,19 +395,20 @@ export default function Evenements() {
                                 {evenements.map((evenement) => (
                                     <TableRow key={evenement.id}>
                                         <TableCell>
-                                            {evenement.image ? (
-                                                <img
-                                                    key={imageVersion}
-                                                    src={`${API_URL}/evenements/${evenement.id}/image?v=${imageVersion}`}
-                                                    alt={evenement.titre}
-                                                    className="h-10 w-10 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
-                                                    onClick={() => handlePreview(evenement)}
-                                                />
-                                            ) : (
-                                                <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center">
-                                                    <Calendar className="h-5 w-5 text-muted-foreground" />
-                                                </div>
-                                            )}
+                                            <FileImage
+                                                entity="evenements"
+                                                uuid={evenement.uuid}
+                                                slot="image"
+                                                fallback={evenement.image ? `${API_URL}/evenements/${evenement.id}/image?v=${imageVersion}` : null}
+                                                alt={evenement.titre}
+                                                className="h-10 w-10 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
+                                                onClick={() => handlePreview(evenement)}
+                                                placeholder={
+                                                    <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center">
+                                                        <Calendar className="h-5 w-5 text-muted-foreground" />
+                                                    </div>
+                                                }
+                                            />
                                         </TableCell>
                                         <TableCell className="font-medium">{evenement.titre}</TableCell>
                                         <TableCell>{evenement.date ? new Date(evenement.date).toLocaleDateString('fr-FR') : "—"}</TableCell>
@@ -564,10 +538,13 @@ export default function Evenements() {
                                                 <X className="h-3 w-3" />
                                             </Button>
                                         </div>
-                                    ) : editingEvenement?.image ? (
+                                    ) : editingEvenement?.uuid || editingEvenement?.image ? (
                                         <div className="relative h-16 w-16">
-                                            <img
-                                                src={`${API_URL}/evenements/${editingEvenement.id}/image?v=${imageVersion}`}
+                                            <FileImage
+                                                entity="evenements"
+                                                uuid={editingEvenement.uuid}
+                                                slot="image"
+                                                fallback={editingEvenement.image ? `${API_URL}/evenements/${editingEvenement.id}/image?v=${imageVersion}` : null}
                                                 alt="Current Image"
                                                 className="h-full w-full object-cover rounded-md border"
                                             />

@@ -6,9 +6,16 @@ import { Category } from './categories.service';
 
 export interface Parcour {
     id: number;
+    uuid?: string;
     titre: string;
+    /** Legacy cover URL — prefer FileImage with slot='covert'. */
     image_couverture?: string;
+    /** Videos still on Firebase (no R2 video slot). */
     lien_video?: string;
+    covert_image_path?: string;
+    covert_image_extension?: string;
+    content_image_path?: string;
+    content_image_extension?: string;
     type_media: 'image' | 'video'; // lowercase to match backend entity enum
     category: Category;
     description: string;

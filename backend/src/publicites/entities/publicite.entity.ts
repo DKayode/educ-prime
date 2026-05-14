@@ -6,6 +6,18 @@ export class Publicite {
     id: number;
 
 
+
+    @Column({ type: 'text', default: '' })
+    covert_image_path: string;
+
+    @Column({ type: 'varchar', length: 10, default: '' })
+    covert_image_extension: string;
+
+    @Column({ type: 'text', default: '' })
+    content_image_path: string;
+
+    @Column({ type: 'varchar', length: 10, default: '' })
+    content_image_extension: string;
     @Column({ type: "varchar", length: 50, default: "benin" })
     pays: string;
     @Column({ type: 'uuid', unique: true, default: () => 'gen_random_uuid()' })

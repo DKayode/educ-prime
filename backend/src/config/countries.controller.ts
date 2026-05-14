@@ -8,11 +8,13 @@ export class CountriesController {
     constructor(private readonly config: CountryConfigService) { }
 
     @Get()
-    @ApiOperation({ summary: 'List supported countries with their logo URL' })
+    @ApiOperation({ summary: 'List supported countries with branding + locale metadata' })
     @ApiResponse({
         status: 200,
         description:
-            'Array of `{ country, logo }` entries. `country` is the slug accepted as `?country=` and stored as `pays`; `logo` is a public R2 URL or null.',
+            'Array of `{ country, logo, timezone, currency }` entries. `country` is the ' +
+            'slug accepted as `?country=` and stored as `pays`. The other fields drive ' +
+            'localized formatting (date / money) on clients.',
         schema: {
             type: 'object',
             properties: {
@@ -22,12 +24,9 @@ export class CountriesController {
                         type: 'object',
                         properties: {
                             country: { type: 'string', example: 'benin' },
-                            logo: {
-                                type: 'string',
-                                nullable: true,
-                                example:
-                                    'https://pub-2e98807e7d174d3c9782f5ba328049cf.r2.dev/pays/benin.svg',
-                            },
+                            logo: { type: 'string', nullable: true, example: 'https://assets.edukia.net/pays/benin.svg' },
+                            timezone: { type: 'string', nullable: true, example: 'Africa/Cotonou' },
+                            currency: { type: 'string', nullable: true, example: 'XOF' },
                         },
                     },
                 },

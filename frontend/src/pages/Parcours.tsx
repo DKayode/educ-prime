@@ -4,6 +4,7 @@ import { BookOpen, Plus, Pencil, Trash2, Loader2, Search, Eye, Check, ChevronsUp
 import { parcoursService, type Parcour } from "@/lib/services/parcours.service";
 import { categoriesService, type Category } from "@/lib/services/categories.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
+import { filesService } from "@/lib/services/files.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -223,33 +224,17 @@ export default function Parcours() {
             });
             createdId = created.id;
 
-            // 2. Upload Cover Image & Handle Content Image Fallback
-            if (selectedImageFile && created.id) {
-                // A. Upload Cover Image
-                const uploadCover = await fichiersService.uploadImage({
-                    file: selectedImageFile,
-                    type: 'PARCOURS',
-                    entityId: created.id,
-                    entitySubtype: 'image',
-                });
-                let updateData: any = { image_couverture: uploadCover.url };
+            // 2. Upload to R2: covert (cover) + content (when type is image).
+            //    Videos stay on Firebase via the legacy lien_video URL.
+            if (selectedImageFile && created.uuid) {
+                await filesService.uploadFile('parcours', created.uuid, 'covert', selectedImageFile);
 
-                // B. If type is Image, reuse cover as media content OR use specific content file
                 if (formData.type_media === 'image') {
-                    const fileToUpload = selectedContentFile || selectedImageFile;
-
-                    if (fileToUpload) {
-                        const uploadMedia = await fichiersService.uploadImage({
-                            file: fileToUpload,
-                            type: 'PARCOURS',
-                            entityId: created.id,
-                            entitySubtype: 'media',
-                        });
-                        updateData.lien_video = uploadMedia.url;
+                    const contentFile = selectedContentFile ?? selectedImageFile;
+                    if (contentFile) {
+                        await filesService.uploadFile('parcours', created.uuid, 'content', contentFile);
                     }
                 }
-
-                await parcoursService.update(created.id.toString(), updateData);
             }
 
             // Success
@@ -311,14 +296,8 @@ export default function Parcours() {
         }
 
         try {
-            if (selectedImageFile) {
-                const upload = await fichiersService.uploadImage({
-                    file: selectedImageFile,
-                    type: 'PARCOURS',
-                    entityId: editingParcour.id,
-                    entitySubtype: 'image',
-                });
-                newImage = upload.url;
+            if (selectedImageFile && editingParcour.uuid) {
+                await filesService.uploadFile('parcours', editingParcour.uuid, 'covert', selectedImageFile);
             }
 
             await updateMutation.mutateAsync({
@@ -328,17 +307,9 @@ export default function Parcours() {
                     category_id: editingParcour.category.id,
                     description: editingParcour.description,
                     type_media: editingParcour.type_media,
-                    image_couverture: newImage,
                     lien_video: editingParcour.lien_video,
                 }
             });
-
-            if (selectedImageFile && editingParcour.image_couverture && editingParcour.image_couverture !== newImage) {
-                try { await fichiersService.deleteFile(editingParcour.image_couverture); } catch { }
-            }
-            if (selectedVideoFile && editingParcour.lien_video && editingParcour.lien_video !== newVideo) {
-                try { await fichiersService.deleteFile(editingParcour.lien_video); } catch { }
-            }
 
         } catch (error: any) {
             toast({ title: "Erreur", description: "Échec de la mise à jour", variant: "destructive" });

@@ -10,15 +10,20 @@ export interface PaginatedResponse<T> {
 
 export interface Etablissement {
   id: number;
+  uuid?: string;
   pays?: string;
   nom: string;
   ville?: string;
   code_postal?: string;
+  /** Legacy Firebase URL — kept during the transition. Prefer FileImage with slot='logo'. */
   logo?: string;
+  logo_path?: string;
+  logo_extension?: string;
 }
 
 export interface Filiere {
   id: number;
+  uuid?: string;
   pays?: string;
   nom: string;
   etablissement?: Etablissement;
@@ -26,6 +31,7 @@ export interface Filiere {
 
 export interface NiveauEtude {
   id: number;
+  uuid?: string;
   pays?: string;
   nom: string;
   duree_mois?: number;
@@ -34,6 +40,7 @@ export interface NiveauEtude {
 
 export interface Matiere {
   id: number;
+  uuid?: string;
   pays?: string;
   nom: string;
   description?: string;
@@ -43,11 +50,15 @@ export interface Matiere {
 
 export interface Utilisateur {
   id: number;
+  uuid?: string;
   nom: string;
   prenom: string;
   pseudo?: string;
   email: string;
+  /** Legacy Firebase URL — prefer FileImage with slot='profil'. */
   photo?: string;
+  profil_photo_path?: string;
+  profil_photo_extension?: string;
   pays?: string;
   etablissement?: Etablissement;
   filiere?: Filiere;
@@ -66,9 +77,13 @@ export type EpreuveType = 'Interrogation' | 'Devoirs' | 'Concours' | 'Examens';
 
 export interface Epreuve {
   id: number;
+  uuid?: string;
   pays?: string;
   titre: string;
+  /** Legacy URL — prefer FileImage / download-url with slot='file'. */
   url: string;
+  file_path?: string;
+  file_extension?: string;
   professeur?: Utilisateur;
   matiere?: Matiere;
   duree_minutes: number;
@@ -81,10 +96,14 @@ export interface Epreuve {
 
 export interface Ressource {
   id: number;
+  uuid?: string;
   pays?: string;
   titre: string;
   type: 'Quiz' | 'Exercices' | 'Document';
+  /** Legacy URL — prefer FileImage / download-url with slot='file'. */
   url: string;
+  file_path?: string;
+  file_extension?: string;
   professeur?: Utilisateur;
   matiere?: Matiere;
   date_creation: string;
@@ -111,10 +130,14 @@ export interface ApiResponse<T> {
 
 export interface Forum {
   id: number;
+  uuid?: string;
   pays?: string;
   theme: string;
   content: string;
+  /** Legacy URL — prefer FileImage with slot='file'. */
   photo?: string;
+  file_path?: string;
+  file_extension?: string;
 
   user_id: number;
   user?: Utilisateur;
@@ -128,6 +151,7 @@ export interface Forum {
 
 export interface ForumCommentaire {
   id: number;
+  uuid?: string;
   pays?: string;
   commentable_id: string; // BigInt from backend
   commentable_type: string;

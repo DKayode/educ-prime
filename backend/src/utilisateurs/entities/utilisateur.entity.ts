@@ -31,6 +31,12 @@ export class Utilisateur {
   @PrimaryGeneratedColumn()
   id: number;
 
+
+  @Column({ type: 'text', default: '' })
+  profil_photo_path: string;
+
+  @Column({ type: 'varchar', length: 10, default: '' })
+  profil_photo_extension: string;
   @Column()
   nom: string;
 

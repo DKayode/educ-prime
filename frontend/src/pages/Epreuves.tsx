@@ -53,6 +53,7 @@ import { matieresService } from "@/lib/services/matieres.service";
 import { niveauxService } from "@/lib/services/niveaux.service";
 import { etablissementsService } from "@/lib/services/etablissements.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
+import { filesService } from "@/lib/services/files.service";
 
 export default function Epreuves() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -136,17 +137,28 @@ export default function Epreuves() {
   const matieres = matieresResponse?.data || [];
 
   const createMutation = useMutation({
-    mutationFn: (data: { file: File; titre: string; type?: string; duree_minutes: number; nombre_pages?: number; matiere_id: number; date_publication?: string }) =>
-      fichiersService.uploadEpreuve({
-        file: data.file,
-        type: 'epreuve',
-        matiereId: data.matiere_id,
-        epreuveTitre: data.titre,
-        epreuveType: data.type,
-        dureeMinutes: data.duree_minutes,
-        nombrePages: data.nombre_pages,
-        datePublication: data.date_publication,
-      }),
+    mutationFn: async (data: { file: File; titre: string; type?: string; duree_minutes: number; nombre_pages?: number; matiere_id: number; date_publication?: string }) => {
+      // 1. Create the epreuve row — backend assigns the uuid we use as
+      //    the R2 key on the next step. Metadata that the legacy
+      //    /fichiers/epreuve endpoint accepted as form fields is set
+      //    via a follow-up update.
+      const created = await epreuvesService.create({
+        titre: data.titre,
+        matiere_id: data.matiere_id,
+      });
+      await epreuvesService.update(created.id.toString(), {
+        type: data.type,
+        duree_minutes: data.duree_minutes,
+        nombre_pages: data.nombre_pages,
+        date_publication: data.date_publication,
+      });
+
+      // 2. PUT bytes to R2 via presigned URL.
+      if (created.uuid) {
+        await filesService.uploadFile('epreuves', created.uuid, 'file', data.file);
+      }
+      return created;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['epreuves'] });
       toast.success("Épreuve créée avec succès");

@@ -16,6 +16,12 @@ export class Category {
     id: number;
 
 
+
+    @Column({ type: 'text', default: '' })
+    icone_path: string;
+
+    @Column({ type: 'varchar', length: 10, default: '' })
+    icone_extension: string;
     @Column({ type: "varchar", length: 50, default: "benin" })
     pays: string;
     @ApiProperty({ description: 'UUID de la catégorie' })

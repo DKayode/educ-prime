@@ -6,8 +6,12 @@ import { buildPaginationQuery } from '../types/pagination';
 
 export interface Concours {
     id: number;
+    uuid?: string;
     titre: string;
+    /** Legacy URL — prefer download-url with slot='file'. */
     url?: string;
+    file_path?: string;
+    file_extension?: string;
     annee?: number;
     lieu?: string;
     nombre_page: number;

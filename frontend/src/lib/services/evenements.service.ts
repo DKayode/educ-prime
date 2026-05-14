@@ -4,12 +4,16 @@ import { buildPaginationQuery } from '../types/pagination';
 
 export interface Evenement {
     id: number;
+    uuid?: string;
     titre: string;
     description?: string;
     date?: string;
     lieu?: string;
     lien_inscription?: string;
+    /** Legacy Firebase URL — prefer FileImage with slot='image'. */
     image?: string;
+    image_path?: string;
+    image_extension?: string;
     actif: boolean;
     date_creation: string;
 }

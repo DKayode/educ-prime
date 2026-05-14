@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Plus, Pencil, Trash2, Loader2, Upload, Search, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { publicitesService, type Publicite } from "@/lib/services/publicites.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
+import { filesService } from "@/lib/services/files.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -202,11 +203,9 @@ export default function Publicites() {
         setIsUploading(true);
 
         let createdEntityId: number | null = null;
-        let uploadedImageUrl: string | null = null;
-        let uploadedMediaUrl: string | null = null;
 
         try {
-            // Step 1: Create entity without image
+            // Step 1: Create the publicite row.
             const createdPublicite = await publicitesService.create({
                 ...formData,
                 image: formData.image || undefined,
@@ -214,55 +213,20 @@ export default function Publicites() {
             });
             createdEntityId = createdPublicite.id;
 
-            // Step 2: Upload Image (Cover) if selected
-            if (selectedImageFile && createdPublicite.id) {
-                const uploadResult = await fichiersService.uploadImage({
-                    file: selectedImageFile,
-                    type: 'PUBLICITE',
-                    entityId: createdPublicite.id,
-                    entitySubtype: 'image',
-                });
-                uploadedImageUrl = uploadResult.url;
-
-                await publicitesService.update(createdPublicite.id.toString(), {
-                    image: uploadResult.url,
-                });
+            // Step 2: Upload cover image to R2 (slot='covert').
+            if (selectedImageFile && createdPublicite.uuid) {
+                await filesService.uploadFile('publicites', createdPublicite.uuid, 'covert', selectedImageFile);
             }
 
-            // Step 3: Upload Media (Content) if selected and type is Image
-            if (formData.type_media === 'Image' && createdPublicite.id) {
-                let mediaUrlToUpdate = undefined;
-
-                if (selectedMediaFile) {
-                    // Start upload for specific media file
-                    const uploadResult = await fichiersService.uploadImage({
-                        file: selectedMediaFile,
-                        type: 'PUBLICITE',
-                        entityId: createdPublicite.id,
-                        entitySubtype: 'media',
-                    });
-                    mediaUrlToUpdate = uploadResult.url;
-                    uploadedMediaUrl = uploadResult.url;
-                } else if (selectedImageFile) {
-                    // Reuse Cover Image file if no specific media file provided
-                    // We must upload it again as 'media' subtype to satisfy path requirement: /publicite/:id/media/:filename
-                    const uploadResult = await fichiersService.uploadImage({
-                        file: selectedImageFile,
-                        type: 'PUBLICITE',
-                        entityId: createdPublicite.id,
-                        entitySubtype: 'media',
-                    });
-                    mediaUrlToUpdate = uploadResult.url;
-                    uploadedMediaUrl = uploadResult.url;
+            // Step 3: Upload content image to R2 (slot='content') when this
+            // is an Image-typed publicite. Falls back to the cover file if
+            // the user didn't pick a separate one. Video-typed publicites
+            // keep the legacy `media` URL untouched.
+            if (formData.type_media === 'Image' && createdPublicite.uuid) {
+                const mediaFile = selectedMediaFile ?? selectedImageFile;
+                if (mediaFile) {
+                    await filesService.uploadFile('publicites', createdPublicite.uuid, 'content', mediaFile);
                 }
-
-                if (mediaUrlToUpdate) {
-                    await publicitesService.update(createdPublicite.id.toString(), {
-                        media: mediaUrlToUpdate,
-                    });
-                }
-            } else if (formData.type_media === 'Video') {
-                // Video URL already handled in Step 1
             }
 
             // Success
@@ -272,47 +236,20 @@ export default function Publicites() {
             setFormData({ titre: "", image: "", media: "", type_media: "Image", lien_inscription: "", ordre: 0, actif: true });
             setSelectedImageFile(null);
             setSelectedMediaFile(null);
-            toast({
-                title: "Succès",
-                description: "Publicité créée avec succès",
-            });
+            toast({ title: "Succès", description: "Publicité créée avec succès" });
         } catch (error: any) {
-            console.error("Creation failed, starting rollback...", error);
-
-            // Rollback Logic
-            try {
-                // If we have an entity ID, delete it. 
-                // The backend delete (remove) logic should now handle file cleanup for files SAVED to the entity.
-                if (createdEntityId) {
+            console.error("Creation failed, rolling back…", error);
+            // Rollback: drop the row. R2 objects keyed by uuid orphan
+            // cleanly; their key includes the uuid so a subsequent retry
+            // never collides.
+            if (createdEntityId) {
+                try {
                     await publicitesService.delete(createdEntityId.toString());
-                    console.log("Rollback: Deleted created entity", createdEntityId);
-                } else {
-                    // If entity wasn't created (rare/impossible here as it's step 1), or if we are paranoid about files uploaded but not linked?
-                    // With current flow, if step 1 fails, nothing to cleanup.
-                    // If step 2 fails (upload), entity exists but has no image URL yet. We delete entity. File upload failed so no file.
-                    // If step 2 succeeds (upload) but update fails? We have file in storage, but maybe not in DB?
-                    // Actually, if update fails, the file URL is not in DB. So backend delete won't find it to delete contextually.
-                    // So we must manually delete properly uploaded files that might NOT be in the DB yet if the update call failed.
-
-                    if (uploadedImageUrl && (!createdEntityId || error.message.includes("update"))) {
-                        // Attempt manual delete if we think it might be orphaned
-                        await fichiersService.deleteFile(uploadedImageUrl);
-                        console.log("Rollback: Deleted orphaned image file");
-                    }
-                    if (uploadedMediaUrl && (!createdEntityId || error.message.includes("update"))) {
-                        await fichiersService.deleteFile(uploadedMediaUrl);
-                        console.log("Rollback: Deleted orphaned media file");
-                    }
+                } catch (rollbackError) {
+                    console.error("Rollback failed", rollbackError);
                 }
-            } catch (rollbackError) {
-                console.error("Rollback failed", rollbackError);
             }
-
-            toast({
-                title: "Erreur",
-                description: error.message || "Échec de la création de la publicité",
-                variant: "destructive",
-            });
+            toast({ title: "Erreur", description: error.message || "Échec de la création de la publicité", variant: "destructive" });
         } finally {
             setIsUploading(false);
         }
@@ -336,90 +273,33 @@ export default function Publicites() {
         }
 
         setIsUploading(true);
-        let updatedImage = editingPublicite.image;
-        let updatedMedia = editingPublicite.media;
 
         try {
-            // Upload new Cover Image if selected
-            if (selectedImageFile) {
-                try {
-                    const uploadResult = await fichiersService.uploadImage({
-                        file: selectedImageFile,
-                        type: 'PUBLICITE',
-                        entityId: editingPublicite.id,
-                        entitySubtype: 'image',
-                    });
-                    updatedImage = uploadResult.url;
-                } catch (error) {
-                    console.error("Failed to upload new cover image", error);
-                    toast({
-                        title: "Erreur Upload",
-                        description: "Échec de l'upload de la nouvelle image de couverture",
-                        variant: "destructive",
-                    });
-                    // Proceed anyway? Or stop? Let's stop to be safe.
-                    setIsUploading(false);
-                    return;
-                }
+            // 1. Push the cover image to R2 if a new one was picked.
+            if (selectedImageFile && editingPublicite.uuid) {
+                await filesService.uploadFile('publicites', editingPublicite.uuid, 'covert', selectedImageFile);
             }
 
-            // Upload new Media File if selected and type is Image
-            if (editingPublicite.type_media === 'Image' && selectedMediaFile) {
-                try {
-                    const uploadResult = await fichiersService.uploadImage({
-                        file: selectedMediaFile,
-                        type: 'PUBLICITE',
-                        entityId: editingPublicite.id,
-                        entitySubtype: 'media',
-                    });
-                    updatedMedia = uploadResult.url;
-                } catch (error) {
-                    console.error("Failed to upload new media file", error);
-                    toast({
-                        title: "Erreur Upload",
-                        description: "Échec de l'upload du nouveau fichier média",
-                        variant: "destructive",
-                    });
-                    setIsUploading(false);
-                    return;
-                }
-            } else if (editingPublicite.type_media === 'Video') {
-                // If Video, updatedMedia should be the URL from input (editingPublicite.media)
-                updatedMedia = editingPublicite.media;
+            // 2. Push content image when type is Image. Video keeps its
+            //    legacy `media` URL value.
+            if (editingPublicite.type_media === 'Image' && selectedMediaFile && editingPublicite.uuid) {
+                await filesService.uploadFile('publicites', editingPublicite.uuid, 'content', selectedMediaFile);
             }
 
+            // 3. Update the row's text fields. R2 path/extension columns
+            //    are written by the presign step, so we don't carry image/
+            //    media URLs around any more.
             await updateMutation.mutateAsync({
                 id: editingPublicite.id.toString(),
                 data: {
                     titre: editingPublicite.titre,
-                    image: updatedImage,
-                    media: updatedMedia,
+                    media: editingPublicite.type_media === 'Video' ? editingPublicite.media : undefined,
                     type_media: editingPublicite.type_media,
                     lien_inscription: editingPublicite.lien_inscription || "",
                     ordre: editingPublicite.ordre,
                     actif: editingPublicite.actif,
                 },
             });
-
-            // Cleanup old files if they were replaced
-            if (selectedImageFile && editingPublicite.image && editingPublicite.image !== updatedImage) {
-                try {
-                    await fichiersService.deleteFile(editingPublicite.image);
-                    console.log("Deleted old cover image");
-                } catch (e) {
-                    console.error("Failed to delete old cover image", e);
-                }
-            }
-
-            if (selectedMediaFile && editingPublicite.media && editingPublicite.media !== updatedMedia) {
-                try {
-                    await fichiersService.deleteFile(editingPublicite.media);
-                    console.log("Deleted old media file");
-                } catch (e) {
-                    console.error("Failed to delete old media file", e);
-                }
-            }
-
         } finally {
             // Reset files only after success is handled by mutation, but here we are in sync logic partly.
             // Ideally we clear files in onSuccess of mutation.

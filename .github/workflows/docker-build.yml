@@ -43,7 +43,7 @@ jobs:
       - name: Create country config file
         run: |
           mkdir -p backend/config
-          echo '${{ secrets.COUNTRY_CONFIG }}' > backend/config/config.json
+          echo '${{ secrets.CONFIG }}' > backend/config/config.json
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
