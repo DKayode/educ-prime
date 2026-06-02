@@ -50,7 +50,7 @@ export default function Etablissements() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [editingEtablissement, setEditingEtablissement] = useState<{ id: number; uuid?: string } & EtablissementFormData | null>(null);
+  const [editingEtablissement, setEditingEtablissement] = useState<{ id: number; uuid?: string; logo_path?: string } & EtablissementFormData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -394,6 +394,7 @@ export default function Etablissements() {
                           entity="etablissements"
                           uuid={etablissement.uuid}
                           slot="logo"
+                          url={etablissement.logo_path}
                           alt={`Logo ${etablissement.nom}`}
                           className="h-10 w-10 object-contain rounded-md"
                           placeholder={
@@ -531,6 +532,7 @@ export default function Etablissements() {
                       entity="etablissements"
                       uuid={editingEtablissement.uuid}
                       slot="logo"
+                      url={editingEtablissement.logo_path}
                       alt="Current Logo"
                       className="h-full w-full object-contain rounded-md border"
                     />

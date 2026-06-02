@@ -9,9 +9,13 @@
  *   updates after generating a presigned URL.
  * - `authorized` is the allowlist of file extensions accepted on this slot.
  * - `public` (optional, default false) routes uploads to the public R2 bucket
- *   and makes downloads return a deterministic anonymous URL with no
- *   expiry. Use only for content meant to be world-visible (brand assets,
- *   country logos). Private slots stay on the existing presigned-URL flow.
+ *   and makes downloads return a deterministic anonymous URL with no expiry.
+ *   Public slots also store that full URL directly in the `<slot>_path`
+ *   column, so a plain entity GET carries a ready-to-use link and clients
+ *   never need to call /files/.../download-url. Everything non-sensitive is
+ *   public; the private slots (exam papers, resource files, user profile
+ *   photos, identity documents) stay on the presigned-URL flow where each
+ *   read is authorized and short-lived.
  */
 export interface FileSlotConfig {
     pathColumn: string;
@@ -30,45 +34,50 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
         icone: { pathColumn: 'icone_path', extColumn: 'icone_extension', authorized: IMAGE_EXTS, public: true },
     },
     concours: {
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY },
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, public: true },
     },
     epreuves: {
+        // Private: exam papers are gated behind authorized, short-lived reads.
         file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY },
     },
     etablissements: {
         logo: { pathColumn: 'logo_path', extColumn: 'logo_extension', authorized: IMAGE_EXTS_WITH_SVG, public: true },
     },
     evenements: {
-        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS },
+        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true },
     },
     forums: {
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: IMAGE_OR_PDF },
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: IMAGE_OR_PDF, public: true },
     },
     offres: {
-        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS },
+        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true },
     },
     opportunites: {
-        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS },
+        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true },
     },
     parcours: {
-        covert: { pathColumn: 'covert_image_path', extColumn: 'covert_image_extension', authorized: IMAGE_EXTS },
-        content: { pathColumn: 'content_image_path', extColumn: 'content_image_extension', authorized: IMAGE_EXTS },
+        covert: { pathColumn: 'covert_image_path', extColumn: 'covert_image_extension', authorized: IMAGE_EXTS, public: true },
+        content: { pathColumn: 'content_image_path', extColumn: 'content_image_extension', authorized: IMAGE_EXTS, public: true },
     },
     prestataires: {
-        profil: { pathColumn: 'profil_photo_path', extColumn: 'profil_photo_extension', authorized: IMAGE_EXTS },
+        profil: { pathColumn: 'profil_photo_path', extColumn: 'profil_photo_extension', authorized: IMAGE_EXTS, public: true },
+        // Private: identity documents (ID card / passport scans) are sensitive
+        // PII and must never be anonymously readable.
         identity: { pathColumn: 'identity_photo_path', extColumn: 'identity_photo_extension', authorized: IMAGE_EXTS },
     },
     publicites: {
-        covert: { pathColumn: 'covert_image_path', extColumn: 'covert_image_extension', authorized: IMAGE_EXTS },
-        content: { pathColumn: 'content_image_path', extColumn: 'content_image_extension', authorized: IMAGE_EXTS },
+        covert: { pathColumn: 'covert_image_path', extColumn: 'covert_image_extension', authorized: IMAGE_EXTS, public: true },
+        content: { pathColumn: 'content_image_path', extColumn: 'content_image_extension', authorized: IMAGE_EXTS, public: true },
     },
     ressources: {
+        // Private: resource files stay behind authorized, short-lived reads.
         file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY },
     },
     services: {
-        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS },
+        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true },
     },
     utilisateurs: {
+        // Private: user profile photos stay on the presigned-URL flow.
         profil: { pathColumn: 'profil_photo_path', extColumn: 'profil_photo_extension', authorized: IMAGE_EXTS },
     },
 };

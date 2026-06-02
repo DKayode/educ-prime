@@ -374,6 +374,7 @@ export default function Opportunites() {
                                                 entity="opportunites"
                                                 uuid={opp.uuid}
                                                 slot="image"
+                                                url={opp.image_path}
                                                 fallback={opp.image ? `${API_URL}/opportunites/${opp.id}/image?v=${imageVersion}` : null}
                                                 alt={opp.titre}
                                                 className="h-10 w-10 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
@@ -503,6 +504,7 @@ export default function Opportunites() {
                                                 entity="opportunites"
                                                 uuid={editingOpportunite.uuid}
                                                 slot="image"
+                                                url={editingOpportunite.image_path}
                                                 fallback={editingOpportunite.image ? `${API_URL}/opportunites/${editingOpportunite.id}/image?v=${imageVersion}` : null}
                                                 alt="Current Image"
                                                 className="h-full w-full object-cover rounded-md border"

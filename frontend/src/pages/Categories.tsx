@@ -335,6 +335,7 @@ export default function Categories() {
                                                 entity="categories"
                                                 uuid={item.uuid}
                                                 slot="icone"
+                                                url={item.icone_path}
                                                 alt={item.nom}
                                                 className="h-10 w-10 object-contain rounded-md bg-muted/20"
                                                 placeholder={
@@ -452,6 +453,7 @@ export default function Categories() {
                                                     entity="categories"
                                                     uuid={editingCategory.uuid}
                                                     slot="icone"
+                                                    url={editingCategory.icone_path}
                                                     alt="Current Icon"
                                                     className="h-full w-full object-contain rounded-md border"
                                                 />

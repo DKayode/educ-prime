@@ -9,7 +9,10 @@ export interface UploadUrlResponse {
     url: string;
     method: 'PUT';
     content_type: string;
-    path: string;        // logical /<entity>/<uuid>/<slot>
+    // Private slots: logical /<entity>/<uuid>/<slot>. Public slots: the full
+    // anonymous URL — it's stored verbatim in the row's <slot>_path column, so
+    // a plain entity GET already carries a usable link (no download-url call).
+    path: string;
     extension: string;
     expires_in: number;  // 0 for public slots (deterministic anonymous URL)
     public: boolean;
@@ -18,7 +21,7 @@ export interface UploadUrlResponse {
 export interface DownloadUrlResponse {
     url: string;
     method: 'GET';
-    path: string;
+    path: string;        // public slots: full URL (same as `url`); private: logical path
     extension: string;
     expires_in: number;  // 0 for public slots (URL never expires)
     public: boolean;
@@ -43,7 +46,9 @@ export const filesService = {
     },
 
     /**
-     * Get a presigned GET URL for the file currently registered on this slot.
+     * Get a presigned GET URL for a PRIVATE slot's file. Public slots don't
+     * use this — their URL lives on the entity row's `<slot>_path` field and a
+     * plain GET serves the file (the backend returns 400 if called for one).
      * Returns null if no file has been uploaded yet (404 from backend).
      */
     async getDownloadUrl(entity: string, uuid: string, slot: Slot): Promise<DownloadUrlResponse | null> {

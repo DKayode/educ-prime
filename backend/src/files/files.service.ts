@@ -131,6 +131,21 @@ export class FilesService {
         return `${this.publicBaseUrl}/${key}`;
     }
 
+    /**
+     * Value written to the row's <slot>_path column. Private slots store the
+     * logical path (`/<entity>/<uuid>/<slot>`) and reconstruct the R2 key on
+     * read; public slots store the full anonymous URL so a plain entity GET
+     * already carries a ready-to-use link with no /files/... round trip.
+     * Trade-off: if R2_PUBLIC_BUCKET_URL ever changes, public rows need a
+     * re-backfill (scripts/backfill-public-urls.js).
+     */
+    private storedPathFor(cfg: FileSlotConfig, entity: string, uuid: string, slot: string, extension: string): string {
+        if (cfg.public) {
+            return this.publicUrl(buildObjectKey(entity, uuid, slot, extension));
+        }
+        return buildLogicalPath(entity, uuid, slot);
+    }
+
     private validateExtension(cfg: FileSlotConfig, extension: string) {
         const normalized = extension.toLowerCase().replace(/^\./, '');
         if (!cfg.authorized.includes(normalized)) {
@@ -180,15 +195,16 @@ export class FilesService {
      * Optimistically writes path/extension on the row at presign time — if
      * the upload never lands, the column points at a non-existent object,
      * which clients can detect via download-url returning 404. Public-
-     * flagged slots route to the public bucket and tag the object with a
-     * long Cache-Control so CDNs can cache aggressively.
+     * flagged slots route to the public bucket, tag the object with a long
+     * Cache-Control so CDNs can cache aggressively, and store the full
+     * anonymous URL in <slot>_path (clients read it straight off the row).
      */
     async createUploadUrl(entity: string, uuid: string, slot: string, rawExtension: string) {
         const cfg = this.resolveSlot(entity, slot);
         const extension = this.validateExtension(cfg, rawExtension);
         const rowId = await this.findRowIdByUuid(entity, uuid);
 
-        const path = buildLogicalPath(entity, uuid, slot);
+        const storedPath = this.storedPathFor(cfg, entity, uuid, slot, extension);
         const key = buildObjectKey(entity, uuid, slot, extension);
         const contentType = MIME_BY_EXT[extension] ?? 'application/octet-stream';
         const bucket = this.bucketFor(cfg);
@@ -201,13 +217,13 @@ export class FilesService {
         });
         const url = await getSignedUrl(this.client, command, { expiresIn: PRESIGN_TTL_SECONDS });
 
-        await this.writePathOnRow(entity, rowId, cfg, path, extension);
+        await this.writePathOnRow(entity, rowId, cfg, storedPath, extension);
 
         return {
             url,
             method: 'PUT',
             content_type: contentType,
-            path,
+            path: storedPath,
             extension,
             expires_in: PRESIGN_TTL_SECONDS,
             public: !!cfg.public,
@@ -215,13 +231,21 @@ export class FilesService {
     }
 
     /**
-     * Return a URL for the file currently registered on this slot. For
-     * public slots this is a deterministic anonymous URL with no expiry;
-     * for private slots it's a 5-minute presigned GET. Throws 404 if no
-     * file has been registered yet.
+     * Return a short-lived presigned GET URL for a PRIVATE slot's file.
+     * Public slots don't go through here: their full anonymous URL is stored
+     * on the entity's <slot>_path field and served directly over a plain GET,
+     * so calling this for a public slot is a 400. Throws 404 if no file has
+     * been registered yet.
      */
     async createDownloadUrl(entity: string, uuid: string, slot: string) {
         const cfg = this.resolveSlot(entity, slot);
+        if (cfg.public) {
+            throw new BadRequestException(
+                `Slot '${entity}/${slot}' is public — no presigned download URL is ` +
+                `issued. Read its URL straight from the entity's '${cfg.pathColumn}' ` +
+                `field; a plain GET on that URL serves the file.`,
+            );
+        }
         const rowId = await this.findRowIdByUuid(entity, uuid);
 
         const rows = await this.dataSource.query(
@@ -236,18 +260,6 @@ export class FilesService {
         }
 
         const key = buildObjectKey(entity, uuid, slot, row.ext);
-
-        if (cfg.public) {
-            return {
-                url: this.publicUrl(key),
-                method: 'GET' as const,
-                path: row.path,
-                extension: row.ext,
-                expires_in: 0,
-                public: true,
-            };
-        }
-
         const command = new GetObjectCommand({ Bucket: this.bucketFor(cfg), Key: key });
         const url = await getSignedUrl(this.client, command, { expiresIn: PRESIGN_TTL_SECONDS });
         return {
@@ -277,7 +289,7 @@ export class FilesService {
         const extension = this.validateExtension(cfg, extFromName);
         const rowId = await this.findRowIdByUuid(entity, uuid);
 
-        const path = buildLogicalPath(entity, uuid, slot);
+        const storedPath = this.storedPathFor(cfg, entity, uuid, slot, extension);
         const key = buildObjectKey(entity, uuid, slot, extension);
         const bucket = this.bucketFor(cfg);
 
@@ -291,8 +303,8 @@ export class FilesService {
             }),
         );
 
-        await this.writePathOnRow(entity, rowId, cfg, path, extension);
+        await this.writePathOnRow(entity, rowId, cfg, storedPath, extension);
 
-        return { path, extension, public: !!cfg.public };
+        return { path: storedPath, extension, public: !!cfg.public };
     }
 }

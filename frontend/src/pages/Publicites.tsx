@@ -332,8 +332,13 @@ export default function Publicites() {
                 }
                 setPreviewUrl(url);
                 setIsPreviewOpen(true);
+            } else if (item.content_image_path) {
+                // content is a public slot: full URL is on the row — use it
+                // directly instead of downloading the bytes.
+                setPreviewUrl(item.content_image_path);
+                setIsPreviewOpen(true);
             } else {
-                // Assume Image or file download
+                // Legacy rows predating the public-URL backfill.
                 setIsPreviewOpen(true);
                 const blob = await publicitesService.downloadMedia(item.id);
                 const url = window.URL.createObjectURL(blob);
@@ -348,10 +353,11 @@ export default function Publicites() {
 
     const closePreview = () => {
         setIsPreviewOpen(false);
-        if (previewUrl) {
+        // Only blob: URLs need revoking; public/YouTube http URLs must not be.
+        if (previewUrl && !previewUrl.startsWith('http')) {
             window.URL.revokeObjectURL(previewUrl);
-            setPreviewUrl(null);
         }
+        setPreviewUrl(null);
     };
 
     if (isLoading) {
