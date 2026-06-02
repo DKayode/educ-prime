@@ -399,6 +399,7 @@ export default function Evenements() {
                                                 entity="evenements"
                                                 uuid={evenement.uuid}
                                                 slot="image"
+                                                url={evenement.image_path}
                                                 fallback={evenement.image ? `${API_URL}/evenements/${evenement.id}/image?v=${imageVersion}` : null}
                                                 alt={evenement.titre}
                                                 className="h-10 w-10 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
@@ -544,6 +545,7 @@ export default function Evenements() {
                                                 entity="evenements"
                                                 uuid={editingEvenement.uuid}
                                                 slot="image"
+                                                url={editingEvenement.image_path}
                                                 fallback={editingEvenement.image ? `${API_URL}/evenements/${editingEvenement.id}/image?v=${imageVersion}` : null}
                                                 alt="Current Image"
                                                 className="h-full w-full object-cover rounded-md border"

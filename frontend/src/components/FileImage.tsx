@@ -11,10 +11,17 @@ interface FileImageProps extends Omit<ComponentProps<'img'>, 'src'> {
     /** Slot key registered in backend FILE_FIELD_REGISTRY. */
     slot: Slot;
     /**
-     * Legacy URL to use when the new R2 file isn't registered yet. Only set
-     * this for entities still in migration; for fully-migrated entities
-     * (categories, etablissements) leave it unset and the placeholder will
-     * render directly.
+     * Direct URL for a PUBLIC slot, read straight off the entity row's
+     * `<slot>_path` field (which now stores the full anonymous URL). When set,
+     * the file renders over a plain GET with no presign round-trip. Leave unset
+     * for private slots (epreuves, ressources, utilisateurs, prestataires
+     * identity) so the component resolves a short-lived presigned URL instead.
+     */
+    url?: string | null;
+    /**
+     * Legacy URL to use when neither `url` nor a registered R2 file is
+     * available yet. Only set this for entities still in migration; for
+     * fully-migrated entities leave it unset and the placeholder renders.
      */
     fallback?: string | null;
     /** Rendered when there's nothing valid to show. */
@@ -22,42 +29,44 @@ interface FileImageProps extends Omit<ComponentProps<'img'>, 'src'> {
 }
 
 /**
- * Resolve and render a file from the R2 pipeline. Auto-fetches a download
- * URL from /files/.../download-url (presigned for private slots; a
- * deterministic public URL with no expiry for public slots) and caches it
- * in TanStack Query.
+ * Resolve and render a file from the R2 pipeline.
+ *
+ * - Public slots: pass the full URL via `url` (read from the entity row's
+ *   `<slot>_path` field). It renders over a plain GET — no backend call.
+ * - Private slots: omit `url`; the component fetches a short-lived presigned
+ *   URL from /files/.../download-url and caches it in TanStack Query.
  *
  * Three failure modes are handled, each falling through to `placeholder`:
- *   1. No row uuid (entity not loaded yet, or has no row in scope).
- *   2. download-url 404 (row exists but no file registered yet).
- *   3. <img> onError (download-url 200 but the file is missing from R2 —
- *      happens when the bucket sync missed a key, the public bucket
- *      drifted from the private one, etc.).
+ *   1. No URL and no row uuid (entity not loaded yet, or no row in scope).
+ *   2. download-url 404 (private slot row exists but no file uploaded yet).
+ *   3. <img> onError (URL resolves but the bytes are missing from R2).
  *
  * The optional `fallback` lets pages that haven't been migrated yet point
- * at a legacy URL; pages whose entity has been fully migrated to R2 should
- * omit it so a missing file degrades to the placeholder instead of a noisy
- * legacy 404/400.
+ * at a legacy URL; fully-migrated entities should omit it so a missing file
+ * degrades to the placeholder instead of a noisy legacy 404/400.
  */
 export function FileImage({
     entity,
     uuid,
     slot,
+    url,
     fallback,
     placeholder,
     alt,
     onError: onErrorProp,
     ...imgProps
 }: FileImageProps) {
-    const enabled = !!uuid;
+    // A non-empty `url` means this is a public slot whose URL came straight off
+    // the entity row — render it directly and skip the presign request entirely.
+    const directUrl = url || null;
+    const usePresign = !directUrl && !!uuid;
 
     const { data, isLoading } = useQuery({
         queryKey: ['file-download-url', entity, uuid, slot],
         queryFn: () => filesService.getDownloadUrl(entity, uuid as string, slot),
-        enabled,
+        enabled: usePresign,
         // Presigned URLs expire in 5 min; cache for 4 to avoid serving expired
-        // URLs while staying well below the wall. Public-slot URLs are stable
-        // but reusing the same TTL keeps the cache logic uniform.
+        // URLs while staying well below the wall.
         staleTime: 4 * 60 * 1000,
         gcTime: 4 * 60 * 1000,
         retry: 1,
@@ -69,12 +78,12 @@ export function FileImage({
     const [imgFailed, setImgFailed] = useState(false);
     // Reset the error state when the URL we'd render changes — otherwise
     // a recovered upload would never re-attempt.
-    const currentSrc = data?.url ?? fallback ?? null;
+    const currentSrc = directUrl ?? data?.url ?? fallback ?? null;
     useEffect(() => {
         setImgFailed(false);
     }, [currentSrc]);
 
-    if (enabled && isLoading) {
+    if (usePresign && isLoading) {
         return <div {...(imgProps as any)} aria-busy="true" />;
     }
 

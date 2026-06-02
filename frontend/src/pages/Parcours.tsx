@@ -338,11 +338,21 @@ export default function Parcours() {
 
                 setPreviewUrl(url);
                 setIsPreviewOpen(true);
-            } else if ((item.type_media === 'image' || !item.type_media) && item.image_couverture) {
-                setIsPreviewOpen(true);
-                const blob = await parcoursService.downloadImage(item.id);
-                const url = window.URL.createObjectURL(blob);
-                setPreviewUrl(url);
+            } else if (item.type_media === 'image' || !item.type_media) {
+                // covert is a public slot: its full URL is on the row — render
+                // it directly. Fall back to the legacy blob download only for
+                // rows that predate the public-URL backfill.
+                if (item.covert_image_path) {
+                    setPreviewUrl(item.covert_image_path);
+                    setIsPreviewOpen(true);
+                } else if (item.image_couverture) {
+                    setIsPreviewOpen(true);
+                    const blob = await parcoursService.downloadImage(item.id);
+                    const url = window.URL.createObjectURL(blob);
+                    setPreviewUrl(url);
+                } else {
+                    toast({ title: "Info", description: "Aucun contenu à visualiser", variant: "default" });
+                }
             } else {
                 toast({ title: "Info", description: "Aucun contenu à visualiser", variant: "default" });
             }
