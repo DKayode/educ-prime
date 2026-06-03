@@ -45,12 +45,14 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           envs: COMPOSE_CONTENT,NGINX_CONTENT
-          # appleboy/ssh-action defaults command_timeout to 10m, which the
-          # image pulls + compose recreate + certbot issuance can exceed,
-          # killing the session ("Run Command Timeout") even though the
-          # deploy actually succeeded. Give it real headroom.
+          # Bump above the 10m default for image pulls + certbot issuance.
+          # NOTE: the real "Run Command Timeout" cause was detached docker
+          # containers inheriting the SSH session's stdout/stderr pipe (the
+          # script finishes but sshd never sees EOF). That's fixed inside the
+          # script by redirecting FDs on `docker compose up -d`; this just
+          # gives the legit slow steps headroom.
           timeout: 60s
-          command_timeout: 30m
+          command_timeout: 20m
           script: |
             set -e
             DEPLOY_DIR=/root/edukia
@@ -139,8 +141,13 @@ jobs:
             # Pull les dernières images
             $COMPOSE pull backend frontend redis
 
-            # Démarrer la pile (nginx avec dummy cert si nécessaire)
-            $COMPOSE up -d --remove-orphans
+            # Démarrer la pile (nginx avec dummy cert si nécessaire).
+            # Redirect stdin/stdout/stderr to /dev/null: detached containers
+            # otherwise inherit the SSH session's pipe FDs and keep them open
+            # after `up -d` returns, so sshd never sees EOF and appleboy/
+            # ssh-action waits out the full command_timeout ("Run Command
+            # Timeout") even though the deploy succeeded.
+            $COMPOSE up -d --remove-orphans </dev/null >/dev/null 2>&1
 
             # Si on a démarré avec un dummy cert, demander un vrai certificat
             # à Let's Encrypt via webroot (nginx est maintenant up sur le 80).
@@ -161,25 +168,33 @@ jobs:
                   -d "$PRIMARY_DOMAIN" -d "api.$PRIMARY_DOMAIN"
 
               # Recharger nginx avec le vrai certificat
-              $COMPOSE exec -T nginx nginx -s reload
+              $COMPOSE exec -T nginx nginx -s reload </dev/null >/dev/null 2>&1
             fi
 
             # Recharger nginx pour prendre en compte d'éventuels changements
             # de configuration. On ne fail pas si nginx n'est pas up — le
             # diagnostic ci-dessous montrera l'état réel.
-            $COMPOSE exec -T nginx nginx -s reload || true
+            $COMPOSE exec -T nginx nginx -s reload </dev/null >/dev/null 2>&1 || true
 
             # Attendre un peu pour que les conteneurs démarrent
             sleep 10
 
-            # Afficher l'état des conteneurs
-            $COMPOSE ps
+            # Afficher l'état des conteneurs. `</dev/null` keeps these
+            # diagnostic commands from inheriting/holding the SSH pipe.
+            $COMPOSE ps </dev/null
 
-            # Afficher les logs pour diagnostic
+            # Afficher les logs pour diagnostic. `--no-log-prefix` not used so
+            # we keep service tags; `</dev/null` detaches stdin so the call
+            # can't attach to a stream and hang the session.
             echo "=== Backend logs ==="
-            $COMPOSE logs --tail=50 backend
+            $COMPOSE logs --tail=50 backend </dev/null
             echo "=== Nginx logs ==="
-            $COMPOSE logs --tail=20 nginx
+            $COMPOSE logs --tail=20 nginx </dev/null
+
+            # Explicit success marker + exit 0 so the SSH command returns a
+            # clean status immediately after the last diagnostic.
+            echo "=== Deploy script finished ==="
+            exit 0
 
       - name: Notify deployment status
         if: always()
