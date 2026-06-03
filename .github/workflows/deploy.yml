@@ -45,6 +45,12 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           envs: COMPOSE_CONTENT,NGINX_CONTENT
+          # appleboy/ssh-action defaults command_timeout to 10m, which the
+          # image pulls + compose recreate + certbot issuance can exceed,
+          # killing the session ("Run Command Timeout") even though the
+          # deploy actually succeeded. Give it real headroom.
+          timeout: 60s
+          command_timeout: 30m
           script: |
             set -e
             DEPLOY_DIR=/root/edukia
