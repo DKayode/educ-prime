@@ -18,15 +18,14 @@ import {
     getSlotConfig,
 } from './registry';
 
-// TTL for presigned PUT URLs — short, just enough for the client to start
-// the upload right after requesting the URL.
-const UPLOAD_PRESIGN_TTL_SECONDS = 5 * 60; // 5 minutes
-// TTL for presigned GET URLs on PRIVATE slots. Longer than the upload window:
-// these back <FileImage>/clients that may keep a rendered page open for a
-// while, and a too-short link expires mid-view ("expired link"). 6h balances
-// usability against how long a leaked link stays live. Overridable via
-// PRESIGN_DOWNLOAD_TTL_SECONDS.
-const DOWNLOAD_PRESIGN_TTL_SECONDS_DEFAULT = 6 * 60 * 60; // 6 hours
+// TTL for presigned PUT URLs — enough for the client to request the URL and
+// push the bytes without the link expiring mid-upload.
+const UPLOAD_PRESIGN_TTL_SECONDS = 10 * 60; // 10 minutes
+// TTL for presigned GET URLs on PRIVATE slots. Default kept in lockstep with
+// the upload window (10 min) so both `expires_in` values the client sees are
+// consistent. Overridable via PRESIGN_DOWNLOAD_TTL_SECONDS for ops that want
+// longer-lived read links.
+const DOWNLOAD_PRESIGN_TTL_SECONDS_DEFAULT = 10 * 60; // 10 minutes
 // Cache-Control written on PUT for public-bucket objects. R2 keys are
 // content-addressed by uuid, so a fresh upload always changes either the
 // (entity, uuid, slot) or extension — making `immutable` safe.
