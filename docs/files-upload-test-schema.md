@@ -116,14 +116,14 @@ PASS: `public:false`, `path` is the logical `/epreuves/<uuid>/file`, PUT
 ## (1) Private presigned-GET link lives longer
 
 ```bash
-# Private slot only. expires_in should be 21600 (6h) by default,
+# Private slot only. expires_in should be 600 (10 min) by default,
 # or whatever PRESIGN_DOWNLOAD_TTL_SECONDS is set to.
 curl -s "$BASE/files/epreuves/$EPR_UUID/file/download-url?country=$COUNTRY" -H "$AUTH" \
   | jq '{expires_in, public, url}'
 
-# The signed URL should GET 200 well past the old 5-minute window.
+# The signed URL should GET 200 within the 10-minute window.
 DL=$(curl -s "$BASE/files/epreuves/$EPR_UUID/file/download-url?country=$COUNTRY" -H "$AUTH" | jq -r '.url')
-curl -I "$DL"          # 200 now; still 200 after >5 min, up to expires_in
+curl -I "$DL"          # 200 now, up to expires_in (600s)
 
 # Public slot must be REJECTED here (use the entity's <slot>_path instead):
 curl -s -o /dev/null -w '%{http_code}\n' \
@@ -131,8 +131,8 @@ curl -s -o /dev/null -w '%{http_code}\n' \
 # expect 400
 ```
 
-PASS: private `expires_in` == 21600 (or configured value); link still valid
-after 5 min; public slot → 400.
+PASS: private `expires_in` == 600 (or configured value); link valid within
+the window; public slot → 400.
 
 To change the TTL, set in `backend/.env` (and the deploy `.env`):
 

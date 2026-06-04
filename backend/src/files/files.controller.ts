@@ -22,6 +22,25 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FilesService } from './files.service';
 import { UploadUrlRequestDto } from './dto/upload-url.dto';
+import { FILE_FIELD_REGISTRY } from './registry';
+
+// Derived from the registry so Swagger stays in sync when slots change.
+// All entities that expose at least one file slot.
+const KNOWN_ENTITIES = Object.keys(FILE_FIELD_REGISTRY);
+// Every slot key across all entities (deduped), for the :slot param enum.
+const KNOWN_SLOTS = [
+    ...new Set(Object.values(FILE_FIELD_REGISTRY).flatMap((slots) => Object.keys(slots))),
+];
+// Human-readable "entity → slot (visibility)" listing for the param docs.
+const ENTITY_SLOT_LISTING = Object.entries(FILE_FIELD_REGISTRY)
+    .map(([entity, slots]) =>
+        `${entity}: ${Object.entries(slots)
+            .map(([slot, cfg]) => `${slot} (${cfg.public ? 'public' : 'private'})`)
+            .join(', ')}`,
+    )
+    .join('; ');
+const ENTITY_PARAM_DESC = `Owning entity table. One of: ${ENTITY_SLOT_LISTING}.`;
+const SLOT_PARAM_DESC = `Slot key for the chosen entity. Valid (entity → slots): ${ENTITY_SLOT_LISTING}.`;
 
 @ApiTags('files')
 @Controller('files')
@@ -80,9 +99,9 @@ export class FilesController {
             'header in `required_headers` (Content-Type always; Cache-Control too for ' +
             'public slots) — otherwise R2 rejects the PUT with SignatureDoesNotMatch.',
     })
-    @ApiParam({ name: 'entity', example: 'categories' })
+    @ApiParam({ name: 'entity', example: 'categories', enum: KNOWN_ENTITIES, description: ENTITY_PARAM_DESC })
     @ApiParam({ name: 'uuid', description: 'UUID of the row that owns the file' })
-    @ApiParam({ name: 'slot', example: 'icone' })
+    @ApiParam({ name: 'slot', example: 'icone', enum: KNOWN_SLOTS, description: SLOT_PARAM_DESC })
     @ApiResponse({ status: 201, description: 'Presigned URL issued.' })
     @ApiResponse({ status: 400, description: 'Extension not in the slot allowlist.' })
     @ApiResponse({ status: 404, description: 'Unknown entity/slot or row uuid not found.' })
@@ -111,9 +130,9 @@ export class FilesController {
             'and updates the entity row. Use this when the client can\'t use the presigned ' +
             'URL flow. Extension is inferred from the uploaded filename.',
     })
-    @ApiParam({ name: 'entity', example: 'categories' })
+    @ApiParam({ name: 'entity', example: 'categories', enum: KNOWN_ENTITIES, description: ENTITY_PARAM_DESC })
     @ApiParam({ name: 'uuid', description: 'UUID of the row that owns the file' })
-    @ApiParam({ name: 'slot', example: 'icone' })
+    @ApiParam({ name: 'slot', example: 'icone', enum: KNOWN_SLOTS, description: SLOT_PARAM_DESC })
     async proxyUpload(
         @Param('entity') entity: string,
         @Param('uuid') uuid: string,
@@ -130,12 +149,14 @@ export class FilesController {
         description:
             'PRIVATE slots only. Reads the path/extension recorded on the entity row and ' +
             'returns a presigned GET URL valid for PRESIGN_DOWNLOAD_TTL_SECONDS (default ' +
-            '6h). Returns 400 for a public slot — read its URL directly from the entity\'s ' +
-            '<slot>_path field. Returns 404 if no file has been uploaded for this slot yet.',
+            '10 min). Returns 400 for a public slot — read its URL directly from the ' +
+            'entity\'s <slot>_path field. Returns 404 if no file has been uploaded yet. ' +
+            'Private slots: epreuves.file, ressources.file, prestataires.identity, ' +
+            'utilisateurs.profil.',
     })
-    @ApiParam({ name: 'entity', example: 'categories' })
+    @ApiParam({ name: 'entity', example: 'epreuves', enum: KNOWN_ENTITIES, description: ENTITY_PARAM_DESC })
     @ApiParam({ name: 'uuid', description: 'UUID of the row that owns the file' })
-    @ApiParam({ name: 'slot', example: 'icone' })
+    @ApiParam({ name: 'slot', example: 'file', enum: KNOWN_SLOTS, description: SLOT_PARAM_DESC })
     async createDownloadUrl(
         @Param('entity') entity: string,
         @Param('uuid') uuid: string,
