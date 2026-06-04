@@ -79,8 +79,11 @@ export class EpreuvesService {
     // Transform to response DTO format with sanitized professeur
     const data = epreuves.map(epreuve => ({
       id: epreuve.id,
+      uuid: epreuve.uuid,
       titre: epreuve.titre,
       url: epreuve.url,
+      file_path: epreuve.file_path,
+      file_extension: epreuve.file_extension,
       duree_minutes: epreuve.duree_minutes,
       date_creation: epreuve.date_creation,
       date_publication: epreuve.date_publication,
@@ -135,8 +138,11 @@ export class EpreuvesService {
     // Transform to response DTO format with sanitized professeur
     return {
       id: epreuve.id,
+      uuid: epreuve.uuid,
       titre: epreuve.titre,
       url: epreuve.url,
+      file_path: epreuve.file_path,
+      file_extension: epreuve.file_extension,
       duree_minutes: epreuve.duree_minutes,
       date_creation: epreuve.date_creation,
       date_publication: epreuve.date_publication,

@@ -76,7 +76,9 @@ export class FilesController {
         description:
             'Validates the requested extension against the slot allowlist, ' +
             'records the path/extension on the entity row, and returns a short-lived ' +
-            'presigned URL. Client uploads bytes directly to R2 with the returned URL.',
+            'presigned URL. The client PUTs bytes directly to R2 and MUST replay every ' +
+            'header in `required_headers` (Content-Type always; Cache-Control too for ' +
+            'public slots) — otherwise R2 rejects the PUT with SignatureDoesNotMatch.',
     })
     @ApiParam({ name: 'entity', example: 'categories' })
     @ApiParam({ name: 'uuid', description: 'UUID of the row that owns the file' })
@@ -124,10 +126,12 @@ export class FilesController {
 
     @Get(':entity/:uuid/:slot/download-url')
     @ApiOperation({
-        summary: 'Get a presigned GET URL for direct R2 download',
+        summary: 'Get a presigned GET URL for a private slot (public slots → 400)',
         description:
-            'Reads the path/extension recorded on the entity row, returns a short-lived ' +
-            'presigned URL. Returns 404 if no file has been uploaded for this slot yet.',
+            'PRIVATE slots only. Reads the path/extension recorded on the entity row and ' +
+            'returns a presigned GET URL valid for PRESIGN_DOWNLOAD_TTL_SECONDS (default ' +
+            '6h). Returns 400 for a public slot — read its URL directly from the entity\'s ' +
+            '<slot>_path field. Returns 404 if no file has been uploaded for this slot yet.',
     })
     @ApiParam({ name: 'entity', example: 'categories' })
     @ApiParam({ name: 'uuid', description: 'UUID of the row that owns the file' })
