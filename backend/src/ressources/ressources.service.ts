@@ -78,9 +78,12 @@ export class RessourcesService {
 
     const data = ressources.map(ressource => ({
       id: ressource.id,
+      uuid: ressource.uuid,
       titre: ressource.titre,
       type: ressource.type,
       url: ressource.url,
+      file_path: ressource.file_path,
+      file_extension: ressource.file_extension,
       date_creation: ressource.date_creation,
       date_publication: ressource.date_publication,
       nombre_pages: ressource.nombre_pages,
@@ -132,9 +135,12 @@ export class RessourcesService {
 
     return {
       id: ressource.id,
+      uuid: ressource.uuid,
       titre: ressource.titre,
       type: ressource.type,
       url: ressource.url,
+      file_path: ressource.file_path,
+      file_extension: ressource.file_extension,
       date_creation: ressource.date_creation,
       date_publication: ressource.date_publication,
       professeur: {

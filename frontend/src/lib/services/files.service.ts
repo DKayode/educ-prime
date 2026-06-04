@@ -9,6 +9,10 @@ export interface UploadUrlResponse {
     url: string;
     method: 'PUT';
     content_type: string;
+    // Exact headers that MUST be replayed on the PUT — the backend signs these
+    // into the presigned URL. Public slots include Cache-Control; sending only
+    // Content-Type would make R2 reject the PUT with SignatureDoesNotMatch.
+    required_headers: Record<string, string>;
     // Private slots: logical /<entity>/<uuid>/<slot>. Public slots: the full
     // anonymous URL — it's stored verbatim in the row's <slot>_path column, so
     // a plain entity GET already carries a usable link (no download-url call).
@@ -75,9 +79,14 @@ export const filesService = {
         }
         const presigned = await filesService.getUploadUrl(entity, uuid, slot, extension);
 
+        // Replay exactly the headers the backend signed. For public slots that
+        // includes Cache-Control; omitting it triggers SignatureDoesNotMatch
+        // (this is why public-bucket uploads were silently failing).
+        const headers: Record<string, string> = presigned.required_headers
+            ?? { 'Content-Type': presigned.content_type };
         const r = await fetch(presigned.url, {
             method: 'PUT',
-            headers: { 'Content-Type': presigned.content_type },
+            headers,
             body: file,
         });
         if (!r.ok) {

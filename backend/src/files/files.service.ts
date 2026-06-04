@@ -18,7 +18,15 @@ import {
     getSlotConfig,
 } from './registry';
 
-const PRESIGN_TTL_SECONDS = 5 * 60; // 5 minutes — enough for the client to start the upload.
+// TTL for presigned PUT URLs — short, just enough for the client to start
+// the upload right after requesting the URL.
+const UPLOAD_PRESIGN_TTL_SECONDS = 5 * 60; // 5 minutes
+// TTL for presigned GET URLs on PRIVATE slots. Longer than the upload window:
+// these back <FileImage>/clients that may keep a rendered page open for a
+// while, and a too-short link expires mid-view ("expired link"). 6h balances
+// usability against how long a leaked link stays live. Overridable via
+// PRESIGN_DOWNLOAD_TTL_SECONDS.
+const DOWNLOAD_PRESIGN_TTL_SECONDS_DEFAULT = 6 * 60 * 60; // 6 hours
 // Cache-Control written on PUT for public-bucket objects. R2 keys are
 // content-addressed by uuid, so a fresh upload always changes either the
 // (entity, uuid, slot) or extension — making `immutable` safe.
@@ -40,6 +48,7 @@ export class FilesService {
     private readonly bucket: string;
     private readonly publicBucket: string;
     private readonly publicBaseUrl: string;
+    private readonly downloadTtlSeconds: number;
 
     constructor(
         @InjectDataSource() private readonly dataSource: DataSource,
@@ -52,6 +61,16 @@ export class FilesService {
         this.publicBucket = this.config.get<string>('R2_PUBLIC_BUCKET') ?? '';
         // Strip trailing slash so concatenation with the key is idempotent.
         this.publicBaseUrl = (this.config.get<string>('R2_PUBLIC_BUCKET_URL') ?? '').replace(/\/+$/, '');
+
+        // Presigned-GET lifetime for private slots. Configurable so ops can
+        // tune it without a redeploy; falls back to the 6h default. Clamp to
+        // R2/S3 SigV4's hard maximum of 7 days.
+        const ttlRaw = Number(this.config.get<string>('PRESIGN_DOWNLOAD_TTL_SECONDS'));
+        const MAX_S3_PRESIGN_TTL = 7 * 24 * 60 * 60; // 604800s — SigV4 ceiling
+        this.downloadTtlSeconds =
+            Number.isFinite(ttlRaw) && ttlRaw > 0
+                ? Math.min(ttlRaw, MAX_S3_PRESIGN_TTL)
+                : DOWNLOAD_PRESIGN_TTL_SECONDS_DEFAULT;
 
         this.logger.log(
             `R2 config: endpoint=${endpoint ? 'set' : 'MISSING'}, ` +
@@ -215,7 +234,7 @@ export class FilesService {
             ContentType: contentType,
             ...(cfg.public ? { CacheControl: PUBLIC_CACHE_CONTROL } : {}),
         });
-        const url = await getSignedUrl(this.client, command, { expiresIn: PRESIGN_TTL_SECONDS });
+        const url = await getSignedUrl(this.client, command, { expiresIn: UPLOAD_PRESIGN_TTL_SECONDS });
 
         await this.writePathOnRow(entity, rowId, cfg, storedPath, extension);
 
@@ -223,9 +242,16 @@ export class FilesService {
             url,
             method: 'PUT',
             content_type: contentType,
+            // Echo back what the client must send on the PUT so the signature
+            // matches. For public slots we sign Cache-Control too — the client
+            // MUST replay it or R2 returns SignatureDoesNotMatch.
+            required_headers: {
+                'Content-Type': contentType,
+                ...(cfg.public ? { 'Cache-Control': PUBLIC_CACHE_CONTROL } : {}),
+            },
             path: storedPath,
             extension,
-            expires_in: PRESIGN_TTL_SECONDS,
+            expires_in: UPLOAD_PRESIGN_TTL_SECONDS,
             public: !!cfg.public,
         };
     }
@@ -261,13 +287,13 @@ export class FilesService {
 
         const key = buildObjectKey(entity, uuid, slot, row.ext);
         const command = new GetObjectCommand({ Bucket: this.bucketFor(cfg), Key: key });
-        const url = await getSignedUrl(this.client, command, { expiresIn: PRESIGN_TTL_SECONDS });
+        const url = await getSignedUrl(this.client, command, { expiresIn: this.downloadTtlSeconds });
         return {
             url,
             method: 'GET' as const,
             path: row.path,
             extension: row.ext,
-            expires_in: PRESIGN_TTL_SECONDS,
+            expires_in: this.downloadTtlSeconds,
             public: false,
         };
     }
