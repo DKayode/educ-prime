@@ -34,6 +34,26 @@ jobs:
           NGINX_CONTENT=$(cat nginx/nginx.conf | base64 -w 0)
           echo "nginx_content=$NGINX_CONTENT" >> $GITHUB_OUTPUT
 
+      # Absorb transient runner→VPS network blips (the last failure was
+      # `dial tcp <vps>:22: i/o timeout`, i.e. the SSH action couldn't even
+      # open the socket). Poll TCP/22 until it answers before attempting the
+      # real SSH deploy, so a brief blip doesn't fail the whole run.
+      - name: Wait for VPS SSH to be reachable
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT || 22 }}
+        run: |
+          for i in $(seq 1 10); do
+            if timeout 10 bash -c "cat < /dev/null > /dev/tcp/$VPS_HOST/$VPS_PORT" 2>/dev/null; then
+              echo "VPS $VPS_HOST:$VPS_PORT reachable (attempt $i)."
+              exit 0
+            fi
+            echo "Attempt $i: $VPS_HOST:$VPS_PORT not reachable yet, retrying in 15s…"
+            sleep 15
+          done
+          echo "::error::VPS $VPS_HOST:$VPS_PORT unreachable after 10 attempts (~2.5 min)."
+          exit 1
+
       - name: Déployer sur le VPS
         uses: appleboy/ssh-action@v1.0.0
         env:
@@ -45,14 +65,12 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           envs: COMPOSE_CONTENT,NGINX_CONTENT
-          # Backstop only. The real "Run Command Timeout" was `docker compose
-          # logs` (and other docker calls) blocking against the SSH session
-          # until this ceiling, so the job hung the full duration even though
-          # the deploy itself finished. Fixed in the script by wrapping EVERY
-          # docker call in `timeout` + `</dev/null` and using plain
-          # `docker logs` (no follow). This ceiling now only catches a wedged
-          # SSH connection; the script self-bounds well under it.
-          timeout: 60s
+          # `timeout` = SSH connection-establishment timeout (only real knobs
+          # appleboy/ssh-action@v1.0.0 exposes are `timeout` + `command_timeout`;
+          # there is no native connect-retry). The "Wait for VPS SSH" step
+          # above absorbs transient `dial tcp <vps>:22: i/o timeout` blips
+          # before we get here.
+          timeout: 120s
           command_timeout: 15m
           script: |
             set -e
