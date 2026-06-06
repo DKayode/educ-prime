@@ -13,9 +13,9 @@
  *   Public slots also store that full URL directly in the `<slot>_path`
  *   column, so a plain entity GET carries a ready-to-use link and clients
  *   never need to call /files/.../download-url. Everything non-sensitive is
- *   public; the private slots (exam papers, resource files, user profile
- *   photos, identity documents) stay on the presigned-URL flow where each
- *   read is authorized and short-lived.
+ *   public; the private slots (exam papers, resource files, concours papers,
+ *   user profile photos, identity documents) stay on the presigned-URL flow
+ *   where each read is authorized and short-lived.
  */
 export interface FileSlotConfig {
     pathColumn: string;
@@ -34,7 +34,8 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
         icone: { pathColumn: 'icone_path', extColumn: 'icone_extension', authorized: IMAGE_EXTS, public: true },
     },
     concours: {
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, public: true },
+        // Private: concours papers are gated behind authorized, short-lived reads.
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY },
     },
     epreuves: {
         // Private: exam papers are gated behind authorized, short-lived reads.
