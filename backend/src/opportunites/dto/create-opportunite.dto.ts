@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsOptional, IsBoolean, IsUrl, IsEnum, IsDate } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { OpportuniteType } from '../entities/opportunite.entity';
 
 export class CreerOpportuniteDto {
@@ -24,7 +24,12 @@ export class CreerOpportuniteDto {
 
     @ApiProperty({ description: 'Date de publication', required: false })
     @IsOptional()
-    @Type(() => Date)
+    // An empty string from an unfilled date field must collapse to undefined:
+    // @IsOptional ignores undefined but not '', and @Type(() => Date) would turn
+    // '' into an Invalid Date that @IsDate rejects — 400ing the whole create.
+    @Transform(({ value }) =>
+        value === '' || value == null ? undefined : value instanceof Date ? value : new Date(value),
+    )
     @IsDate()
     date_publication?: Date;
 

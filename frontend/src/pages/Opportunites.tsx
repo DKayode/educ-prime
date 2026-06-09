@@ -138,6 +138,7 @@ export default function Opportunites() {
                 ...formData,
                 image: formData.image || undefined,
                 lien_postuler: formData.lien_postuler || undefined,
+                date_publication: formData.date_publication || undefined,
             });
 
             // Step 2: PUT bytes to R2 via presigned URL.
