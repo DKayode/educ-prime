@@ -1,5 +1,6 @@
 import {
     Injectable,
+    Inject,
     NotFoundException,
     BadRequestException,
     InternalServerErrorException,
@@ -52,6 +53,10 @@ export class FilesService {
     constructor(
         @InjectDataSource() private readonly dataSource: DataSource,
         private readonly config: ConfigService,
+        // TRANSITIONAL: used to mirror uploads into Firebase Storage so the
+        // mobile app (still reading legacy URL columns) sees R2-created rows.
+        // Injected by class so FilesModule doesn't depend on FichiersModule.
+        @Inject('FirebaseConfig') private readonly firebase: any,
     ) {
         const endpoint = this.config.get<string>('R2_ENDPOINT');
         const accessKeyId = this.config.get<string>('R2_ACCESS_KEY_ID');
@@ -330,6 +335,107 @@ export class FilesService {
 
         await this.writePathOnRow(entity, rowId, cfg, storedPath, extension);
 
+        // TRANSITIONAL: also push to Firebase + write the legacy URL column so
+        // the mobile app sees this file. Best-effort — a Firebase hiccup must
+        // not fail an upload that already succeeded against R2 (canonical).
+        await this.mirrorToFirebase(entity, uuid, slot, cfg, rowId, file.buffer, extension, file.mimetype);
+
         return { path: storedPath, extension, public: !!cfg.public };
+    }
+
+    /**
+     * TRANSITIONAL Firebase mirror (R2 → Firebase). Pushes the just-uploaded
+     * bytes to Firebase Storage under <entity>/<uuid>/<slot>.<ext> and writes
+     * the resulting public URL into the slot's legacy column, so the mobile
+     * app (which still reads those columns) sees R2-created files. No-op for
+     * slots without a legacyColumn (categories.icone, PII identity, the
+     * content slots). Best-effort: failures are logged, never thrown.
+     * Remove together with the `legacyColumn` registry field post-migration.
+     */
+    private async mirrorToFirebase(
+        entity: string,
+        uuid: string,
+        slot: string,
+        cfg: FileSlotConfig,
+        rowId: number,
+        buffer: Buffer,
+        extension: string,
+        mimetype: string,
+    ): Promise<void> {
+        if (!cfg.legacyColumn) return;
+        try {
+            const bucket = this.firebase.getBucket();
+            const key = buildObjectKey(entity, uuid, slot, extension);
+            await bucket.file(key).save(buffer, {
+                metadata: { contentType: mimetype || MIME_BY_EXT[extension] || 'application/octet-stream' },
+            });
+            const url = `https://storage.googleapis.com/${bucket.name}/${key}`;
+            await this.dataSource.query(
+                `UPDATE "${entity}" SET "${cfg.legacyColumn}" = $1 WHERE id = $2`,
+                [url, rowId],
+            );
+            this.logger.log(`Mirrored ${entity}/${uuid}/${slot} → Firebase (${cfg.legacyColumn}).`);
+        } catch (err) {
+            this.logger.warn(
+                `Firebase mirror failed for ${entity}/${uuid}/${slot}: ${err?.message ?? err}`,
+            );
+        }
+    }
+
+    /**
+     * TRANSITIONAL R2 mirror (Firebase → R2). Called by the legacy FichiersService
+     * after a Firebase upload: pushes the same bytes to the correct R2 bucket
+     * and writes the new <slot>_path / <slot>_extension columns, so a row
+     * created via the legacy mobile flow is also visible to the admin/web R2
+     * pipeline. Resolves the row uuid from its numeric id (the legacy service
+     * works in ids). Best-effort: unknown slot, bad extension, missing row, or
+     * an R2 error are logged and swallowed — never break the legacy upload.
+     * Remove post-migration.
+     */
+    async mirrorLegacyToR2(
+        entity: string,
+        slot: string,
+        rowId: number,
+        file: { buffer: Buffer; extension: string; mimetype?: string },
+    ): Promise<void> {
+        try {
+            const cfg = getSlotConfig(entity, slot);
+            if (!cfg) return;
+            const extension = file.extension.toLowerCase().replace(/^\./, '');
+            if (!cfg.authorized.includes(extension)) {
+                this.logger.warn(
+                    `R2 mirror skipped for ${entity}/${slot}: extension '${extension}' not authorized.`,
+                );
+                return;
+            }
+            const rows = await this.dataSource.query(
+                `SELECT uuid FROM "${entity}" WHERE id = $1 LIMIT 1`,
+                [rowId],
+            );
+            const uuid = rows[0]?.uuid;
+            if (!uuid) {
+                this.logger.warn(`R2 mirror skipped: no ${entity} row with id ${rowId}.`);
+                return;
+            }
+
+            const key = buildObjectKey(entity, uuid, slot, extension);
+            const bucket = this.bucketFor(cfg);
+            await this.client.send(
+                new PutObjectCommand({
+                    Bucket: bucket,
+                    Key: key,
+                    Body: file.buffer,
+                    ContentType: file.mimetype || MIME_BY_EXT[extension] || 'application/octet-stream',
+                    ...(cfg.public ? { CacheControl: PUBLIC_CACHE_CONTROL } : {}),
+                }),
+            );
+            const storedPath = this.storedPathFor(cfg, entity, uuid, slot, extension);
+            await this.writePathOnRow(entity, rowId, cfg, storedPath, extension);
+            this.logger.log(`Mirrored ${entity}/${uuid}/${slot} → R2 (${cfg.pathColumn}).`);
+        } catch (err) {
+            this.logger.warn(
+                `R2 mirror failed for ${entity} id=${rowId} slot=${slot}: ${err?.message ?? err}`,
+            );
+        }
     }
 }

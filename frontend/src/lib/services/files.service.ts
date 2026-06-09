@@ -31,6 +31,14 @@ export interface DownloadUrlResponse {
     public: boolean;
 }
 
+// Response from the server-proxied /upload endpoint.
+export interface UploadResponse {
+    // Public slots: full anonymous URL (stored on the row). Private: logical path.
+    path: string;
+    extension: string;
+    public: boolean;
+}
+
 export type FileRegistry = Record<string, Record<string, { authorized: string[]; public: boolean }>>;
 
 export const filesService = {
@@ -65,34 +73,19 @@ export const filesService = {
     },
 
     /**
-     * One-shot upload: fetch the presigned URL, PUT bytes to R2, return the
-     * server-side path. Throws if either step fails.
+     * One-shot upload via the server-proxied endpoint: POST the file as
+     * multipart/form-data; the backend streams it to R2 and returns the stored
+     * path. Throws if the upload fails.
      *
-     * The browser must be allowed to talk to R2 directly (CORS on the bucket
-     * must allow PUT from the admin origin) — Cloudflare R2 buckets default
-     * to public-read of presigned URLs but require per-origin CORS for PUT.
+     * TRANSITIONAL: we route through the proxy (rather than a presigned direct-
+     * to-R2 PUT) so the backend holds the bytes and can mirror them into
+     * Firebase Storage for the mobile app, which still reads the legacy URL
+     * columns. Once mobile cuts over to R2, this can revert to the presigned
+     * `getUploadUrl` + direct PUT flow (still available on the backend).
      */
-    async uploadFile(entity: string, uuid: string, slot: Slot, file: File): Promise<UploadUrlResponse> {
-        const extension = (file.name.split('.').pop() ?? '').toLowerCase();
-        if (!extension) {
-            throw new Error(`Cannot determine extension from filename "${file.name}".`);
-        }
-        const presigned = await filesService.getUploadUrl(entity, uuid, slot, extension);
-
-        // Replay exactly the headers the backend signed. For public slots that
-        // includes Cache-Control; omitting it triggers SignatureDoesNotMatch
-        // (this is why public-bucket uploads were silently failing).
-        const headers: Record<string, string> = presigned.required_headers
-            ?? { 'Content-Type': presigned.content_type };
-        const r = await fetch(presigned.url, {
-            method: 'PUT',
-            headers,
-            body: file,
-        });
-        if (!r.ok) {
-            const text = await r.text().catch(() => '');
-            throw new Error(`R2 upload failed (${r.status}): ${text || r.statusText}`);
-        }
-        return presigned;
+    async uploadFile(entity: string, uuid: string, slot: Slot, file: File): Promise<UploadResponse> {
+        const form = new FormData();
+        form.append('file', file);
+        return api.post<UploadResponse>(`/files/${entity}/${uuid}/${slot}/upload`, form);
     },
 };
