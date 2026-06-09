@@ -8,6 +8,7 @@ import { FirebaseConfig } from '../config/firebase.config';
 import { FichierUploadData } from './interfaces/fichier-upload-data.interface';
 import * as sharp from 'sharp';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
+import { FilesService } from '../files/files.service';
 
 @Injectable()
 export class FichiersService {
@@ -17,7 +18,50 @@ export class FichiersService {
     private readonly resolver: DataSourceResolver,
     @Inject('FirebaseConfig')
     private readonly firebaseConfig: any,
+    // TRANSITIONAL: mirrors legacy Firebase uploads into R2 + the new
+    // <slot>_path columns so admin/web sees mobile-created files.
+    private readonly filesService: FilesService,
   ) { }
+
+  /**
+   * TRANSITIONAL: map a legacy upload type to its (entity, slot) in the R2
+   * file registry, plus the row id to mirror against. Returns null for types
+   * with no clean single R2 slot (PUBLICITE / PARCOURS are multi-slot with an
+   * ambiguous subtype) or no entity id yet. Drop with the R2 mirror.
+   */
+  private resolveR2Target(
+    uploadData: FichierUploadData,
+    ids: { utilisateurId: number; epreuveId?: number; ressourceId?: number },
+  ): { entity: string; slot: string; id: number } | null {
+    switch (uploadData.type) {
+      case TypeFichier.PROFILE:
+        return { entity: 'utilisateurs', slot: 'profil', id: ids.utilisateurId };
+      case TypeFichier.EPREUVE:
+        return ids.epreuveId ? { entity: 'epreuves', slot: 'file', id: ids.epreuveId } : null;
+      case TypeFichier.RESSOURCE:
+        return ids.ressourceId ? { entity: 'ressources', slot: 'file', id: ids.ressourceId } : null;
+      case TypeFichier.EVENEMENT:
+        return uploadData.entityId ? { entity: 'evenements', slot: 'image', id: uploadData.entityId } : null;
+      case TypeFichier.OPPORTUNITE:
+        return uploadData.entityId ? { entity: 'opportunites', slot: 'image', id: uploadData.entityId } : null;
+      case TypeFichier.CONCOURS:
+        return uploadData.entityId ? { entity: 'concours', slot: 'file', id: uploadData.entityId } : null;
+      case TypeFichier.ETABLISSEMENT:
+        return uploadData.entityId ? { entity: 'etablissements', slot: 'logo', id: uploadData.entityId } : null;
+      case TypeFichier.CATEGORIES:
+        return uploadData.entityId ? { entity: 'categories', slot: 'icone', id: uploadData.entityId } : null;
+      case TypeFichier.FORUMS:
+        return uploadData.entityId ? { entity: 'forums', slot: 'file', id: uploadData.entityId } : null;
+      case TypeFichier.PRESTATAIRE:
+        return uploadData.entityId ? { entity: 'prestataires', slot: 'profil', id: uploadData.entityId } : null;
+      case TypeFichier.SERVICE:
+        return uploadData.entityId ? { entity: 'services', slot: 'image', id: uploadData.entityId } : null;
+      case TypeFichier.OFFRE:
+        return uploadData.entityId ? { entity: 'offres', slot: 'image', id: uploadData.entityId } : null;
+      default:
+        return null;
+    }
+  }
 
   private get matiereRepository(): Repository<Matiere> { return this.resolver.getRepository(Matiere); }
   private get epreuveRepository(): Repository<Epreuve> { return this.resolver.getRepository(Epreuve); }
@@ -352,6 +396,23 @@ export class FichiersService {
       const fileUrl = process.env.NODE_ENV === 'test'
         ? `https://storage.mock/${bucket.name}/${fileName}`
         : `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+
+      // TRANSITIONAL: mirror the same bytes into R2 + the new <slot>_path
+      // columns so this legacy (mobile) upload is also visible to the admin/web
+      // R2 pipeline. Best-effort — mirrorLegacyToR2 swallows its own errors.
+      const r2Target = this.resolveR2Target(uploadData, {
+        utilisateurId,
+        epreuveId: actualEpreuveId,
+        ressourceId: actualRessourceId,
+      });
+      if (r2Target) {
+        const r2Ext = (fileName.split('.').pop() || '').toLowerCase();
+        await this.filesService.mirrorLegacyToR2(r2Target.entity, r2Target.slot, r2Target.id, {
+          buffer: fileBuffer,
+          extension: r2Ext,
+          mimetype: contentType,
+        });
+      }
 
       // Step 3: Update URL in epreuve or ressource table
       if (uploadData.type === TypeFichier.EPREUVE && actualEpreuveId) {

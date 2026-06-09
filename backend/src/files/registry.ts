@@ -22,6 +22,18 @@ export interface FileSlotConfig {
     extColumn: string;
     authorized: readonly string[];
     public?: boolean;
+    /**
+     * TRANSITIONAL — Firebase↔R2 dual-write bridge. Name of the *legacy* column
+     * the mobile app still reads (e.g. `epreuves.url`, `opportunites.image`).
+     * When set, the file pipeline mirrors uploads into Firebase Storage and
+     * writes the resulting public URL here, so a row created via the new R2
+     * flow is still visible to mobile (and vice-versa). Slots with no legacy
+     * column (categories.icone), no clean target (parcours.content,
+     * publicites.content), or sensitive PII (prestataires.identity) leave this
+     * unset and are not mirrored. Mapping mirrors scripts/migrate-firebase-to-r2.js.
+     * Remove this field (and the mirror code) once mobile cuts over to R2.
+     */
+    legacyColumn?: string;
 }
 
 const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'avif'] as const;
@@ -35,51 +47,53 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
     },
     concours: {
         // Private: concours papers are gated behind authorized, short-lived reads.
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY },
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url' },
     },
     epreuves: {
         // Private: exam papers are gated behind authorized, short-lived reads.
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY },
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url' },
     },
     etablissements: {
-        logo: { pathColumn: 'logo_path', extColumn: 'logo_extension', authorized: IMAGE_EXTS_WITH_SVG, public: true },
+        logo: { pathColumn: 'logo_path', extColumn: 'logo_extension', authorized: IMAGE_EXTS_WITH_SVG, public: true, legacyColumn: 'logo' },
     },
     evenements: {
-        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true },
+        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'image' },
     },
     forums: {
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: IMAGE_OR_PDF, public: true },
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: IMAGE_OR_PDF, public: true, legacyColumn: 'photo' },
     },
     offres: {
-        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true },
+        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'image_couverture' },
     },
     opportunites: {
-        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true },
+        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'image' },
     },
     parcours: {
-        covert: { pathColumn: 'covert_image_path', extColumn: 'covert_image_extension', authorized: IMAGE_EXTS, public: true },
+        covert: { pathColumn: 'covert_image_path', extColumn: 'covert_image_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'image_couverture' },
+        // content has no clean legacy target (legacy `lien_video` is a video link) — not mirrored.
         content: { pathColumn: 'content_image_path', extColumn: 'content_image_extension', authorized: IMAGE_EXTS, public: true },
     },
     prestataires: {
-        profil: { pathColumn: 'profil_photo_path', extColumn: 'profil_photo_extension', authorized: IMAGE_EXTS, public: true },
+        profil: { pathColumn: 'profil_photo_path', extColumn: 'profil_photo_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'photo_profil' },
         // Private: identity documents (ID card / passport scans) are sensitive
-        // PII and must never be anonymously readable.
+        // PII and must never be anonymously readable — intentionally not mirrored.
         identity: { pathColumn: 'identity_photo_path', extColumn: 'identity_photo_extension', authorized: IMAGE_EXTS },
     },
     publicites: {
-        covert: { pathColumn: 'covert_image_path', extColumn: 'covert_image_extension', authorized: IMAGE_EXTS, public: true },
+        covert: { pathColumn: 'covert_image_path', extColumn: 'covert_image_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'image' },
+        // content (legacy `media`) is sometimes a video — no clean image target, not mirrored.
         content: { pathColumn: 'content_image_path', extColumn: 'content_image_extension', authorized: IMAGE_EXTS, public: true },
     },
     ressources: {
         // Private: resource files stay behind authorized, short-lived reads.
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY },
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url' },
     },
     services: {
-        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true },
+        image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'image_couverture' },
     },
     utilisateurs: {
         // Private: user profile photos stay on the presigned-URL flow.
-        profil: { pathColumn: 'profil_photo_path', extColumn: 'profil_photo_extension', authorized: IMAGE_EXTS },
+        profil: { pathColumn: 'profil_photo_path', extColumn: 'profil_photo_extension', authorized: IMAGE_EXTS, legacyColumn: 'photo' },
     },
 };
 

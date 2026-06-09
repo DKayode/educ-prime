@@ -6,9 +6,11 @@ import { Matiere } from '../matieres/entities/matiere.entity';
 import { Epreuve } from '../epreuves/entities/epreuve.entity';
 import { Ressource } from '../ressources/entities/ressource.entity';
 import { FirebaseConfig } from '../config/firebase.config';
+import { FilesModule } from '../files/files.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Matiere, Epreuve, Ressource])],
+  // TRANSITIONAL: FilesModule provides FilesService for the legacy → R2 mirror.
+  imports: [TypeOrmModule.forFeature([Matiere, Epreuve, Ressource]), FilesModule],
   controllers: [FichiersController],
   providers: [
     FichiersService,
