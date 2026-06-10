@@ -23,6 +23,12 @@ export interface FileSlotConfig {
     authorized: readonly string[];
     public?: boolean;
     /**
+     * Override for the presigned-PUT lifetime on this slot (seconds). Defaults
+     * to the 10-min UPLOAD_PRESIGN_TTL_SECONDS. Large private PDFs (exam papers)
+     * can take a while to push, so `epreuves.file` gets a 1-hour window.
+     */
+    uploadTtlSeconds?: number;
+    /**
      * TRANSITIONAL — Firebase↔R2 dual-write bridge. Name of the *legacy* column
      * the mobile app still reads (e.g. `epreuves.url`, `opportunites.image`).
      * When set, the file pipeline mirrors uploads into Firebase Storage and
@@ -51,7 +57,8 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
     },
     epreuves: {
         // Private: exam papers are gated behind authorized, short-lived reads.
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url' },
+        // 1-hour upload window — exam PDFs are large and slow to push.
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', uploadTtlSeconds: 3600 },
     },
     etablissements: {
         logo: { pathColumn: 'logo_path', extColumn: 'logo_extension', authorized: IMAGE_EXTS_WITH_SVG, public: true, legacyColumn: 'logo' },
