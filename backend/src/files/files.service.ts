@@ -238,7 +238,8 @@ export class FilesService {
             ContentType: contentType,
             ...(cfg.public ? { CacheControl: PUBLIC_CACHE_CONTROL } : {}),
         });
-        const url = await getSignedUrl(this.client, command, { expiresIn: UPLOAD_PRESIGN_TTL_SECONDS });
+        const uploadTtl = cfg.uploadTtlSeconds ?? UPLOAD_PRESIGN_TTL_SECONDS;
+        const url = await getSignedUrl(this.client, command, { expiresIn: uploadTtl });
 
         await this.writePathOnRow(entity, rowId, cfg, storedPath, extension);
 
@@ -255,7 +256,7 @@ export class FilesService {
             },
             path: storedPath,
             extension,
-            expires_in: UPLOAD_PRESIGN_TTL_SECONDS,
+            expires_in: uploadTtl,
             public: !!cfg.public,
         };
     }
