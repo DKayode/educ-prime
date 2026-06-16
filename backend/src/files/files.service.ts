@@ -27,6 +27,9 @@ const UPLOAD_PRESIGN_TTL_SECONDS = 10 * 60; // 10 minutes
 // consistent. Overridable via PRESIGN_DOWNLOAD_TTL_SECONDS for ops that want
 // longer-lived read links.
 const DOWNLOAD_PRESIGN_TTL_SECONDS_DEFAULT = 10 * 60; // 10 minutes
+// R2/S3 SigV4 hard ceiling for presigned-URL lifetimes. Every resolved TTL
+// (env override or per-slot registry override) is clamped to this.
+const MAX_S3_PRESIGN_TTL = 7 * 24 * 60 * 60; // 604800s — SigV4 ceiling
 // Cache-Control written on PUT for public-bucket objects. R2 keys are
 // content-addressed by uuid, so a fresh upload always changes either the
 // (entity, uuid, slot) or extension — making `immutable` safe.
@@ -70,7 +73,6 @@ export class FilesService {
         // tune it without a redeploy; falls back to the 6h default. Clamp to
         // R2/S3 SigV4's hard maximum of 7 days.
         const ttlRaw = Number(this.config.get<string>('PRESIGN_DOWNLOAD_TTL_SECONDS'));
-        const MAX_S3_PRESIGN_TTL = 7 * 24 * 60 * 60; // 604800s — SigV4 ceiling
         this.downloadTtlSeconds =
             Number.isFinite(ttlRaw) && ttlRaw > 0
                 ? Math.min(ttlRaw, MAX_S3_PRESIGN_TTL)
@@ -292,13 +294,16 @@ export class FilesService {
 
         const key = buildObjectKey(entity, uuid, slot, row.ext);
         const command = new GetObjectCommand({ Bucket: this.bucketFor(cfg), Key: key });
-        const url = await getSignedUrl(this.client, command, { expiresIn: this.downloadTtlSeconds });
+        // Per-slot override (e.g. 1h for large exam/concours/resource PDFs)
+        // falls back to the env-tuned default; clamp to the SigV4 ceiling.
+        const downloadTtl = Math.min(cfg.downloadTtlSeconds ?? this.downloadTtlSeconds, MAX_S3_PRESIGN_TTL);
+        const url = await getSignedUrl(this.client, command, { expiresIn: downloadTtl });
         return {
             url,
             method: 'GET' as const,
             path: row.path,
             extension: row.ext,
-            expires_in: this.downloadTtlSeconds,
+            expires_in: downloadTtl,
             public: false,
         };
     }
