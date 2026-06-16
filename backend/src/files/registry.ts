@@ -29,6 +29,13 @@ export interface FileSlotConfig {
      */
     uploadTtlSeconds?: number;
     /**
+     * Override for the presigned-GET lifetime on this slot (seconds). Defaults
+     * to PRESIGN_DOWNLOAD_TTL_SECONDS (10 min). Large private PDFs (exam,
+     * concours, resource papers) get a 1-hour window so the read link doesn't
+     * expire mid-session. Clamped to the 7-day SigV4 max on resolution.
+     */
+    downloadTtlSeconds?: number;
+    /**
      * TRANSITIONAL — Firebase↔R2 dual-write bridge. Name of the *legacy* column
      * the mobile app still reads (e.g. `epreuves.url`, `opportunites.image`).
      * When set, the file pipeline mirrors uploads into Firebase Storage and
@@ -53,12 +60,13 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
     },
     concours: {
         // Private: concours papers are gated behind authorized, short-lived reads.
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url' },
+        // 1-hour download window — concours PDFs are large, don't drop mid-session.
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', downloadTtlSeconds: 3600 },
     },
     epreuves: {
         // Private: exam papers are gated behind authorized, short-lived reads.
-        // 1-hour upload window — exam PDFs are large and slow to push.
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', uploadTtlSeconds: 3600 },
+        // 1-hour upload + download window — exam PDFs are large and slow to push.
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', uploadTtlSeconds: 3600, downloadTtlSeconds: 3600 },
     },
     etablissements: {
         logo: { pathColumn: 'logo_path', extColumn: 'logo_extension', authorized: IMAGE_EXTS_WITH_SVG, public: true, legacyColumn: 'logo' },
@@ -93,7 +101,8 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
     },
     ressources: {
         // Private: resource files stay behind authorized, short-lived reads.
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url' },
+        // 1-hour download window — resource PDFs are large, don't drop mid-session.
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', downloadTtlSeconds: 3600 },
     },
     services: {
         image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'image_couverture' },
