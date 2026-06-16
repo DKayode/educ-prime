@@ -14,8 +14,8 @@
  *   column, so a plain entity GET carries a ready-to-use link and clients
  *   never need to call /files/.../download-url. Everything non-sensitive is
  *   public; the private slots (exam papers, resource files, concours papers,
- *   user profile photos, identity documents) stay on the presigned-URL flow
- *   where each read is authorized and short-lived.
+ *   identity documents) stay on the presigned-URL flow where each read is
+ *   authorized and short-lived.
  */
 export interface FileSlotConfig {
     pathColumn: string;
@@ -108,8 +108,7 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
         image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'image_couverture' },
     },
     utilisateurs: {
-        // Private: user profile photos stay on the presigned-URL flow.
-        profil: { pathColumn: 'profil_photo_path', extColumn: 'profil_photo_extension', authorized: IMAGE_EXTS, legacyColumn: 'photo' },
+        profil: { pathColumn: 'profil_photo_path', extColumn: 'profil_photo_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'photo' },
     },
 };
 
