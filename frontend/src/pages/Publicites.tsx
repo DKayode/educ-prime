@@ -210,6 +210,7 @@ export default function Publicites() {
                 ...formData,
                 image: formData.image || undefined,
                 media: formData.media || undefined,
+                lien_inscription: formData.lien_inscription?.trim() || undefined,
             });
             createdEntityId = createdPublicite.id;
 
@@ -295,7 +296,7 @@ export default function Publicites() {
                     titre: editingPublicite.titre,
                     media: editingPublicite.type_media === 'Video' ? editingPublicite.media : undefined,
                     type_media: editingPublicite.type_media,
-                    lien_inscription: editingPublicite.lien_inscription || "",
+                    lien_inscription: editingPublicite.lien_inscription?.trim() || undefined,
                     ordre: editingPublicite.ordre,
                     actif: editingPublicite.actif,
                 },

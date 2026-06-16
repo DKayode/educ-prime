@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsInt, IsBoolean, IsUrl } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsBoolean, IsUrl, ValidateIf } from 'class-validator';
 
 export class CreerPubliciteDto {
     @ApiProperty({ example: 'Publicité Coca-Cola', description: 'Titre de la publicité' })
@@ -33,6 +33,7 @@ export class CreerPubliciteDto {
 
     @ApiProperty({ description: 'Lien d\'inscription', required: false })
     @IsOptional()
+    @ValidateIf((o) => o.lien_inscription !== undefined && o.lien_inscription !== null && o.lien_inscription !== '')
     @IsUrl()
     lien_inscription?: string;
 }
