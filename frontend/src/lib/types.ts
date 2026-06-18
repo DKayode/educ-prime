@@ -57,6 +57,8 @@ export interface Utilisateur {
   email: string;
   /** Legacy Firebase URL — prefer FileImage with slot='profil'. */
   photo?: string;
+  /** Public profile-photo URL — equals profil_photo_path, returned verbatim by the API. */
+  profil?: string;
   profil_photo_path?: string;
   profil_photo_extension?: string;
   pays?: string;
