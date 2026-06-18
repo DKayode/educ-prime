@@ -38,6 +38,19 @@ export class UtilisateursService {
     return this.resolver.getRepository(Utilisateur);
   }
 
+  /**
+   * Expose le chemin public de la photo de profil (`profil_photo_path`) sous la
+   * clé `profil` sur chaque utilisateur renvoyé par l'API. Aucun
+   * ClassSerializerInterceptor n'étant en place, `profil` doit être une vraie
+   * propriété de l'objet (et non un getter de prototype) pour apparaître dans le
+   * JSON. La valeur est renvoyée verbatim ; le fallback `''` reflète simplement
+   * le défaut de la colonne (NOT NULL, default '') quand l'instance en mémoire
+   * n'a pas encore été hydratée (ex. juste après une insertion).
+   */
+  private withProfil<T extends Utilisateur>(user: T): T & { profil: string } {
+    return Object.assign(user, { profil: user.profil_photo_path ?? '' });
+  }
+
   async findByEmail(email: string) {
     this.logger.log(`Recherche de l'utilisateur par email: ${email}`);
     return this.utilisateursRepository.findOne({
@@ -85,7 +98,7 @@ export class UtilisateursService {
 
         // Remove password from response
         delete savedUser.mot_de_passe;
-        return savedUser;
+        return this.withProfil(savedUser);
       }
 
       this.logger.warn(`Échec de l'inscription: email ${inscriptionDto.email} déjà utilisé et compte actif`);
@@ -156,7 +169,7 @@ export class UtilisateursService {
 
     // Remove password from response
     delete savedUser.mot_de_passe;
-    return savedUser;
+    return this.withProfil(savedUser);
   }
 
   private generateReferralCode(): string {
@@ -234,7 +247,7 @@ export class UtilisateursService {
       .leftJoinAndSelect('utilisateur.filiere', 'filiere')
       .leftJoinAndSelect('utilisateur.niveau_etude', 'niveau_etude')
       .loadRelationCountAndMap('utilisateur.filleulsCount', 'utilisateur.filleuls')
-      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.pays', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'etablissement', 'filiere', 'niveau_etude'])
+      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.profil_photo_path', 'utilisateur.profil_photo_extension', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.pays', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'etablissement', 'filiere', 'niveau_etude'])
       .where('utilisateur.pays = :pays', { pays })
       .skip((page - 1) * limit)
       .take(limit);
@@ -284,7 +297,7 @@ export class UtilisateursService {
     this.logger.log(`${users.length} utilisateur(s) trouvé(s) sur ${total} total`);
 
     return {
-      data: users,
+      data: users.map((user) => this.withProfil(user)),
       total,
       page,
       limit,
@@ -296,7 +309,7 @@ export class UtilisateursService {
     this.logger.log(`Recherche de l'utilisateur avec ID: ${id}`);
     const user = await this.utilisateursRepository.findOne({
       where: { id: parseInt(id) },
-      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'sexe', 'telephone', 'role', 'mon_code_parrainage'],
+      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage'],
       relations: ['etablissement', 'filiere', 'niveau_etude'],
     });
 
@@ -306,14 +319,14 @@ export class UtilisateursService {
     }
 
     this.logger.log(`Utilisateur trouvé: ${user.email} (ID: ${user.id})`);
-    return user;
+    return this.withProfil(user);
   }
 
   async findByUuid(uuid: string) {
     this.logger.log(`Recherche de l'utilisateur avec UUID: ${uuid}`);
     const user = await this.utilisateursRepository.findOne({
       where: { uuid },
-      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'sexe', 'telephone', 'role', 'mon_code_parrainage'],
+      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage'],
       relations: ['etablissement', 'filiere', 'niveau_etude'],
     });
 
@@ -323,7 +336,7 @@ export class UtilisateursService {
     }
 
     this.logger.log(`Utilisateur trouvé: ${user.email} (UUID: ${user.uuid})`);
-    return user;
+    return this.withProfil(user);
   }
 
   async update(id: string, majUtilisateurDto: MajUtilisateurDto) {
@@ -344,7 +357,7 @@ export class UtilisateursService {
 
     // Remove password from response
     delete updatedUser.mot_de_passe;
-    return updatedUser;
+    return this.withProfil(updatedUser);
   }
 
   async isEmailVerified(userId: number): Promise<{ isVerified: boolean }> {
