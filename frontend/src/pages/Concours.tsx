@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
-import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, Eye, ChevronLeft, ChevronRight, Check, ChevronsUpDown } from "lucide-react";
 import { concoursService, type Concours } from "@/lib/services/concours.service";
+import { structureService } from "@/lib/services/structure.service";
+import { titreService } from "@/lib/services/titre.service";
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { filesService } from "@/lib/services/files.service";
 import { Button } from "@/components/ui/button";
@@ -16,6 +18,9 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 interface ConcoursFormData {
     titre: string;
@@ -23,6 +28,8 @@ interface ConcoursFormData {
     annee?: string; // string for input, converted to number
     lieu?: string;
     nombre_page?: number;
+    structure_id?: number;
+    titre_id?: number;
 }
 
 export default function Concours() {
@@ -53,8 +60,31 @@ export default function Concours() {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [previewTitle, setPreviewTitle] = useState("");
 
+    // Structure / Titre lookup comboboxes (optional references)
+    const [openStructureCombobox, setOpenStructureCombobox] = useState(false);
+    const [openTitreCombobox, setOpenTitreCombobox] = useState(false);
+    const [structureSearch, setStructureSearch] = useState("");
+    const [titreSearch, setTitreSearch] = useState("");
+    const debouncedStructureSearch = useDebounce(structureSearch, 300);
+    const debouncedTitreSearch = useDebounce(titreSearch, 300);
+    // Selected refs for the create dialog (edit dialog reads editingItem.structure / titre_ref)
+    const [selectedStructure, setSelectedStructure] = useState<{ id: number; nom: string } | null>(null);
+    const [selectedTitre, setSelectedTitre] = useState<{ id: number; nom: string } | null>(null);
+
     const { toast } = useToast();
     const queryClient = useQueryClient();
+
+    const { data: structuresResponse } = useQuery({
+        queryKey: ["structures-lookup", debouncedStructureSearch],
+        queryFn: () => structureService.getAll({ search: debouncedStructureSearch || undefined, limit: 50 }),
+    });
+    const structuresList = structuresResponse?.data || [];
+
+    const { data: titresResponse } = useQuery({
+        queryKey: ["titres-lookup", debouncedTitreSearch],
+        queryFn: () => titreService.getAll({ search: debouncedTitreSearch || undefined, limit: 50 }),
+    });
+    const titresList = titresResponse?.data || [];
 
     // Fetch available years
     useQuery({
@@ -166,6 +196,8 @@ export default function Concours() {
             setIsCreateDialogOpen(false);
             setFormData({ titre: "", url: "", annee: "", lieu: "", nombre_page: 0 });
             setSelectedFile(null);
+            setSelectedStructure(null);
+            setSelectedTitre(null);
             toast({ title: "Succès", description: "Concours créé avec succès" });
         } catch (error: any) {
             toast({ title: "Erreur", description: error.message || "Échec de la création", variant: "destructive" });
@@ -186,7 +218,9 @@ export default function Concours() {
                 lieu: editingItem.lieu,
                 annee: editingItem.annee,
                 nombre_page: editingItem.nombre_page,
-                url: editingItem.url || undefined
+                url: editingItem.url || undefined,
+                structure_id: editingItem.structure_id,
+                titre_id: editingItem.titre_id
             });
 
             // Step 2: PUT bytes to R2 (deterministic key — same key
@@ -280,6 +314,90 @@ export default function Concours() {
                                     <Label htmlFor="nombre_page">Nombre de pages</Label>
                                     <Input id="nombre_page" type="number" value={formData.nombre_page} onChange={(e) => setFormData({ ...formData, nombre_page: parseInt(e.target.value) || 0 })} />
                                 </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                        <Label>Structure</Label>
+                                        <Popover open={openStructureCombobox} onOpenChange={setOpenStructureCombobox}>
+                                            <PopoverTrigger asChild>
+                                                <Button type="button" variant="outline" role="combobox" aria-expanded={openStructureCombobox} className="w-full justify-between font-normal">
+                                                    <span className="truncate">{selectedStructure ? selectedStructure.nom : "Sélectionner une structure"}</span>
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[300px] p-0">
+                                                <Command shouldFilter={false}>
+                                                    <CommandInput placeholder="Rechercher une structure..." value={structureSearch} onValueChange={setStructureSearch} />
+                                                    <CommandList>
+                                                        <CommandEmpty>Aucune structure trouvée.</CommandEmpty>
+                                                        <CommandGroup>
+                                                            {selectedStructure && (
+                                                                <CommandItem value="__clear_structure__" onSelect={() => {
+                                                                    setFormData({ ...formData, structure_id: undefined });
+                                                                    setSelectedStructure(null);
+                                                                    setOpenStructureCombobox(false);
+                                                                }}>
+                                                                    <Check className="mr-2 h-4 w-4 opacity-0" />
+                                                                    <span className="text-muted-foreground">Aucune</span>
+                                                                </CommandItem>
+                                                            )}
+                                                            {structuresList.map((s) => (
+                                                                <CommandItem key={s.id} value={s.nom} onSelect={() => {
+                                                                    setFormData({ ...formData, structure_id: s.id });
+                                                                    setSelectedStructure({ id: s.id, nom: s.nom });
+                                                                    setOpenStructureCombobox(false);
+                                                                }}>
+                                                                    <Check className={cn("mr-2 h-4 w-4", formData.structure_id === s.id ? "opacity-100" : "opacity-0")} />
+                                                                    {s.nom}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Titre (poste)</Label>
+                                        <Popover open={openTitreCombobox} onOpenChange={setOpenTitreCombobox}>
+                                            <PopoverTrigger asChild>
+                                                <Button type="button" variant="outline" role="combobox" aria-expanded={openTitreCombobox} className="w-full justify-between font-normal">
+                                                    <span className="truncate">{selectedTitre ? selectedTitre.nom : "Sélectionner un titre"}</span>
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[300px] p-0">
+                                                <Command shouldFilter={false}>
+                                                    <CommandInput placeholder="Rechercher un titre..." value={titreSearch} onValueChange={setTitreSearch} />
+                                                    <CommandList>
+                                                        <CommandEmpty>Aucun titre trouvé.</CommandEmpty>
+                                                        <CommandGroup>
+                                                            {selectedTitre && (
+                                                                <CommandItem value="__clear_titre__" onSelect={() => {
+                                                                    setFormData({ ...formData, titre_id: undefined });
+                                                                    setSelectedTitre(null);
+                                                                    setOpenTitreCombobox(false);
+                                                                }}>
+                                                                    <Check className="mr-2 h-4 w-4 opacity-0" />
+                                                                    <span className="text-muted-foreground">Aucun</span>
+                                                                </CommandItem>
+                                                            )}
+                                                            {titresList.map((t) => (
+                                                                <CommandItem key={t.id} value={t.nom} onSelect={() => {
+                                                                    setFormData({ ...formData, titre_id: t.id });
+                                                                    setSelectedTitre({ id: t.id, nom: t.nom });
+                                                                    setOpenTitreCombobox(false);
+                                                                }}>
+                                                                    <Check className={cn("mr-2 h-4 w-4", formData.titre_id === t.id ? "opacity-100" : "opacity-0")} />
+                                                                    {t.nom}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="url">Fichier (URL ou Upload)</Label>
                                     <div className="flex gap-2">
@@ -348,6 +466,8 @@ export default function Concours() {
                                     <TableHead>Titre</TableHead>
                                     <TableHead>Année</TableHead>
                                     <TableHead>Lieu</TableHead>
+                                    <TableHead>Structure</TableHead>
+                                    <TableHead>Titre (poste)</TableHead>
                                     <TableHead>Pages</TableHead>
                                     <TableHead>Téléch.</TableHead>
 
@@ -360,6 +480,8 @@ export default function Concours() {
                                         <TableCell className="font-medium">{item.titre}</TableCell>
                                         <TableCell>{item.annee || "—"}</TableCell>
                                         <TableCell>{item.lieu || "—"}</TableCell>
+                                        <TableCell>{item.structure?.nom || "—"}</TableCell>
+                                        <TableCell>{item.titre_ref?.nom || "—"}</TableCell>
                                         <TableCell>{item.nombre_page}</TableCell>
                                         <TableCell>{item.nombre_telechargements}</TableCell>
                                         <TableCell className="text-right">
@@ -427,6 +549,86 @@ export default function Concours() {
                             <div className="grid gap-2">
                                 <Label>Nombre de pages</Label>
                                 <Input type="number" value={editingItem?.nombre_page || 0} onChange={(e) => setEditingItem(editingItem ? { ...editingItem, nombre_page: parseInt(e.target.value) || 0 } : null)} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="grid gap-2">
+                                    <Label>Structure</Label>
+                                    <Popover open={openStructureCombobox} onOpenChange={setOpenStructureCombobox}>
+                                        <PopoverTrigger asChild>
+                                            <Button type="button" variant="outline" role="combobox" aria-expanded={openStructureCombobox} className="w-full justify-between font-normal">
+                                                <span className="truncate">{editingItem?.structure ? editingItem.structure.nom : "Sélectionner une structure"}</span>
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[300px] p-0">
+                                            <Command shouldFilter={false}>
+                                                <CommandInput placeholder="Rechercher une structure..." value={structureSearch} onValueChange={setStructureSearch} />
+                                                <CommandList>
+                                                    <CommandEmpty>Aucune structure trouvée.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {editingItem?.structure_id && (
+                                                            <CommandItem value="__clear_structure__" onSelect={() => {
+                                                                setEditingItem(editingItem ? { ...editingItem, structure_id: undefined, structure: undefined } : null);
+                                                                setOpenStructureCombobox(false);
+                                                            }}>
+                                                                <Check className="mr-2 h-4 w-4 opacity-0" />
+                                                                <span className="text-muted-foreground">Aucune</span>
+                                                            </CommandItem>
+                                                        )}
+                                                        {structuresList.map((s) => (
+                                                            <CommandItem key={s.id} value={s.nom} onSelect={() => {
+                                                                setEditingItem(editingItem ? { ...editingItem, structure_id: s.id, structure: { id: s.id, nom: s.nom } } : null);
+                                                                setOpenStructureCombobox(false);
+                                                            }}>
+                                                                <Check className={cn("mr-2 h-4 w-4", editingItem?.structure_id === s.id ? "opacity-100" : "opacity-0")} />
+                                                                {s.nom}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>Titre (poste)</Label>
+                                    <Popover open={openTitreCombobox} onOpenChange={setOpenTitreCombobox}>
+                                        <PopoverTrigger asChild>
+                                            <Button type="button" variant="outline" role="combobox" aria-expanded={openTitreCombobox} className="w-full justify-between font-normal">
+                                                <span className="truncate">{editingItem?.titre_ref ? editingItem.titre_ref.nom : "Sélectionner un titre"}</span>
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[300px] p-0">
+                                            <Command shouldFilter={false}>
+                                                <CommandInput placeholder="Rechercher un titre..." value={titreSearch} onValueChange={setTitreSearch} />
+                                                <CommandList>
+                                                    <CommandEmpty>Aucun titre trouvé.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {editingItem?.titre_id && (
+                                                            <CommandItem value="__clear_titre__" onSelect={() => {
+                                                                setEditingItem(editingItem ? { ...editingItem, titre_id: undefined, titre_ref: undefined } : null);
+                                                                setOpenTitreCombobox(false);
+                                                            }}>
+                                                                <Check className="mr-2 h-4 w-4 opacity-0" />
+                                                                <span className="text-muted-foreground">Aucun</span>
+                                                            </CommandItem>
+                                                        )}
+                                                        {titresList.map((t) => (
+                                                            <CommandItem key={t.id} value={t.nom} onSelect={() => {
+                                                                setEditingItem(editingItem ? { ...editingItem, titre_id: t.id, titre_ref: { id: t.id, nom: t.nom } } : null);
+                                                                setOpenTitreCombobox(false);
+                                                            }}>
+                                                                <Check className={cn("mr-2 h-4 w-4", editingItem?.titre_id === t.id ? "opacity-100" : "opacity-0")} />
+                                                                {t.nom}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
                             </div>
                             <div className="grid gap-2">
                                 <Label>Fichier (Laisser vide pour conserver l'actuel)</Label>
