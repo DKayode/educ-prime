@@ -598,7 +598,7 @@ export default function Matieres() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
             <AlertDialogDescription>
-              Attention : La suppression de cette matière n'est possible que si aucune épreuve ou ressource n'y est associée.
+              Attention : La suppression de cette matière n'est possible que si aucune épreuve n'y est associée.
               Si des éléments dépendants existent, la suppression sera bloquée.
             </AlertDialogDescription>
           </AlertDialogHeader>

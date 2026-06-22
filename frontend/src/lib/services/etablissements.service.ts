@@ -2,7 +2,6 @@ import { api } from '../api';
 import type { Etablissement, Filiere, NiveauEtude, Matiere } from '../types';
 import type { PaginationResponse, PaginationParams } from '../types/pagination';
 import { buildPaginationQuery } from '../types/pagination';
-import { Ressource } from "./ressources.service";
 
 export const etablissementsService = {
   async getAll(params?: PaginationParams & { search?: string }): Promise<PaginationResponse<Etablissement>> {
@@ -27,11 +26,6 @@ export const etablissementsService = {
   async getMatieres(etablissementId: string, filiereId: string, niveauId: string, params?: PaginationParams & { search?: string }): Promise<PaginationResponse<Matiere>> {
     const query = buildPaginationQuery(params);
     return api.get<PaginationResponse<Matiere>>(`/etablissements/${etablissementId}/filieres/${filiereId}/niveau-etude/${niveauId}/matieres${query}`);
-  },
-
-  getRessourcesByMatiereAndType(etablissementId: string, filiereId: string, niveauId: string, matiereId: string, type: string, page = 1, limit = 10) {
-    const query = buildPaginationQuery({ page, limit });
-    return api.get<PaginationResponse<Ressource>>(`/etablissements/${etablissementId}/filieres/${filiereId}/niveau-etude/${niveauId}/matieres/${matiereId}/ressources/type/${type}${query}`);
   },
 
   async create(data: { nom: string; ville?: string; code_postal?: string; logo?: string }): Promise<Etablissement> {

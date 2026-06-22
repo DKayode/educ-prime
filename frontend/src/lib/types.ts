@@ -96,24 +96,6 @@ export interface Epreuve {
   type?: EpreuveType;
 }
 
-export interface Ressource {
-  id: number;
-  uuid?: string;
-  pays?: string;
-  titre: string;
-  type: 'Quiz' | 'Exercices' | 'Document';
-  /** Legacy URL — prefer FileImage / download-url with slot='file'. */
-  url: string;
-  file_path?: string;
-  file_extension?: string;
-  professeur?: Utilisateur;
-  matiere?: Matiere;
-  date_creation: string;
-  date_publication?: string;
-  nombre_pages?: number;
-  nombre_telechargements?: number;
-}
-
 export interface LoginCredentials {
   email: string;
   mot_de_passe: string;

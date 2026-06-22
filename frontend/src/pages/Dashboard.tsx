@@ -86,12 +86,6 @@ export default function Dashboard() {
             icon={FileText}
             variant="primary"
           />
-          <StatCard
-            title="Ressources"
-            value={stats?.ressourcesCount.toString() || "0"}
-            icon={BookOpen}
-            variant="success"
-          />
 
         </div>
       </div>

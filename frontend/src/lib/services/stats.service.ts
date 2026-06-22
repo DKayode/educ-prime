@@ -6,7 +6,6 @@ export interface DashboardStats {
   filieresCount: number;
   matieresCount: number;
   epreuvesCount: number;
-  ressourcesCount: number;
   publicitesCount: number;
   evenementsCount: number;
   opportunitesCount: number;

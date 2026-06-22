@@ -11,15 +11,6 @@ export interface UploadEpreuveData {
     datePublication?: string;
 }
 
-export interface UploadRessourceData {
-    file: File;
-    type: 'ressource';
-    typeRessource: 'Document' | 'Quiz' | 'Exercices';
-    matiereId: number;
-    ressourceTitre: string;
-    nombrePages?: number;
-}
-
 export interface UploadImageData {
     file: File;
     type: 'PUBLICITE' | 'EVENEMENT' | 'OPPORTUNITE' | 'CONCOURS' | 'ETABLISSEMENT' | 'PARCOURS';
@@ -46,22 +37,6 @@ export const fichiersService = {
 
         if (data.datePublication) {
             formData.append('datePublication', data.datePublication);
-        }
-
-        // Don't set Content-Type manually - browser will set it with boundary
-        return api.post('/fichiers', formData);
-    },
-
-    async uploadRessource(data: UploadRessourceData) {
-        const formData = new FormData();
-        formData.append('file', data.file);
-        formData.append('type', data.type);
-        formData.append('typeRessource', data.typeRessource);
-        formData.append('matiereId', data.matiereId.toString());
-        formData.append('ressourceTitre', data.ressourceTitre);
-
-        if (data.nombrePages) {
-            formData.append('nombrePages', data.nombrePages.toString());
         }
 
         // Don't set Content-Type manually - browser will set it with boundary
