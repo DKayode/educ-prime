@@ -40,7 +40,9 @@ export class Epreuve {
   @Column({ type: 'int', nullable: true })
   annee: number;
 
-  @Column({ type: 'enum', enum: EpreuveSection, default: EpreuveSection.NORMAL })
+  // DB column is varchar(20) + CHECK (not a native pg enum like `type`);
+  // value space is enforced by EpreuveSection / IsEnum + the CHECK constraint.
+  @Column({ type: 'varchar', length: 20, default: EpreuveSection.NORMAL })
   section: EpreuveSection;
 
   @Column()
