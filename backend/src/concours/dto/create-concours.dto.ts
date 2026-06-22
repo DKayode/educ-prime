@@ -28,4 +28,16 @@ export class CreateConcoursDto {
     @Type(() => Number)
     @IsNumber()
     nombre_page?: number;
+
+    @ApiProperty({ example: 1, description: 'ID de la structure organisatrice (référence)', required: false })
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber()
+    structure_id?: number;
+
+    @ApiProperty({ example: 1, description: 'ID du titre/poste recherché (référence)', required: false })
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber()
+    titre_id?: number;
 }

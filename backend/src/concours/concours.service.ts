@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, Logger, BadRequestException } from '@nes
 import { FichiersService } from '../fichiers/fichiers.service';
 import { Repository } from 'typeorm';
 import { Concours } from './entities/concours.entity';
+import { Structure } from '../structure/entities/structure.entity';
+import { Titre } from '../titre/entities/titre.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CreateConcoursDto } from './dto/create-concours.dto';
 import { UpdateConcoursDto } from './dto/update-concours.dto';
@@ -22,8 +24,34 @@ export class ConcoursService {
     return this.resolver.getRepository(Concours);
   }
 
+  private get structureRepository(): Repository<Structure> {
+    return this.resolver.getRepository(Structure);
+  }
+
+  private get titreRepository(): Repository<Titre> {
+    return this.resolver.getRepository(Titre);
+  }
+
+  // Validates that referenced lookup rows exist. Both FKs are optional, so a
+  // null/undefined id is simply skipped (the column stays NULL).
+  private async validateReferences(dto: { structure_id?: number; titre_id?: number }) {
+    if (dto.structure_id != null) {
+      const structure = await this.structureRepository.findOne({ where: { id: dto.structure_id } });
+      if (!structure) {
+        throw new NotFoundException(`Structure avec l'ID ${dto.structure_id} non trouvée`);
+      }
+    }
+    if (dto.titre_id != null) {
+      const titre = await this.titreRepository.findOne({ where: { id: dto.titre_id } });
+      if (!titre) {
+        throw new NotFoundException(`Titre avec l'ID ${dto.titre_id} non trouvé`);
+      }
+    }
+  }
+
   async create(createConcoursDto: CreateConcoursDto) {
     this.logger.log(`Création d'un concours: ${createConcoursDto.titre}`);
+    await this.validateReferences(createConcoursDto);
     const newConcours = this.concoursRepository.create(createConcoursDto);
     const saved = await this.concoursRepository.save(newConcours);
     this.logger.log(`Concours créé: ${saved.titre} (ID: ${saved.id})`);
@@ -34,7 +62,9 @@ export class ConcoursService {
     const { page = 1, limit = 10, search, annee, sort_by = 'titre', sort_order = 'ASC' } = filterDto;
     this.logger.log(`Récupération des concours - filtres: ${JSON.stringify(filterDto)}`);
 
-    const queryBuilder = this.concoursRepository.createQueryBuilder('concours');
+    const queryBuilder = this.concoursRepository.createQueryBuilder('concours')
+      .leftJoinAndSelect('concours.structure', 'structure')
+      .leftJoinAndSelect('concours.titre_ref', 'titre_ref');
 
     if (search) {
       queryBuilder.andWhere(
@@ -88,6 +118,7 @@ export class ConcoursService {
     this.logger.log(`Recherche du concours ID: ${id}`);
     const concours = await this.concoursRepository.findOne({
       where: { id },
+      relations: ['structure', 'titre_ref'],
     });
 
     if (!concours) {
@@ -135,6 +166,7 @@ export class ConcoursService {
       throw new NotFoundException('Concours non trouvé');
     }
 
+    await this.validateReferences(updateConcoursDto);
     Object.assign(concours, updateConcoursDto);
     const updated = await this.concoursRepository.save(concours);
     this.logger.log(`Concours mis à jour: ${updated.titre} (ID: ${id})`);
