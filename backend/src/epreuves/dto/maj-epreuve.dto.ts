@@ -1,5 +1,5 @@
-import { IsString, IsNumber, IsOptional, IsDate, IsEnum } from 'class-validator';
-import { EpreuveType } from '../entities/epreuve.entity';
+import { IsString, IsNumber, IsOptional, IsDate, IsEnum, IsInt } from 'class-validator';
+import { EpreuveType, EpreuveSection } from '../entities/epreuve.entity';
 
 export class MajEpreuveDto {
   @IsOptional()
@@ -29,4 +29,12 @@ export class MajEpreuveDto {
   @IsOptional()
   @IsEnum(EpreuveType, { message: 'Le type doit être une valeur valide' })
   type?: EpreuveType;
+
+  @IsOptional()
+  @IsInt()
+  annee?: number;
+
+  @IsOptional()
+  @IsEnum(EpreuveSection, { message: 'La section doit être une valeur valide' })
+  section?: EpreuveSection;
 }

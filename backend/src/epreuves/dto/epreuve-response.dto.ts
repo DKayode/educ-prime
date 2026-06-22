@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { EpreuveType } from '../entities/epreuve.entity';
+import { EpreuveType, EpreuveSection } from '../entities/epreuve.entity';
 import { Etablissement } from '../../etablissements/entities/etablissement.entity';
 
 class FiliereInEpreuveDto {
@@ -164,6 +164,12 @@ export class EpreuveResponseDto {
 
     @ApiProperty({ enum: EpreuveType })
     type: EpreuveType;
+
+    @ApiProperty({ required: false, nullable: true })
+    annee: number;
+
+    @ApiProperty({ enum: EpreuveSection })
+    section: EpreuveSection;
 
     @ApiProperty({ type: () => ProfesseurInEpreuveDto })
     professeur: ProfesseurInEpreuveDto;

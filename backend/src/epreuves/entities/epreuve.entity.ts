@@ -9,6 +9,11 @@ export enum EpreuveType {
   EXAMENS = 'Examens',
 }
 
+export enum EpreuveSection {
+  NORMAL = 'normal',
+  RATTRAPAGE = 'rattrapage',
+}
+
 @Entity('epreuves')
 export class Epreuve {
   @PrimaryGeneratedColumn()
@@ -31,6 +36,12 @@ export class Epreuve {
 
   @Column({ type: 'enum', enum: EpreuveType, nullable: true })
   type: EpreuveType;
+
+  @Column({ type: 'int', nullable: true })
+  annee: number;
+
+  @Column({ type: 'enum', enum: EpreuveSection, default: EpreuveSection.NORMAL })
+  section: EpreuveSection;
 
   @Column()
   url: string;

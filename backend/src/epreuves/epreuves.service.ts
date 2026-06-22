@@ -34,6 +34,10 @@ export class EpreuvesService {
     newEpreuve.date_publication = creerEpreuveDto.date_publication;
     newEpreuve.nombre_pages = creerEpreuveDto.nombre_pages;
     newEpreuve.type = creerEpreuveDto.type;
+    newEpreuve.annee = creerEpreuveDto.annee;
+    if (creerEpreuveDto.section !== undefined) {
+      newEpreuve.section = creerEpreuveDto.section;
+    }
     const saved = await this.epreuvesRepository.save(newEpreuve);
     this.logger.log(`Épreuve créée: ${saved.titre} (ID: ${saved.id}, Matière: ${saved.matiere_id})`);
     return saved;
@@ -90,6 +94,8 @@ export class EpreuvesService {
       nombre_pages: epreuve.nombre_pages,
       nombre_telechargements: epreuve.nombre_telechargements,
       type: epreuve.type,
+      annee: epreuve.annee,
+      section: epreuve.section,
       professeur: {
         nom: epreuve.professeur.nom,
         prenom: epreuve.professeur.prenom,
@@ -149,6 +155,8 @@ export class EpreuvesService {
       nombre_pages: epreuve.nombre_pages,
       nombre_telechargements: epreuve.nombre_telechargements,
       type: epreuve.type,
+      annee: epreuve.annee,
+      section: epreuve.section,
       professeur: {
         nom: epreuve.professeur.nom,
         prenom: epreuve.professeur.prenom,
