@@ -1,4 +1,4 @@
-import { TypeFichier, TypeRessource } from '../entities/fichier.entity';
+import { TypeFichier } from '../entities/fichier.entity';
 import { EpreuveType } from '../../epreuves/entities/epreuve.entity';
 
 /**
@@ -7,16 +7,13 @@ import { EpreuveType } from '../../epreuves/entities/epreuve.entity';
  */
 export interface FichierUploadData {
     type: TypeFichier;
-    typeRessource?: TypeRessource;
     matiereId?: number;
     epreuveId?: number;
-    ressourceId?: number;
     epreuveTitre?: string;
     epreuveType?: EpreuveType;
     dureeMinutes?: number;
     nombrePages?: number;
     datePublication?: string;
-    ressourceTitre?: string;
     entityId?: number;
     entitySubtype?: string;
 }

@@ -5,7 +5,6 @@ import { EtablissementsService } from './etablissements.service';
 import { CreerEtablissementDto } from './dto/creer-etablissement.dto';
 import { MajEtablissementDto } from './dto/maj-etablissement.dto';
 import { FilterEpreuveDto } from '../epreuves/dto/filter-epreuve.dto';
-import { FilterRessourceDto } from '../ressources/dto/filter-ressource.dto';
 import { FilterEtablissementDto } from './dto/filter-etablissement.dto';
 import { FilterFiliereDto } from '../filieres/dto/filter-filiere.dto';
 import { FilterNiveauEtudeDto } from '../niveau-etude/dto/filter-niveau-etude.dto';
@@ -154,33 +153,6 @@ export class EtablissementsController {
     @Query() filterDto: FilterEpreuveDto,
   ) {
     return this.etablissementsService.findEpreuvesByNiveauEtudeAndFilters(
-      pays,
-      etablissementId,
-      filiereId,
-      niveauEtudeId,
-      filterDto
-    );
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get(':id/filieres/:filiereId/niveau-etude/:niveauId/ressources')
-  @ApiOperation({ summary: 'Lister les ressources pédagogiques' })
-  @ApiParam({ name: 'id', description: 'Identifiant de l\'établissement' })
-  @ApiParam({ name: 'filiereId', description: 'Identifiant de la filière' })
-  @ApiParam({ name: 'niveauId', description: 'Identifiant du niveau d\'étude' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (titre ou matière)' })
-  @ApiQuery({ name: 'type', required: false, type: String })
-  @ApiQuery({ name: 'matiere', required: false, type: String })
-  async findRessources(
-    @CurrentCountry() pays: string,
-    @Param('id') etablissementId: string,
-    @Param('filiereId') filiereId: string,
-    @Param('niveauId') niveauEtudeId: string,
-    @Query() filterDto: FilterRessourceDto,
-  ) {
-    return this.etablissementsService.findRessourcesByNiveauEtudeAndFilters(
       pays,
       etablissementId,
       filiereId,

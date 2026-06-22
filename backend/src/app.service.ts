@@ -5,7 +5,6 @@ import { Etablissement } from './etablissements/entities/etablissement.entity';
 import { Filiere } from './filieres/entities/filiere.entity';
 import { Matiere } from './matieres/entities/matiere.entity';
 import { Epreuve } from './epreuves/entities/epreuve.entity';
-import { Ressource } from './ressources/entities/ressource.entity';
 import { Publicite } from './publicites/entities/publicite.entity';
 import { Evenement } from './evenements/entities/evenement.entity';
 import { Opportunite } from './opportunites/entities/opportunite.entity';
@@ -26,7 +25,6 @@ export class AppService {
   private get filieresRepository(): Repository<Filiere> { return this.resolver.getRepository(Filiere); }
   private get matieresRepository(): Repository<Matiere> { return this.resolver.getRepository(Matiere); }
   private get epreuvesRepository(): Repository<Epreuve> { return this.resolver.getRepository(Epreuve); }
-  private get ressourcesRepository(): Repository<Ressource> { return this.resolver.getRepository(Ressource); }
   private get publicitesRepository(): Repository<Publicite> { return this.resolver.getRepository(Publicite); }
   private get evenementsRepository(): Repository<Evenement> { return this.resolver.getRepository(Evenement); }
   private get opportunitesRepository(): Repository<Opportunite> { return this.resolver.getRepository(Opportunite); }
@@ -41,7 +39,6 @@ export class AppService {
     filieresCount: number;
     matieresCount: number;
     epreuvesCount: number;
-    ressourcesCount: number;
     publicitesCount: number;
     evenementsCount: number;
     opportunitesCount: number;
@@ -56,7 +53,6 @@ export class AppService {
       filieresCount,
       matieresCount,
       epreuvesCount,
-      ressourcesCount,
       publicitesCount,
       evenementsCount,
       opportunitesCount,
@@ -70,7 +66,6 @@ export class AppService {
       this.filieresRepository.count({ where: { pays } }),
       this.matieresRepository.count({ where: { pays } }),
       this.epreuvesRepository.count({ where: { pays } }),
-      this.ressourcesRepository.count({ where: { pays } }),
       this.publicitesRepository.count({ where: { pays } }),
       this.evenementsRepository.count({ where: { pays } }),
       this.opportunitesRepository.count({ where: { pays } }),
@@ -86,8 +81,7 @@ export class AppService {
       etablissementsCount,
       filieresCount,
       matieresCount,
-      epreuvesCount: epreuvesCount + ressourcesCount + concoursCount,
-      ressourcesCount,
+      epreuvesCount: epreuvesCount + concoursCount,
       publicitesCount,
       evenementsCount,
       opportunitesCount,

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { TypeFichier, TypeRessource } from '../entities/fichier.entity';
+import { TypeFichier } from '../entities/fichier.entity';
 import { EpreuveType } from '../../epreuves/entities/epreuve.entity';
 import { IsEnum, IsOptional, IsString, IsIn } from 'class-validator';
 
@@ -12,23 +12,12 @@ export class CreerFichierDto {
   @ApiProperty({
     enum: TypeFichier,
     description: 'Type de fichier',
-    example: TypeFichier.RESSOURCE
+    example: TypeFichier.EPREUVE
   })
   @IsIn(Object.values(TypeFichier), {
-    message: 'type must be one of the following values: profile, epreuve, ressource, PUBLICITE, EVENEMENT, OPPORTUNITE, CONCOURS, ETABLISSEMENT, CATEGORIES, FORUMS'
+    message: 'type must be one of the following values: profile, epreuve, PUBLICITE, EVENEMENT, OPPORTUNITE, CONCOURS, ETABLISSEMENT, CATEGORIES, FORUMS'
   })
   readonly type: TypeFichier;
-
-  @ApiProperty({
-    enum: TypeRessource,
-    description: 'Type de ressource (si type=ressource)',
-    required: false
-  })
-  @IsIn(Object.values(TypeRessource), {
-    message: 'typeRessource must be one of the following values: Document, Quiz, Exercices'
-  })
-  @IsOptional()
-  readonly typeRessource?: TypeRessource;
 
   // Numeric fields received as strings from FormData
   @ApiProperty({ description: 'ID de la matière', required: false })
@@ -73,17 +62,6 @@ export class CreerFichierDto {
   @IsString()
   @IsOptional()
   readonly datePublication?: string;
-
-  @ApiProperty({ description: 'ID de la ressource', required: false })
-  @IsString()
-  @IsOptional()
-  readonly ressourceId?: string;
-
-  // Fields for creating new ressource
-  @ApiProperty({ description: 'Titre de la nouvelle ressource', required: false })
-  @IsString()
-  @IsOptional()
-  readonly ressourceTitre?: string;
 
   // Fields for public content modules (PUBLICITE, EVENEMENT, OPPORTUNITE, CONCOURS_EXAMEN)
   @ApiProperty({ description: 'ID de l\'entité associée (pub, event, etc.)', required: false })

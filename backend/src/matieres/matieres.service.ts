@@ -148,7 +148,7 @@ export class MatieresService {
       return { message: 'Matière supprimée avec succès' };
     } catch (error) {
       if (error.code === '23503') {
-        throw new ConflictException('Impossible de supprimer cette matière car des épreuves, ressources ou autres contenus y sont associés. Veuillez d\'abord supprimer ces contenus.');
+        throw new ConflictException('Impossible de supprimer cette matière car des épreuves ou autres contenus y sont associés. Veuillez d\'abord supprimer ces contenus.');
       }
       throw error;
     }

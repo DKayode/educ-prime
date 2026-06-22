@@ -23,7 +23,6 @@ describe('EducPrime API (e2e)', () => {
   let niveauEtudeId: number;
   let matiereId: number;
   let epreuveId: number;
-  let ressourceId: number;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -217,25 +216,6 @@ describe('EducPrime API (e2e)', () => {
       expect(response.body).toHaveProperty('professeur_id');
       expect(response.body).toHaveProperty('date_creation');
       epreuveId = response.body.id;
-    });
-
-    it('should create ressource', async () => {
-      const response = await request(app.getHttpServer())
-        .post('/ressources')
-        .set('Authorization', `Bearer ${professorToken}`)
-        .send({
-          titre: 'Support de cours',
-          type: 'Document',
-          url: 'https://example.com/support.pdf',
-          matiere_id: Number(matiereId),
-          date_publication: '2025-12-01T14:00:00Z'
-        });
-
-      expect(response.status).toBe(201);
-      expect(response.body).toHaveProperty('id');
-      expect(response.body).toHaveProperty('professeur_id');
-      expect(response.body).toHaveProperty('date_creation');
-      ressourceId = response.body.id;
     });
   });
 

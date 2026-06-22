@@ -7,13 +7,12 @@ import { Filiere } from '../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../niveau-etude/entities/niveau-etude.entity';
 import { Matiere } from '../matieres/entities/matiere.entity';
 import { Epreuve } from '../epreuves/entities/epreuve.entity';
-import { Ressource } from '../ressources/entities/ressource.entity';
 
 import { FichiersModule } from '../fichiers/fichiers.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Etablissement, Filiere, NiveauEtude, Matiere, Epreuve, Ressource]),
+    TypeOrmModule.forFeature([Etablissement, Filiere, NiveauEtude, Matiere, Epreuve]),
     FichiersModule
   ],
   controllers: [EtablissementsController],

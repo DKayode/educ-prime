@@ -8,7 +8,6 @@ import { FilieresModule } from './filieres/filieres.module';
 import { NiveauEtudeModule } from './niveau-etude/niveau-etude.module';
 import { MatieresModule } from './matieres/matieres.module';
 import { EpreuvesModule } from './epreuves/epreuves.module';
-import { RessourcesModule } from './ressources/ressources.module';
 import { FichiersModule } from './fichiers/fichiers.module';
 import { FilesModule } from './files/files.module';
 import { AppController } from './app.controller';
@@ -18,7 +17,6 @@ import { Etablissement } from './etablissements/entities/etablissement.entity';
 import { Filiere } from './filieres/entities/filiere.entity';
 import { Matiere } from './matieres/entities/matiere.entity';
 import { Epreuve } from './epreuves/entities/epreuve.entity';
-import { Ressource } from './ressources/entities/ressource.entity';
 import { Concours } from './concours/entities/concours.entity';
 import { Publicite } from './publicites/entities/publicite.entity';
 import { Evenement } from './evenements/entities/evenement.entity';
@@ -93,7 +91,6 @@ import { CountryMiddleware } from './config/country.middleware';
       Filiere,
       Matiere,
       Epreuve,
-      Ressource,
       Publicite,
       Evenement,
       Opportunite,
@@ -113,7 +110,6 @@ import { CountryMiddleware } from './config/country.middleware';
     NiveauEtudeModule,
     MatieresModule,
     EpreuvesModule,
-    RessourcesModule,
     FichiersModule,
     FilesModule,
     PublicitesModule,

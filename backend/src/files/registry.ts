@@ -13,8 +13,8 @@
  *   Public slots also store that full URL directly in the `<slot>_path`
  *   column, so a plain entity GET carries a ready-to-use link and clients
  *   never need to call /files/.../download-url. Everything non-sensitive is
- *   public; the private slots (exam papers, resource files, concours papers,
- *   identity documents) stay on the presigned-URL flow where each read is
+ *   public; the private slots (exam papers, concours papers, identity
+ *   documents) stay on the presigned-URL flow where each read is
  *   authorized and short-lived.
  */
 export interface FileSlotConfig {
@@ -30,8 +30,8 @@ export interface FileSlotConfig {
     uploadTtlSeconds?: number;
     /**
      * Override for the presigned-GET lifetime on this slot (seconds). Defaults
-     * to PRESIGN_DOWNLOAD_TTL_SECONDS (10 min). Large private PDFs (exam,
-     * concours, resource papers) get a 1-hour window so the read link doesn't
+     * to PRESIGN_DOWNLOAD_TTL_SECONDS (10 min). Large private PDFs (exam and
+     * concours papers) get a 1-hour window so the read link doesn't
      * expire mid-session. Clamped to the 7-day SigV4 max on resolution.
      */
     downloadTtlSeconds?: number;
@@ -98,11 +98,6 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
         covert: { pathColumn: 'covert_image_path', extColumn: 'covert_image_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'image' },
         // content (legacy `media`) is sometimes a video — no clean image target, not mirrored.
         content: { pathColumn: 'content_image_path', extColumn: 'content_image_extension', authorized: IMAGE_EXTS, public: true },
-    },
-    ressources: {
-        // Private: resource files stay behind authorized, short-lived reads.
-        // 1-hour download window — resource PDFs are large, don't drop mid-session.
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', downloadTtlSeconds: 3600 },
     },
     services: {
         image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'image_couverture' },

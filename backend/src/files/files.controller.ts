@@ -151,8 +151,7 @@ export class FilesController {
             'returns a presigned GET URL valid for PRESIGN_DOWNLOAD_TTL_SECONDS (default ' +
             '10 min). Returns 400 for a public slot — read its URL directly from the ' +
             'entity\'s <slot>_path field. Returns 404 if no file has been uploaded yet. ' +
-            'Private slots: epreuves.file, ressources.file, prestataires.identity, ' +
-            'utilisateurs.profil.',
+            'Private slots: epreuves.file, concours.file, prestataires.identity.',
     })
     @ApiParam({ name: 'entity', example: 'epreuves', enum: KNOWN_ENTITIES, description: ENTITY_PARAM_DESC })
     @ApiParam({ name: 'uuid', description: 'UUID of the row that owns the file' })

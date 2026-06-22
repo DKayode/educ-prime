@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { TypeFichier, TypeRessource } from '../src/fichiers/entities/fichier.entity';
+import { TypeFichier } from '../src/fichiers/entities/fichier.entity';
 import { MockFirebaseConfig, IFirebaseService } from '../src/config/mock-firebase.config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Fichier } from '../src/fichiers/entities/fichier.entity';
@@ -131,47 +131,6 @@ describe('FichiersController (e2e)', () => {
         });
     });
 
-    it('should upload a resource file', () => {
-      const mockBuffer = Buffer.from('test pdf');
-      const expectedUrl = 'https://storage.googleapis.com/test/ressources/document/1/1/cours.pdf';
-
-      mockFirebaseService.uploadFile.mockResolvedValue(undefined);
-      mockFirebaseService.getDownloadURL.mockResolvedValue(expectedUrl);
-      mockFichierRepository.save.mockResolvedValue({
-        id: 3,
-        filename: 'ressources/document/1/1/cours.pdf',
-        url: expectedUrl,
-        utilisateurId: 1,
-        originalName: 'cours.pdf',
-        type: TypeFichier.RESSOURCE,
-        typeRessource: TypeRessource.DOCUMENT,
-        matiereId: 1,
-        ressourceId: 1,
-      });
-
-      return request(app.getHttpServer())
-        .post('/fichiers/upload')
-        .set('Authorization', `Bearer ${authToken}`)
-        .attach('file', mockBuffer, 'cours.pdf')
-        .field('type', TypeFichier.RESSOURCE)
-        .field('typeRessource', TypeRessource.DOCUMENT)
-        .field('matiereId', '1')
-        .field('ressourceId', '1')
-        .expect(201)
-        .expect((res) => {
-          expect(res.body).toEqual({
-            id: 3,
-            filename: 'ressources/document/1/1/cours.pdf',
-            url: expectedUrl,
-            utilisateurId: 1,
-            originalName: 'cours.pdf',
-            type: TypeFichier.RESSOURCE,
-            typeRessource: TypeRessource.DOCUMENT,
-            matiereId: 1,
-            ressourceId: 1,
-          });
-        });
-    });
   });
 
   describe('/fichiers/:id/download (GET)', () => {
@@ -278,8 +237,7 @@ describe('FichiersController (e2e)', () => {
           id: 1,
           filename: 'test.pdf',
           utilisateurId: 1,
-          type: TypeFichier.RESSOURCE,
-          typeRessource: TypeRessource.DOCUMENT,
+          type: TypeFichier.EPREUVE,
         },
       ];
 
@@ -288,9 +246,8 @@ describe('FichiersController (e2e)', () => {
       return request(app.getHttpServer())
         .get('/fichiers/utilisateur/1')
         .set('Authorization', `Bearer ${authToken}`)
-        .query({ 
-          type: TypeFichier.RESSOURCE,
-          typeRessource: TypeRessource.DOCUMENT,
+        .query({
+          type: TypeFichier.EPREUVE,
         })
         .expect(200)
         .expect(mockFiles);
@@ -303,17 +260,15 @@ describe('FichiersController (e2e)', () => {
         {
           id: 1,
           filename: 'test.pdf',
-          type: TypeFichier.RESSOURCE,
-          typeRessource: TypeRessource.QUIZ,
+          type: TypeFichier.EPREUVE,
         },
       ];
 
       mockFichierRepository.find.mockResolvedValue(mockFiles);
 
       return request(app.getHttpServer())
-        .get(`/fichiers/type/${TypeFichier.RESSOURCE}`)
+        .get(`/fichiers/type/${TypeFichier.EPREUVE}`)
         .set('Authorization', `Bearer ${authToken}`)
-        .query({ typeRessource: TypeRessource.QUIZ })
         .expect(200)
         .expect(mockFiles);
     });
