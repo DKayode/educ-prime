@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { type EpreuveType } from "@/lib/types";
+import { type EpreuveType, type EpreuveSection } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,8 @@ export default function Epreuves() {
     nombre_pages: "",
     matiere_id: "",
     date_publication: "",
+    annee: "",
+    section: "normal" as EpreuveSection,
   });
 
   const queryClient = useQueryClient();
@@ -137,7 +139,7 @@ export default function Epreuves() {
   const matieres = matieresResponse?.data || [];
 
   const createMutation = useMutation({
-    mutationFn: async (data: { file: File; titre: string; type?: string; duree_minutes: number; nombre_pages?: number; matiere_id: number; date_publication?: string }) => {
+    mutationFn: async (data: { file: File; titre: string; type?: string; duree_minutes: number; nombre_pages?: number; matiere_id: number; date_publication?: string; annee?: number; section?: EpreuveSection }) => {
       // 1. Create the epreuve row — backend assigns the uuid we use as
       //    the R2 key on the next step. Metadata that the legacy
       //    /fichiers/epreuve endpoint accepted as form fields is set
@@ -151,6 +153,8 @@ export default function Epreuves() {
         duree_minutes: data.duree_minutes,
         nombre_pages: data.nombre_pages,
         date_publication: data.date_publication,
+        annee: data.annee,
+        section: data.section,
       });
 
       // 2. PUT bytes to R2 via presigned URL.
@@ -171,7 +175,7 @@ export default function Epreuves() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: { id: string; titre: string; type?: string; duree_minutes: number; nombre_pages?: number; matiere_id: number; date_publication?: string }) =>
+    mutationFn: (data: { id: string; titre: string; type?: string; duree_minutes: number; nombre_pages?: number; matiere_id: number; date_publication?: string; annee?: number; section?: EpreuveSection }) =>
       epreuvesService.update(data.id, {
         titre: data.titre,
         type: data.type,
@@ -179,6 +183,8 @@ export default function Epreuves() {
         nombre_pages: data.nombre_pages,
         matiere_id: data.matiere_id,
         date_publication: data.date_publication,
+        annee: data.annee,
+        section: data.section,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['epreuves'] });
@@ -210,6 +216,8 @@ export default function Epreuves() {
       nombre_pages: "",
       matiere_id: "",
       date_publication: "",
+      annee: "",
+      section: "normal",
     });
     setSelectedFile(null);
     setEditData(null);
@@ -250,6 +258,8 @@ export default function Epreuves() {
       nombre_pages: epreuve.nombre_pages?.toString() || "",
       matiere_id: (epreuve.matiere_id || epreuve.matiere?.id)?.toString() || "",
       date_publication: epreuve.date_publication ? new Date(epreuve.date_publication).toISOString().slice(0, 16) : "",
+      annee: epreuve.annee?.toString() || "",
+      section: epreuve.section || "normal",
     });
     setIsDialogOpen(true);
   };
@@ -269,6 +279,8 @@ export default function Epreuves() {
         nombre_pages: formData.nombre_pages ? parseInt(formData.nombre_pages, 10) : undefined,
         matiere_id: parseInt(formData.matiere_id, 10),
         date_publication: formData.date_publication || undefined,
+        annee: formData.annee ? parseInt(formData.annee, 10) : undefined,
+        section: formData.section,
       });
     } else {
       // Create mode - Requires File
@@ -282,6 +294,8 @@ export default function Epreuves() {
         nombre_pages: formData.nombre_pages ? parseInt(formData.nombre_pages, 10) : undefined,
         matiere_id: parseInt(formData.matiere_id, 10),
         date_publication: formData.date_publication || undefined,
+        annee: formData.annee ? parseInt(formData.annee, 10) : undefined,
+        section: formData.section,
       });
     }
   };
@@ -415,6 +429,34 @@ export default function Epreuves() {
                     value={formData.nombre_pages}
                     onChange={(e) => setFormData({ ...formData, nombre_pages: e.target.value })}
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="annee">Année</Label>
+                  <Input
+                    id="annee"
+                    type="number"
+                    placeholder="Ex: 2023"
+                    value={formData.annee}
+                    onChange={(e) => setFormData({ ...formData, annee: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="section">Session</Label>
+                  <Select
+                    value={formData.section}
+                    onValueChange={(value) => setFormData({ ...formData, section: value as EpreuveSection })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner la session" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="rattrapage">Rattrapage</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

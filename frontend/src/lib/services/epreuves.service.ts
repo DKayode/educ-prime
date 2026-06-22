@@ -16,6 +16,8 @@ export const epreuvesService = {
   async create(data: {
     titre: string;
     matiere_id: number;
+    annee?: number;
+    section?: 'normal' | 'rattrapage';
   }): Promise<Epreuve> {
     return api.post<Epreuve>('/epreuves', data);
   },
@@ -27,6 +29,8 @@ export const epreuvesService = {
     duree_minutes?: number;
     nombre_pages?: number;
     date_publication?: string;
+    annee?: number;
+    section?: 'normal' | 'rattrapage';
   }): Promise<Epreuve> {
     return api.put<Epreuve>(`/epreuves/${id}`, data);
   },
