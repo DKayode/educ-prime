@@ -29,6 +29,26 @@ export interface Filiere {
   etablissement?: Etablissement;
 }
 
+export interface Structure {
+  id: number;
+  uuid?: string;
+  pays?: string;
+  nom: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Titre {
+  id: number;
+  uuid?: string;
+  pays?: string;
+  nom: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface NiveauEtude {
   id: number;
   uuid?: string;
