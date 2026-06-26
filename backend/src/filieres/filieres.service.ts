@@ -47,12 +47,13 @@ export class FilieresService {
     return saved;
   }
 
-  async findAll(filterDto: FilterFiliereDto): Promise<PaginationResponse<FiliereResponseDto>> {
+  async findAll(pays: string, filterDto: FilterFiliereDto): Promise<PaginationResponse<FiliereResponseDto>> {
     const { page = 1, limit = 10, search, etablissement } = filterDto;
-    this.logger.log(`Récupération des filières - Page: ${page}, Limite: ${limit}, Search: ${search}, Etablissement: ${etablissement}`);
+    this.logger.log(`Récupération des filières (pays=${pays}) - Page: ${page}, Limite: ${limit}, Search: ${search}, Etablissement: ${etablissement}`);
 
     const queryBuilder = this.filieresRepository.createQueryBuilder('filiere')
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
+      .where('filiere.pays = :pays', { pays })
       .orderBy('filiere.nom', filterDto.sort_order || 'ASC')
       .skip((page - 1) * limit)
       .take(limit);
