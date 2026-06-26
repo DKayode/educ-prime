@@ -54,9 +54,9 @@ export class EpreuvesService {
     return saved;
   }
 
-  async findAll(filterDto: FilterEpreuveDto): Promise<PaginationResponse<EpreuveResponseDto>> {
+  async findAll(pays: string, filterDto: FilterEpreuveDto): Promise<PaginationResponse<EpreuveResponseDto>> {
     const { page = 1, limit = 10, search, type, matiere } = filterDto;
-    this.logger.log(`Récupération des épreuves - Page: ${page}, Limite: ${limit}, Search: ${search}, Type: ${type}, Matière: ${matiere}`);
+    this.logger.log(`Récupération des épreuves (pays=${pays}) - Page: ${page}, Limite: ${limit}, Search: ${search}, Type: ${type}, Matière: ${matiere}`);
 
     const queryBuilder = this.epreuvesRepository.createQueryBuilder('epreuve')
       .leftJoinAndSelect('epreuve.matiere', 'matiere')
@@ -64,6 +64,7 @@ export class EpreuvesService {
       .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .leftJoinAndSelect('epreuve.professeur', 'professeur')
+      .where('epreuve.pays = :pays', { pays })
       .orderBy('epreuve.date_creation', filterDto.sort_order || 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
