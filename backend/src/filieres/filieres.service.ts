@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
 import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { Filiere } from './entities/filiere.entity';
+import { Etablissement } from '../etablissements/entities/etablissement.entity';
 import { CreerFiliereDto } from './dto/creer-filiere.dto';
 import { MajFiliereDto } from './dto/maj-filiere.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -21,14 +22,28 @@ export class FilieresService {
     return this.resolver.getRepository(Filiere);
   }
 
+  private get etablissementsRepository(): Repository<Etablissement> {
+    return this.resolver.getRepository(Etablissement);
+  }
+
   async create(creerFiliereDto: CreerFiliereDto) {
     this.logger.log(`Création d'une filière: ${creerFiliereDto.nom} (Établissement ID: ${creerFiliereDto.etablissement_id})`);
+    // pays is DERIVED from the parent Etablissement (single source of truth),
+    // never from the request country switcher nor the column default.
+    const etablissement = await this.etablissementsRepository.findOne({
+      where: { id: creerFiliereDto.etablissement_id },
+    });
+    if (!etablissement) {
+      this.logger.warn(`Établissement ID ${creerFiliereDto.etablissement_id} introuvable`);
+      throw new NotFoundException('Établissement non trouvé');
+    }
     const newFiliere = this.filieresRepository.create({
       nom: creerFiliereDto.nom,
       etablissement: { id: creerFiliereDto.etablissement_id } as any,
+      pays: etablissement.pays,
     });
     const saved = await this.filieresRepository.save(newFiliere);
-    this.logger.log(`Filière créée: ${saved.nom} (ID: ${saved.id})`);
+    this.logger.log(`Filière créée: ${saved.nom} (ID: ${saved.id}, pays: ${saved.pays})`);
     return saved;
   }
 
@@ -112,7 +127,16 @@ export class FilieresService {
     }
 
     if (majFiliereDto.etablissement_id) {
+      // Parent changed → re-derive pays from the new Etablissement.
+      const etablissement = await this.etablissementsRepository.findOne({
+        where: { id: majFiliereDto.etablissement_id },
+      });
+      if (!etablissement) {
+        this.logger.warn(`Établissement ID ${majFiliereDto.etablissement_id} introuvable`);
+        throw new NotFoundException('Établissement non trouvé');
+      }
       filiere.etablissement = { id: majFiliereDto.etablissement_id } as any;
+      filiere.pays = etablissement.pays;
     }
 
     const updated = await this.filieresRepository.save(filiere);
