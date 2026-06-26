@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException, Logger, BadRequestEx
 import { FichiersService } from '../fichiers/fichiers.service';
 import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { Epreuve } from './entities/epreuve.entity';
+import { Matiere } from '../matieres/entities/matiere.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
 import { MajEpreuveDto } from './dto/maj-epreuve.dto';
@@ -23,8 +24,21 @@ export class EpreuvesService {
     return this.resolver.getRepository(Epreuve);
   }
 
+  private get matieresRepository(): Repository<Matiere> {
+    return this.resolver.getRepository(Matiere);
+  }
+
   async create(creerEpreuveDto: CreerEpreuveDto, professeurId: number) {
     this.logger.log(`Création d'une épreuve: ${creerEpreuveDto.titre} par professeur ID: ${professeurId}`);
+    // pays is DERIVED from the parent Matiere (cascading up to the Etablissement),
+    // never defaulted to 'benin' nor taken from the request country.
+    const matiere = await this.matieresRepository.findOne({
+      where: { id: creerEpreuveDto.matiere_id },
+    });
+    if (!matiere) {
+      this.logger.warn(`Matière ID ${creerEpreuveDto.matiere_id} introuvable`);
+      throw new NotFoundException('Matière non trouvée');
+    }
     const newEpreuve = new Epreuve();
     newEpreuve.titre = creerEpreuveDto.titre;
     newEpreuve.url = creerEpreuveDto.url;
@@ -34,8 +48,9 @@ export class EpreuvesService {
     newEpreuve.date_publication = creerEpreuveDto.date_publication;
     newEpreuve.nombre_pages = creerEpreuveDto.nombre_pages;
     newEpreuve.type = creerEpreuveDto.type;
+    newEpreuve.pays = matiere.pays;
     const saved = await this.epreuvesRepository.save(newEpreuve);
-    this.logger.log(`Épreuve créée: ${saved.titre} (ID: ${saved.id}, Matière: ${saved.matiere_id})`);
+    this.logger.log(`Épreuve créée: ${saved.titre} (ID: ${saved.id}, Matière: ${saved.matiere_id}, pays: ${saved.pays})`);
     return saved;
   }
 
@@ -210,6 +225,19 @@ export class EpreuvesService {
     }
 
     Object.assign(epreuve, majEpreuveDto);
+
+    // Parent changed → re-derive pays from the new Matiere.
+    if (majEpreuveDto.matiere_id) {
+      const matiere = await this.matieresRepository.findOne({
+        where: { id: majEpreuveDto.matiere_id },
+      });
+      if (!matiere) {
+        this.logger.warn(`Matière ID ${majEpreuveDto.matiere_id} introuvable`);
+        throw new NotFoundException('Matière non trouvée');
+      }
+      epreuve.pays = matiere.pays;
+    }
+
     const updated = await this.epreuvesRepository.save(epreuve);
     this.logger.log(`Épreuve mise à jour: ${updated.titre} (ID: ${id})`);
     return updated;
