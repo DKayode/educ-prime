@@ -9,6 +9,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterEpreuveDto } from './dto/filter-epreuve.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('epreuves')
 @Controller('epreuves')
@@ -35,8 +36,8 @@ export class EpreuvesController {
   @ApiQuery({ name: 'matiere', required: false, type: String, description: 'Filtrer par nom de matière' })
   @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Champ de tri (ex: date_creation)' })
   @ApiQuery({ name: 'sort_order', required: false, enum: ['ASC', 'DESC'], description: 'Ordre de tri' })
-  async findAll(@Query() filterDto: FilterEpreuveDto) {
-    return this.epreuvesService.findAll(filterDto);
+  async findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterEpreuveDto) {
+    return this.epreuvesService.findAll(pays, filterDto);
   }
 
   @UseGuards(JwtAuthGuard)
