@@ -6,9 +6,9 @@ never touches production data.
 > ⚠️ **Golden rule:** dev machines use the **`edukia-dev`** Neon database. **Never**
 > point your local setup at the production database.
 >
-> R2 (file storage): the **`edukia-dev`** private bucket is dev-scoped. The public
-> bucket (`edukia-public`, served at `assets.edukia.net`) is currently shared — ask
-> a maintainer before relying on public-slot uploads in dev.
+> R2 (file storage): dev uses the **`edukia-dev`** private bucket and the
+> **`edukia-public-dev`** public bucket (served at `assets-dev.edukia.net`).
+> Never the prod buckets (`edukia` / `edukia-public` at `assets.edukia.net`).
 
 ---
 
