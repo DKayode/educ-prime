@@ -26,11 +26,18 @@ La façon la plus simple de lancer toute la plateforme est d'utiliser Docker.
     ```
 
 2.  **Configurer l'environnement :**
-    Créez un fichier `.env` à la racine :
+    Copiez les modèles `*.example` et remplissez-les avec les identifiants de
+    **test** (jamais la production). Guide complet pour les nouveaux devs :
+    [`docs/DEV_SETUP.md`](docs/DEV_SETUP.md).
     ```bash
-    # Créez le fichier .env
-    # Assurez-vous qu'il contient la configuration nécessaire (identifiants BDD, etc.)
+    cp .env.example .env
+    cp backend/.env.example backend/.env
+    cp frontend/.env.example frontend/.env
+    cp backend/config/config.example.json backend/config/config.json
+    cp backend/config/firebase-serviceaccount.example.json backend/config/firebase-serviceaccount.json
     ```
+    > ⚠️ Utilisez la base de données de **test `edukia-dev`**, jamais la base de
+    > production.
 
 3.  **Démarrer les services :**
     ```bash

@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterFiliereDto } from './dto/filter-filiere.dto';
 import { FiliereResponseDto } from './dto/filiere-response.dto';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('filieres')
 @Controller('filieres')
@@ -27,8 +28,8 @@ export class FilieresController {
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (nom filière, nom établissement, ville établissement)' })
   @ApiQuery({ name: 'etablissement', required: false, type: String, description: 'Filtrer par nom d\'établissement' })
-  async findAll(@Query() filterDto: FilterFiliereDto) {
-    return this.filieresService.findAll(filterDto);
+  async findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterFiliereDto) {
+    return this.filieresService.findAll(pays, filterDto);
   }
 
   @UseGuards(JwtAuthGuard)

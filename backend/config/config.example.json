@@ -1,0 +1,13 @@
+{
+  "_comment": "Template for backend/config/config.json (gitignored). Copy to config.json and adjust. Read by loadConfig() in src/config/country-config.ts; exposed via GET /countries and GET /app.",
+  "country": [
+    { "name": "benin",   "logo": "https://<assets-host>/benin.svg",   "timezone": "Africa/Cotonou", "currency": "XOF" },
+    { "name": "senegal", "logo": "https://<assets-host>/senegal.svg", "timezone": "Africa/Dakar",   "currency": "XOF" },
+    { "name": "congo",   "logo": "https://<assets-host>/congo.svg",   "timezone": "Africa/Brazzaville", "currency": "XAF" }
+  ],
+  "app": {
+    "name": "Edukia",
+    "logo": "https://<assets-host>/logo.png",
+    "favicon": "https://<assets-host>/favicon.png"
+  }
+}
