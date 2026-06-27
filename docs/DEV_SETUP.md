@@ -3,9 +3,12 @@
 Onboarding for new developers. Goal: get a working **test** environment that
 never touches production data.
 
-> ⚠️ **Golden rule:** dev machines use the **`edukia-dev`** Neon database and the
-> **`edukia-dev` / `edukia-dev-public`** R2 buckets. **Never** point your local
-> setup at the production database or buckets.
+> ⚠️ **Golden rule:** dev machines use the **`edukia-dev`** Neon database. **Never**
+> point your local setup at the production database.
+>
+> R2 (file storage): the **`edukia-dev`** private bucket is dev-scoped. The public
+> bucket (`edukia-public`, served at `assets.edukia.net`) is currently shared — ask
+> a maintainer before relying on public-slot uploads in dev.
 
 ---
 
