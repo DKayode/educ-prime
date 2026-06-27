@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, Logger, ConflictException } from '@nestj
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { Matiere } from './entities/matiere.entity';
+import { NiveauEtude } from '../niveau-etude/entities/niveau-etude.entity';
 import { CreerMatiereDto } from './dto/creer-matiere.dto';
 import { MajMatiereDto } from './dto/maj-matiere.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -15,13 +16,25 @@ export class MatieresService {
   constructor(
     @InjectRepository(Matiere)
     private readonly matieresRepository: Repository<Matiere>,
+    @InjectRepository(NiveauEtude)
+    private readonly niveauEtudeRepository: Repository<NiveauEtude>,
   ) { }
 
+  // Note: `pays` (from @CurrentCountry) is intentionally ignored as the saved
+  // value — it stays in the signature so the controller/middleware scoping is
+  // unaffected, but the stored pays is DERIVED from the parent NiveauEtude.
   async create(pays: string, creerMatiereDto: CreerMatiereDto) {
-    this.logger.log(`Création d'une matière (pays=${pays}): ${creerMatiereDto.nom}`);
-    const newMatiere = this.matieresRepository.create({ ...creerMatiereDto, pays });
+    this.logger.log(`Création d'une matière: ${creerMatiereDto.nom} (Niveau d'étude ID: ${creerMatiereDto.niveau_etude_id})`);
+    const niveauEtude = await this.niveauEtudeRepository.findOne({
+      where: { id: creerMatiereDto.niveau_etude_id },
+    });
+    if (!niveauEtude) {
+      this.logger.warn(`Niveau d'étude ID ${creerMatiereDto.niveau_etude_id} introuvable`);
+      throw new NotFoundException('Niveau d\'étude non trouvé');
+    }
+    const newMatiere = this.matieresRepository.create({ ...creerMatiereDto, pays: niveauEtude.pays });
     const saved = await this.matieresRepository.save(newMatiere);
-    this.logger.log(`Matière créée: ${saved.nom} (ID: ${saved.id})`);
+    this.logger.log(`Matière créée: ${saved.nom} (ID: ${saved.id}, pays: ${saved.pays})`);
     return saved;
   }
 
@@ -126,6 +139,19 @@ export class MatieresService {
     }
 
     Object.assign(matiere, majMatiereDto);
+
+    // Parent changed → re-derive pays from the new NiveauEtude (canonical parent).
+    if (majMatiereDto.niveau_etude_id) {
+      const niveauEtude = await this.niveauEtudeRepository.findOne({
+        where: { id: majMatiereDto.niveau_etude_id },
+      });
+      if (!niveauEtude) {
+        this.logger.warn(`Niveau d'étude ID ${majMatiereDto.niveau_etude_id} introuvable`);
+        throw new NotFoundException('Niveau d\'étude non trouvé');
+      }
+      matiere.pays = niveauEtude.pays;
+    }
+
     const updated = await this.matieresRepository.save(matiere);
     this.logger.log(`Matière mise à jour: ${updated.nom} (ID: ${id})`);
     return updated;

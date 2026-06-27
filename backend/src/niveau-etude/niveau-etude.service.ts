@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, Logger, ConflictException } from '@nestj
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { NiveauEtude } from './entities/niveau-etude.entity';
+import { Filiere } from '../filieres/entities/filiere.entity';
 import { CreerNiveauEtudeDto } from './dto/creer-niveau-etude.dto';
 import { MajNiveauEtudeDto } from './dto/maj-niveau-etude.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -15,13 +16,25 @@ export class NiveauEtudeService {
   constructor(
     @InjectRepository(NiveauEtude)
     private readonly niveauEtudeRepository: Repository<NiveauEtude>,
+    @InjectRepository(Filiere)
+    private readonly filieresRepository: Repository<Filiere>,
   ) { }
 
+  // Note: `pays` (from @CurrentCountry) is intentionally ignored as the saved
+  // value — it stays in the signature so the controller/middleware scoping is
+  // unaffected, but the stored pays is DERIVED from the parent Filiere.
   async create(pays: string, creerNiveauEtudeDto: CreerNiveauEtudeDto) {
-    this.logger.log(`Création d'un niveau d'étude (pays=${pays}): ${creerNiveauEtudeDto.nom}`);
-    const newNiveauEtude = this.niveauEtudeRepository.create({ ...creerNiveauEtudeDto, pays });
+    this.logger.log(`Création d'un niveau d'étude: ${creerNiveauEtudeDto.nom} (Filière ID: ${creerNiveauEtudeDto.filiere_id})`);
+    const filiere = await this.filieresRepository.findOne({
+      where: { id: creerNiveauEtudeDto.filiere_id },
+    });
+    if (!filiere) {
+      this.logger.warn(`Filière ID ${creerNiveauEtudeDto.filiere_id} introuvable`);
+      throw new NotFoundException('Filière non trouvée');
+    }
+    const newNiveauEtude = this.niveauEtudeRepository.create({ ...creerNiveauEtudeDto, pays: filiere.pays });
     const saved = await this.niveauEtudeRepository.save(newNiveauEtude);
-    this.logger.log(`Niveau d'étude créé: ${saved.nom} (ID: ${saved.id})`);
+    this.logger.log(`Niveau d'étude créé: ${saved.nom} (ID: ${saved.id}, pays: ${saved.pays})`);
     return saved;
   }
 
@@ -113,16 +126,26 @@ export class NiveauEtudeService {
       throw new NotFoundException('Niveau d\'étude non trouvé');
     }
 
-    // Si on met à jour la filière
+    // Si on met à jour la filière, re-dériver le pays du nouveau parent.
     let filiere = niveauEtude.filiere;
+    let pays = niveauEtude.pays;
     if (majNiveauEtudeDto.filiere_id) {
+      const parent = await this.filieresRepository.findOne({
+        where: { id: majNiveauEtudeDto.filiere_id },
+      });
+      if (!parent) {
+        this.logger.warn(`Filière ID ${majNiveauEtudeDto.filiere_id} introuvable`);
+        throw new NotFoundException('Filière non trouvée');
+      }
       filiere = { id: majNiveauEtudeDto.filiere_id } as any;
+      pays = parent.pays;
     }
 
     const updated = await this.niveauEtudeRepository.save({
       ...niveauEtude,
       ...majNiveauEtudeDto,
       filiere,
+      pays,
     });
 
     this.logger.log(`Niveau d'étude mis à jour: ${updated.nom}`);
