@@ -88,8 +88,8 @@ const navTree: NavItem[] = [
         icon: GraduationCap,
         children: [
           { title: "Concours", icon: List, url: "/concours" },
-          { title: "Structures", icon: Building, url: "/structures", badge: "NEW" },
-          { title: "Titres", icon: Award, url: "/titres", badge: "NEW" },
+          { title: "Structures", icon: Building, url: "/structures" },
+          { title: "Titres", icon: Award, url: "/titres" },
         ],
       },
     ],
