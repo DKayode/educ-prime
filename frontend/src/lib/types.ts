@@ -118,6 +118,7 @@ export interface Epreuve {
   type?: EpreuveType;
   annee?: number;
   section?: EpreuveSection;
+  status?: string;
 }
 
 export interface LoginCredentials {

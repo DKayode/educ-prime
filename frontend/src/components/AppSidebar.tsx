@@ -95,6 +95,14 @@ const navTree: NavItem[] = [
     ],
   },
   {
+    // Sibling team adds a "Concours en attente" child to this same group.
+    title: "Approbations",
+    icon: UserCheck,
+    children: [
+      { title: "Épreuves en attente", icon: FileText, url: "/approbations/epreuves" },
+    ],
+  },
+  {
     title: "Communauté",
     icon: MessageCircle,
     children: [
