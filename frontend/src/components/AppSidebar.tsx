@@ -1,67 +1,283 @@
-import { LayoutDashboard, Users, BookOpen, Calendar, FileText, Settings, Building2, BookMarked, Megaphone, CalendarDays, Briefcase, GraduationCap, UserCheck, Layers, Bell, Smartphone, MessageSquare, ClipboardList, UserPen, Wrench, Award } from "lucide-react";
+import {
+  LayoutDashboard,
+  GraduationCap,
+  Building2,
+  GitFork,
+  Layers,
+  BookMarked,
+  FileText,
+  List,
+  Building,
+  Award,
+  MessageCircle,
+  MessagesSquare,
+  Route,
+  MessageSquare,
+  Tags,
+  Briefcase,
+  Wrench,
+  UserCheck,
+  UserCog,
+  Star,
+  Cog,
+  Megaphone,
+  CalendarDays,
+  Lightbulb,
+  Settings,
+  User,
+  Users,
+  BarChart3,
+  SlidersHorizontal,
+  UserPlus,
+  Contact,
+  Bell,
+  Smartphone,
+  ChevronRight,
+  BookOpen,
+  type LucideIcon,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation }
-  from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useApp } from "@/hooks/useApp";
+import { cn } from "@/lib/utils";
 
-const academicItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Utilisateurs", url: "/users", icon: Users },
-  { title: "Parrainages", url: "/parrainages", icon: Users },
-  { title: "Établissements", url: "/etablissements", icon: Building2 },
-  { title: "Filières", url: "/filieres", icon: BookOpen },
-  { title: "Niveaux d'études", url: "/niveaux", icon: Calendar },
-  { title: "Matières", url: "/matieres", icon: BookMarked },
-  { title: "Épreuves", url: "/epreuves", icon: FileText },
-  { title: "Forums", url: "/forums", icon: MessageSquare },
+// A nav entry is either a leaf (route, or disabled "à venir") or a group with
+// children. Groups may nest one level (Concours sits under Éducation).
+interface NavItem {
+  title: string;
+  icon: LucideIcon;
+  url?: string;
+  badge?: string;
+  children?: NavItem[];
+}
+
+const navTree: NavItem[] = [
+  { title: "Tableau de bord", icon: LayoutDashboard, url: "/" },
+  {
+    title: "Éducation",
+    icon: GraduationCap,
+    children: [
+      { title: "Établissements", icon: Building2, url: "/etablissements" },
+      { title: "Filières", icon: GitFork, url: "/filieres" },
+      { title: "Niveaux d'étude", icon: Layers, url: "/niveaux" },
+      { title: "Matières", icon: BookMarked, url: "/matieres" },
+      { title: "Épreuves", icon: FileText, url: "/epreuves" },
+      {
+        title: "Concours",
+        icon: GraduationCap,
+        children: [
+          { title: "Concours", icon: List, url: "/concours" },
+          { title: "Structures", icon: Building, url: "/structures", badge: "NEW" },
+          { title: "Titres", icon: Award, url: "/titres", badge: "NEW" },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Communauté",
+    icon: MessageCircle,
+    children: [
+      { title: "Forums", icon: MessagesSquare, url: "/forums" },
+      {
+        title: "Parcours",
+        icon: Route,
+        children: [
+          { title: "Parcours", icon: Route, url: "/parcours" },
+          { title: "Catégories", icon: Tags, url: "/categories" },
+        ],
+      },
+      { title: "Commentaires", icon: MessageSquare },
+    ],
+  },
+  {
+    title: "JobKia",
+    icon: Briefcase,
+    children: [
+      { title: "Services", icon: Wrench, url: "/admin/services" },
+      { title: "Offres", icon: Briefcase, url: "/admin/offres" },
+      { title: "Prestataires", icon: UserCheck },
+      { title: "Recruteurs", icon: UserCog, url: "/admin/recruteurs" },
+      { title: "Avis", icon: Star },
+      { title: "Types (Services, Offres)", icon: Layers, url: "/admin/service-types" },
+      { title: "Compétences", icon: Cog, url: "/admin/competences" },
+    ],
+  },
+  {
+    title: "Contenu",
+    icon: Megaphone,
+    children: [
+      { title: "Publicités", icon: Megaphone, url: "/publicites" },
+      { title: "Événements", icon: CalendarDays, url: "/evenements" },
+      { title: "Opportunités", icon: Lightbulb, url: "/opportunites" },
+    ],
+  },
+  {
+    title: "Utilisateurs",
+    icon: Users,
+    children: [
+      { title: "Utilisateurs", icon: User, url: "/users" },
+      { title: "Parrainage", icon: UserPlus, url: "/parrainages" },
+    ],
+  },
+  {
+    title: "Système",
+    icon: Settings,
+    children: [
+      { title: "Statistiques", icon: BarChart3 },
+      { title: "Paramètres", icon: SlidersHorizontal },
+      { title: "Contacts Pro", icon: Contact, url: "/contacts-professionnels" },
+      { title: "Notifications", icon: Bell, url: "/notifications" },
+      { title: "Versions App", icon: Smartphone, url: "/app-versions" },
+    ],
+  },
 ];
 
-const publicContentItems = [
-  { title: "Catégories", url: "/categories", icon: Layers },
-  { title: "Parcours", url: "/parcours", icon: BookOpen },
-  { title: "Publicités", url: "/publicites", icon: Megaphone },
-  { title: "Événements", url: "/evenements", icon: CalendarDays },
-  { title: "Opportunités", url: "/opportunites", icon: Briefcase },
-  { title: "Concours", url: "/concours", icon: GraduationCap },
-  { title: "Structures", url: "/structures", icon: Building2 },
-  { title: "Titres", url: "/titres", icon: Award },
-  { title: "Contacts Pro", url: "/contacts-professionnels", icon: UserCheck },
-];
+const collectUrls = (item: NavItem): string[] =>
+  item.children ? item.children.flatMap(collectUrls) : item.url ? [item.url] : [];
 
-const jobkiaItems = [
-  { title: "Recruteurs", url: "/admin/recruteurs", icon: UserPen },
-  { title: "Services", url: "/admin/services", icon: ClipboardList },
-  { title: "Offres", url: "/admin/offres", icon: ClipboardList },
-  { title: "Types (Services, Offres)", url: "/admin/service-types", icon: Layers },
-  { title: "Compétences", url: "/admin/competences", icon: Wrench },
-];
+const containsPath = (item: NavItem, path: string) =>
+  collectUrls(item).includes(path);
 
-const settingsItems = [
-  { title: "Paramètres", url: "/settings", icon: Settings },
-  { title: "Notifications", url: "/notifications", icon: Bell },
-  { title: "Versions App", url: "/app-versions", icon: Smartphone },
-];
+function SubLeaf({ item, currentPath }: { item: NavItem; currentPath: string }) {
+  if (!item.url) {
+    return (
+      <SidebarMenuSubItem>
+        <SidebarMenuSubButton asChild>
+          <span aria-disabled className="cursor-default">
+            <item.icon className="h-3.5 w-3.5" />
+            <span>{item.title}</span>
+            <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              à venir
+            </span>
+          </span>
+        </SidebarMenuSubButton>
+      </SidebarMenuSubItem>
+    );
+  }
+
+  return (
+    <SidebarMenuSubItem>
+      <SidebarMenuSubButton asChild isActive={currentPath === item.url}>
+        <NavLink to={item.url} end>
+          <item.icon className="h-3.5 w-3.5" />
+          <span>{item.title}</span>
+          {item.badge && (
+            <span className="ml-auto rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
+              {item.badge}
+            </span>
+          )}
+        </NavLink>
+      </SidebarMenuSubButton>
+    </SidebarMenuSubItem>
+  );
+}
+
+// Second-level collapsible group (e.g. Concours), rendered inside a SidebarMenuSub.
+function SubGroup({ item, currentPath }: { item: NavItem; currentPath: string }) {
+  const hasActive = useMemo(() => containsPath(item, currentPath), [item, currentPath]);
+  const [open, setOpen] = useState(hasActive);
+  useEffect(() => {
+    if (hasActive) setOpen(true);
+  }, [hasActive]);
+
+  return (
+    <SidebarMenuSubItem>
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuSubButton asChild>
+            <button type="button" className="w-full">
+              <item.icon className="h-3.5 w-3.5" />
+              <span>{item.title}</span>
+              <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                <span className="text-[10px] text-muted-foreground">
+                  {item.children?.length}
+                </span>
+                <ChevronRight
+                  className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-90")}
+                />
+              </span>
+            </button>
+          </SidebarMenuSubButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {item.children?.map((child) => (
+              <SubLeaf key={child.title} item={child} currentPath={currentPath} />
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </Collapsible>
+    </SidebarMenuSubItem>
+  );
+}
+
+// Top-level collapsible group.
+function TopGroup({ item, currentPath }: { item: NavItem; currentPath: string }) {
+  const hasActive = useMemo(() => containsPath(item, currentPath), [item, currentPath]);
+  const [open, setOpen] = useState(hasActive);
+  useEffect(() => {
+    if (hasActive) setOpen(true);
+  }, [hasActive]);
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} asChild>
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton tooltip={item.title} className="font-medium">
+            <item.icon className="h-4 w-4" />
+            <span>{item.title}</span>
+            <span className="ml-auto flex shrink-0 items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">
+                {item.children?.length}
+              </span>
+              <ChevronRight
+                className={cn("h-4 w-4 transition-transform", open && "rotate-90")}
+              />
+            </span>
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {item.children?.map((child) =>
+              child.children ? (
+                <SubGroup key={child.title} item={child} currentPath={currentPath} />
+              ) : (
+                <SubLeaf key={child.title} item={child} currentPath={currentPath} />
+              ),
+            )}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+}
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
   const { data: app } = useApp();
-
-  const isActive = (path: string) => currentPath === path;
 
   const brandName = app?.name ?? "Admin Panel";
   const Logo = () =>
@@ -94,93 +310,31 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Contenu Académique</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {academicItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink
-                      to={item.url}
-                      end
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+              {navTree.map((item) =>
+                item.children ? (
+                  <TopGroup key={item.title} item={item} currentPath={currentPath} />
+                ) : (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={currentPath === item.url}
+                      tooltip={item.title}
                     >
-                      <item.icon className="h-4 w-4" />
-                      {state !== "collapsed" && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Contenu Public</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {publicContentItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink
-                      to={item.url}
-                      end
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {state !== "collapsed" && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Jobkia</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {jobkiaItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink
-                      to={item.url}
-                      end
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {state !== "collapsed" && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Système</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {settingsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink
-                      to={item.url}
-                      end
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {state !== "collapsed" && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                      <NavLink
+                        to={item.url!}
+                        end
+                        className="hover:bg-sidebar-accent/50"
+                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ),
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

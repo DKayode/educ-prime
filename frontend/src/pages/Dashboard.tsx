@@ -1,25 +1,24 @@
-import { Users, BookOpen, FileText, Loader2, Building2, BookMarked } from "lucide-react";
+import { Users, FileText, Loader2, Building2, GraduationCap, GitFork } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { statsService } from "@/lib/services/stats.service";
 import { filieresService } from "@/lib/services/filieres.service";
 
-const recentActivities = [
-  { user: "Admin", action: "Upload épreuve", filiere: "Informatique", time: "Il y a 5 min" },
-  { user: "Modérateur", action: "Ajout filière", filiere: "Mathématiques", time: "Il y a 1h" },
-  { user: "Admin", action: "Modification", filiere: "Physique", time: "Il y a 2h" },
-  { user: "Admin", action: "Upload épreuve", filiere: "Chimie", time: "Il y a 3h" },
-];
+const BREAKDOWN_COLORS = ["#4f46e5", "#10b981", "#f59e0b"];
 
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -35,8 +34,6 @@ export default function Dashboard() {
   });
   const filieres = filieresResponse?.data || [];
 
-
-
   const isLoading = statsLoading || filieresLoading;
 
   if (isLoading) {
@@ -47,152 +44,181 @@ export default function Dashboard() {
     );
   }
 
+  const country = localStorage.getItem("country") || "benin";
+  const countryLabel = country.charAt(0).toUpperCase() + country.slice(1);
+  const today = new Date().toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  // All chart/breakdown data comes from the real /stats counts.
+  const contentBars = [
+    { name: "Épreuves", value: stats?.epreuvesCount ?? 0 },
+    { name: "Concours", value: stats?.concoursCount ?? 0 },
+    { name: "Parcours", value: stats?.parcoursCount ?? 0 },
+    { name: "Publicités", value: stats?.publicitesCount ?? 0 },
+    { name: "Événements", value: stats?.evenementsCount ?? 0 },
+    { name: "Opportunités", value: stats?.opportunitesCount ?? 0 },
+  ];
+
+  const breakdownRaw = [
+    { name: "Épreuves", value: stats?.epreuvesCount ?? 0 },
+    { name: "Concours", value: stats?.concoursCount ?? 0 },
+    { name: "Parcours", value: stats?.parcoursCount ?? 0 },
+  ];
+  const breakdownTotal = breakdownRaw.reduce((sum, d) => sum + d.value, 0);
+  const breakdown = breakdownRaw.map((d) => ({
+    ...d,
+    pct: breakdownTotal ? Math.round((d.value / breakdownTotal) * 100) : 0,
+  }));
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Vue d'ensemble de votre plateforme</p>
+        <h1 className="text-3xl font-bold text-foreground">Tableau de bord</h1>
+        <p className="text-muted-foreground">
+          Vue d'ensemble — <span className="font-medium text-foreground">{countryLabel}</span> · {today}
+        </p>
       </div>
 
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">Contenu Académique</h2>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Utilisateurs"
-            value={stats?.usersCount.toString() || "0"}
-            icon={Users}
-            variant="primary"
-          />
-          <StatCard
-            title="Établissements"
-            value={stats?.etablissementsCount.toString() || "0"}
-            icon={Building2}
-            variant="accent"
-          />
-          <StatCard
-            title="Filières"
-            value={stats?.filieresCount.toString() || "0"}
-            icon={BookOpen}
-            variant="success"
-          />
-          <StatCard
-            title="Matières"
-            value={stats?.matieresCount.toString() || "0"}
-            icon={BookMarked}
-          />
-          <StatCard
-            title="Épreuves"
-            value={stats?.epreuvesCount.toString() || "0"}
-            icon={FileText}
-            variant="primary"
-          />
-
-        </div>
+      {/* Stat cards — bound to real /stats counts */}
+      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Utilisateurs"
+          value={stats?.usersCount.toLocaleString("fr-FR") || "0"}
+          icon={Users}
+          variant="primary"
+        />
+        <StatCard
+          title="Établissements"
+          value={stats?.etablissementsCount.toLocaleString("fr-FR") || "0"}
+          icon={Building2}
+          variant="accent"
+        />
+        <StatCard
+          title="Épreuves"
+          value={stats?.epreuvesCount.toLocaleString("fr-FR") || "0"}
+          icon={FileText}
+          variant="success"
+        />
+        <StatCard
+          title="Concours"
+          value={stats?.concoursCount.toLocaleString("fr-FR") || "0"}
+          icon={GraduationCap}
+        />
       </div>
 
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">Contenu Public</h2>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Parcours"
-            value={stats?.parcoursCount.toString() || "0"}
-            icon={BookOpen}
-            variant="accent"
-          />
-          <StatCard
-            title="Publicités"
-            value={stats?.publicitesCount.toString() || "0"}
-            icon={FileText}
-            variant="primary"
-          />
-          <StatCard
-            title="Événements"
-            value={stats?.evenementsCount.toString() || "0"}
-            icon={FileText}
-            variant="accent"
-          />
-          <StatCard
-            title="Opportunités"
-            value={stats?.opportunitesCount.toString() || "0"}
-            icon={FileText}
-            variant="success"
-          />
-          <StatCard
-            title="Concours"
-            value={stats?.concoursCount.toString() || "0"}
-            icon={FileText}
-          />
-          <StatCard
-            title="Contacts Pro"
-            value={stats?.contactsProfessionnelsCount.toString() || "0"}
-            icon={Users}
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="shadow-md">
+      {/* Chart + breakdown — both derived from real counts */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="shadow-md lg:col-span-2">
           <CardHeader>
-            <CardTitle>Activités récentes</CardTitle>
-            <CardDescription>Dernières actions effectuées sur la plateforme</CardDescription>
+            <CardTitle>Répartition des contenus</CardTitle>
+            <CardDescription>Volume par type de contenu</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Utilisateur</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Filière</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentActivities.map((activity, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{activity.user}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{activity.action}</Badge>
-                    </TableCell>
-                    <TableCell>{activity.filiere}</TableCell>
-                    <TableCell className="text-muted-foreground">{activity.time}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ResponsiveContainer width="100%" height={224}>
+              <BarChart data={contentBars} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={40}
+                />
+                <Tooltip
+                  cursor={{ fill: "hsl(var(--muted))" }}
+                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                />
+                <Bar dataKey="value" name="Total" fill="#4f46e5" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
         <Card className="shadow-md">
           <CardHeader>
-            <CardTitle>Filières</CardTitle>
-            <CardDescription>Liste des filières disponibles</CardDescription>
+            <CardTitle>Répartition du contenu</CardTitle>
+            <CardDescription>Épreuves · Concours · Parcours</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {filieres.length === 0 ? (
-                <p className="text-center text-muted-foreground py-4">Aucune filière disponible</p>
-              ) : (
-                filieres.slice(0, 5).map((filiere, index) => (
-                  <div key={filiere.id} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-foreground">{filiere.nom}</span>
-                      <span className="text-muted-foreground text-xs">
-                        {filiere.etablissement?.nom || 'N/A'}
+            {breakdownTotal === 0 ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                Aucun contenu disponible
+              </p>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={160}>
+                  <PieChart>
+                    <Pie
+                      data={breakdown}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={45}
+                      outerRadius={70}
+                      paddingAngle={2}
+                      strokeWidth={0}
+                    >
+                      {breakdown.map((_, i) => (
+                        <Cell key={i} fill={BREAKDOWN_COLORS[i % BREAKDOWN_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-2 text-sm">
+                  {breakdown.map((d, i) => (
+                    <div key={d.name} className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ background: BREAKDOWN_COLORS[i % BREAKDOWN_COLORS.length] }}
+                        />
+                        {d.name}
                       </span>
+                      <span className="text-muted-foreground">{d.pct}%</span>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-primary transition-all"
-                        style={{ width: `${Math.max(20, 100 - index * 15)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+                  ))}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Recent list — real filières from filieresService */}
+      <Card className="shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle>Filières récentes</CardTitle>
+            <CardDescription>Dernières filières enregistrées</CardDescription>
+          </div>
+          <Link to="/filieres" className="text-sm font-medium text-primary">
+            Tout voir →
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {filieres.length === 0 ? (
+            <p className="py-4 text-center text-muted-foreground">Aucune filière disponible</p>
+          ) : (
+            <div className="divide-y divide-border">
+              {filieres.slice(0, 5).map((filiere) => (
+                <div key={filiere.id} className="flex items-center gap-3 py-3 text-sm">
+                  <GitFork className="h-4 w-4 text-primary" />
+                  <span className="flex-1 font-medium text-foreground">{filiere.nom}</span>
+                  <Badge variant="outline">{filiere.etablissement?.nom || "N/A"}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
