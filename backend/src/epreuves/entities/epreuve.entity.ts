@@ -9,6 +9,11 @@ export enum EpreuveType {
   EXAMENS = 'Examens',
 }
 
+export enum EpreuveSection {
+  NORMAL = 'normal',
+  RATTRAPAGE = 'rattrapage',
+}
+
 @Entity('epreuves')
 export class Epreuve {
   @PrimaryGeneratedColumn()
@@ -31,6 +36,14 @@ export class Epreuve {
 
   @Column({ type: 'enum', enum: EpreuveType, nullable: true })
   type: EpreuveType;
+
+  @Column({ type: 'int', nullable: true })
+  annee: number;
+
+  // DB column is varchar(20) + CHECK (not a native pg enum like `type`);
+  // value space is enforced by EpreuveSection / IsEnum + the CHECK constraint.
+  @Column({ type: 'varchar', length: 20, default: EpreuveSection.NORMAL })
+  section: EpreuveSection;
 
   @Column()
   url: string;

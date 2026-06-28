@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, IsDate, IsEnum } from 'class-validator';
-import { EpreuveType } from '../entities/epreuve.entity';
+import { IsString, IsNumber, IsOptional, IsDate, IsEnum, IsInt } from 'class-validator';
+import { EpreuveType, EpreuveSection } from '../entities/epreuve.entity';
 
 export class CreerEpreuveDto {
   @ApiProperty({ example: 'Epreuve de Mathématiques 2023', description: 'Titre de l\'épreuve' })
@@ -34,4 +34,14 @@ export class CreerEpreuveDto {
   @IsOptional()
   @IsEnum(EpreuveType, { message: 'Le type doit être une valeur valide' })
   type?: EpreuveType;
+
+  @ApiProperty({ example: 2023, description: 'Année de l\'épreuve', required: false })
+  @IsOptional()
+  @IsInt()
+  annee?: number;
+
+  @ApiProperty({ enum: EpreuveSection, description: 'Session de l\'épreuve', required: false })
+  @IsOptional()
+  @IsEnum(EpreuveSection, { message: 'La section doit être une valeur valide' })
+  section?: EpreuveSection;
 }

@@ -77,6 +77,8 @@ export interface Utilisateur {
 
 export type EpreuveType = 'Interrogation' | 'Devoirs' | 'Concours' | 'Examens';
 
+export type EpreuveSection = 'normal' | 'rattrapage';
+
 export interface Epreuve {
   id: number;
   uuid?: string;
@@ -94,6 +96,8 @@ export interface Epreuve {
   nombre_pages?: number;
   nombre_telechargements?: number;
   type?: EpreuveType;
+  annee?: number;
+  section?: EpreuveSection;
 }
 
 export interface LoginCredentials {
