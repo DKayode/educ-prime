@@ -38,6 +38,10 @@ import { Like } from './likes/entities/like.entity';
 import { Favori } from './favoris/entities/favoris.entity';
 import { Category } from './categories/entities/category.entity';
 import { CategoriesModule } from './categories/categories.module';
+import { StructureModule } from './structure/structure.module';
+import { Structure } from './structure/entities/structure.entity';
+import { TitreModule } from './titre/titre.module';
+import { Titre } from './titre/entities/titre.entity';
 import { NotificationsModule } from './notifications/notifications.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -101,6 +105,8 @@ import { CountryMiddleware } from './config/country.middleware';
       Like,
       Favori,
       Category,
+      Structure,
+      Titre,
       Notification
     ]),
     AuthModule,
@@ -122,6 +128,8 @@ import { CountryMiddleware } from './config/country.middleware';
     LikesModule,
     FavorisModule,
     CategoriesModule,
+    StructureModule,
+    TitreModule,
     NotificationsModule,
     NotificationEmailModule,
     FirebaseModule,

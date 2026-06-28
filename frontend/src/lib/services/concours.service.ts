@@ -1,4 +1,5 @@
 import { api } from '../api';
+import type { Structure, Titre } from '../types';
 import type { PaginationResponse, PaginationParams } from '../types/pagination';
 import { buildPaginationQuery } from '../types/pagination';
 
@@ -16,6 +17,13 @@ export interface Concours {
     lieu?: string;
     nombre_page: number;
     nombre_telechargements: number;
+    /** Optional reference to the organizing structure (lookup entity). */
+    structure_id?: number;
+    structure?: Structure;
+    /** Optional reference to the recruited titre/poste (lookup entity).
+     *  Named titre_ref to avoid clashing with the free-text `titre` column. */
+    titre_id?: number;
+    titre_ref?: Titre;
 }
 
 export const concoursService = {
@@ -33,11 +41,14 @@ export const concoursService = {
     },
 
     async create(data: {
-        titre: string;
+        /** Optional — the server auto-composes titre from structure + titre refs. */
+        titre?: string;
         url?: string;
         annee?: number;
         lieu?: string;
         nombre_page?: number;
+        structure_id?: number;
+        titre_id?: number;
     }): Promise<Concours> {
         return api.post<Concours>('/concours', data);
     },
@@ -48,6 +59,8 @@ export const concoursService = {
         annee: number;
         lieu: string;
         nombre_page: number;
+        structure_id: number;
+        titre_id: number;
     }>): Promise<Concours> {
         return api.put<Concours>(`/concours/${id}`, data);
     },
