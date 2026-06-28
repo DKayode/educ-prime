@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus, Version, Request } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ConcoursService } from './concours.service';
@@ -10,6 +10,8 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { FilterConcoursDto } from './dto/filter-concours.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
+import { CurrentCountry } from '../common/decorators/current-country.decorator';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('concours')
 @Controller('concours')
@@ -38,6 +40,22 @@ export class ConcoursController {
 
   findAll(@Query() filterDto: FilterConcoursDto) {
     return this.concoursService.findAll(filterDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Version('1')
+  @Get()
+  @ApiOperation({ summary: 'Concours groupés par titre officiel (structure + titre), instances par année imbriquées' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche sur le titre officiel (structure / titre)' })
+  findGroupedV1(
+    @CurrentCountry() pays: string,
+    @Request() req,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    const isAdmin = req.user?.role === RoleType.ADMIN;
+    return this.concoursService.findGroupedByTitle(pays, paginationDto, isAdmin);
   }
 
   @UseGuards(JwtAuthGuard)
