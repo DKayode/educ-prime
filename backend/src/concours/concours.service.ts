@@ -11,8 +11,7 @@ import { FilterConcoursDto } from './dto/filter-concours.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { ServiceStatusEnum } from '../common/enums/service-status.enum';
-import { FindOptionsWhere, Like, Brackets, Not } from 'typeorm';
-import { UploadConcoursDto } from './dto/upload-concours.dto';
+import { FindOptionsWhere, Like, Brackets, Not, IsNull } from 'typeorm';
 import { MailService } from '../mail/mail.service';
 
 @Injectable()
@@ -62,55 +61,42 @@ export class ConcoursService {
     return `${structure.nom} - ${titreRef.nom}`;
   }
 
-  async create(createConcoursDto: CreateConcoursDto) {
-    this.logger.log(`Création d'un concours (structure ${createConcoursDto.structure_id}, titre ${createConcoursDto.titre_id})`);
-    const newConcours = this.concoursRepository.create(createConcoursDto);
-    // structure_id + titre_id are required at create; the legacy titre column
-    // is always server-composed (never the manually-typed value).
-    newConcours.titre = await this.composeTitre(createConcoursDto.structure_id, createConcoursDto.titre_id);
-    // Admin-created concours are auto-approved (explicit, not relying on the DB
-    // column default). soumis_par_id stays null — this isn't a user submission.
-    newConcours.status = ServiceStatusEnum.APPROVED;
-    const saved = await this.concoursRepository.save(newConcours);
-    this.logger.log(`Concours créé: ${saved.titre} (ID: ${saved.id})`);
-    return saved;
-  }
-
-  // POST /v1/concours/upload — any authenticated user submits a concours for
-  // approval. Rejects (409) if a NON-declined concours with the same
-  // (structure_id, titre_id, annee) already exists in the same pays — a
-  // previously declined tuple may be resubmitted. Created as pending_approval,
-  // attributed to the caller (soumis_par_id), titre auto-composed.
-  async createUpload(pays: string, userId: number, dto: UploadConcoursDto) {
-    const { structure_id, titre_id, annee } = dto;
-    this.logger.log(`Upload concours par utilisateur ${userId} (structure ${structure_id}, titre ${titre_id}, annee ${annee}, pays ${pays})`);
+  // POST /concours — any authenticated user creates a concours. The file
+  // itself is NOT sent here; the client uploads it afterwards via the standard
+  // /files/concours/:uuid/file flow using the returned uuid. Rejects (409) if a
+  // NON-declined concours with the same (structure_id, titre_id, annee) already
+  // exists in the same pays — a previously declined tuple may be re-created.
+  // Admin → auto-approved; any other user → pending_approval. soumis_par_id is
+  // the caller (everyone). titre is server-composed.
+  async create(pays: string, createConcoursDto: CreateConcoursDto, userId: number, isAdmin: boolean) {
+    const { structure_id, titre_id, annee } = createConcoursDto;
+    this.logger.log(`Création d'un concours par utilisateur ${userId} (admin=${isAdmin}, structure ${structure_id}, titre ${titre_id}, annee ${annee}, pays ${pays})`);
 
     const existing = await this.concoursRepository.findOne({
       where: {
         pays,
         structure_id,
         titre_id,
-        annee,
+        annee: annee == null ? IsNull() : annee,
         status: Not(ServiceStatusEnum.DECLINED),
       },
     });
     if (existing) {
-      this.logger.warn(`Doublon concours (structure ${structure_id}, titre ${titre_id}, annee ${annee}, pays ${pays}) — upload refusé`);
+      this.logger.warn(`Doublon concours (structure ${structure_id}, titre ${titre_id}, annee ${annee}, pays ${pays}) — création refusée`);
       throw new ConflictException(
-        `Un concours pour cette structure, ce titre et cette année (${annee}) existe déjà.`,
+        `Un concours pour cette structure, ce titre et cette année (${annee ?? 'non précisée'}) existe déjà.`,
       );
     }
 
-    const newConcours = this.concoursRepository.create({
-      ...dto,
-      pays,
-      status: ServiceStatusEnum.PENDING_APPROVAL,
-      soumis_par_id: userId,
-    });
+    const newConcours = this.concoursRepository.create({ ...createConcoursDto, pays });
+    // structure_id + titre_id are required at create; the legacy titre column
+    // is always server-composed (never the manually-typed value).
     newConcours.titre = await this.composeTitre(structure_id, titre_id);
+    newConcours.status = isAdmin ? ServiceStatusEnum.APPROVED : ServiceStatusEnum.PENDING_APPROVAL;
+    newConcours.soumis_par_id = userId;
 
     const saved = await this.concoursRepository.save(newConcours);
-    this.logger.log(`Concours soumis (en attente): ${saved.titre} (ID: ${saved.id}, soumis_par ${userId})`);
+    this.logger.log(`Concours créé: ${saved.titre} (ID: ${saved.id}, status ${saved.status}, soumis_par ${userId})`);
     return saved;
   }
 

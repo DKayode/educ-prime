@@ -13,7 +13,6 @@ import { FichiersService } from '../fichiers/fichiers.service';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { ServiceStatusEnum } from '../common/enums/service-status.enum';
-import { UploadConcoursDto } from './dto/upload-concours.dto';
 import { UpdateConcoursStatusDto } from './dto/update-concours-status.dto';
 
 @ApiTags('concours')
@@ -24,11 +23,15 @@ export class ConcoursController {
     private readonly fichiersService: FichiersService,
   ) { }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Body() createConcoursDto: CreateConcoursDto) {
-    return this.concoursService.create(createConcoursDto);
+  @ApiOperation({ summary: 'Créer un concours. Admin → approuvé ; tout autre utilisateur → en attente d\'approbation.' })
+  @ApiResponse({ status: 201, description: 'Concours créé' })
+  @ApiResponse({ status: 409, description: 'Un concours avec la même structure, titre et année existe déjà' })
+  create(@CurrentCountry() pays: string, @Request() req, @Body() createConcoursDto: CreateConcoursDto) {
+    const isAdmin = req.user?.role === RoleType.ADMIN;
+    const userId = req.user.utilisateurId;
+    return this.concoursService.create(pays, createConcoursDto, userId, isAdmin);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -44,21 +47,6 @@ export class ConcoursController {
   findAll(@Request() req, @Query() filterDto: FilterConcoursDto) {
     const isAdmin = req.user?.role === RoleType.ADMIN;
     return this.concoursService.findAll(filterDto, isAdmin);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Version('1')
-  @Post('upload')
-  @ApiOperation({ summary: 'Soumettre un concours (tout utilisateur authentifié) — créé en attente d\'approbation' })
-  @ApiResponse({ status: 201, description: 'Concours soumis (en attente d\'approbation)' })
-  @ApiResponse({ status: 409, description: 'Un concours avec la même structure, titre et année existe déjà' })
-  uploadConcours(
-    @CurrentCountry() pays: string,
-    @Request() req,
-    @Body() uploadConcoursDto: UploadConcoursDto,
-  ) {
-    const userId = req.user.utilisateurId;
-    return this.concoursService.createUpload(pays, userId, uploadConcoursDto);
   }
 
   @UseGuards(JwtAuthGuard)
