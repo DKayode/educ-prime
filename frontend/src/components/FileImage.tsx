@@ -14,7 +14,7 @@ interface FileImageProps extends Omit<ComponentProps<'img'>, 'src'> {
      * Direct URL for a PUBLIC slot, read straight off the entity row's
      * `<slot>_path` field (which now stores the full anonymous URL). When set,
      * the file renders over a plain GET with no presign round-trip. Leave unset
-     * for private slots (epreuves, ressources, utilisateurs, prestataires
+     * for private slots (epreuves, utilisateurs, prestataires
      * identity) so the component resolves a short-lived presigned URL instead.
      */
     url?: string | null;

@@ -6,7 +6,6 @@ import { Filiere } from '../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../niveau-etude/entities/niveau-etude.entity';
 import { Matiere } from '../matieres/entities/matiere.entity';
 import { Epreuve } from '../epreuves/entities/epreuve.entity';
-import { Ressource } from '../ressources/entities/ressource.entity';
 import { CreerEtablissementDto } from './dto/creer-etablissement.dto';
 import { MajEtablissementDto } from './dto/maj-etablissement.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -16,7 +15,6 @@ import { FilterFiliereDto } from '../filieres/dto/filter-filiere.dto';
 import { FilterNiveauEtudeDto } from '../niveau-etude/dto/filter-niveau-etude.dto';
 import { FilterMatiereDto } from '../matieres/dto/filter-matiere.dto';
 import { FilterEpreuveDto } from '../epreuves/dto/filter-epreuve.dto';
-import { FilterRessourceDto } from '../ressources/dto/filter-ressource.dto';
 import { FiliereResponseDto } from '../filieres/dto/filiere-response.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 
@@ -35,8 +33,6 @@ export class EtablissementsService {
     private readonly matieresRepository: Repository<Matiere>,
     @InjectRepository(Epreuve)
     private readonly epreuvesRepository: Repository<Epreuve>,
-    @InjectRepository(Ressource)
-    private readonly ressourcesRepository: Repository<Ressource>,
     private readonly fichiersService: FichiersService,
   ) { }
 
@@ -398,175 +394,6 @@ export class EtablissementsService {
           },
         },
       })) as Epreuve[],
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
-  async findRessourcesByNiveauEtudeAndFilters(
-    pays: string,
-    etablissementId: string,
-    filiereId: string,
-    niveauEtudeId: string,
-    filterDto: FilterRessourceDto
-  ): Promise<PaginationResponse<Ressource>> {
-    const { page = 1, limit = 10, search, type, matiere } = filterDto;
-    this.logger.log(`Recherche des ressources (pays=${pays}) pour niveau ID: ${niveauEtudeId} - Search: ${search}, Type: ${type}, Matière: ${matiere}`);
-
-    // Verify niveau_etude belongs to filiere and etablissement
-    const niveauEtude = await this.niveauEtudeRepository.findOne({
-      where: {
-        id: parseInt(niveauEtudeId),
-        filiere: {
-          id: parseInt(filiereId),
-          etablissement: { id: parseInt(etablissementId) }
-        }
-      },
-    });
-
-    if (!niveauEtude) {
-      throw new NotFoundException('Niveau d\'étude non trouvé pour cet établissement');
-    }
-
-    const queryBuilder = this.ressourcesRepository.createQueryBuilder('ressource')
-      .leftJoinAndSelect('ressource.matiere', 'matiere')
-      .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
-      .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
-      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
-      .leftJoinAndSelect('ressource.professeur', 'professeur')
-      .where('ressource.pays = :pays', { pays })
-      .andWhere('niveau_etude.id = :niveauEtudeId', { niveauEtudeId })
-      .orderBy('ressource.date_creation', filterDto.sort_order || 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
-
-    if (type) {
-      queryBuilder.andWhere('ressource.type = :type', { type });
-    }
-
-    if (matiere) {
-      queryBuilder.andWhere('matiere.nom = :matiere', { matiere });
-    }
-
-    if (search) {
-      queryBuilder.andWhere(
-        new Brackets((qb) => {
-          qb.where('unaccent(ressource.titre) ILIKE unaccent(:search)', { search: `%${search}%` })
-            .orWhere('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
-        }),
-      );
-    }
-
-    const [ressources, total] = await queryBuilder.getManyAndCount();
-
-    this.logger.log(`${ressources.length} ressource(s) trouvée(s) pour niveau ${niveauEtudeId} sur ${total} total`);
-
-    return {
-      data: ressources.map(ressource => ({
-        id: ressource.id,
-        titre: ressource.titre,
-        type: ressource.type,
-        url: ressource.url,
-        date_creation: ressource.date_creation,
-        date_publication: ressource.date_publication,
-        nombre_pages: ressource.nombre_pages,
-        nombre_telechargements: ressource.nombre_telechargements,
-        professeur: {
-          nom: ressource.professeur.nom,
-          prenom: ressource.professeur.prenom,
-          telephone: ressource.professeur.telephone,
-        },
-        matiere: {
-          id: ressource.matiere.id,
-          nom: ressource.matiere.nom,
-          description: ressource.matiere.description,
-          niveau_etude: {
-            id: ressource.matiere.niveau_etude.id,
-            nom: ressource.matiere.niveau_etude.nom,
-            duree_mois: ressource.matiere.niveau_etude.duree_mois,
-            filiere: {
-              id: ressource.matiere.niveau_etude.filiere.id,
-              nom: ressource.matiere.niveau_etude.filiere.nom,
-              etablissement: ressource.matiere.niveau_etude.filiere.etablissement,
-            },
-          },
-        },
-      })) as Ressource[],
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
-  async findRessourcesByMatiereAndType(etablissementId: string, filiereId: string, niveauEtudeId: string, matiereId: string, type: string, paginationDto: PaginationDto = {}): Promise<PaginationResponse<Ressource>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    this.logger.log(`Récupération des ressources pour matière ID: ${matiereId} et type: ${type} - Page: ${page}, Limite: ${limit}`);
-
-    // Verify matiere belongs to niveau_etude, filiere, and etablissement
-    const matiere = await this.matieresRepository.findOne({
-      where: {
-        id: parseInt(matiereId),
-        niveau_etude: {
-          id: parseInt(niveauEtudeId),
-          filiere: {
-            id: parseInt(filiereId),
-            etablissement: { id: parseInt(etablissementId) }
-          }
-        }
-      },
-    });
-
-    if (!matiere) {
-      throw new NotFoundException('Matière non trouvée pour ce niveau d\'étude');
-    }
-
-    // Since we're using a string type from URL but need to match enum, we rely on controller normalization
-    // Ideally we should cast to RessourceType if we were strict, but database query will handle string comparison
-    const [ressources, total] = await this.ressourcesRepository.findAndCount({
-      where: {
-        matiere: { id: parseInt(matiereId) },
-        type: type as any // Cast to any to avoid TS error if strict enum check, or RessourceType if imported
-      },
-      relations: ['matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'professeur'],
-      order: { date_creation: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    this.logger.log(`${ressources.length} ressource(s) de type ${type} trouvée(s) pour matière ${matiereId} sur ${total} total`);
-
-    return {
-      data: ressources.map(ressource => ({
-        id: ressource.id,
-        titre: ressource.titre,
-        type: ressource.type,
-        url: ressource.url,
-        date_creation: ressource.date_creation,
-        date_publication: ressource.date_publication,
-        professeur: {
-          nom: ressource.professeur.nom,
-          prenom: ressource.professeur.prenom,
-          telephone: ressource.professeur.telephone,
-        },
-        matiere: {
-          id: ressource.matiere.id,
-          nom: ressource.matiere.nom,
-          description: ressource.matiere.description,
-          niveau_etude: {
-            id: ressource.matiere.niveau_etude.id,
-            nom: ressource.matiere.niveau_etude.nom,
-            duree_mois: ressource.matiere.niveau_etude.duree_mois,
-            filiere: {
-              id: ressource.matiere.niveau_etude.filiere.id,
-              nom: ressource.matiere.niveau_etude.filiere.nom,
-              etablissement_id: ressource.matiere.niveau_etude.filiere.etablissement_id,
-            },
-          },
-        },
-      })) as Ressource[],
       total,
       page,
       limit,

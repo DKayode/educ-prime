@@ -1,9 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException, Logger, Inject } from '@nestjs/common';
 import { Repository } from 'typeorm';
-import { TypeFichier, TypeRessource } from './entities/fichier.entity';
+import { TypeFichier } from './entities/fichier.entity';
 import { Matiere } from '../matieres/entities/matiere.entity';
 import { Epreuve } from '../epreuves/entities/epreuve.entity';
-import { Ressource, RessourceType } from '../ressources/entities/ressource.entity';
 import { FirebaseConfig } from '../config/firebase.config';
 import { FichierUploadData } from './interfaces/fichier-upload-data.interface';
 import * as sharp from 'sharp';
@@ -31,15 +30,13 @@ export class FichiersService {
    */
   private resolveR2Target(
     uploadData: FichierUploadData,
-    ids: { utilisateurId: number; epreuveId?: number; ressourceId?: number },
+    ids: { utilisateurId: number; epreuveId?: number },
   ): { entity: string; slot: string; id: number } | null {
     switch (uploadData.type) {
       case TypeFichier.PROFILE:
         return { entity: 'utilisateurs', slot: 'profil', id: ids.utilisateurId };
       case TypeFichier.EPREUVE:
         return ids.epreuveId ? { entity: 'epreuves', slot: 'file', id: ids.epreuveId } : null;
-      case TypeFichier.RESSOURCE:
-        return ids.ressourceId ? { entity: 'ressources', slot: 'file', id: ids.ressourceId } : null;
       case TypeFichier.EVENEMENT:
         return uploadData.entityId ? { entity: 'evenements', slot: 'image', id: uploadData.entityId } : null;
       case TypeFichier.OPPORTUNITE:
@@ -65,7 +62,6 @@ export class FichiersService {
 
   private get matiereRepository(): Repository<Matiere> { return this.resolver.getRepository(Matiere); }
   private get epreuveRepository(): Repository<Epreuve> { return this.resolver.getRepository(Epreuve); }
-  private get ressourceRepository(): Repository<Ressource> { return this.resolver.getRepository(Ressource); }
 
   private async compressImage(buffer: Buffer): Promise<Buffer> {
     try {
@@ -123,51 +119,6 @@ export class FichiersService {
     return savedEpreuve;
   }
 
-  private async createOrGetRessource(uploadData: FichierUploadData, professeurId: number): Promise<Ressource> {
-    // If ressourceId is provided, validate it exists
-    if (uploadData.ressourceId) {
-      const ressource = await this.ressourceRepository.findOne({
-        where: { id: uploadData.ressourceId }
-      });
-      if (!ressource) {
-        throw new NotFoundException(`Ressource avec l'ID ${uploadData.ressourceId} introuvable`);
-      }
-      this.logger.log(`Using existing ressource: ${ressource.titre} (ID: ${ressource.id})`);
-      return ressource;
-    }
-
-    // Create new ressource without URL
-    if (!uploadData.ressourceTitre || !uploadData.typeRessource) {
-      throw new BadRequestException('ressourceTitre et typeRessource sont requis lors de la création d\'une nouvelle ressource');
-    }
-
-    const newRessource = this.ressourceRepository.create({
-      titre: uploadData.ressourceTitre,
-      type: this.mapToRessourceType(uploadData.typeRessource),
-      url: '',
-      professeur_id: professeurId,
-      matiere_id: uploadData.matiereId,
-      nombre_pages: uploadData.nombrePages || 0,
-    });
-
-    const savedRessource = await this.ressourceRepository.save(newRessource);
-    this.logger.log(`Created new ressource: ${savedRessource.titre} (ID: ${savedRessource.id})`);
-    return savedRessource;
-  }
-
-  private mapToRessourceType(type: TypeRessource): RessourceType {
-    switch (type) {
-      case TypeRessource.DOCUMENT:
-        return RessourceType.DOCUMENT;
-      case TypeRessource.QUIZ:
-        return RessourceType.QUIZ;
-      case TypeRessource.EXERCICES:
-        return RessourceType.EXERCICES;
-      default:
-        throw new BadRequestException(`Type de ressource invalide fourni : ${type}`);
-    }
-  }
-
   private normalizePathSegment(value: string | number | undefined): string {
     if (value === undefined || value === null) {
       throw new BadRequestException('Segment de chemin invalide rencontré lors de la construction du chemin de stockage');
@@ -181,7 +132,7 @@ export class FichiersService {
 
   async uploadFile(file: any, utilisateurId: number, uploadData: FichierUploadData): Promise<{ url: string; type: TypeFichier; entityId: number }> {
     let createdEntityId: number | null = null;
-    let createdEntityType: 'epreuve' | 'ressource' | null = null;
+    let createdEntityType: 'epreuve' | null = null;
     let fileBuffer = file.buffer;
     let contentType = file.mimetype;
 
@@ -203,11 +154,10 @@ export class FichiersService {
       this.logger.log(`Starting file upload process for user ${utilisateurId}`);
 
       let actualEpreuveId: number | undefined;
-      let actualRessourceId: number | undefined;
 
       // ... rest of method
 
-      // Step 1: Validate matiere and create/get epreuve or ressource
+      // Step 1: Validate matiere and create/get epreuve
       if (uploadData.type === TypeFichier.EPREUVE) {
         if (!uploadData.matiereId) {
           throw new BadRequestException('matiereId est requis pour une épreuve');
@@ -228,20 +178,6 @@ export class FichiersService {
 
         // Store reference to type for path generation
         uploadData.epreuveType = epreuve.type;
-      } else if (uploadData.type === TypeFichier.RESSOURCE) {
-        if (!uploadData.matiereId) {
-          throw new BadRequestException('matiereId est requis pour une ressource');
-        }
-        await this.validateMatiereExists(uploadData.matiereId);
-
-        const ressource = await this.createOrGetRessource(uploadData, utilisateurId);
-        actualRessourceId = ressource.id;
-
-        if (!uploadData.ressourceId) {
-          // We created a new ressource, track it for rollback
-          createdEntityId = actualRessourceId;
-          createdEntityType = 'ressource';
-        }
       }
 
       // Step 2: Upload file to Firebase Storage
@@ -286,22 +222,6 @@ export class FichiersService {
             'epreuves',
             this.normalizePathSegment(uploadData.epreuveType),
             this.normalizePathSegment(actualEpreuveId),
-            normalizedFileName,
-          ].join('/');
-          break;
-        case TypeFichier.RESSOURCE:
-          if (!uploadData.typeRessource) {
-            // fallback if typeRessource is missing but needed
-            // In createOrGetRessource we validated/mapped it. 
-            // Ideally we should have it in uploadData. If not (update case), we might need to fetch it?
-            // But for now, require it or rely on what's passed.
-            // If uploadData.typeRessource is missing here, path generation fails. 
-            throw new BadRequestException('typeRessource est requis pour les ressources');
-          }
-          folderPath = [
-            'ressources',
-            this.normalizePathSegment(uploadData.typeRessource),
-            this.normalizePathSegment(actualRessourceId),
             normalizedFileName,
           ].join('/');
           break;
@@ -403,7 +323,6 @@ export class FichiersService {
       const r2Target = this.resolveR2Target(uploadData, {
         utilisateurId,
         epreuveId: actualEpreuveId,
-        ressourceId: actualRessourceId,
       });
       if (r2Target) {
         const r2Ext = (fileName.split('.').pop() || '').toLowerCase();
@@ -414,7 +333,7 @@ export class FichiersService {
         });
       }
 
-      // Step 3: Update URL in epreuve or ressource table
+      // Step 3: Update URL in epreuve table
       if (uploadData.type === TypeFichier.EPREUVE && actualEpreuveId) {
         await this.epreuveRepository.update({ id: actualEpreuveId }, { url: fileUrl });
         this.logger.log(`Updated epreuve ${actualEpreuveId} with URL: ${fileUrl}`);
@@ -423,17 +342,6 @@ export class FichiersService {
         return {
           id: epreuve.id,
           url: epreuve.url,
-          filename: fileName,
-          originalName: file.originalname,
-        } as any;
-      } else if (uploadData.type === TypeFichier.RESSOURCE && actualRessourceId) {
-        await this.ressourceRepository.update({ id: actualRessourceId }, { url: fileUrl });
-        this.logger.log(`Updated ressource ${actualRessourceId} with URL: ${fileUrl}`);
-
-        const ressource = await this.ressourceRepository.findOne({ where: { id: actualRessourceId } });
-        return {
-          id: ressource.id,
-          url: ressource.url,
           filename: fileName,
           originalName: file.originalname,
         } as any;
@@ -455,8 +363,6 @@ export class FichiersService {
         try {
           if (createdEntityType === 'epreuve') {
             await this.epreuveRepository.delete({ id: createdEntityId });
-          } else if (createdEntityType === 'ressource') {
-            await this.ressourceRepository.delete({ id: createdEntityId });
           }
           this.logger.log(`Successfully rolled back ${createdEntityType} ${createdEntityId}`);
         } catch (rollbackError) {

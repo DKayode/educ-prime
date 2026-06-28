@@ -4,7 +4,6 @@ import { Utilisateur } from '../../utilisateurs/entities/utilisateur.entity';
 export enum TypeFichier {
   PROFILE = 'profile',
   EPREUVE = 'epreuve',
-  RESSOURCE = 'ressource',
   PUBLICITE = 'PUBLICITE',
   EVENEMENT = 'EVENEMENT',
   OPPORTUNITE = 'OPPORTUNITE',
@@ -18,12 +17,6 @@ export enum TypeFichier {
   SERVICE = 'SERVICE',
   RECRUTEUR = 'RECRUTEUR',
   OFFRE = 'OFFRE'
-}
-
-export enum TypeRessource {
-  DOCUMENT = 'Document',
-  QUIZ = 'Quiz',
-  EXERCICES = 'Exercices'
 }
 
 @Entity()
@@ -46,13 +39,6 @@ export class Fichier {
   })
   type: TypeFichier;
 
-  @Column({
-    type: 'enum',
-    enum: TypeRessource,
-    nullable: true
-  })
-  typeRessource?: TypeRessource;
-
   @Column()
   utilisateurId: number;
 
@@ -61,9 +47,6 @@ export class Fichier {
 
   @Column({ nullable: true })
   epreuveId?: number;
-
-  @Column({ nullable: true })
-  ressourceId?: number;
 
   @Column({ nullable: true })
   parcourId?: number;

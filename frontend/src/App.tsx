@@ -13,7 +13,6 @@ import Filieres from "./pages/Filieres";
 import Matieres from "./pages/Matieres";
 import Niveaux from "./pages/Niveaux";
 import Epreuves from "./pages/Epreuves";
-import Ressources from "./pages/Ressources";
 import Publicites from "./pages/Publicites";
 import Evenements from "./pages/Evenements";
 import Opportunites from "./pages/Opportunites";
@@ -64,7 +63,6 @@ const App = () => (
                       <Route path="/matieres" element={<Matieres />} />
                       <Route path="/niveaux" element={<Niveaux />} />
                       <Route path="/epreuves" element={<Epreuves />} />
-                      <Route path="/ressources" element={<Ressources />} />
                       <Route path="/publicites" element={<Publicites />} />
                       <Route path="/evenements" element={<Evenements />} />
                       <Route path="/opportunites" element={<Opportunites />} />
