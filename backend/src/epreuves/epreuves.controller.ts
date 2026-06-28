@@ -3,6 +3,7 @@ import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { EpreuvesService } from './epreuves.service';
 import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
+import { UploadEpreuveDto } from './dto/upload-epreuve.dto';
 import { MajEpreuveDto } from './dto/maj-epreuve.dto';
 import { EpreuveResponseDto } from './dto/epreuve-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -27,6 +28,15 @@ export class EpreuvesController {
   @Post()
   async create(@Request() req, @Body() creerEpreuveDto: CreerEpreuveDto) {
     return this.epreuvesService.create(creerEpreuveDto, req.user.utilisateurId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('upload')
+  @ApiOperation({ summary: 'Soumettre une épreuve (tout utilisateur connecté) — création en attente d\'approbation' })
+  @ApiResponse({ status: 201, description: 'Épreuve créée en attente d\'approbation' })
+  @ApiResponse({ status: 409, description: 'Une épreuve identique (chaîne + titre + année) existe déjà' })
+  async upload(@CurrentCountry() pays: string, @Request() req, @Body() uploadEpreuveDto: UploadEpreuveDto) {
+    return this.epreuvesService.uploadEpreuve(pays, uploadEpreuveDto, req.user.utilisateurId);
   }
 
   @UseGuards(JwtAuthGuard)
