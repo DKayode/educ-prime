@@ -66,6 +66,9 @@ export class ConcoursService {
     // structure_id + titre_id are required at create; the legacy titre column
     // is always server-composed (never the manually-typed value).
     newConcours.titre = await this.composeTitre(createConcoursDto.structure_id, createConcoursDto.titre_id);
+    // Admin-created concours are auto-approved (explicit, not relying on the DB
+    // column default). soumis_par_id stays null — this isn't a user submission.
+    newConcours.status = ServiceStatusEnum.APPROVED;
     const saved = await this.concoursRepository.save(newConcours);
     this.logger.log(`Concours créé: ${saved.titre} (ID: ${saved.id})`);
     return saved;
