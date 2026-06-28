@@ -7,9 +7,13 @@ export class CreerEpreuveDto {
   @IsString()
   titre: string;
 
-  @ApiProperty({ description: 'URL du fichier de l\'épreuve' })
+  // Optional: the row is created BEFORE the PDF exists — the file is uploaded
+  // afterwards via /files/epreuves/:uuid/file, which (TRANSITIONAL dual-write)
+  // backfills epreuves.url. Seeded to '' until then.
+  @ApiProperty({ description: "URL du fichier de l'épreuve", required: false })
+  @IsOptional()
   @IsString()
-  url: string;
+  url?: string;
 
   @ApiProperty({ example: 120, description: 'Durée en minutes', required: false })
   @IsOptional()

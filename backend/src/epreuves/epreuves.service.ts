@@ -7,7 +7,6 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { MailService } from '../mail/mail.service';
 import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
-import { UploadEpreuveDto } from './dto/upload-epreuve.dto';
 import { MajEpreuveDto } from './dto/maj-epreuve.dto';
 import { FilterEpreuveDto } from './dto/filter-epreuve.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -86,10 +85,35 @@ export class EpreuvesService {
       this.logger.warn(`Matière ID ${creerEpreuveDto.matiere_id} introuvable`);
       throw new NotFoundException('Matière non trouvée');
     }
+    // Duplicate guard (applies to ALL creates, admin included). matiere_id
+    // uniquely determines niveau_etude → filiere → etablissement (all non-null
+    // single FKs), so matiere_id + titre + annee equals the full chain tuple.
+    // A previously DECLINED épreuve must not block a re-submission.
+    const dupQb = this.epreuvesRepository.createQueryBuilder('epreuve')
+      .where('epreuve.matiere_id = :matiere_id', { matiere_id: creerEpreuveDto.matiere_id })
+      .andWhere('epreuve.titre = :titre', { titre: creerEpreuveDto.titre })
+      .andWhere('epreuve.status != :declined', { declined: ServiceStatusEnum.DECLINED });
+    if (creerEpreuveDto.annee === null || creerEpreuveDto.annee === undefined) {
+      dupQb.andWhere('epreuve.annee IS NULL');
+    } else {
+      dupQb.andWhere('epreuve.annee = :annee', { annee: creerEpreuveDto.annee });
+    }
+    const duplicate = await dupQb.getOne();
+    if (duplicate) {
+      this.logger.warn(`Doublon refusé: épreuve #${duplicate.id} (statut ${duplicate.status}) a déjà ce tuple`);
+      throw new ConflictException(
+        "Une épreuve avec le même établissement, filière, niveau, matière, titre et année existe déjà.",
+      );
+    }
+
     const newEpreuve = new Epreuve();
     newEpreuve.titre = creerEpreuveDto.titre;
-    newEpreuve.url = creerEpreuveDto.url;
-    newEpreuve.duree_minutes = creerEpreuveDto.duree_minutes;
+    // Row may exist before the PDF: the file is uploaded afterwards via
+    // /files/epreuves/:uuid/file, which backfills url. Seed empty until then.
+    newEpreuve.url = creerEpreuveDto.url ?? '';
+    // duree_minutes is NOT NULL with no DB default; 0 = unspecified (consistent
+    // with nombre_pages), so a minimal create doesn't violate the constraint.
+    newEpreuve.duree_minutes = creerEpreuveDto.duree_minutes ?? 0;
     newEpreuve.matiere_id = creerEpreuveDto.matiere_id;
     newEpreuve.professeur_id = professeurId;
     newEpreuve.date_publication = creerEpreuveDto.date_publication;
@@ -106,61 +130,7 @@ export class EpreuvesService {
       ? ServiceStatusEnum.APPROVED
       : ServiceStatusEnum.PENDING_APPROVAL;
     const saved = await this.epreuvesRepository.save(newEpreuve);
-    this.logger.log(`Épreuve créée: ${saved.titre} (ID: ${saved.id}, Matière: ${saved.matiere_id}, pays: ${saved.pays})`);
-    return saved;
-  }
-
-  // User-facing upload (any authenticated user). Rejects a duplicate of the same
-  // (etablissement, filière, niveau, matière, titre, annee) tuple, then creates a
-  // PENDING_APPROVAL épreuve owned by the caller. The file itself is uploaded
-  // afterwards via the existing R2 presign flow (POST /files/epreuves/:uuid/file/...);
-  // url stays an empty placeholder until the legacy mirror backfills it.
-  async uploadEpreuve(pays: string, dto: UploadEpreuveDto, professeurId: number) {
-    this.logger.log(`Upload d'épreuve: "${dto.titre}" (matiere ${dto.matiere_id}, annee ${dto.annee}) par utilisateur ${professeurId}`);
-
-    const matiere = await this.matieresRepository.findOne({ where: { id: dto.matiere_id } });
-    if (!matiere) {
-      throw new NotFoundException('Matière non trouvée');
-    }
-
-    // matiere_id uniquely determines niveau_etude → filiere → etablissement
-    // (all non-null single FKs), so this tuple equals the full chain + titre + annee.
-    // A previously DECLINED épreuve must not block a fresh upload.
-    const duplicate = await this.epreuvesRepository.createQueryBuilder('epreuve')
-      .where('epreuve.matiere_id = :matiere_id', { matiere_id: dto.matiere_id })
-      .andWhere('epreuve.titre = :titre', { titre: dto.titre })
-      .andWhere('epreuve.annee = :annee', { annee: dto.annee })
-      .andWhere('epreuve.status != :declined', { declined: ServiceStatusEnum.DECLINED })
-      .getOne();
-
-    if (duplicate) {
-      this.logger.warn(`Doublon refusé: épreuve #${duplicate.id} (statut ${duplicate.status}) a déjà ce tuple`);
-      throw new ConflictException(
-        "Une épreuve avec le même établissement, filière, niveau, matière, titre et année existe déjà.",
-      );
-    }
-
-    const newEpreuve = new Epreuve();
-    newEpreuve.titre = dto.titre;
-    newEpreuve.url = '';
-    newEpreuve.matiere_id = dto.matiere_id;
-    newEpreuve.professeur_id = professeurId;
-    newEpreuve.annee = dto.annee;
-    // duree_minutes is NOT NULL with no DB default; 0 = unspecified (consistent
-    // with nombre_pages). The admin create() path always supplies it.
-    newEpreuve.duree_minutes = dto.duree_minutes ?? 0;
-    newEpreuve.nombre_pages = dto.nombre_pages;
-    newEpreuve.type = dto.type;
-    newEpreuve.date_publication = dto.date_publication;
-    if (dto.section !== undefined) {
-      newEpreuve.section = dto.section;
-    }
-    // pays derived from the parent matiere (same rule as create()), not the request.
-    newEpreuve.pays = matiere.pays;
-    newEpreuve.status = ServiceStatusEnum.PENDING_APPROVAL;
-
-    const saved = await this.epreuvesRepository.save(newEpreuve);
-    this.logger.log(`Épreuve en attente créée: #${saved.id} (uuid ${saved.uuid}, pays ${saved.pays})`);
+    this.logger.log(`Épreuve créée: ${saved.titre} (ID: ${saved.id}, Matière: ${saved.matiere_id}, statut: ${saved.status}, pays: ${saved.pays})`);
     return saved;
   }
 
