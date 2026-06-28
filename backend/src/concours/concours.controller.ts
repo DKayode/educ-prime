@@ -12,6 +12,7 @@ import { FilterConcoursDto } from './dto/filter-concours.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { ServiceStatusEnum } from '../common/enums/service-status.enum';
 
 @ApiTags('concours')
 @Controller('concours')
@@ -37,9 +38,10 @@ export class ConcoursController {
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche textuelle (Titre ou Lieu)' })
   @ApiQuery({ name: 'annee', required: false, type: Number, description: 'Filtrer par année' })
   @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Trier par (annee, titre) [Default: titre]' })
-
-  findAll(@Query() filterDto: FilterConcoursDto) {
-    return this.concoursService.findAll(filterDto);
+  @ApiQuery({ name: 'status', required: false, enum: ServiceStatusEnum, description: 'Admin uniquement : filtrer par statut (ex. pending_approval). Ignoré pour les non-admins.' })
+  findAll(@Request() req, @Query() filterDto: FilterConcoursDto) {
+    const isAdmin = req.user?.role === RoleType.ADMIN;
+    return this.concoursService.findAll(filterDto, isAdmin);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -60,17 +62,20 @@ export class ConcoursController {
 
   @UseGuards(JwtAuthGuard)
   @Get('annees')
-  getAnnees() {
-    return this.concoursService.getAnnees();
+  getAnnees(@Request() req) {
+    const isAdmin = req.user?.role === RoleType.ADMIN;
+    return this.concoursService.getAnnees(isAdmin);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/telechargement')
   async downloadFile(
+    @Request() req,
     @Param('id') id: string,
     @Res() res: Response
   ) {
-    const { url } = await this.concoursService.findOneForDownload(+id);
+    const isAdmin = req.user?.role === RoleType.ADMIN;
+    const { url } = await this.concoursService.findOneForDownload(+id, isAdmin);
     const { buffer, contentType, filename } = await this.fichiersService.downloadFile(url);
 
     res.setHeader('Content-Type', contentType);
@@ -80,8 +85,9 @@ export class ConcoursController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.concoursService.findOne(+id);
+  findOne(@Request() req, @Param('id') id: string) {
+    const isAdmin = req.user?.role === RoleType.ADMIN;
+    return this.concoursService.findOne(+id, isAdmin);
   }
 
   @UseGuards(JwtAuthGuard, RoleGuard)

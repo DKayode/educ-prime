@@ -40,6 +40,11 @@ export class Concours {
     @Column({ default: 0 })
     nombre_telechargements: number;
 
+    // Approval state. User-submitted concours start 'pending_approval';
+    // admin-created ones default to 'approved'. Values mirror ServiceStatusEnum.
+    @Column({ type: 'varchar', length: 20, default: 'approved' })
+    status: string;
+
     // Optional reference to the organizing body / institution (lookup entity).
     @ApiProperty({ required: false })
     @Column({ nullable: true })

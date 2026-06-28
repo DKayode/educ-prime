@@ -70,13 +70,21 @@ export class ConcoursService {
     return saved;
   }
 
-  async findAll(filterDto: FilterConcoursDto): Promise<PaginationResponse<Concours>> {
-    const { page = 1, limit = 10, search, annee, sort_by = 'titre', sort_order = 'ASC' } = filterDto;
-    this.logger.log(`Récupération des concours - filtres: ${JSON.stringify(filterDto)}`);
+  async findAll(filterDto: FilterConcoursDto, isAdmin: boolean): Promise<PaginationResponse<Concours>> {
+    const { page = 1, limit = 10, search, annee, sort_by = 'titre', sort_order = 'ASC', status } = filterDto;
+    this.logger.log(`Récupération des concours (admin=${isAdmin}) - filtres: ${JSON.stringify(filterDto)}`);
 
     const queryBuilder = this.concoursRepository.createQueryBuilder('concours')
       .leftJoinAndSelect('concours.structure', 'structure')
       .leftJoinAndSelect('concours.titre_ref', 'titre_ref');
+
+    // Status gating: non-admins only ever see approved concours; admins see
+    // every status and may narrow to one via the ?status= filter.
+    if (!isAdmin) {
+      queryBuilder.andWhere('concours.status = :status', { status: ServiceStatusEnum.APPROVED });
+    } else if (status) {
+      queryBuilder.andWhere('concours.status = :status', { status });
+    }
 
     if (search) {
       queryBuilder.andWhere(
@@ -114,14 +122,18 @@ export class ConcoursService {
     };
   }
 
-  async getAnnees(): Promise<number[]> {
-    this.logger.log('Récupération des années disponibles');
-    const result = await this.concoursRepository
+  async getAnnees(isAdmin: boolean): Promise<number[]> {
+    this.logger.log(`Récupération des années disponibles (admin=${isAdmin})`);
+    const qb = this.concoursRepository
       .createQueryBuilder('concours')
       .select('DISTINCT concours.annee', 'annee')
-      .where('concours.annee IS NOT NULL')
-      .orderBy('concours.annee', 'DESC')
-      .getRawMany();
+      .where('concours.annee IS NOT NULL');
+
+    if (!isAdmin) {
+      qb.andWhere('concours.status = :status', { status: ServiceStatusEnum.APPROVED });
+    }
+
+    const result = await qb.orderBy('concours.annee', 'DESC').getRawMany();
 
     return result.map(r => r.annee);
   }
@@ -254,8 +266,8 @@ export class ConcoursService {
     };
   }
 
-  async findOne(id: number) {
-    this.logger.log(`Recherche du concours ID: ${id}`);
+  async findOne(id: number, isAdmin: boolean) {
+    this.logger.log(`Recherche du concours ID: ${id} (admin=${isAdmin})`);
     const concours = await this.concoursRepository.findOne({
       where: { id },
       relations: ['structure', 'titre_ref'],
@@ -266,18 +278,29 @@ export class ConcoursService {
       throw new NotFoundException('Concours non trouvé');
     }
 
+    // Don't leak non-approved concours to non-admins: behave as if absent.
+    if (!isAdmin && concours.status !== ServiceStatusEnum.APPROVED) {
+      this.logger.warn(`Concours ID ${id} (status=${concours.status}) masqué pour non-admin`);
+      throw new NotFoundException('Concours non trouvé');
+    }
+
     this.logger.log(`Concours trouvé: ${concours.titre} (ID: ${id})`);
     return concours;
   }
 
-  async findOneForDownload(id: number): Promise<{ url: string; titre: string }> {
-    this.logger.log(`Recherche du concours pour téléchargement - ID: ${id}`);
+  async findOneForDownload(id: number, isAdmin: boolean): Promise<{ url: string; titre: string }> {
+    this.logger.log(`Recherche du concours pour téléchargement - ID: ${id} (admin=${isAdmin})`);
     const concours = await this.concoursRepository.findOne({
       where: { id },
     });
 
     if (!concours) {
       this.logger.warn(`Concours ID ${id} introuvable`);
+      throw new NotFoundException('Concours non trouvé');
+    }
+
+    if (!isAdmin && concours.status !== ServiceStatusEnum.APPROVED) {
+      this.logger.warn(`Concours ID ${id} (status=${concours.status}) masqué pour non-admin (download)`);
       throw new NotFoundException('Concours non trouvé');
     }
 
