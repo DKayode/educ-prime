@@ -146,7 +146,9 @@ export class EpreuvesService {
     newEpreuve.matiere_id = dto.matiere_id;
     newEpreuve.professeur_id = professeurId;
     newEpreuve.annee = dto.annee;
-    newEpreuve.duree_minutes = dto.duree_minutes;
+    // duree_minutes is NOT NULL with no DB default; 0 = unspecified (consistent
+    // with nombre_pages). The admin create() path always supplies it.
+    newEpreuve.duree_minutes = dto.duree_minutes ?? 0;
     newEpreuve.nombre_pages = dto.nombre_pages;
     newEpreuve.type = dto.type;
     newEpreuve.date_publication = dto.date_publication;
