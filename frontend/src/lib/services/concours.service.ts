@@ -41,7 +41,8 @@ export const concoursService = {
     },
 
     async create(data: {
-        titre: string;
+        /** Optional — the server auto-composes titre from structure + titre refs. */
+        titre?: string;
         url?: string;
         annee?: number;
         lieu?: string;

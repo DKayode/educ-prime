@@ -71,6 +71,11 @@ export default function Concours() {
     const [selectedStructure, setSelectedStructure] = useState<{ id: number; nom: string } | null>(null);
     const [selectedTitre, setSelectedTitre] = useState<{ id: number; nom: string } | null>(null);
 
+    // Legacy titre column is auto-composed server-side as "<structure> - <titre>".
+    // These mirror that composition for the live read-only preview in the dialogs.
+    const composedCreateTitre = selectedStructure && selectedTitre ? `${selectedStructure.nom} - ${selectedTitre.nom}` : "";
+    const composedEditTitre = editingItem?.structure && editingItem?.titre_ref ? `${editingItem.structure.nom} - ${editingItem.titre_ref.nom}` : "";
+
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
@@ -168,12 +173,18 @@ export default function Concours() {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.structure_id || !formData.titre_id) {
+            toast({ title: "Erreur", description: "La structure et le titre sont requis", variant: "destructive" });
+            return;
+        }
         setIsUploading(true);
 
         try {
-            // Step 1: Create entity without file URL
+            // Step 1: Create entity without file URL. titre is intentionally
+            // omitted — the server composes it from structure_id + titre_id.
+            const { titre: _omitTitre, ...createPayload } = formData;
             const createdItem = await concoursService.create({
-                ...formData,
+                ...createPayload,
                 annee: formData.annee ? parseInt(formData.annee) : undefined,
                 url: formData.url || undefined,
             });
@@ -209,12 +220,16 @@ export default function Concours() {
     const handleEditSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingItem) return;
+        if (!editingItem.structure_id || !editingItem.titre_id) {
+            toast({ title: "Erreur", description: "La structure et le titre sont requis", variant: "destructive" });
+            return;
+        }
         setIsUploading(true);
 
         try {
-            // Step 1: Update entity fields
+            // Step 1: Update entity fields. titre is omitted — the server
+            // recomposes it from structure_id + titre_id; no hand-editing.
             await concoursService.update(editingItem.id.toString(), {
-                titre: editingItem.titre,
                 lieu: editingItem.lieu,
                 annee: editingItem.annee,
                 nombre_page: editingItem.nombre_page,
@@ -297,8 +312,14 @@ export default function Concours() {
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
                                 <div className="grid gap-2">
-                                    <Label htmlFor="titre">Titre *</Label>
-                                    <Input id="titre" value={formData.titre} onChange={(e) => setFormData({ ...formData, titre: e.target.value })} required />
+                                    <Label htmlFor="titre">Titre (généré automatiquement)</Label>
+                                    <Input
+                                        id="titre"
+                                        readOnly
+                                        value={composedCreateTitre}
+                                        placeholder="Sélectionnez une structure et un titre"
+                                        className="bg-muted text-muted-foreground"
+                                    />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="grid gap-2">
@@ -316,7 +337,7 @@ export default function Concours() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="grid gap-2">
-                                        <Label>Structure</Label>
+                                        <Label>Structure *</Label>
                                         <Popover open={openStructureCombobox} onOpenChange={setOpenStructureCombobox}>
                                             <PopoverTrigger asChild>
                                                 <Button type="button" variant="outline" role="combobox" aria-expanded={openStructureCombobox} className="w-full justify-between font-normal">
@@ -330,16 +351,6 @@ export default function Concours() {
                                                     <CommandList>
                                                         <CommandEmpty>Aucune structure trouvée.</CommandEmpty>
                                                         <CommandGroup>
-                                                            {selectedStructure && (
-                                                                <CommandItem value="__clear_structure__" onSelect={() => {
-                                                                    setFormData({ ...formData, structure_id: undefined });
-                                                                    setSelectedStructure(null);
-                                                                    setOpenStructureCombobox(false);
-                                                                }}>
-                                                                    <Check className="mr-2 h-4 w-4 opacity-0" />
-                                                                    <span className="text-muted-foreground">Aucune</span>
-                                                                </CommandItem>
-                                                            )}
                                                             {structuresList.map((s) => (
                                                                 <CommandItem key={s.id} value={s.nom} onSelect={() => {
                                                                     setFormData({ ...formData, structure_id: s.id });
@@ -357,7 +368,7 @@ export default function Concours() {
                                         </Popover>
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label>Titre (poste)</Label>
+                                        <Label>Titre (poste) *</Label>
                                         <Popover open={openTitreCombobox} onOpenChange={setOpenTitreCombobox}>
                                             <PopoverTrigger asChild>
                                                 <Button type="button" variant="outline" role="combobox" aria-expanded={openTitreCombobox} className="w-full justify-between font-normal">
@@ -371,16 +382,6 @@ export default function Concours() {
                                                     <CommandList>
                                                         <CommandEmpty>Aucun titre trouvé.</CommandEmpty>
                                                         <CommandGroup>
-                                                            {selectedTitre && (
-                                                                <CommandItem value="__clear_titre__" onSelect={() => {
-                                                                    setFormData({ ...formData, titre_id: undefined });
-                                                                    setSelectedTitre(null);
-                                                                    setOpenTitreCombobox(false);
-                                                                }}>
-                                                                    <Check className="mr-2 h-4 w-4 opacity-0" />
-                                                                    <span className="text-muted-foreground">Aucun</span>
-                                                                </CommandItem>
-                                                            )}
                                                             {titresList.map((t) => (
                                                                 <CommandItem key={t.id} value={t.nom} onSelect={() => {
                                                                     setFormData({ ...formData, titre_id: t.id });
@@ -418,7 +419,7 @@ export default function Concours() {
                                 </div>
                             </div>
                             <DialogFooter>
-                                <Button type="submit" disabled={createMutation.isPending || isUploading}>
+                                <Button type="submit" disabled={createMutation.isPending || isUploading || !formData.structure_id || !formData.titre_id}>
                                     {createMutation.isPending || isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{isUploading ? "Upload..." : "Création..."}</> : "Créer"}
                                 </Button>
                             </DialogFooter>
@@ -535,8 +536,13 @@ export default function Concours() {
                         <DialogHeader><DialogTitle>Modifier</DialogTitle></DialogHeader>
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                                <Label>Titre *</Label>
-                                <Input value={editingItem?.titre || ""} onChange={(e) => setEditingItem(editingItem ? { ...editingItem, titre: e.target.value } : null)} required />
+                                <Label>Titre (généré automatiquement)</Label>
+                                <Input
+                                    readOnly
+                                    value={composedEditTitre}
+                                    placeholder="Sélectionnez une structure et un titre"
+                                    className="bg-muted text-muted-foreground"
+                                />
                             </div>
                             <div className="grid gap-2">
                                 <Label>Lieu</Label>
@@ -552,7 +558,7 @@ export default function Concours() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="grid gap-2">
-                                    <Label>Structure</Label>
+                                    <Label>Structure *</Label>
                                     <Popover open={openStructureCombobox} onOpenChange={setOpenStructureCombobox}>
                                         <PopoverTrigger asChild>
                                             <Button type="button" variant="outline" role="combobox" aria-expanded={openStructureCombobox} className="w-full justify-between font-normal">
@@ -566,15 +572,6 @@ export default function Concours() {
                                                 <CommandList>
                                                     <CommandEmpty>Aucune structure trouvée.</CommandEmpty>
                                                     <CommandGroup>
-                                                        {editingItem?.structure_id && (
-                                                            <CommandItem value="__clear_structure__" onSelect={() => {
-                                                                setEditingItem(editingItem ? { ...editingItem, structure_id: undefined, structure: undefined } : null);
-                                                                setOpenStructureCombobox(false);
-                                                            }}>
-                                                                <Check className="mr-2 h-4 w-4 opacity-0" />
-                                                                <span className="text-muted-foreground">Aucune</span>
-                                                            </CommandItem>
-                                                        )}
                                                         {structuresList.map((s) => (
                                                             <CommandItem key={s.id} value={s.nom} onSelect={() => {
                                                                 setEditingItem(editingItem ? { ...editingItem, structure_id: s.id, structure: { id: s.id, nom: s.nom } } : null);
@@ -591,7 +588,7 @@ export default function Concours() {
                                     </Popover>
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label>Titre (poste)</Label>
+                                    <Label>Titre (poste) *</Label>
                                     <Popover open={openTitreCombobox} onOpenChange={setOpenTitreCombobox}>
                                         <PopoverTrigger asChild>
                                             <Button type="button" variant="outline" role="combobox" aria-expanded={openTitreCombobox} className="w-full justify-between font-normal">
@@ -605,15 +602,6 @@ export default function Concours() {
                                                 <CommandList>
                                                     <CommandEmpty>Aucun titre trouvé.</CommandEmpty>
                                                     <CommandGroup>
-                                                        {editingItem?.titre_id && (
-                                                            <CommandItem value="__clear_titre__" onSelect={() => {
-                                                                setEditingItem(editingItem ? { ...editingItem, titre_id: undefined, titre_ref: undefined } : null);
-                                                                setOpenTitreCombobox(false);
-                                                            }}>
-                                                                <Check className="mr-2 h-4 w-4 opacity-0" />
-                                                                <span className="text-muted-foreground">Aucun</span>
-                                                            </CommandItem>
-                                                        )}
                                                         {titresList.map((t) => (
                                                             <CommandItem key={t.id} value={t.nom} onSelect={() => {
                                                                 setEditingItem(editingItem ? { ...editingItem, titre_id: t.id, titre_ref: { id: t.id, nom: t.nom } } : null);
@@ -647,7 +635,7 @@ export default function Concours() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button type="submit" disabled={isUploading}>
+                            <Button type="submit" disabled={isUploading || !editingItem?.structure_id || !editingItem?.titre_id}>
                                 {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Mise à jour...</> : "Mettre à jour"}
                             </Button>
                         </DialogFooter>
