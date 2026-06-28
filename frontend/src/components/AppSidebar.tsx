@@ -34,6 +34,7 @@ import {
   Smartphone,
   ChevronRight,
   BookOpen,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -88,10 +89,18 @@ const navTree: NavItem[] = [
         icon: GraduationCap,
         children: [
           { title: "Concours", icon: List, url: "/concours" },
+          { title: "Vue groupée", icon: Layers, url: "/concours/groupes" },
           { title: "Structures", icon: Building, url: "/structures" },
           { title: "Titres", icon: Award, url: "/titres" },
         ],
       },
+    ],
+  },
+  {
+    title: "Approbations",
+    icon: ClipboardCheck,
+    children: [
+      { title: "Concours en attente", icon: FileText, url: "/approbations/concours" },
     ],
   },
   {
