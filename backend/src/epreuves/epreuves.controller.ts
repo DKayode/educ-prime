@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Query, Res, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Patch, Param, Delete, UseGuards, Request, Query, Res, HttpStatus, ParseIntPipe } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { EpreuvesService } from './epreuves.service';
 import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
 import { UploadEpreuveDto } from './dto/upload-epreuve.dto';
 import { MajEpreuveDto } from './dto/maj-epreuve.dto';
+import { MajStatutEpreuveDto } from './dto/maj-statut-epreuve.dto';
 import { EpreuveResponseDto } from './dto/epreuve-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -27,7 +28,7 @@ export class EpreuvesController {
   @UseGuards(JwtAuthGuard)
   @Post()
   async create(@Request() req, @Body() creerEpreuveDto: CreerEpreuveDto) {
-    return this.epreuvesService.create(creerEpreuveDto, req.user.utilisateurId);
+    return this.epreuvesService.create(creerEpreuveDto, req.user.utilisateurId, req.user.role);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -63,6 +64,16 @@ export class EpreuvesController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   async findAllAdmin(@CurrentCountry() pays: string, @Query() filterDto: FilterEpreuveDto) {
     return this.epreuvesService.findAllAdmin(pays, filterDto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RoleType.ADMIN)
+  @Patch(':id/status')
+  @ApiOperation({ summary: "Approuver ou refuser une épreuve (Admin)" })
+  @ApiResponse({ status: 200, description: 'Statut mis à jour, uploader notifié par email' })
+  @ApiResponse({ status: 403, description: "Réservé aux administrateurs" })
+  async updateStatus(@Param('id', ParseIntPipe) id: number, @Body() majStatutDto: MajStatutEpreuveDto) {
+    return this.epreuvesService.updateStatus(id, majStatutDto.status);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -3,7 +3,9 @@ import { FichiersService } from '../fichiers/fichiers.service';
 import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { Epreuve } from './entities/epreuve.entity';
 import { Matiere } from '../matieres/entities/matiere.entity';
+import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
+import { MailService } from '../mail/mail.service';
 import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
 import { UploadEpreuveDto } from './dto/upload-epreuve.dto';
 import { MajEpreuveDto } from './dto/maj-epreuve.dto';
@@ -20,6 +22,7 @@ export class EpreuvesService {
   constructor(
     private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
+    private readonly mailService: MailService,
   ) { }
 
   private get epreuvesRepository(): Repository<Epreuve> {
@@ -72,8 +75,8 @@ export class EpreuvesService {
     };
   }
 
-  async create(creerEpreuveDto: CreerEpreuveDto, professeurId: number) {
-    this.logger.log(`Création d'une épreuve: ${creerEpreuveDto.titre} par professeur ID: ${professeurId}`);
+  async create(creerEpreuveDto: CreerEpreuveDto, professeurId: number, role?: string) {
+    this.logger.log(`Création d'une épreuve: ${creerEpreuveDto.titre} par professeur ID: ${professeurId} (role: ${role})`);
     // pays is DERIVED from the parent Matiere (cascading up to the Etablissement),
     // never defaulted to 'benin' nor taken from the request country.
     const matiere = await this.matieresRepository.findOne({
@@ -97,6 +100,11 @@ export class EpreuvesService {
       newEpreuve.section = creerEpreuveDto.section;
     }
     newEpreuve.pays = matiere.pays;
+    // Admin dashboard creates are auto-approved; anyone else falls back to the
+    // pending queue, so this direct path can't be used to bypass approval.
+    newEpreuve.status = role === RoleType.ADMIN
+      ? ServiceStatusEnum.APPROVED
+      : ServiceStatusEnum.PENDING_APPROVAL;
     const saved = await this.epreuvesRepository.save(newEpreuve);
     this.logger.log(`Épreuve créée: ${saved.titre} (ID: ${saved.id}, Matière: ${saved.matiere_id}, pays: ${saved.pays})`);
     return saved;
@@ -352,6 +360,35 @@ export class EpreuvesService {
     await this.epreuvesRepository.remove(epreuve);
     this.logger.log(`Épreuve supprimée: ${epreuve.titre} (ID: ${id})`);
     return { message: 'Épreuve supprimée avec succès' };
+  }
+
+  // Admin approve/decline. Mirrors ServicesService.updateStatus: flip the status,
+  // then best-effort email the uploader (professeur) — reusing the shared
+  // sendServiceStatusUpdateEmail with entityType 'épreuve'.
+  async updateStatus(id: number, status: ServiceStatusEnum) {
+    const epreuve = await this.epreuvesRepository.findOne({
+      where: { id },
+      relations: ['professeur'],
+    });
+    if (!epreuve) {
+      throw new NotFoundException(`Épreuve #${id} introuvable`);
+    }
+
+    const previousStatus = epreuve.status;
+    epreuve.status = status;
+    await this.epreuvesRepository.save(epreuve);
+
+    if (previousStatus !== status && epreuve.professeur?.email
+      && (status === ServiceStatusEnum.ACTIVE || status === ServiceStatusEnum.APPROVED || status === ServiceStatusEnum.DECLINED)) {
+      const userName = epreuve.professeur.prenom && epreuve.professeur.nom
+        ? `${epreuve.professeur.prenom} ${epreuve.professeur.nom}`
+        : (epreuve.professeur.prenom || epreuve.professeur.nom || 'Utilisateur');
+
+      this.mailService.sendServiceStatusUpdateEmail(epreuve.professeur.email, userName, epreuve.titre, status, 'épreuve')
+        .catch(err => this.logger.error(`Failed to send status email for epreuve ${id}: ${err.message}`));
+    }
+
+    return this.findOne(String(id));
   }
 
 }
