@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException, ConflictException } from '@nestjs/common';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { Repository } from 'typeorm';
 import { Concours } from './entities/concours.entity';
@@ -11,7 +11,8 @@ import { FilterConcoursDto } from './dto/filter-concours.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { ServiceStatusEnum } from '../common/enums/service-status.enum';
-import { FindOptionsWhere, Like, Brackets } from 'typeorm';
+import { FindOptionsWhere, Like, Brackets, Not } from 'typeorm';
+import { UploadConcoursDto } from './dto/upload-concours.dto';
 
 @Injectable()
 export class ConcoursService {
@@ -67,6 +68,44 @@ export class ConcoursService {
     newConcours.titre = await this.composeTitre(createConcoursDto.structure_id, createConcoursDto.titre_id);
     const saved = await this.concoursRepository.save(newConcours);
     this.logger.log(`Concours créé: ${saved.titre} (ID: ${saved.id})`);
+    return saved;
+  }
+
+  // POST /v1/concours/upload — any authenticated user submits a concours for
+  // approval. Rejects (409) if a NON-declined concours with the same
+  // (structure_id, titre_id, annee) already exists in the same pays — a
+  // previously declined tuple may be resubmitted. Created as pending_approval,
+  // attributed to the caller (soumis_par_id), titre auto-composed.
+  async createUpload(pays: string, userId: number, dto: UploadConcoursDto) {
+    const { structure_id, titre_id, annee } = dto;
+    this.logger.log(`Upload concours par utilisateur ${userId} (structure ${structure_id}, titre ${titre_id}, annee ${annee}, pays ${pays})`);
+
+    const existing = await this.concoursRepository.findOne({
+      where: {
+        pays,
+        structure_id,
+        titre_id,
+        annee,
+        status: Not(ServiceStatusEnum.DECLINED),
+      },
+    });
+    if (existing) {
+      this.logger.warn(`Doublon concours (structure ${structure_id}, titre ${titre_id}, annee ${annee}, pays ${pays}) — upload refusé`);
+      throw new ConflictException(
+        `Un concours pour cette structure, ce titre et cette année (${annee}) existe déjà.`,
+      );
+    }
+
+    const newConcours = this.concoursRepository.create({
+      ...dto,
+      pays,
+      status: ServiceStatusEnum.PENDING_APPROVAL,
+      soumis_par_id: userId,
+    });
+    newConcours.titre = await this.composeTitre(structure_id, titre_id);
+
+    const saved = await this.concoursRepository.save(newConcours);
+    this.logger.log(`Concours soumis (en attente): ${saved.titre} (ID: ${saved.id}, soumis_par ${userId})`);
     return saved;
   }
 

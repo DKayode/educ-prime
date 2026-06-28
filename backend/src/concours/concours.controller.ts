@@ -13,6 +13,7 @@ import { FichiersService } from '../fichiers/fichiers.service';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { ServiceStatusEnum } from '../common/enums/service-status.enum';
+import { UploadConcoursDto } from './dto/upload-concours.dto';
 
 @ApiTags('concours')
 @Controller('concours')
@@ -42,6 +43,21 @@ export class ConcoursController {
   findAll(@Request() req, @Query() filterDto: FilterConcoursDto) {
     const isAdmin = req.user?.role === RoleType.ADMIN;
     return this.concoursService.findAll(filterDto, isAdmin);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Version('1')
+  @Post('upload')
+  @ApiOperation({ summary: 'Soumettre un concours (tout utilisateur authentifié) — créé en attente d\'approbation' })
+  @ApiResponse({ status: 201, description: 'Concours soumis (en attente d\'approbation)' })
+  @ApiResponse({ status: 409, description: 'Un concours avec la même structure, titre et année existe déjà' })
+  uploadConcours(
+    @CurrentCountry() pays: string,
+    @Request() req,
+    @Body() uploadConcoursDto: UploadConcoursDto,
+  ) {
+    const userId = req.user.utilisateurId;
+    return this.concoursService.createUpload(pays, userId, uploadConcoursDto);
   }
 
   @UseGuards(JwtAuthGuard)
