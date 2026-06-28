@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus, Version, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Patch, Param, Delete, UseGuards, Query, Res, HttpStatus, Version, Request } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ConcoursService } from './concours.service';
@@ -14,6 +14,7 @@ import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { ServiceStatusEnum } from '../common/enums/service-status.enum';
 import { UploadConcoursDto } from './dto/upload-concours.dto';
+import { UpdateConcoursStatusDto } from './dto/update-concours-status.dto';
 
 @ApiTags('concours')
 @Controller('concours')
@@ -104,6 +105,19 @@ export class ConcoursController {
   findOne(@Request() req, @Param('id') id: string) {
     const isAdmin = req.user?.role === RoleType.ADMIN;
     return this.concoursService.findOne(+id, isAdmin);
+  }
+
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @Patch(':id/status')
+  @ApiOperation({ summary: "Approuver ou refuser un concours (Admin) + email à l'uploader" })
+  @ApiResponse({ status: 200, description: 'Statut mis à jour' })
+  updateStatus(
+    @CurrentCountry() pays: string,
+    @Param('id') id: string,
+    @Body() updateConcoursStatusDto: UpdateConcoursStatusDto,
+  ) {
+    return this.concoursService.updateStatus(pays, +id, updateConcoursStatusDto.status);
   }
 
   @UseGuards(JwtAuthGuard, RoleGuard)

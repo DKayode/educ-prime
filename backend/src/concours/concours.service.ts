@@ -13,6 +13,7 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 import { ServiceStatusEnum } from '../common/enums/service-status.enum';
 import { FindOptionsWhere, Like, Brackets, Not } from 'typeorm';
 import { UploadConcoursDto } from './dto/upload-concours.dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class ConcoursService {
@@ -21,6 +22,7 @@ export class ConcoursService {
   constructor(
     private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
+    private readonly mailService: MailService,
   ) { }
 
   private get concoursRepository(): Repository<Concours> {
@@ -110,6 +112,40 @@ export class ConcoursService {
     const saved = await this.concoursRepository.save(newConcours);
     this.logger.log(`Concours soumis (en attente): ${saved.titre} (ID: ${saved.id}, soumis_par ${userId})`);
     return saved;
+  }
+
+  // PATCH /concours/:id/status — admin approves/declines a concours
+  // (pays-scoped). Emails the uploader best-effort (skipped if soumis_par_id
+  // is null, i.e. admin-created/legacy). Mirrors ServicesService.updateStatus.
+  async updateStatus(pays: string, id: number, status: ServiceStatusEnum) {
+    this.logger.log(`Mise à jour du statut concours ID ${id} → ${status} (pays=${pays})`);
+    const concours = await this.concoursRepository.findOne({
+      where: { id, pays },
+      relations: ['soumis_par'],
+    });
+    if (!concours) {
+      this.logger.warn(`Concours ID ${id} introuvable (pays=${pays}) pour changement de statut`);
+      throw new NotFoundException('Concours non trouvé');
+    }
+
+    const previousStatus = concours.status;
+    concours.status = status;
+    await this.concoursRepository.save(concours);
+
+    // Best-effort notification — never fails the request.
+    if (previousStatus !== status && concours.soumis_par?.email) {
+      const u = concours.soumis_par;
+      const userName = u.prenom && u.nom
+        ? `${u.prenom} ${u.nom}`
+        : (u.prenom || u.nom || 'Utilisateur');
+      this.mailService
+        .sendServiceStatusUpdateEmail(u.email, userName, concours.titre, status, 'concours')
+        .catch(err => this.logger.error(`Échec envoi email statut concours ${id}: ${err.message}`));
+    } else if (!concours.soumis_par_id) {
+      this.logger.log(`Concours ${id} sans soumis_par_id — aucun email à envoyer`);
+    }
+
+    return concours;
   }
 
   async findAll(filterDto: FilterConcoursDto, isAdmin: boolean): Promise<PaginationResponse<Concours>> {
