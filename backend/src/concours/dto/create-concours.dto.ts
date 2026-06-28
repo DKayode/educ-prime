@@ -3,9 +3,14 @@ import { IsString, IsOptional, IsBoolean, IsUrl, IsNumber } from 'class-validato
 import { Type } from 'class-transformer';
 
 export class CreateConcoursDto {
-    @ApiProperty({ example: 'Concours EAMAU 2024', description: 'Titre du concours' })
+    @ApiProperty({
+        example: 'Concours EAMAU 2024',
+        description: "Titre du concours (legacy). Auto-composé par le serveur depuis la structure et le titre référencés ; ne pas le saisir manuellement.",
+        required: false,
+    })
+    @IsOptional()
     @IsString()
-    titre: string;
+    titre?: string;
 
     @ApiProperty({ description: 'URL du fichier ou lien vers le concours', required: false })
     @IsOptional()
@@ -29,15 +34,13 @@ export class CreateConcoursDto {
     @IsNumber()
     nombre_page?: number;
 
-    @ApiProperty({ example: 1, description: 'ID de la structure organisatrice (référence)', required: false })
-    @IsOptional()
+    @ApiProperty({ example: 1, description: 'ID de la structure organisatrice (référence, requis)', required: true })
     @Type(() => Number)
     @IsNumber()
-    structure_id?: number;
+    structure_id: number;
 
-    @ApiProperty({ example: 1, description: 'ID du titre/poste recherché (référence)', required: false })
-    @IsOptional()
+    @ApiProperty({ example: 1, description: 'ID du titre/poste recherché (référence, requis)', required: true })
     @Type(() => Number)
     @IsNumber()
-    titre_id?: number;
+    titre_id: number;
 }

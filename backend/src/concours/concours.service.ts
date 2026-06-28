@@ -32,27 +32,37 @@ export class ConcoursService {
     return this.resolver.getRepository(Titre);
   }
 
-  // Validates that referenced lookup rows exist. Both FKs are optional, so a
-  // null/undefined id is simply skipped (the column stays NULL).
-  private async validateReferences(dto: { structure_id?: number; titre_id?: number }) {
-    if (dto.structure_id != null) {
-      const structure = await this.structureRepository.findOne({ where: { id: dto.structure_id } });
-      if (!structure) {
-        throw new NotFoundException(`Structure avec l'ID ${dto.structure_id} non trouvée`);
-      }
+  private async fetchStructureOrThrow(id: number): Promise<Structure> {
+    const structure = await this.structureRepository.findOne({ where: { id } });
+    if (!structure) {
+      throw new NotFoundException(`Structure avec l'ID ${id} non trouvée`);
     }
-    if (dto.titre_id != null) {
-      const titre = await this.titreRepository.findOne({ where: { id: dto.titre_id } });
-      if (!titre) {
-        throw new NotFoundException(`Titre avec l'ID ${dto.titre_id} non trouvé`);
-      }
+    return structure;
+  }
+
+  private async fetchTitreOrThrow(id: number): Promise<Titre> {
+    const titre = await this.titreRepository.findOne({ where: { id } });
+    if (!titre) {
+      throw new NotFoundException(`Titre avec l'ID ${id} non trouvé`);
     }
+    return titre;
+  }
+
+  // Auto-composes the legacy free-text `titre` column (still read by mobile)
+  // from the referenced structure + titre lookup rows. 404s if either id is
+  // unknown. Format: "<structure.nom> - <titre.nom>".
+  private async composeTitre(structureId: number, titreId: number): Promise<string> {
+    const structure = await this.fetchStructureOrThrow(structureId);
+    const titreRef = await this.fetchTitreOrThrow(titreId);
+    return `${structure.nom} - ${titreRef.nom}`;
   }
 
   async create(createConcoursDto: CreateConcoursDto) {
-    this.logger.log(`Création d'un concours: ${createConcoursDto.titre}`);
-    await this.validateReferences(createConcoursDto);
+    this.logger.log(`Création d'un concours (structure ${createConcoursDto.structure_id}, titre ${createConcoursDto.titre_id})`);
     const newConcours = this.concoursRepository.create(createConcoursDto);
+    // structure_id + titre_id are required at create; the legacy titre column
+    // is always server-composed (never the manually-typed value).
+    newConcours.titre = await this.composeTitre(createConcoursDto.structure_id, createConcoursDto.titre_id);
     const saved = await this.concoursRepository.save(newConcours);
     this.logger.log(`Concours créé: ${saved.titre} (ID: ${saved.id})`);
     return saved;
@@ -166,8 +176,23 @@ export class ConcoursService {
       throw new NotFoundException('Concours non trouvé');
     }
 
-    await this.validateReferences(updateConcoursDto);
+    const structureChanged = updateConcoursDto.structure_id !== undefined;
+    const titreChanged = updateConcoursDto.titre_id !== undefined;
+
     Object.assign(concours, updateConcoursDto);
+
+    // When either reference changes, re-validate and re-compose the legacy
+    // titre column from the (effective) structure + titre rows. Composition
+    // needs BOTH refs — guards a legacy row (null FKs) being partially updated.
+    if (structureChanged || titreChanged) {
+      if (concours.structure_id == null || concours.titre_id == null) {
+        throw new BadRequestException(
+          'structure_id et titre_id sont tous deux requis pour composer le titre du concours',
+        );
+      }
+      concours.titre = await this.composeTitre(concours.structure_id, concours.titre_id);
+    }
+
     const updated = await this.concoursRepository.save(concours);
     this.logger.log(`Concours mis à jour: ${updated.titre} (ID: ${id})`);
     return updated;
