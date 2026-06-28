@@ -10,6 +10,7 @@ import { FilterEpreuveDto } from './dto/filter-epreuve.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { EpreuveResponseDto } from './dto/epreuve-response.dto';
+import { ServiceStatusEnum } from '../common/enums/service-status.enum';
 
 @Injectable()
 export class EpreuvesService {
@@ -26,6 +27,48 @@ export class EpreuvesService {
 
   private get matieresRepository(): Repository<Matiere> {
     return this.resolver.getRepository(Matiere);
+  }
+
+  // Single source of truth for the client-facing épreuve shape (sanitized
+  // professeur + matiere chain). Used by findAll / findAllAdmin / findOne.
+  private toEpreuveResponse(epreuve: Epreuve) {
+    return {
+      id: epreuve.id,
+      uuid: epreuve.uuid,
+      titre: epreuve.titre,
+      url: epreuve.url,
+      file_path: epreuve.file_path,
+      file_extension: epreuve.file_extension,
+      duree_minutes: epreuve.duree_minutes,
+      date_creation: epreuve.date_creation,
+      date_publication: epreuve.date_publication,
+      nombre_pages: epreuve.nombre_pages,
+      nombre_telechargements: epreuve.nombre_telechargements,
+      type: epreuve.type,
+      annee: epreuve.annee,
+      section: epreuve.section,
+      status: epreuve.status,
+      professeur: {
+        nom: epreuve.professeur.nom,
+        prenom: epreuve.professeur.prenom,
+        telephone: epreuve.professeur.telephone,
+      },
+      matiere: {
+        id: epreuve.matiere.id,
+        nom: epreuve.matiere.nom,
+        description: epreuve.matiere.description,
+        niveau_etude: {
+          id: epreuve.matiere.niveau_etude.id,
+          nom: epreuve.matiere.niveau_etude.nom,
+          duree_mois: epreuve.matiere.niveau_etude.duree_mois,
+          filiere: {
+            id: epreuve.matiere.niveau_etude.filiere.id,
+            nom: epreuve.matiere.niveau_etude.filiere.nom,
+            etablissement: epreuve.matiere.niveau_etude.filiere.etablissement,
+          },
+        },
+      },
+    };
   }
 
   async create(creerEpreuveDto: CreerEpreuveDto, professeurId: number) {
@@ -69,6 +112,8 @@ export class EpreuvesService {
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .leftJoinAndSelect('epreuve.professeur', 'professeur')
       .where('epreuve.pays = :pays', { pays })
+      // Public/non-admin listing: only approved épreuves are visible.
+      .andWhere('epreuve.status = :status', { status: ServiceStatusEnum.APPROVED })
       .orderBy('epreuve.date_creation', filterDto.sort_order || 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -96,46 +141,60 @@ export class EpreuvesService {
 
     this.logger.log(`${epreuves.length} épreuve(s) trouvée(s) sur ${total} total`);
 
-    // Transform to response DTO format with sanitized professeur
-    const data = epreuves.map(epreuve => ({
-      id: epreuve.id,
-      uuid: epreuve.uuid,
-      titre: epreuve.titre,
-      url: epreuve.url,
-      file_path: epreuve.file_path,
-      file_extension: epreuve.file_extension,
-      duree_minutes: epreuve.duree_minutes,
-      date_creation: epreuve.date_creation,
-      date_publication: epreuve.date_publication,
-      nombre_pages: epreuve.nombre_pages,
-      nombre_telechargements: epreuve.nombre_telechargements,
-      type: epreuve.type,
-      annee: epreuve.annee,
-      section: epreuve.section,
-      professeur: {
-        nom: epreuve.professeur.nom,
-        prenom: epreuve.professeur.prenom,
-        telephone: epreuve.professeur.telephone,
-      },
-      matiere: {
-        id: epreuve.matiere.id,
-        nom: epreuve.matiere.nom,
-        description: epreuve.matiere.description,
-        niveau_etude: {
-          id: epreuve.matiere.niveau_etude.id,
-          nom: epreuve.matiere.niveau_etude.nom,
-          duree_mois: epreuve.matiere.niveau_etude.duree_mois,
-          filiere: {
-            id: epreuve.matiere.niveau_etude.filiere.id,
-            nom: epreuve.matiere.niveau_etude.filiere.nom,
-            etablissement: epreuve.matiere.niveau_etude.filiere.etablissement,
-          },
-        },
-      },
-    }));
+    const data = epreuves.map(epreuve => this.toEpreuveResponse(epreuve));
 
     return {
       data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // Admin listing: optional status filter (no status = every status). Mirrors
+  // ServicesService.findAllAdmin (RolesGuard-protected in the controller).
+  async findAllAdmin(pays: string, filterDto: FilterEpreuveDto): Promise<PaginationResponse<EpreuveResponseDto>> {
+    const { page = 1, limit = 10, search, type, matiere, status } = filterDto;
+    this.logger.log(`[admin] Récupération des épreuves (pays=${pays}) - status=${status ?? 'tous'}, Page: ${page}`);
+
+    const queryBuilder = this.epreuvesRepository.createQueryBuilder('epreuve')
+      .leftJoinAndSelect('epreuve.matiere', 'matiere')
+      .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
+      .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
+      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
+      .leftJoinAndSelect('epreuve.professeur', 'professeur')
+      .where('epreuve.pays = :pays', { pays })
+      .orderBy('epreuve.date_creation', filterDto.sort_order || 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (status) {
+      queryBuilder.andWhere('epreuve.status = :status', { status });
+    }
+
+    if (type) {
+      queryBuilder.andWhere('epreuve.type = :type', { type });
+    }
+
+    if (matiere) {
+      queryBuilder.andWhere('matiere.nom = :matiere', { matiere });
+    }
+
+    if (search) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('unaccent(epreuve.titre) ILIKE unaccent(:search)', { search: `%${search}%` })
+            .orWhere('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
+        }),
+      );
+    }
+
+    const [epreuves, total] = await queryBuilder.getManyAndCount();
+    this.logger.log(`[admin] ${epreuves.length} épreuve(s) sur ${total} total`);
+
+    return {
+      data: epreuves.map(epreuve => this.toEpreuveResponse(epreuve)),
       total,
       page,
       limit,
@@ -157,43 +216,7 @@ export class EpreuvesService {
 
     this.logger.log(`Épreuve trouvée: ${epreuve.titre} (ID: ${id})`);
 
-    // Transform to response DTO format with sanitized professeur
-    return {
-      id: epreuve.id,
-      uuid: epreuve.uuid,
-      titre: epreuve.titre,
-      url: epreuve.url,
-      file_path: epreuve.file_path,
-      file_extension: epreuve.file_extension,
-      duree_minutes: epreuve.duree_minutes,
-      date_creation: epreuve.date_creation,
-      date_publication: epreuve.date_publication,
-      nombre_pages: epreuve.nombre_pages,
-      nombre_telechargements: epreuve.nombre_telechargements,
-      type: epreuve.type,
-      annee: epreuve.annee,
-      section: epreuve.section,
-      professeur: {
-        nom: epreuve.professeur.nom,
-        prenom: epreuve.professeur.prenom,
-        telephone: epreuve.professeur.telephone,
-      },
-      matiere: {
-        id: epreuve.matiere.id,
-        nom: epreuve.matiere.nom,
-        description: epreuve.matiere.description,
-        niveau_etude: {
-          id: epreuve.matiere.niveau_etude.id,
-          nom: epreuve.matiere.niveau_etude.nom,
-          duree_mois: epreuve.matiere.niveau_etude.duree_mois,
-          filiere: {
-            id: epreuve.matiere.niveau_etude.filiere.id,
-            nom: epreuve.matiere.niveau_etude.filiere.nom,
-            etablissement: epreuve.matiere.niveau_etude.filiere.etablissement,
-          },
-        },
-      },
-    };
+    return this.toEpreuveResponse(epreuve);
   }
 
   async findOneForDownload(id: string): Promise<{ url: string; titre: string }> {

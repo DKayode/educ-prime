@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { EpreuveType, EpreuveSection } from '../entities/epreuve.entity';
+import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
 import { Etablissement } from '../../etablissements/entities/etablissement.entity';
 
 class FiliereInEpreuveDto {
@@ -170,6 +171,9 @@ export class EpreuveResponseDto {
 
     @ApiProperty({ enum: EpreuveSection })
     section: EpreuveSection;
+
+    @ApiProperty({ enum: ServiceStatusEnum })
+    status: ServiceStatusEnum;
 
     @ApiProperty({ type: () => ProfesseurInEpreuveDto })
     professeur: ProfesseurInEpreuveDto;

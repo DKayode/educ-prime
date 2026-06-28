@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Matiere } from '../../matieres/entities/matiere.entity';
 import { Utilisateur } from '../../utilisateurs/entities/utilisateur.entity';
+import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
 
 export enum EpreuveType {
   INTERROGATION = 'Interrogation',
@@ -44,6 +45,12 @@ export class Epreuve {
   // value space is enforced by EpreuveSection / IsEnum + the CHECK constraint.
   @Column({ type: 'varchar', length: 20, default: EpreuveSection.NORMAL })
   section: EpreuveSection;
+
+  // Approval workflow (mirrors services/offres). DB column is varchar(20) +
+  // DEFAULT 'approved' (migration 011): existing rows and admin-created épreuves
+  // are visible immediately; user uploads land 'pending_approval'.
+  @Column({ type: 'varchar', length: 20, default: ServiceStatusEnum.APPROVED })
+  status: ServiceStatusEnum;
 
   @Column()
   url: string;

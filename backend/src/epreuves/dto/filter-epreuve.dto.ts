@@ -2,6 +2,7 @@ import { IsOptional, IsString, IsEnum } from 'class-validator';
 import { Transform, TransformFnParams } from 'class-transformer';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { EpreuveType } from '../entities/epreuve.entity';
+import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
 
 export class FilterEpreuveDto extends PaginationDto {
     @IsOptional()
@@ -24,4 +25,10 @@ export class FilterEpreuveDto extends PaginationDto {
     @IsOptional()
     @IsString()
     search?: string;
+
+    // Admin-only filter (GET /epreuves/all). Ignored by the public GET /epreuves,
+    // which always forces 'approved'.
+    @IsOptional()
+    @IsEnum(ServiceStatusEnum, { message: 'Le statut doit être une valeur valide' })
+    status?: ServiceStatusEnum;
 }

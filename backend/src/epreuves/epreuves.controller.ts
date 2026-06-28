@@ -6,8 +6,12 @@ import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
 import { MajEpreuveDto } from './dto/maj-epreuve.dto';
 import { EpreuveResponseDto } from './dto/epreuve-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterEpreuveDto } from './dto/filter-epreuve.dto';
+import { ServiceStatusEnum } from '../common/enums/service-status.enum';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
@@ -38,6 +42,17 @@ export class EpreuvesController {
   @ApiQuery({ name: 'sort_order', required: false, enum: ['ASC', 'DESC'], description: 'Ordre de tri' })
   async findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterEpreuveDto) {
     return this.epreuvesService.findAll(pays, filterDto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RoleType.ADMIN)
+  @Get('all')
+  @ApiOperation({ summary: 'Récupérer toutes les épreuves, tous statuts (Admin)' })
+  @ApiQuery({ name: 'status', required: false, enum: ServiceStatusEnum, description: 'Filtrer par statut (ex: pending_approval)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async findAllAdmin(@CurrentCountry() pays: string, @Query() filterDto: FilterEpreuveDto) {
+    return this.epreuvesService.findAllAdmin(pays, filterDto);
   }
 
   @UseGuards(JwtAuthGuard)
