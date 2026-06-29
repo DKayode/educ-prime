@@ -1,18 +1,15 @@
-import { Injectable, NotFoundException, ForbiddenException, Logger, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger, BadRequestException } from '@nestjs/common';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
 import { Epreuve } from './entities/epreuve.entity';
 import { Matiere } from '../matieres/entities/matiere.entity';
-import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
-import { MailService } from '../mail/mail.service';
 import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
 import { MajEpreuveDto } from './dto/maj-epreuve.dto';
 import { FilterEpreuveDto } from './dto/filter-epreuve.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { EpreuveResponseDto } from './dto/epreuve-response.dto';
-import { ServiceStatusEnum } from '../common/enums/service-status.enum';
 
 @Injectable()
 export class EpreuvesService {
@@ -21,7 +18,6 @@ export class EpreuvesService {
   constructor(
     private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
-    private readonly mailService: MailService,
   ) { }
 
   private get epreuvesRepository(): Repository<Epreuve> {
@@ -33,7 +29,7 @@ export class EpreuvesService {
   }
 
   // Single source of truth for the client-facing épreuve shape (sanitized
-  // professeur + matiere chain). Used by findAll / findAllAdmin / findOne.
+  // professeur + matiere chain). Used by findAll / findOne.
   private toEpreuveResponse(epreuve: Epreuve) {
     return {
       id: epreuve.id,
@@ -50,7 +46,6 @@ export class EpreuvesService {
       type: epreuve.type,
       annee: epreuve.annee,
       section: epreuve.section,
-      status: epreuve.status,
       professeur: {
         nom: epreuve.professeur.nom,
         prenom: epreuve.professeur.prenom,
@@ -74,8 +69,8 @@ export class EpreuvesService {
     };
   }
 
-  async create(creerEpreuveDto: CreerEpreuveDto, professeurId: number, role?: string) {
-    this.logger.log(`Création d'une épreuve: ${creerEpreuveDto.titre} par professeur ID: ${professeurId} (role: ${role})`);
+  async create(creerEpreuveDto: CreerEpreuveDto, professeurId: number) {
+    this.logger.log(`Création d'une épreuve: ${creerEpreuveDto.titre} par professeur ID: ${professeurId}`);
     // pays is DERIVED from the parent Matiere (cascading up to the Etablissement),
     // never defaulted to 'benin' nor taken from the request country.
     const matiere = await this.matieresRepository.findOne({
@@ -85,27 +80,6 @@ export class EpreuvesService {
       this.logger.warn(`Matière ID ${creerEpreuveDto.matiere_id} introuvable`);
       throw new NotFoundException('Matière non trouvée');
     }
-    // Duplicate guard (applies to ALL creates, admin included). matiere_id
-    // uniquely determines niveau_etude → filiere → etablissement (all non-null
-    // single FKs), so matiere_id + titre + annee equals the full chain tuple.
-    // A previously DECLINED épreuve must not block a re-submission.
-    const dupQb = this.epreuvesRepository.createQueryBuilder('epreuve')
-      .where('epreuve.matiere_id = :matiere_id', { matiere_id: creerEpreuveDto.matiere_id })
-      .andWhere('epreuve.titre = :titre', { titre: creerEpreuveDto.titre })
-      .andWhere('epreuve.status != :declined', { declined: ServiceStatusEnum.DECLINED });
-    if (creerEpreuveDto.annee === null || creerEpreuveDto.annee === undefined) {
-      dupQb.andWhere('epreuve.annee IS NULL');
-    } else {
-      dupQb.andWhere('epreuve.annee = :annee', { annee: creerEpreuveDto.annee });
-    }
-    const duplicate = await dupQb.getOne();
-    if (duplicate) {
-      this.logger.warn(`Doublon refusé: épreuve #${duplicate.id} (statut ${duplicate.status}) a déjà ce tuple`);
-      throw new ConflictException(
-        "Une épreuve avec le même établissement, filière, niveau, matière, titre et année existe déjà.",
-      );
-    }
-
     const newEpreuve = new Epreuve();
     newEpreuve.titre = creerEpreuveDto.titre;
     // Row may exist before the PDF: the file is uploaded afterwards via
@@ -124,13 +98,8 @@ export class EpreuvesService {
       newEpreuve.section = creerEpreuveDto.section;
     }
     newEpreuve.pays = matiere.pays;
-    // Admin dashboard creates are auto-approved; anyone else falls back to the
-    // pending queue, so this direct path can't be used to bypass approval.
-    newEpreuve.status = role === RoleType.ADMIN
-      ? ServiceStatusEnum.APPROVED
-      : ServiceStatusEnum.PENDING_APPROVAL;
     const saved = await this.epreuvesRepository.save(newEpreuve);
-    this.logger.log(`Épreuve créée: ${saved.titre} (ID: ${saved.id}, Matière: ${saved.matiere_id}, statut: ${saved.status}, pays: ${saved.pays})`);
+    this.logger.log(`Épreuve créée: ${saved.titre} (ID: ${saved.id}, Matière: ${saved.matiere_id}, pays: ${saved.pays})`);
     return saved;
   }
 
@@ -145,8 +114,6 @@ export class EpreuvesService {
       .leftJoinAndSelect('filiere.etablissement', 'etablissement')
       .leftJoinAndSelect('epreuve.professeur', 'professeur')
       .where('epreuve.pays = :pays', { pays })
-      // Public/non-admin listing: only approved épreuves are visible.
-      .andWhere('epreuve.status = :status', { status: ServiceStatusEnum.APPROVED })
       .orderBy('epreuve.date_creation', filterDto.sort_order || 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -178,56 +145,6 @@ export class EpreuvesService {
 
     return {
       data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
-  // Admin listing: optional status filter (no status = every status). Mirrors
-  // ServicesService.findAllAdmin (RolesGuard-protected in the controller).
-  async findAllAdmin(pays: string, filterDto: FilterEpreuveDto): Promise<PaginationResponse<EpreuveResponseDto>> {
-    const { page = 1, limit = 10, search, type, matiere, status } = filterDto;
-    this.logger.log(`[admin] Récupération des épreuves (pays=${pays}) - status=${status ?? 'tous'}, Page: ${page}`);
-
-    const queryBuilder = this.epreuvesRepository.createQueryBuilder('epreuve')
-      .leftJoinAndSelect('epreuve.matiere', 'matiere')
-      .leftJoinAndSelect('matiere.niveau_etude', 'niveau_etude')
-      .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
-      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
-      .leftJoinAndSelect('epreuve.professeur', 'professeur')
-      .where('epreuve.pays = :pays', { pays })
-      .orderBy('epreuve.date_creation', filterDto.sort_order || 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
-
-    if (status) {
-      queryBuilder.andWhere('epreuve.status = :status', { status });
-    }
-
-    if (type) {
-      queryBuilder.andWhere('epreuve.type = :type', { type });
-    }
-
-    if (matiere) {
-      queryBuilder.andWhere('matiere.nom = :matiere', { matiere });
-    }
-
-    if (search) {
-      queryBuilder.andWhere(
-        new Brackets((qb) => {
-          qb.where('unaccent(epreuve.titre) ILIKE unaccent(:search)', { search: `%${search}%` })
-            .orWhere('unaccent(matiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
-        }),
-      );
-    }
-
-    const [epreuves, total] = await queryBuilder.getManyAndCount();
-    this.logger.log(`[admin] ${epreuves.length} épreuve(s) sur ${total} total`);
-
-    return {
-      data: epreuves.map(epreuve => this.toEpreuveResponse(epreuve)),
       total,
       page,
       limit,
@@ -332,35 +249,6 @@ export class EpreuvesService {
     await this.epreuvesRepository.remove(epreuve);
     this.logger.log(`Épreuve supprimée: ${epreuve.titre} (ID: ${id})`);
     return { message: 'Épreuve supprimée avec succès' };
-  }
-
-  // Admin approve/decline. Mirrors ServicesService.updateStatus: flip the status,
-  // then best-effort email the uploader (professeur) — reusing the shared
-  // sendServiceStatusUpdateEmail with entityType 'épreuve'.
-  async updateStatus(id: number, status: ServiceStatusEnum) {
-    const epreuve = await this.epreuvesRepository.findOne({
-      where: { id },
-      relations: ['professeur'],
-    });
-    if (!epreuve) {
-      throw new NotFoundException(`Épreuve #${id} introuvable`);
-    }
-
-    const previousStatus = epreuve.status;
-    epreuve.status = status;
-    await this.epreuvesRepository.save(epreuve);
-
-    if (previousStatus !== status && epreuve.professeur?.email
-      && (status === ServiceStatusEnum.ACTIVE || status === ServiceStatusEnum.APPROVED || status === ServiceStatusEnum.DECLINED)) {
-      const userName = epreuve.professeur.prenom && epreuve.professeur.nom
-        ? `${epreuve.professeur.prenom} ${epreuve.professeur.nom}`
-        : (epreuve.professeur.prenom || epreuve.professeur.nom || 'Utilisateur');
-
-      this.mailService.sendServiceStatusUpdateEmail(epreuve.professeur.email, userName, epreuve.titre, status, 'épreuve')
-        .catch(err => this.logger.error(`Failed to send status email for epreuve ${id}: ${err.message}`));
-    }
-
-    return this.findOne(String(id));
   }
 
 }

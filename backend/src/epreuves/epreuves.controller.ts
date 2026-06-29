@@ -1,18 +1,13 @@
-import { Controller, Get, Post, Body, Put, Patch, Param, Delete, UseGuards, Request, Query, Res, HttpStatus, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Query, Res, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { EpreuvesService } from './epreuves.service';
 import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
 import { MajEpreuveDto } from './dto/maj-epreuve.dto';
-import { MajStatutEpreuveDto } from './dto/maj-statut-epreuve.dto';
 import { EpreuveResponseDto } from './dto/epreuve-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterEpreuveDto } from './dto/filter-epreuve.dto';
-import { ServiceStatusEnum } from '../common/enums/service-status.enum';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
@@ -26,11 +21,8 @@ export class EpreuvesController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  @ApiOperation({ summary: "Créer une épreuve (tout utilisateur connecté) — doublon refusé (409); statut auto selon le rôle" })
-  @ApiResponse({ status: 201, description: 'Épreuve créée (approved si admin, sinon pending_approval)' })
-  @ApiResponse({ status: 409, description: 'Une épreuve identique (chaîne + titre + année) existe déjà' })
   async create(@Request() req, @Body() creerEpreuveDto: CreerEpreuveDto) {
-    return this.epreuvesService.create(creerEpreuveDto, req.user.utilisateurId, req.user.role);
+    return this.epreuvesService.create(creerEpreuveDto, req.user.utilisateurId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -46,27 +38,6 @@ export class EpreuvesController {
   @ApiQuery({ name: 'sort_order', required: false, enum: ['ASC', 'DESC'], description: 'Ordre de tri' })
   async findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterEpreuveDto) {
     return this.epreuvesService.findAll(pays, filterDto);
-  }
-
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.ADMIN)
-  @Get('all')
-  @ApiOperation({ summary: 'Récupérer toutes les épreuves, tous statuts (Admin)' })
-  @ApiQuery({ name: 'status', required: false, enum: ServiceStatusEnum, description: 'Filtrer par statut (ex: pending_approval)' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  async findAllAdmin(@CurrentCountry() pays: string, @Query() filterDto: FilterEpreuveDto) {
-    return this.epreuvesService.findAllAdmin(pays, filterDto);
-  }
-
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.ADMIN)
-  @Patch(':id/status')
-  @ApiOperation({ summary: "Approuver ou refuser une épreuve (Admin)" })
-  @ApiResponse({ status: 200, description: 'Statut mis à jour, uploader notifié par email' })
-  @ApiResponse({ status: 403, description: "Réservé aux administrateurs" })
-  async updateStatus(@Param('id', ParseIntPipe) id: number, @Body() majStatutDto: MajStatutEpreuveDto) {
-    return this.epreuvesService.updateStatus(id, majStatutDto.status);
   }
 
   @UseGuards(JwtAuthGuard)

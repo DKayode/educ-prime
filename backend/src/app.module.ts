@@ -8,6 +8,7 @@ import { FilieresModule } from './filieres/filieres.module';
 import { NiveauEtudeModule } from './niveau-etude/niveau-etude.module';
 import { MatieresModule } from './matieres/matieres.module';
 import { EpreuvesModule } from './epreuves/epreuves.module';
+import { EpreuveSubmissionsModule } from './epreuves/submissions/epreuve-submissions.module';
 import { FichiersModule } from './fichiers/fichiers.module';
 import { FilesModule } from './files/files.module';
 import { AppController } from './app.controller';
@@ -115,6 +116,7 @@ import { CountryMiddleware } from './config/country.middleware';
     FilieresModule,
     NiveauEtudeModule,
     MatieresModule,
+    EpreuveSubmissionsModule,
     EpreuvesModule,
     FichiersModule,
     FilesModule,
