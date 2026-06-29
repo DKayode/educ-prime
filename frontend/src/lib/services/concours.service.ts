@@ -5,7 +5,7 @@ import { buildPaginationQuery } from '../types/pagination';
 
 // export type ConcoursExamenType = 'Concours' | 'Examens'; // REMOVED
 
-export type ConcoursStatus = 'pending_approval' | 'declined' | 'approved' | 'active' | 'inactive';
+export type SubmissionStatus = 'pending_approval' | 'declined' | 'approved';
 
 export interface Concours {
     id: number;
@@ -19,8 +19,6 @@ export interface Concours {
     lieu?: string;
     nombre_page: number;
     nombre_telechargements: number;
-    /** Approval state. Non-admin reads only ever return 'approved'. */
-    status?: ConcoursStatus;
     /** Optional reference to the organizing structure (lookup entity). */
     structure_id?: number;
     structure?: Structure;
@@ -28,15 +26,6 @@ export interface Concours {
      *  Named titre_ref to avoid clashing with the free-text `titre` column. */
     titre_id?: number;
     titre_ref?: Titre;
-    /** Uploader (the user who submitted a user-uploaded concours). */
-    soumis_par_id?: number;
-    soumis_par?: {
-        id: number;
-        uuid?: string;
-        nom?: string;
-        prenom?: string;
-        email?: string;
-    };
 }
 
 /** One group from GET /v1/concours — concours sharing an official title
@@ -47,6 +36,37 @@ export interface ConcoursGroup {
     official_title: string;
     annees: number[];
     concours: Concours[];
+}
+
+/** A user-submitted concours awaiting admin resolution/approval. A parent may
+ *  be an existing reference (structure_id/titre_id + relation) OR a proposed
+ *  name (proposed_structure/proposed_titre). The API marks which are missing. */
+export interface ConcoursSubmission {
+    id: number;
+    uuid: string;
+    structure_id?: number | null;
+    structure?: Structure | null;
+    proposed_structure?: string | null;
+    titre_id?: number | null;
+    titre_ref?: Titre | null;
+    proposed_titre?: string | null;
+    annee?: number | null;
+    lieu?: string | null;
+    file_path?: string;
+    file_extension?: string;
+    url?: string;
+    status: SubmissionStatus;
+    date_creation?: string;
+    soumis_par_id?: number | null;
+    soumis_par?: {
+        id: number;
+        uuid?: string;
+        nom?: string;
+        prenom?: string;
+        email?: string;
+    } | null;
+    missing_structure: boolean;
+    missing_titre: boolean;
 }
 
 export const concoursService = {
@@ -65,15 +85,35 @@ export const concoursService = {
         return api.get<PaginationResponse<ConcoursGroup>>(`/v1/concours${query}`);
     },
 
-    /** Admin: list concours awaiting approval (GET /concours?status=pending_approval). */
-    async getPending(params?: PaginationParams): Promise<PaginationResponse<Concours>> {
-        const query = buildPaginationQuery({ ...params, status: 'pending_approval' } as PaginationParams);
-        return api.get<PaginationResponse<Concours>>(`/concours${query}`);
+    /** Step 1 — submit concours metadata (any authenticated user). Returns the
+     *  submission incl. uuid + missing-parent flags; file uploads separately to
+     *  /files/concours_submissions/:uuid/file. */
+    async createSubmission(data: {
+        structure_id?: number;
+        proposed_structure?: string;
+        titre_id?: number;
+        proposed_titre?: string;
+        annee?: number;
+        lieu?: string;
+    }): Promise<ConcoursSubmission> {
+        return api.post<ConcoursSubmission>('/concours/submissions', data);
     },
 
-    /** Admin: approve/decline a concours (PATCH /concours/:id/status). */
-    async updateStatus(id: number, status: 'approved' | 'declined'): Promise<Concours> {
-        return api.patch<Concours>(`/concours/${id}/status`, { status });
+    /** Admin: list concours submissions (defaults to pending_approval). */
+    async getSubmissions(params?: PaginationParams & { status?: string }): Promise<PaginationResponse<ConcoursSubmission>> {
+        const query = buildPaginationQuery({ status: 'pending_approval', ...params } as PaginationParams);
+        return api.get<PaginationResponse<ConcoursSubmission>>(`/concours/submissions${query}`);
+    },
+
+    /** Admin: approve a submission → creates the real concours. Pass resolved
+     *  structure_id/titre_id to bind any proposed (missing) parents. */
+    async approveSubmission(id: number, resolve?: { structure_id?: number; titre_id?: number }): Promise<{ message: string; concours: Concours; submission: ConcoursSubmission }> {
+        return api.patch(`/concours/submissions/${id}/approve`, resolve ?? {});
+    },
+
+    /** Admin: decline a submission (+ emails the uploader). */
+    async declineSubmission(id: number): Promise<{ message: string; submission: ConcoursSubmission }> {
+        return api.patch(`/concours/submissions/${id}/decline`, {});
     },
 
     async getById(id: string): Promise<Concours> {
