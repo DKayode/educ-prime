@@ -68,6 +68,11 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
         // 1-hour upload + download window — exam PDFs are large and slow to push.
         file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', uploadTtlSeconds: 3600, downloadTtlSeconds: 3600 },
     },
+    epreuve_submissions: {
+        // STEP 2 of the user-submission flow. Same private/large-PDF profile as
+        // epreuves.file; mirrors bytes to the submission's legacy `url` (Firebase).
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', uploadTtlSeconds: 3600, downloadTtlSeconds: 3600 },
+    },
     etablissements: {
         logo: { pathColumn: 'logo_path', extColumn: 'logo_extension', authorized: IMAGE_EXTS_WITH_SVG, public: true, legacyColumn: 'logo' },
     },

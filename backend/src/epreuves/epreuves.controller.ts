@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Query, Res, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Request, Query, Res, HttpStatus, ParseIntPipe } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { EpreuvesService } from './epreuves.service';
@@ -43,10 +43,10 @@ export class EpreuvesController {
   @UseGuards(JwtAuthGuard)
   @Get(':id/telechargement')
   async downloadFile(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Res() res: Response
   ) {
-    const { url } = await this.epreuvesService.findOneForDownload(id);
+    const { url } = await this.epreuvesService.findOneForDownload(String(id));
     const { buffer, contentType, filename } = await this.fichiersService.downloadFile(url);
 
     res.setHeader('Content-Type', contentType);
@@ -56,19 +56,19 @@ export class EpreuvesController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<EpreuveResponseDto> {
-    return this.epreuvesService.findOne(id);
+  async findOne(@Param('id', ParseIntPipe) id: number): Promise<EpreuveResponseDto> {
+    return this.epreuvesService.findOne(String(id));
   }
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  async update(@Param('id') id: string, @Body() majEpreuveDto: MajEpreuveDto) {
-    return this.epreuvesService.update(id, majEpreuveDto);
+  async update(@Param('id', ParseIntPipe) id: number, @Body() majEpreuveDto: MajEpreuveDto) {
+    return this.epreuvesService.update(String(id), majEpreuveDto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    return this.epreuvesService.remove(id);
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    return this.epreuvesService.remove(String(id));
   }
 }
