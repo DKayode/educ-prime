@@ -13,21 +13,6 @@ export const epreuvesService = {
     return api.get<Epreuve>(`/epreuves/${id}`);
   },
 
-  // Admin listing across all statuses (or filtered). Mirrors servicesService.getAllAdmin.
-  async getAllAdmin(params?: { status?: string; page?: number; limit?: number }): Promise<PaginationResponse<Epreuve>> {
-    const queryParams = new URLSearchParams();
-    if (params?.status) queryParams.append('status', params.status);
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
-    return api.get<PaginationResponse<Epreuve>>(`/epreuves/all${queryString}`);
-  },
-
-  // Admin approve/decline. JSON write → the api layer injects `pays` in the body.
-  async updateStatus(id: number, status: 'approved' | 'declined'): Promise<Epreuve> {
-    return api.patch<Epreuve>(`/epreuves/${id}/status`, { status });
-  },
-
   async create(data: {
     titre: string;
     matiere_id: number;
