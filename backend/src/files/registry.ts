@@ -63,6 +63,11 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
         // 1-hour download window — concours PDFs are large, don't drop mid-session.
         file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', downloadTtlSeconds: 3600 },
     },
+    concours_submissions: {
+        // Private: pending user-submitted concours PDFs. Same shape as concours.file
+        // — the file/url carry over to the real concours row at approval.
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', downloadTtlSeconds: 3600 },
+    },
     epreuves: {
         // Private: exam papers are gated behind authorized, short-lived reads.
         // 1-hour upload + download window — exam PDFs are large and slow to push.
