@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Put, Patch, Param, Delete, UseGuards, Query, Res, HttpStatus, Version, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus, Version } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ConcoursService } from './concours.service';
@@ -12,8 +12,6 @@ import { FilterConcoursDto } from './dto/filter-concours.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
-import { ServiceStatusEnum } from '../common/enums/service-status.enum';
-import { UpdateConcoursStatusDto } from './dto/update-concours-status.dto';
 
 @ApiTags('concours')
 @Controller('concours')
@@ -23,15 +21,11 @@ export class ConcoursController {
     private readonly fichiersService: FichiersService,
   ) { }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN)
   @Post()
-  @ApiOperation({ summary: 'Créer un concours. Admin → approuvé ; tout autre utilisateur → en attente d\'approbation.' })
-  @ApiResponse({ status: 201, description: 'Concours créé' })
-  @ApiResponse({ status: 409, description: 'Un concours avec la même structure, titre et année existe déjà' })
-  create(@CurrentCountry() pays: string, @Request() req, @Body() createConcoursDto: CreateConcoursDto) {
-    const isAdmin = req.user?.role === RoleType.ADMIN;
-    const userId = req.user.utilisateurId;
-    return this.concoursService.create(pays, createConcoursDto, userId, isAdmin);
+  create(@Body() createConcoursDto: CreateConcoursDto) {
+    return this.concoursService.create(createConcoursDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -43,10 +37,8 @@ export class ConcoursController {
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche textuelle (Titre ou Lieu)' })
   @ApiQuery({ name: 'annee', required: false, type: Number, description: 'Filtrer par année' })
   @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Trier par (annee, titre) [Default: titre]' })
-  @ApiQuery({ name: 'status', required: false, enum: ServiceStatusEnum, description: 'Admin uniquement : filtrer par statut (ex. pending_approval). Ignoré pour les non-admins.' })
-  findAll(@Request() req, @Query() filterDto: FilterConcoursDto) {
-    const isAdmin = req.user?.role === RoleType.ADMIN;
-    return this.concoursService.findAll(filterDto, isAdmin);
+  findAll(@Query() filterDto: FilterConcoursDto) {
+    return this.concoursService.findAll(filterDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -58,29 +50,24 @@ export class ConcoursController {
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche sur le titre officiel (structure / titre)' })
   findGroupedV1(
     @CurrentCountry() pays: string,
-    @Request() req,
     @Query() paginationDto: PaginationDto,
   ) {
-    const isAdmin = req.user?.role === RoleType.ADMIN;
-    return this.concoursService.findGroupedByTitle(pays, paginationDto, isAdmin);
+    return this.concoursService.findGroupedByTitle(pays, paginationDto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('annees')
-  getAnnees(@Request() req) {
-    const isAdmin = req.user?.role === RoleType.ADMIN;
-    return this.concoursService.getAnnees(isAdmin);
+  getAnnees() {
+    return this.concoursService.getAnnees();
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/telechargement')
   async downloadFile(
-    @Request() req,
     @Param('id') id: string,
     @Res() res: Response
   ) {
-    const isAdmin = req.user?.role === RoleType.ADMIN;
-    const { url } = await this.concoursService.findOneForDownload(+id, isAdmin);
+    const { url } = await this.concoursService.findOneForDownload(+id);
     const { buffer, contentType, filename } = await this.fichiersService.downloadFile(url);
 
     res.setHeader('Content-Type', contentType);
@@ -90,22 +77,8 @@ export class ConcoursController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Request() req, @Param('id') id: string) {
-    const isAdmin = req.user?.role === RoleType.ADMIN;
-    return this.concoursService.findOne(+id, isAdmin);
-  }
-
-  @UseGuards(JwtAuthGuard, RoleGuard)
-  @Roles(RoleType.ADMIN)
-  @Patch(':id/status')
-  @ApiOperation({ summary: "Approuver ou refuser un concours (Admin) + email à l'uploader" })
-  @ApiResponse({ status: 200, description: 'Statut mis à jour' })
-  updateStatus(
-    @CurrentCountry() pays: string,
-    @Param('id') id: string,
-    @Body() updateConcoursStatusDto: UpdateConcoursStatusDto,
-  ) {
-    return this.concoursService.updateStatus(pays, +id, updateConcoursStatusDto.status);
+  findOne(@Param('id') id: string) {
+    return this.concoursService.findOne(+id);
   }
 
   @UseGuards(JwtAuthGuard, RoleGuard)

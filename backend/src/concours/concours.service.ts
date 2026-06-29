@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { Repository } from 'typeorm';
 import { Concours } from './entities/concours.entity';
@@ -10,9 +10,7 @@ import { UpdateConcoursDto } from './dto/update-concours.dto';
 import { FilterConcoursDto } from './dto/filter-concours.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { PaginationDto } from '../common/dto/pagination.dto';
-import { ServiceStatusEnum } from '../common/enums/service-status.enum';
-import { FindOptionsWhere, Like, Brackets, Not, IsNull } from 'typeorm';
-import { MailService } from '../mail/mail.service';
+import { FindOptionsWhere, Like, Brackets } from 'typeorm';
 
 @Injectable()
 export class ConcoursService {
@@ -21,7 +19,6 @@ export class ConcoursService {
   constructor(
     private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
-    private readonly mailService: MailService,
   ) { }
 
   private get concoursRepository(): Repository<Concours> {
@@ -61,94 +58,24 @@ export class ConcoursService {
     return `${structure.nom} - ${titreRef.nom}`;
   }
 
-  // POST /concours — any authenticated user creates a concours. The file
-  // itself is NOT sent here; the client uploads it afterwards via the standard
-  // /files/concours/:uuid/file flow using the returned uuid. Rejects (409) if a
-  // NON-declined concours with the same (structure_id, titre_id, annee) already
-  // exists in the same pays — a previously declined tuple may be re-created.
-  // Admin → auto-approved; any other user → pending_approval. soumis_par_id is
-  // the caller (everyone). titre is server-composed.
-  async create(pays: string, createConcoursDto: CreateConcoursDto, userId: number, isAdmin: boolean) {
-    const { structure_id, titre_id, annee } = createConcoursDto;
-    this.logger.log(`Création d'un concours par utilisateur ${userId} (admin=${isAdmin}, structure ${structure_id}, titre ${titre_id}, annee ${annee}, pays ${pays})`);
-
-    const existing = await this.concoursRepository.findOne({
-      where: {
-        pays,
-        structure_id,
-        titre_id,
-        annee: annee == null ? IsNull() : annee,
-        status: Not(ServiceStatusEnum.DECLINED),
-      },
-    });
-    if (existing) {
-      this.logger.warn(`Doublon concours (structure ${structure_id}, titre ${titre_id}, annee ${annee}, pays ${pays}) — création refusée`);
-      throw new ConflictException(
-        `Un concours pour cette structure, ce titre et cette année (${annee ?? 'non précisée'}) existe déjà.`,
-      );
-    }
-
-    const newConcours = this.concoursRepository.create({ ...createConcoursDto, pays });
+  async create(createConcoursDto: CreateConcoursDto) {
+    this.logger.log(`Création d'un concours (structure ${createConcoursDto.structure_id}, titre ${createConcoursDto.titre_id})`);
+    const newConcours = this.concoursRepository.create(createConcoursDto);
     // structure_id + titre_id are required at create; the legacy titre column
     // is always server-composed (never the manually-typed value).
-    newConcours.titre = await this.composeTitre(structure_id, titre_id);
-    newConcours.status = isAdmin ? ServiceStatusEnum.APPROVED : ServiceStatusEnum.PENDING_APPROVAL;
-    newConcours.soumis_par_id = userId;
-
+    newConcours.titre = await this.composeTitre(createConcoursDto.structure_id, createConcoursDto.titre_id);
     const saved = await this.concoursRepository.save(newConcours);
-    this.logger.log(`Concours créé: ${saved.titre} (ID: ${saved.id}, status ${saved.status}, soumis_par ${userId})`);
+    this.logger.log(`Concours créé: ${saved.titre} (ID: ${saved.id})`);
     return saved;
   }
 
-  // PATCH /concours/:id/status — admin approves/declines a concours
-  // (pays-scoped). Emails the uploader best-effort (skipped if soumis_par_id
-  // is null, i.e. admin-created/legacy). Mirrors ServicesService.updateStatus.
-  async updateStatus(pays: string, id: number, status: ServiceStatusEnum) {
-    this.logger.log(`Mise à jour du statut concours ID ${id} → ${status} (pays=${pays})`);
-    const concours = await this.concoursRepository.findOne({
-      where: { id, pays },
-      relations: ['soumis_par'],
-    });
-    if (!concours) {
-      this.logger.warn(`Concours ID ${id} introuvable (pays=${pays}) pour changement de statut`);
-      throw new NotFoundException('Concours non trouvé');
-    }
-
-    const previousStatus = concours.status;
-    concours.status = status;
-    await this.concoursRepository.save(concours);
-
-    // Best-effort notification — never fails the request.
-    if (previousStatus !== status && concours.soumis_par?.email) {
-      const u = concours.soumis_par;
-      const userName = u.prenom && u.nom
-        ? `${u.prenom} ${u.nom}`
-        : (u.prenom || u.nom || 'Utilisateur');
-      this.mailService
-        .sendServiceStatusUpdateEmail(u.email, userName, concours.titre, status, 'concours')
-        .catch(err => this.logger.error(`Échec envoi email statut concours ${id}: ${err.message}`));
-    } else if (!concours.soumis_par_id) {
-      this.logger.log(`Concours ${id} sans soumis_par_id — aucun email à envoyer`);
-    }
-
-    return concours;
-  }
-
-  async findAll(filterDto: FilterConcoursDto, isAdmin: boolean): Promise<PaginationResponse<Concours>> {
-    const { page = 1, limit = 10, search, annee, sort_by = 'titre', sort_order = 'ASC', status } = filterDto;
-    this.logger.log(`Récupération des concours (admin=${isAdmin}) - filtres: ${JSON.stringify(filterDto)}`);
+  async findAll(filterDto: FilterConcoursDto): Promise<PaginationResponse<Concours>> {
+    const { page = 1, limit = 10, search, annee, sort_by = 'titre', sort_order = 'ASC' } = filterDto;
+    this.logger.log(`Récupération des concours - filtres: ${JSON.stringify(filterDto)}`);
 
     const queryBuilder = this.concoursRepository.createQueryBuilder('concours')
       .leftJoinAndSelect('concours.structure', 'structure')
       .leftJoinAndSelect('concours.titre_ref', 'titre_ref');
-
-    // Status gating: non-admins only ever see approved concours; admins see
-    // every status and may narrow to one via the ?status= filter.
-    if (!isAdmin) {
-      queryBuilder.andWhere('concours.status = :status', { status: ServiceStatusEnum.APPROVED });
-    } else if (status) {
-      queryBuilder.andWhere('concours.status = :status', { status });
-    }
 
     if (search) {
       queryBuilder.andWhere(
@@ -186,18 +113,14 @@ export class ConcoursService {
     };
   }
 
-  async getAnnees(isAdmin: boolean): Promise<number[]> {
-    this.logger.log(`Récupération des années disponibles (admin=${isAdmin})`);
-    const qb = this.concoursRepository
+  async getAnnees(): Promise<number[]> {
+    this.logger.log('Récupération des années disponibles');
+    const result = await this.concoursRepository
       .createQueryBuilder('concours')
       .select('DISTINCT concours.annee', 'annee')
-      .where('concours.annee IS NOT NULL');
-
-    if (!isAdmin) {
-      qb.andWhere('concours.status = :status', { status: ServiceStatusEnum.APPROVED });
-    }
-
-    const result = await qb.orderBy('concours.annee', 'DESC').getRawMany();
+      .where('concours.annee IS NOT NULL')
+      .orderBy('concours.annee', 'DESC')
+      .getRawMany();
 
     return result.map(r => r.annee);
   }
@@ -205,22 +128,17 @@ export class ConcoursService {
   // GET /v1/concours — concours grouped by their official title, i.e. the
   // pair (structure_id, titre_id). Mirrors the niveau-etude/matieres
   // `grouper-par-nom` 3-step pattern (count groups → paginate group keys →
-  // fetch full rows for the page's keys), pays-scoped. Non-admin callers only
-  // see `approved` rows; admins see every status. Each group nests its
+  // fetch full rows for the page's keys), pays-scoped. Each group nests its
   // per-year instances ordered by annee DESC.
   async findGroupedByTitle(
     pays: string,
     paginationDto: PaginationDto,
-    isAdmin: boolean,
   ): Promise<PaginationResponse<any>> {
     const { page = 1, limit = 10, search } = paginationDto;
-    this.logger.log(`Concours groupés (pays=${pays}, admin=${isAdmin}, page=${page}, limit=${limit}, search=${search})`);
+    this.logger.log(`Concours groupés (pays=${pays}, page=${page}, limit=${limit}, search=${search})`);
 
     const applyScope = (qb: any) => {
       qb.where('concours.pays = :pays', { pays });
-      if (!isAdmin) {
-        qb.andWhere('concours.status = :status', { status: ServiceStatusEnum.APPROVED });
-      }
       if (search) {
         qb.andWhere(new Brackets((b) => {
           b.where('unaccent(structure.nom) ILIKE unaccent(:search)', { search: `%${search}%` })
@@ -330,8 +248,8 @@ export class ConcoursService {
     };
   }
 
-  async findOne(id: number, isAdmin: boolean) {
-    this.logger.log(`Recherche du concours ID: ${id} (admin=${isAdmin})`);
+  async findOne(id: number) {
+    this.logger.log(`Recherche du concours ID: ${id}`);
     const concours = await this.concoursRepository.findOne({
       where: { id },
       relations: ['structure', 'titre_ref'],
@@ -342,29 +260,18 @@ export class ConcoursService {
       throw new NotFoundException('Concours non trouvé');
     }
 
-    // Don't leak non-approved concours to non-admins: behave as if absent.
-    if (!isAdmin && concours.status !== ServiceStatusEnum.APPROVED) {
-      this.logger.warn(`Concours ID ${id} (status=${concours.status}) masqué pour non-admin`);
-      throw new NotFoundException('Concours non trouvé');
-    }
-
     this.logger.log(`Concours trouvé: ${concours.titre} (ID: ${id})`);
     return concours;
   }
 
-  async findOneForDownload(id: number, isAdmin: boolean): Promise<{ url: string; titre: string }> {
-    this.logger.log(`Recherche du concours pour téléchargement - ID: ${id} (admin=${isAdmin})`);
+  async findOneForDownload(id: number): Promise<{ url: string; titre: string }> {
+    this.logger.log(`Recherche du concours pour téléchargement - ID: ${id}`);
     const concours = await this.concoursRepository.findOne({
       where: { id },
     });
 
     if (!concours) {
       this.logger.warn(`Concours ID ${id} introuvable`);
-      throw new NotFoundException('Concours non trouvé');
-    }
-
-    if (!isAdmin && concours.status !== ServiceStatusEnum.APPROVED) {
-      this.logger.warn(`Concours ID ${id} (status=${concours.status}) masqué pour non-admin (download)`);
       throw new NotFoundException('Concours non trouvé');
     }
 

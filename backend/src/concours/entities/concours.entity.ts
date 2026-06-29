@@ -2,7 +2,6 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 't
 import { ApiProperty } from '@nestjs/swagger';
 import { Structure } from '../../structure/entities/structure.entity';
 import { Titre } from '../../titre/entities/titre.entity';
-import { Utilisateur } from '../../utilisateurs/entities/utilisateur.entity';
 
 @Entity('concours')
 export class Concours {
@@ -41,11 +40,6 @@ export class Concours {
     @Column({ default: 0 })
     nombre_telechargements: number;
 
-    // Approval state. User-submitted concours start 'pending_approval';
-    // admin-created ones default to 'approved'. Values mirror ServiceStatusEnum.
-    @Column({ type: 'varchar', length: 20, default: 'approved' })
-    status: string;
-
     // Optional reference to the organizing body / institution (lookup entity).
     @ApiProperty({ required: false })
     @Column({ nullable: true })
@@ -67,15 +61,4 @@ export class Concours {
     @ManyToOne(() => Titre, { nullable: true })
     @JoinColumn({ name: 'titre_id' })
     titre_ref?: Titre;
-
-    // Uploader (the utilisateur who submitted a user-uploaded concours). Null
-    // for admin-created and legacy rows. Used to email the approval decision.
-    @ApiProperty({ required: false })
-    @Column({ nullable: true })
-    soumis_par_id?: number;
-
-    @ApiProperty({ type: () => Utilisateur, required: false })
-    @ManyToOne(() => Utilisateur, { nullable: true })
-    @JoinColumn({ name: 'soumis_par_id' })
-    soumis_par?: Utilisateur;
 }
