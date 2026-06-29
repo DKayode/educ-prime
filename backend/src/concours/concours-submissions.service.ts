@@ -33,10 +33,17 @@ export class ConcoursSubmissionsService {
         return this.resolver.getRepository(Titre);
     }
 
-    // Decorate a submission with which parent(s) still need admin resolution.
+    // Decorate a submission with which parent(s) still need admin resolution,
+    // and project the uploader down to safe public fields (never leak the
+    // password hash / fcm_token / digit_code from the joined utilisateur row).
     private withMissingFlags(s: ConcoursSubmission) {
+        const u = s.soumis_par;
+        const soumis_par = u
+            ? { id: u.id, uuid: u.uuid, nom: u.nom, prenom: u.prenom, email: u.email }
+            : null;
         return {
             ...s,
+            soumis_par,
             missing_structure: s.structure_id == null,
             missing_titre: s.titre_id == null,
         };
@@ -113,7 +120,8 @@ export class ConcoursSubmissionsService {
         const [rows, total] = await this.submissionRepository.createQueryBuilder('submission')
             .leftJoinAndSelect('submission.structure', 'structure')
             .leftJoinAndSelect('submission.titre_ref', 'titre_ref')
-            .leftJoinAndSelect('submission.soumis_par', 'soumis_par')
+            .leftJoin('submission.soumis_par', 'soumis_par')
+            .addSelect(['soumis_par.id', 'soumis_par.uuid', 'soumis_par.nom', 'soumis_par.prenom', 'soumis_par.email'])
             .where('submission.pays = :pays', { pays })
             .andWhere('submission.status = :status', { status: effectiveStatus })
             .orderBy('submission.date_creation', 'DESC')

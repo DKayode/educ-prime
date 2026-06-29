@@ -3,12 +3,12 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ConcoursSubmissionsService } from './concours-submissions.service';
 import { CreateConcoursSubmissionDto } from './dto/create-concours-submission.dto';
 import { ApproveConcoursSubmissionDto } from './dto/approve-concours-submission.dto';
+import { SubmissionsQueryDto } from './dto/submissions-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
-import { PaginationDto } from '../common/dto/pagination.dto';
 
 // NOTE: registered BEFORE ConcoursController in the module's `controllers`
 // array so the literal `/concours/submissions` routes resolve before
@@ -41,10 +41,9 @@ export class ConcoursSubmissionsController {
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAll(
         @CurrentCountry() pays: string,
-        @Query() paginationDto: PaginationDto,
-        @Query('status') status?: string,
+        @Query() query: SubmissionsQueryDto,
     ) {
-        return this.submissionsService.findAll(pays, status, paginationDto);
+        return this.submissionsService.findAll(pays, query.status, query);
     }
 
     @UseGuards(JwtAuthGuard, RoleGuard)
