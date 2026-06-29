@@ -121,9 +121,19 @@ export class EpreuveSubmissionsService {
     return saved;
   }
 
-  // Client-facing submission shape: resolved parents as {id, nom}, proposed names
-  // kept, and an explicit `missing` flag per level for the admin queue.
+  // Client-facing submission shape. A deeper id IMPLIES its ancestors via the
+  // chain (matiere → niveau_etude → filiere → etablissement), so we derive and
+  // return the ancestor objects from the deepest set id; a level is `missing`
+  // only when neither it nor any deeper level resolves it (i.e. genuinely a
+  // proposed-new level). Requires the deep relations to be loaded.
   private toSubmissionResponse(s: EpreuveSubmission) {
+    const ref = (x?: { id: number; nom: string } | null) => x ? { id: x.id, nom: x.nom } : null;
+
+    const effMatiere = s.matiere ?? null;
+    const effNiveau = s.niveau_etude ?? effMatiere?.niveau_etude ?? null;
+    const effFiliere = s.filiere ?? effNiveau?.filiere ?? null;
+    const effEtab = s.etablissement ?? effFiliere?.etablissement ?? null;
+
     return {
       id: s.id,
       uuid: s.uuid,
@@ -139,19 +149,19 @@ export class EpreuveSubmissionsService {
       soumis_par: s.soumis_par
         ? { id: s.soumis_par.id, nom: s.soumis_par.nom, prenom: s.soumis_par.prenom, email: s.soumis_par.email }
         : null,
-      etablissement: s.etablissement ? { id: s.etablissement.id, nom: s.etablissement.nom } : null,
+      etablissement: ref(effEtab),
       proposed_etablissement: s.proposed_etablissement,
-      filiere: s.filiere ? { id: s.filiere.id, nom: s.filiere.nom } : null,
+      filiere: ref(effFiliere),
       proposed_filiere: s.proposed_filiere,
-      niveau_etude: s.niveau_etude ? { id: s.niveau_etude.id, nom: s.niveau_etude.nom } : null,
+      niveau_etude: ref(effNiveau),
       proposed_niveau: s.proposed_niveau,
-      matiere: s.matiere ? { id: s.matiere.id, nom: s.matiere.nom } : null,
+      matiere: ref(effMatiere),
       proposed_matiere: s.proposed_matiere,
       missing: {
-        etablissement: s.etablissement_id == null,
-        filiere: s.filiere_id == null,
-        niveau_etude: s.niveau_etude_id == null,
-        matiere: s.matiere_id == null,
+        etablissement: effEtab == null,
+        filiere: effFiliere == null,
+        niveau_etude: effNiveau == null,
+        matiere: effMatiere == null,
       },
     };
   }
@@ -166,8 +176,14 @@ export class EpreuveSubmissionsService {
     const qb = this.submissionsRepository.createQueryBuilder('submission')
       .leftJoinAndSelect('submission.etablissement', 'etablissement')
       .leftJoinAndSelect('submission.filiere', 'filiere')
+      .leftJoinAndSelect('filiere.etablissement', 'f_etab')
       .leftJoinAndSelect('submission.niveau_etude', 'niveau_etude')
+      .leftJoinAndSelect('niveau_etude.filiere', 'n_filiere')
+      .leftJoinAndSelect('n_filiere.etablissement', 'n_etab')
       .leftJoinAndSelect('submission.matiere', 'matiere')
+      .leftJoinAndSelect('matiere.niveau_etude', 'm_niveau')
+      .leftJoinAndSelect('m_niveau.filiere', 'm_filiere')
+      .leftJoinAndSelect('m_filiere.etablissement', 'm_etab')
       .leftJoinAndSelect('submission.soumis_par', 'soumis_par')
       .where('submission.pays = :pays', { pays })
       .orderBy('submission.date_creation', 'DESC')
@@ -191,7 +207,13 @@ export class EpreuveSubmissionsService {
   private async loadSubmissionOrThrow(id: number): Promise<EpreuveSubmission> {
     const submission = await this.submissionsRepository.findOne({
       where: { id },
-      relations: ['etablissement', 'filiere', 'niveau_etude', 'matiere', 'soumis_par'],
+      relations: [
+        'soumis_par',
+        'etablissement',
+        'filiere', 'filiere.etablissement',
+        'niveau_etude', 'niveau_etude.filiere', 'niveau_etude.filiere.etablissement',
+        'matiere', 'matiere.niveau_etude', 'matiere.niveau_etude.filiere', 'matiere.niveau_etude.filiere.etablissement',
+      ],
     });
     if (!submission) {
       throw new NotFoundException(`Soumission #${id} introuvable`);
@@ -256,10 +278,12 @@ export class EpreuveSubmissionsService {
       throw new ConflictException(`Soumission #${id} déjà approuvée.`);
     }
 
-    if (submission.etablissement_id == null || submission.filiere_id == null
-      || submission.niveau_etude_id == null || submission.matiere_id == null) {
+    // matiere_id alone pins the whole chain and is the only parent the real
+    // épreuve stores, so it's the sole gate. Proposed-new ancestors must have
+    // been turned into a real matière (via resolution) before approval.
+    if (submission.matiere_id == null) {
       throw new BadRequestException(
-        "Tous les parents (établissement, filière, niveau, matière) doivent être résolus avant approbation.",
+        "La matière doit être résolue avant approbation (elle détermine toute la chaîne).",
       );
     }
 

@@ -97,6 +97,21 @@ function ResolveDialog({ submission, open, onOpenChange }: {
         matiere: useQuery({ queryKey: ['matieres-all'], queryFn: () => matieresService.getAll({ limit: 200 }), enabled: open }),
     };
 
+    const reset = () => { setChosen({}); setNewNames({}); };
+
+    // Hooks must run before any early return — keep useMutation above the
+    // `!submission` guard (this no-op-when-closed dialog toggles submission).
+    const resolveMutation = useMutation({
+        mutationFn: () => epreuveSubmissionsService.resolve(submission!.id, chosen),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-submissions'] });
+            toast({ title: "Parents mis à jour", description: "La soumission a été résolue." });
+            reset();
+            onOpenChange(false);
+        },
+        onError: (e: any) => toast({ title: "Erreur", description: e.message || "Échec de la résolution", variant: "destructive" }),
+    });
+
     if (!submission) return null;
 
     // Effective ids = locally chosen, falling back to what's already on the submission.
@@ -107,19 +122,6 @@ function ResolveDialog({ submission, open, onOpenChange }: {
         matiere_id: chosen.matiere_id ?? submission.matiere?.id,
     };
     const allResolved = !!(eff.etablissement_id && eff.filiere_id && eff.niveau_etude_id && eff.matiere_id);
-
-    const reset = () => { setChosen({}); setNewNames({}); };
-
-    const resolveMutation = useMutation({
-        mutationFn: () => epreuveSubmissionsService.resolve(submission.id, chosen),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['admin-submissions'] });
-            toast({ title: "Parents mis à jour", description: "La soumission a été résolue." });
-            reset();
-            onOpenChange(false);
-        },
-        onError: (e: any) => toast({ title: "Erreur", description: e.message || "Échec de la résolution", variant: "destructive" }),
-    });
 
     const createAndChoose = async (
         level: keyof ResolveSubmissionData,
