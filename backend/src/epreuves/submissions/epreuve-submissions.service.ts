@@ -1,6 +1,7 @@
-import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { DataSourceResolver } from '../../config/data-source-resolver.service';
+import { MailService } from '../../mail/mail.service';
 import { EpreuveSubmission } from './entities/epreuve-submission.entity';
 import { Epreuve, EpreuveSection } from '../entities/epreuve.entity';
 import { Etablissement } from '../../etablissements/entities/etablissement.entity';
@@ -8,13 +9,18 @@ import { Filiere } from '../../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../../niveau-etude/entities/niveau-etude.entity';
 import { Matiere } from '../../matieres/entities/matiere.entity';
 import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
+import { PaginationResponse } from '../../common/interfaces/pagination-response.interface';
 import { CreerSubmissionDto } from './dto/creer-submission.dto';
+import { ResoudreSubmissionDto } from './dto/resoudre-submission.dto';
 
 @Injectable()
 export class EpreuveSubmissionsService {
   private readonly logger = new Logger(EpreuveSubmissionsService.name);
 
-  constructor(private readonly resolver: DataSourceResolver) { }
+  constructor(
+    private readonly resolver: DataSourceResolver,
+    private readonly mailService: MailService,
+  ) { }
 
   private get submissionsRepository(): Repository<EpreuveSubmission> {
     return this.resolver.getRepository(EpreuveSubmission);
@@ -113,5 +119,205 @@ export class EpreuveSubmissionsService {
     const saved = await this.submissionsRepository.save(submission);
     this.logger.log(`Soumission créée: #${saved.id} (uuid ${saved.uuid}, pays ${saved.pays})`);
     return saved;
+  }
+
+  // Client-facing submission shape: resolved parents as {id, nom}, proposed names
+  // kept, and an explicit `missing` flag per level for the admin queue.
+  private toSubmissionResponse(s: EpreuveSubmission) {
+    return {
+      id: s.id,
+      uuid: s.uuid,
+      pays: s.pays,
+      titre: s.titre,
+      annee: s.annee,
+      section: s.section,
+      status: s.status,
+      date_creation: s.date_creation,
+      file_path: s.file_path,
+      file_extension: s.file_extension,
+      url: s.url,
+      soumis_par: s.soumis_par
+        ? { id: s.soumis_par.id, nom: s.soumis_par.nom, prenom: s.soumis_par.prenom, email: s.soumis_par.email }
+        : null,
+      etablissement: s.etablissement ? { id: s.etablissement.id, nom: s.etablissement.nom } : null,
+      proposed_etablissement: s.proposed_etablissement,
+      filiere: s.filiere ? { id: s.filiere.id, nom: s.filiere.nom } : null,
+      proposed_filiere: s.proposed_filiere,
+      niveau_etude: s.niveau_etude ? { id: s.niveau_etude.id, nom: s.niveau_etude.nom } : null,
+      proposed_niveau: s.proposed_niveau,
+      matiere: s.matiere ? { id: s.matiere.id, nom: s.matiere.nom } : null,
+      proposed_matiere: s.proposed_matiere,
+      missing: {
+        etablissement: s.etablissement_id == null,
+        filiere: s.filiere_id == null,
+        niveau_etude: s.niveau_etude_id == null,
+        matiere: s.matiere_id == null,
+      },
+    };
+  }
+
+  // Admin queue: list submissions (optional status filter), with parents resolved
+  // and missing ones flagged.
+  async findAllForAdmin(
+    pays: string,
+    opts: { status?: ServiceStatusEnum; page?: number; limit?: number },
+  ): Promise<PaginationResponse<ReturnType<EpreuveSubmissionsService['toSubmissionResponse']>>> {
+    const { status, page = 1, limit = 10 } = opts;
+    const qb = this.submissionsRepository.createQueryBuilder('submission')
+      .leftJoinAndSelect('submission.etablissement', 'etablissement')
+      .leftJoinAndSelect('submission.filiere', 'filiere')
+      .leftJoinAndSelect('submission.niveau_etude', 'niveau_etude')
+      .leftJoinAndSelect('submission.matiere', 'matiere')
+      .leftJoinAndSelect('submission.soumis_par', 'soumis_par')
+      .where('submission.pays = :pays', { pays })
+      .orderBy('submission.date_creation', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (status) {
+      qb.andWhere('submission.status = :status', { status });
+    }
+
+    const [rows, total] = await qb.getManyAndCount();
+    return {
+      data: rows.map(r => this.toSubmissionResponse(r)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  private async loadSubmissionOrThrow(id: number): Promise<EpreuveSubmission> {
+    const submission = await this.submissionsRepository.findOne({
+      where: { id },
+      relations: ['etablissement', 'filiere', 'niveau_etude', 'matiere', 'soumis_par'],
+    });
+    if (!submission) {
+      throw new NotFoundException(`Soumission #${id} introuvable`);
+    }
+    return submission;
+  }
+
+  private uploaderName(s: EpreuveSubmission): string {
+    const u = s.soumis_par;
+    if (!u) return 'Utilisateur';
+    return u.prenom && u.nom ? `${u.prenom} ${u.nom}` : (u.prenom || u.nom || 'Utilisateur');
+  }
+
+  // Admin resolution: attach validated real parent ids (clearing the matching
+  // proposed_* name), then re-derive pays from the deepest resolved parent.
+  async resolveParents(id: number, dto: ResoudreSubmissionDto) {
+    const submission = await this.loadSubmissionOrThrow(id);
+
+    if (dto.etablissement_id != null) {
+      const e = await this.etablissementsRepository.findOne({ where: { id: dto.etablissement_id } });
+      if (!e) throw new NotFoundException(`Établissement #${dto.etablissement_id} introuvable`);
+      submission.etablissement_id = dto.etablissement_id;
+      submission.proposed_etablissement = null;
+      submission.pays = e.pays;
+    }
+    if (dto.filiere_id != null) {
+      const f = await this.filieresRepository.findOne({ where: { id: dto.filiere_id } });
+      if (!f) throw new NotFoundException(`Filière #${dto.filiere_id} introuvable`);
+      submission.filiere_id = dto.filiere_id;
+      submission.proposed_filiere = null;
+      submission.pays = f.pays;
+    }
+    if (dto.niveau_etude_id != null) {
+      const n = await this.niveauxRepository.findOne({ where: { id: dto.niveau_etude_id } });
+      if (!n) throw new NotFoundException(`Niveau d'étude #${dto.niveau_etude_id} introuvable`);
+      submission.niveau_etude_id = dto.niveau_etude_id;
+      submission.proposed_niveau = null;
+      submission.pays = n.pays;
+    }
+    if (dto.matiere_id != null) {
+      const m = await this.matieresRepository.findOne({ where: { id: dto.matiere_id } });
+      if (!m) throw new NotFoundException(`Matière #${dto.matiere_id} introuvable`);
+      submission.matiere_id = dto.matiere_id;
+      submission.proposed_matiere = null;
+      submission.pays = m.pays;
+    }
+
+    await this.submissionsRepository.save(submission);
+    const reloaded = await this.loadSubmissionOrThrow(id);
+    this.logger.log(`Soumission #${id} résolue (parents mis à jour)`);
+    return this.toSubmissionResponse(reloaded);
+  }
+
+  // Admin approve: requires all four parents resolved to real ids, then creates the
+  // real épreuve (file/url copied from the submission, professeur = uploader),
+  // marks the submission approved, and emails the uploader.
+  async approve(id: number) {
+    const submission = await this.loadSubmissionOrThrow(id);
+
+    // Idempotency guard: re-approving must not create a second épreuve.
+    if (submission.status === ServiceStatusEnum.APPROVED) {
+      throw new ConflictException(`Soumission #${id} déjà approuvée.`);
+    }
+
+    if (submission.etablissement_id == null || submission.filiere_id == null
+      || submission.niveau_etude_id == null || submission.matiere_id == null) {
+      throw new BadRequestException(
+        "Tous les parents (établissement, filière, niveau, matière) doivent être résolus avant approbation.",
+      );
+    }
+
+    const matiere = await this.matieresRepository.findOne({ where: { id: submission.matiere_id } });
+    if (!matiere) {
+      throw new NotFoundException(`Matière #${submission.matiere_id} introuvable`);
+    }
+
+    // soumis_par_id is ON DELETE SET NULL but epreuves.professeur_id is NOT NULL.
+    if (submission.soumis_par_id == null) {
+      throw new BadRequestException("L'auteur de la soumission n'existe plus; impossible de créer l'épreuve.");
+    }
+
+    const epreuve = new Epreuve();
+    epreuve.titre = submission.titre;
+    epreuve.matiere_id = submission.matiere_id;
+    epreuve.professeur_id = submission.soumis_par_id;
+    epreuve.annee = submission.annee ?? undefined;
+    epreuve.section = (submission.section as EpreuveSection) ?? EpreuveSection.NORMAL;
+    epreuve.duree_minutes = 0;
+    // File stays at the submission's R2 key + Firebase URL; the épreuve row
+    // references them (column-value copy — no byte copy in FilesModule).
+    epreuve.file_path = submission.file_path;
+    epreuve.file_extension = submission.file_extension;
+    epreuve.url = submission.url;
+    epreuve.pays = matiere.pays;
+    const savedEpreuve = await this.epreuvesRepository.save(epreuve);
+
+    submission.status = ServiceStatusEnum.APPROVED;
+    await this.submissionsRepository.save(submission);
+
+    if (submission.soumis_par?.email) {
+      this.mailService.sendServiceStatusUpdateEmail(
+        submission.soumis_par.email, this.uploaderName(submission), submission.titre, 'approved', 'épreuve',
+      ).catch(err => this.logger.error(`Failed to send approval email for submission ${id}: ${err.message}`));
+    }
+
+    this.logger.log(`Soumission #${id} approuvée → épreuve #${savedEpreuve.id} créée`);
+    return { submission: this.toSubmissionResponse(submission), epreuve: savedEpreuve };
+  }
+
+  // Admin decline: mark declined + email the uploader. Reason is logged only.
+  async decline(id: number, reason?: string) {
+    const submission = await this.loadSubmissionOrThrow(id);
+
+    submission.status = ServiceStatusEnum.DECLINED;
+    await this.submissionsRepository.save(submission);
+    if (reason) {
+      this.logger.log(`Soumission #${id} refusée. Motif: ${reason}`);
+    }
+
+    if (submission.soumis_par?.email) {
+      this.mailService.sendServiceStatusUpdateEmail(
+        submission.soumis_par.email, this.uploaderName(submission), submission.titre, 'declined', 'épreuve',
+      ).catch(err => this.logger.error(`Failed to send decline email for submission ${id}: ${err.message}`));
+    }
+
+    this.logger.log(`Soumission #${id} refusée`);
+    return this.toSubmissionResponse(submission);
   }
 }
