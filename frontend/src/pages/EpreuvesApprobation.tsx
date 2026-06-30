@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Wrench, AlertTriangle, Check } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Wrench, AlertTriangle, Check, FileWarning } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -381,7 +381,11 @@ export default function EpreuvesApprobation() {
                                         </TableRow>
                                     ) : submissions.map((sub) => {
                                         const hasMissing = sub.missing.etablissement || sub.missing.filiere || sub.missing.niveau_etude || sub.missing.matiere;
+                                        const hasFile = !!(sub.file_path || sub.url);
                                         const isPending = sub.status === 'pending_approval';
+                                        const approveTitle = hasMissing
+                                            ? "Résolvez d'abord tous les parents"
+                                            : !hasFile ? "En attente du fichier" : "Approuver";
                                         return (
                                             <TableRow key={sub.id}>
                                                 <TableCell className="font-medium max-w-[180px] truncate" title={sub.titre}>{sub.titre}</TableCell>
@@ -389,7 +393,17 @@ export default function EpreuvesApprobation() {
                                                 <TableCell>{sub.annee || '-'}</TableCell>
                                                 <TableCell className="capitalize">{sub.section || '-'}</TableCell>
                                                 <TableCell>{sub.soumis_par ? `${sub.soumis_par.prenom} ${sub.soumis_par.nom}` : '-'}</TableCell>
-                                                <TableCell><Badge variant={getStatusBadgeVariant(sub.status)}>{getStatusLabel(sub.status)}</Badge></TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col items-start gap-1">
+                                                        <Badge variant={getStatusBadgeVariant(sub.status)}>{getStatusLabel(sub.status)}</Badge>
+                                                        {isPending && !hasFile && (
+                                                            <Badge variant="destructive" className="font-normal gap-1">
+                                                                <FileWarning className="h-3 w-3" />
+                                                                Fichier manquant
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end gap-2">
                                                         {isPending && (
@@ -402,8 +416,8 @@ export default function EpreuvesApprobation() {
                                                                 <Button
                                                                     variant="ghost" size="icon"
                                                                     onClick={() => approveMutation.mutate(sub.id)}
-                                                                    title={hasMissing ? "Résolvez d'abord tous les parents" : "Approuver"}
-                                                                    disabled={hasMissing || approveMutation.isPending}
+                                                                    title={approveTitle}
+                                                                    disabled={hasMissing || !hasFile || approveMutation.isPending}
                                                                 >
                                                                     <CheckCircle className="h-4 w-4 text-green-500" />
                                                                 </Button>
