@@ -134,7 +134,13 @@ function SubmissionRow({
         return name || u.email || '-';
     };
 
+    // A file is mandatory to approve (the submission exists to collect the PDF).
+    const hasFile = !!(submission.file_path || submission.url);
     const pending = approveMutation.isPending || declineMutation.isPending;
+    const canApprove = bothResolved && hasFile;
+    const approveTitle = !hasFile
+        ? "En attente du fichier"
+        : (bothResolved ? "Approuver" : "Résolvez la structure et le titre d'abord");
 
     return (
         <TableRow>
@@ -168,13 +174,16 @@ function SubmissionRow({
             <TableCell className="align-top">{submission.lieu || '—'}</TableCell>
             <TableCell className="align-top">{submitterName()}</TableCell>
             <TableCell className="align-top text-right">
-                <div className="flex justify-end gap-2">
+                <div className="flex items-center justify-end gap-2">
+                    {!hasFile && (
+                        <Badge variant="outline" className="border-amber-500 text-amber-600">Fichier manquant</Badge>
+                    )}
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => approveMutation.mutate()}
-                        title={bothResolved ? "Approuver" : "Résolvez la structure et le titre d'abord"}
-                        disabled={pending || !bothResolved}
+                        title={approveTitle}
+                        disabled={pending || !canApprove}
                     >
                         <CheckCircle className="h-4 w-4 text-green-500" />
                     </Button>
