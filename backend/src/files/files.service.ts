@@ -6,7 +6,7 @@ import {
     InternalServerErrorException,
     Logger,
 } from '@nestjs/common';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { DataSource } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -443,5 +443,60 @@ export class FilesService {
                 `R2 mirror failed for ${entity} id=${rowId} slot=${slot}: ${err?.message ?? err}`,
             );
         }
+    }
+
+    /**
+     * Promote a slot's object from one (entity, uuid) to another, SAME slot —
+     * server-side R2 CopyObject (no byte download) + best-effort Firebase copy.
+     * Used when a submission is approved so the real épreuve OWNS its file at its
+     * own deterministic key (`<destEntity>/<destUuid>/<slot>.<ext>`) instead of
+     * borrowing the submission's. Source objects are left in place (submission
+     * cleanup is out of scope). Returns the dest row's file columns.
+     *
+     * The R2 copy throws on failure (the caller must abort — don't point a real
+     * row at a copy that didn't happen). The TRANSITIONAL Firebase copy is
+     * best-effort: a failure is logged and `url` comes back empty.
+     */
+    async promoteFile(
+        srcEntity: string,
+        srcUuid: string,
+        destEntity: string,
+        destUuid: string,
+        slot: string,
+        extension: string,
+    ): Promise<{ file_path: string; file_extension: string; url: string }> {
+        const cfg = this.resolveSlot(destEntity, slot);
+        const ext = (extension || '').toLowerCase().replace(/^\./, '');
+        const bucket = this.bucketFor(cfg);
+        const srcKey = buildObjectKey(srcEntity, srcUuid, slot, ext);
+        const destKey = buildObjectKey(destEntity, destUuid, slot, ext);
+
+        // R2 server-side copy. CopySource must be `${bucket}/${key}` URL-encoded.
+        await this.client.send(
+            new CopyObjectCommand({
+                Bucket: bucket,
+                CopySource: encodeURIComponent(`${bucket}/${srcKey}`),
+                Key: destKey,
+                ...(cfg.public ? { CacheControl: PUBLIC_CACHE_CONTROL } : {}),
+            }),
+        );
+
+        const file_path = this.storedPathFor(cfg, destEntity, destUuid, slot, ext);
+
+        // TRANSITIONAL: mirror the copy in Firebase so the legacy URL column on
+        // the dest row points at the dest key too. Best-effort — never throws.
+        let url = '';
+        try {
+            const fb = this.firebase.getBucket();
+            await fb.file(srcKey).copy(fb.file(destKey));
+            url = `https://storage.googleapis.com/${fb.name}/${destKey}`;
+            this.logger.log(`Promoted ${srcEntity}/${srcUuid} → ${destEntity}/${destUuid}/${slot} in Firebase.`);
+        } catch (err) {
+            this.logger.warn(
+                `Firebase promote-copy failed for ${slot} (${srcEntity}/${srcUuid} → ${destEntity}/${destUuid}): ${err?.message ?? err}`,
+            );
+        }
+
+        return { file_path, file_extension: ext, url };
     }
 }
