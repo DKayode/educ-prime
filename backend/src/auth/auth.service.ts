@@ -43,6 +43,9 @@ export class AuthService {
       mot_de_passe: hashedPassword, // Note: InscriptionDto expects plain password, but we hash here? check service
       role: registerDto.role,
       sexe: registerDto.sexe,
+      date_naissance: registerDto.date_naissance,
+      zone_residence: registerDto.zone_residence,
+      situation_handicap: registerDto.situation_handicap,
       code_parrainage: registerDto.code_parrainage
     });
     this.logger.log(`Inscription réussie via /auth/register: ${user.email} (ID: ${user.id})`);
