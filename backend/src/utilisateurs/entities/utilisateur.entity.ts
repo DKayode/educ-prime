@@ -31,7 +31,6 @@ export class Utilisateur {
   @PrimaryGeneratedColumn()
   id: number;
 
-
   @Column({ type: 'text', default: '' })
   profil_photo_path: string;
 

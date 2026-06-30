@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS wallet_restrictions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL UNIQUE REFERENCES utilisateurs(id) ON DELETE CASCADE,
+  can_receive_money BOOLEAN NOT NULL DEFAULT TRUE,
+  can_withdraw BOOLEAN NOT NULL DEFAULT TRUE,
+  can_transfer BOOLEAN NOT NULL DEFAULT FALSE,
+  blocked BOOLEAN NOT NULL DEFAULT FALSE,
+  blocked_reason TEXT NULL,
+  blocked_until TIMESTAMP NULL,
+  blocked_by INTEGER NULL REFERENCES utilisateurs(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);

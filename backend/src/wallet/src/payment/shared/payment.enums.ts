@@ -1,0 +1,69 @@
+export enum WalletStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  BLOCKED = 'BLOCKED',
+  CLOSED = 'CLOSED',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+}
+
+export enum WalletTransactionType {
+  REWARD = 'REWARD',
+  RELEASE = 'RELEASE',
+  WITHDRAW = 'WITHDRAW',
+  ADJUSTMENT = 'ADJUSTMENT',
+}
+
+export enum WalletTransactionStatus {
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum WithdrawalStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  PROCESSING = 'PROCESSING',
+  PAID = 'PAID',
+  FAILED = 'FAILED',
+  REJECTED = 'REJECTED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum PaymentMethod {
+  MOBILE_MONEY = 'MOBILE_MONEY',
+}
+
+export enum MobileMoneyProvider {
+  MTN_MOMO = 'MTN_MOMO',
+  MOOV_MONEY = 'MOOV_MONEY',
+  CELTIIS_CASH = 'CELTIIS_CASH',
+}
+
+export enum PaymentExecutionStatus {
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum PaymentBatchStatus {
+  DRAFT = 'DRAFT',
+  PROCESSING = 'PROCESSING',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum FeeType {
+  FIXED = 'FIXED',
+  PERCENTAGE = 'PERCENTAGE',
+}
+
+export enum PaymentNotificationType {
+  WALLET_CREDITED = 'WALLET_CREDITED',
+  WITHDRAWAL_REQUESTED = 'WITHDRAWAL_REQUESTED',
+  WITHDRAWAL_APPROVED = 'WITHDRAWAL_APPROVED',
+  WITHDRAWAL_REJECTED = 'WITHDRAWAL_REJECTED',
+  PAYMENT_COMPLETED = 'PAYMENT_COMPLETED',
+  ADMIN_WITHDRAWAL_ALERT = 'ADMIN_WITHDRAWAL_ALERT',
+}

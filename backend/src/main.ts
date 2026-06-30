@@ -10,7 +10,7 @@ async function bootstrap() {
   // Enable CORS for frontend access
   app.enableCors({
     origin: process.env.NODE_ENV === 'production'
-      ? true 
+      ? true
       : ['http://localhost', 'http://localhost:80', 'http://localhost:8080', 'http://localhost:5173'],
     credentials: true,
   });
@@ -76,9 +76,16 @@ async function bootstrap() {
     .addTag('commentaires')
     .addTag('likes')
     .addTag('favoris')
+    .addTag('Wallet')
+    .addTag('UserPayment')
+    .addTag('Withdrawals')
+    .addTag('PaymentConfiguration')
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  // const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, config, {
+    deepScanRoutes: true,
+  });
 
   // Reflect the country contract in OpenAPI: GET carries a ?country= query
   // param, JSON write methods (POST/PUT/PATCH) carry a `pays` body field,

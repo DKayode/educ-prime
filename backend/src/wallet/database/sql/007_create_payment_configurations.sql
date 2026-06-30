@@ -1,0 +1,27 @@
+CREATE TABLE IF NOT EXISTS payment_configurations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  minimum_withdrawal NUMERIC(14,2) NOT NULL DEFAULT 500,
+  maximum_withdrawal NUMERIC(14,2) NOT NULL DEFAULT 50000,
+  withdraw_fee NUMERIC(14,2) NOT NULL DEFAULT 0,
+  withdraw_fee_type VARCHAR(30) NOT NULL DEFAULT 'FIXED' CHECK (withdraw_fee_type IN ('FIXED','PERCENTAGE')),
+  reward_per_exam NUMERIC(14,2) NOT NULL DEFAULT 100,
+  currency VARCHAR(10) NOT NULL DEFAULT 'XOF',
+  wallet_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  withdraw_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  reward_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  review_delay_hours INTEGER NOT NULL DEFAULT 0,
+  daily_withdrawal_limit NUMERIC(14,2) NOT NULL DEFAULT 100000,
+  monthly_withdrawal_limit NUMERIC(14,2) NOT NULL DEFAULT 500000,
+  kyc_threshold NUMERIC(14,2) NOT NULL DEFAULT 0,
+  minimum_wallet_balance NUMERIC(14,2) NOT NULL DEFAULT 0,
+  max_withdraw_per_day INTEGER NOT NULL DEFAULT 1,
+  max_withdraw_per_week INTEGER NOT NULL DEFAULT 3,
+  max_withdraw_per_month INTEGER NOT NULL DEFAULT 10,
+  automatic_withdrawal BOOLEAN NOT NULL DEFAULT FALSE,
+  maintenance_mode BOOLEAN NOT NULL DEFAULT FALSE,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_by INTEGER NULL REFERENCES utilisateurs(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_configuration_active ON payment_configurations(is_active) WHERE is_active = TRUE;
