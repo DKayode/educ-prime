@@ -8,12 +8,14 @@ import { ConcoursSubmissionsController } from './concours-submissions.controller
 import { ConcoursSubmissionsService } from './concours-submissions.service';
 import { FichiersModule } from '../fichiers/fichiers.module';
 import { MailModule } from '../mail/mail.module';
+import { FilesModule } from '../files/files.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Concours, ConcoursSubmission]),
     FichiersModule,
     MailModule,
+    FilesModule,
   ],
   // ConcoursSubmissionsController FIRST: its literal `/concours/submissions`
   // routes must register before ConcoursController's `/concours/:id`.

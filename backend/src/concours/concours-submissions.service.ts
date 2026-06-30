@@ -10,6 +10,7 @@ import { CreateConcoursSubmissionDto } from './dto/create-concours-submission.dt
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { MailService } from '../mail/mail.service';
+import { FilesService } from '../files/files.service';
 
 @Injectable()
 export class ConcoursSubmissionsService {
@@ -18,6 +19,7 @@ export class ConcoursSubmissionsService {
     constructor(
         private readonly resolver: DataSourceResolver,
         private readonly mailService: MailService,
+        private readonly filesService: FilesService,
     ) { }
 
     private get submissionRepository(): Repository<ConcoursSubmission> {
@@ -166,11 +168,20 @@ export class ConcoursSubmissionsService {
 
     // Admin: approve a submission. Both structure and titre MUST resolve to real
     // ids — the admin may bind newly-created/mapped ids via `resolve` here (they
-    // overwrite any proposed_* name). Creates the real concours (annee/lieu +
-    // the submission's file/url + auto-composed titre), marks the submission
-    // approved, and emails the uploader.
+    // overwrite any proposed_* name). A file is MANDATORY. Creates the real
+    // concours (annee/lieu + auto-composed titre), then PROMOTES the submission's
+    // file into the concours's own R2/Firebase key so the real row owns it.
+    // Marks the submission approved and emails the uploader.
     async approve(pays: string, id: number, resolve?: { structure_id?: number; titre_id?: number }) {
         const submission = await this.loadOrThrow(pays, id);
+
+        // A submission exists to collect the concours PDF — refuse to approve a
+        // fileless one (would create a useless real concours).
+        if (!submission.file_path && !submission.url) {
+            throw new BadRequestException(
+                'Aucun fichier attaché — la soumission doit contenir le fichier du concours avant approbation.',
+            );
+        }
 
         // Bind any resolved parent ids onto the submission, clearing the
         // matching proposed name now that it maps to a real row.
@@ -194,23 +205,34 @@ export class ConcoursSubmissionsService {
         const titre = await this.titreRepository.findOne({ where: { id: submission.titre_id } });
         if (!titre) throw new NotFoundException(`Titre avec l'ID ${submission.titre_id} non trouvé`);
 
+        // Save first to obtain the concours's own gen_random_uuid()...
         const concours = this.concoursRepository.create({
             pays: submission.pays,
             structure_id: submission.structure_id,
             titre_id: submission.titre_id,
             annee: submission.annee ?? undefined,
             lieu: submission.lieu ?? undefined,
-            file_path: submission.file_path || '',
-            file_extension: submission.file_extension || '',
-            url: submission.url || undefined,
             titre: `${structure.nom} - ${titre.nom}`,
         });
         const savedConcours = await this.concoursRepository.save(concours);
 
+        // ...then promote the file into the concours's OWN key. R2 copy is
+        // canonical: if it throws, approval fails (the just-created concours row
+        // stays, but the admin can retry; cleanup of orphans is out of scope).
+        const promoted = await this.filesService.promoteFile(
+            'concours_submissions', submission.uuid,
+            'concours', savedConcours.uuid,
+            'file', submission.file_extension,
+        );
+        savedConcours.file_path = promoted.file_path;
+        savedConcours.file_extension = promoted.file_extension;
+        savedConcours.url = promoted.url;
+        await this.concoursRepository.save(savedConcours);
+
         submission.status = ServiceStatusEnum.APPROVED;
         await this.submissionRepository.save(submission);
 
-        this.logger.log(`Soumission ${id} approuvée → concours ${savedConcours.id} (${savedConcours.titre})`);
+        this.logger.log(`Soumission ${id} approuvée → concours ${savedConcours.id} (${savedConcours.titre}), fichier promu vers ${promoted.file_path}`);
         this.notifyUploader(submission, ServiceStatusEnum.APPROVED, savedConcours.titre);
 
         return { message: 'Soumission approuvée', submission: this.withMissingFlags(submission), concours: savedConcours };
