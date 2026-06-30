@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, ConflictException, BadRequestExc
 import { Repository } from 'typeorm';
 import { DataSourceResolver } from '../../config/data-source-resolver.service';
 import { MailService } from '../../mail/mail.service';
+import { FilesService } from '../../files/files.service';
 import { EpreuveSubmission } from './entities/epreuve-submission.entity';
 import { Epreuve, EpreuveSection } from '../entities/epreuve.entity';
 import { Etablissement } from '../../etablissements/entities/etablissement.entity';
@@ -20,6 +21,7 @@ export class EpreuveSubmissionsService {
   constructor(
     private readonly resolver: DataSourceResolver,
     private readonly mailService: MailService,
+    private readonly filesService: FilesService,
   ) { }
 
   private get submissionsRepository(): Repository<EpreuveSubmission> {
@@ -267,9 +269,9 @@ export class EpreuveSubmissionsService {
     return this.toSubmissionResponse(reloaded);
   }
 
-  // Admin approve: requires all four parents resolved to real ids, then creates the
-  // real épreuve (file/url copied from the submission, professeur = uploader),
-  // marks the submission approved, and emails the uploader.
+  // Admin approve: requires the matière resolved AND a file attached, then creates
+  // the real épreuve (professeur = uploader), PROMOTES the file into the épreuve's
+  // own R2 folder, marks the submission approved, and emails the uploader.
   async approve(id: number) {
     const submission = await this.loadSubmissionOrThrow(id);
 
@@ -297,6 +299,13 @@ export class EpreuveSubmissionsService {
       throw new BadRequestException("L'auteur de la soumission n'existe plus; impossible de créer l'épreuve.");
     }
 
+    // The submission module exists to collect the épreuve PDF: a file is mandatory.
+    if (!submission.file_path && !submission.url) {
+      throw new BadRequestException(
+        "Aucun fichier attaché — la soumission doit contenir le fichier de l'épreuve avant approbation.",
+      );
+    }
+
     const epreuve = new Epreuve();
     epreuve.titre = submission.titre;
     epreuve.matiere_id = submission.matiere_id;
@@ -304,13 +313,31 @@ export class EpreuveSubmissionsService {
     epreuve.annee = submission.annee ?? undefined;
     epreuve.section = (submission.section as EpreuveSection) ?? EpreuveSection.NORMAL;
     epreuve.duree_minutes = 0;
-    // File stays at the submission's R2 key + Firebase URL; the épreuve row
-    // references them (column-value copy — no byte copy in FilesModule).
-    epreuve.file_path = submission.file_path;
-    epreuve.file_extension = submission.file_extension;
-    epreuve.url = submission.url;
+    // Seed empty; promoteFile (below) fills these once we have the épreuve uuid.
+    epreuve.file_path = '';
+    epreuve.file_extension = '';
+    epreuve.url = '';
     epreuve.pays = matiere.pays;
+    // Save first to obtain the DB-generated uuid the promoted key is built from.
     const savedEpreuve = await this.epreuvesRepository.save(epreuve);
+
+    // Promote the file into the épreuve's OWN folder (epreuves/<uuid>/file.<ext>).
+    // If the R2 copy throws, roll back the épreuve so we never persist a real row
+    // pointing at a copy that didn't happen.
+    let promoted: { file_path: string; file_extension: string; url: string };
+    try {
+      promoted = await this.filesService.promoteFile(
+        'epreuve_submissions', submission.uuid, 'epreuves', savedEpreuve.uuid, 'file', submission.file_extension,
+      );
+    } catch (err) {
+      await this.epreuvesRepository.delete(savedEpreuve.id);
+      this.logger.error(`Promotion du fichier échouée pour soumission ${id}: ${err?.message ?? err}`);
+      throw err;
+    }
+    savedEpreuve.file_path = promoted.file_path;
+    savedEpreuve.file_extension = promoted.file_extension;
+    savedEpreuve.url = promoted.url;
+    await this.epreuvesRepository.save(savedEpreuve);
 
     submission.status = ServiceStatusEnum.APPROVED;
     await this.submissionsRepository.save(submission);
