@@ -137,6 +137,7 @@ const navTree: NavItem[] = [
     icon: Users,
     children: [
       { title: "Utilisateurs", icon: User, url: "/users" },
+      { title: "Indicateurs", icon: BarChart3, url: "/indicateurs" },
       { title: "Parrainage", icon: UserPlus, url: "/parrainages" },
     ],
   },
@@ -144,7 +145,6 @@ const navTree: NavItem[] = [
     title: "Système",
     icon: Settings,
     children: [
-      { title: "Indicateurs", icon: BarChart3, url: "/indicateurs" },
       { title: "Statistiques", icon: BarChart3 },
       { title: "Paramètres", icon: SlidersHorizontal },
       { title: "Contacts Pro", icon: Contact, url: "/contacts-professionnels" },
