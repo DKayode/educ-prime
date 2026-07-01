@@ -45,11 +45,27 @@ export class EtablissementsService {
   }
 
   async findAll(pays: string, filterDto: FilterEtablissementDto): Promise<PaginationResponse<Etablissement>> {
-    const { page = 1, limit = 10, search } = filterDto;
-    this.logger.log(`Récupération des établissements (pays=${pays}) - Page: ${page}, Limite: ${limit}, Search: ${search}`);
+    const { page = 1, limit = 10, search, all } = filterDto;
+    this.logger.log(`Récupération des établissements (pays=${pays}) - Page: ${page}, Limite: ${limit}, Search: ${search}, All: ${all}`);
 
     const queryBuilder = this.etablissementsRepository.createQueryBuilder('etablissement')
       .where('etablissement.pays = :pays', { pays });
+
+    // Default: only établissements that have at least one épreuve reachable
+    // through the chain épreuve→matière→niveau→filière→établissement, so the
+    // mobile list never surfaces empty établissements. all=true lifts the
+    // filter (admin management / parent pickers need every établissement).
+    if (!all) {
+      queryBuilder.andWhere(
+        `EXISTS (
+          SELECT 1 FROM epreuves ep
+          INNER JOIN matieres m ON m.id = ep.matiere_id
+          INNER JOIN niveau_etude n ON n.id = m.niveau_etude_id
+          INNER JOIN filieres f ON f.id = n.filiere_id
+          WHERE f.etablissement_id = etablissement.id
+        )`,
+      );
+    }
 
     if (search) {
       queryBuilder.andWhere(
