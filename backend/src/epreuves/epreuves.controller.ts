@@ -10,6 +10,7 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterEpreuveDto } from './dto/filter-epreuve.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
+import { ResourceAccessService } from '../resource-access/resource-access.service';
 
 @ApiTags('epreuves')
 @Controller('epreuves')
@@ -17,6 +18,7 @@ export class EpreuvesController {
   constructor(
     private readonly epreuvesService: EpreuvesService,
     private readonly fichiersService: FichiersService,
+    private readonly resourceAccessService: ResourceAccessService,
   ) { }
 
   @UseGuards(JwtAuthGuard)
@@ -44,10 +46,14 @@ export class EpreuvesController {
   @Get(':id/telechargement')
   async downloadFile(
     @Param('id') id: string,
+    @CurrentCountry() pays: string,
+    @Request() req,
     @Res() res: Response
   ) {
     const { url } = await this.epreuvesService.findOneForDownload(id);
     const { buffer, contentType, filename } = await this.fichiersService.downloadFile(url);
+
+    await this.resourceAccessService.log('epreuve', +id, req.user?.utilisateurId ?? null, pays);
 
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
