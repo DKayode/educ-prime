@@ -28,6 +28,47 @@ export class EpreuvesService {
     return this.resolver.getRepository(Matiere);
   }
 
+  // Single source of truth for the client-facing épreuve shape (sanitized
+  // professeur + matiere chain). Used by findAll / findOne.
+  private toEpreuveResponse(epreuve: Epreuve) {
+    return {
+      id: epreuve.id,
+      uuid: epreuve.uuid,
+      titre: epreuve.titre,
+      url: epreuve.url,
+      file_path: epreuve.file_path,
+      file_extension: epreuve.file_extension,
+      duree_minutes: epreuve.duree_minutes,
+      date_creation: epreuve.date_creation,
+      date_publication: epreuve.date_publication,
+      nombre_pages: epreuve.nombre_pages,
+      nombre_telechargements: epreuve.nombre_telechargements,
+      type: epreuve.type,
+      annee: epreuve.annee,
+      section: epreuve.section,
+      professeur: {
+        nom: epreuve.professeur.nom,
+        prenom: epreuve.professeur.prenom,
+        telephone: epreuve.professeur.telephone,
+      },
+      matiere: {
+        id: epreuve.matiere.id,
+        nom: epreuve.matiere.nom,
+        description: epreuve.matiere.description,
+        niveau_etude: {
+          id: epreuve.matiere.niveau_etude.id,
+          nom: epreuve.matiere.niveau_etude.nom,
+          duree_mois: epreuve.matiere.niveau_etude.duree_mois,
+          filiere: {
+            id: epreuve.matiere.niveau_etude.filiere.id,
+            nom: epreuve.matiere.niveau_etude.filiere.nom,
+            etablissement: epreuve.matiere.niveau_etude.filiere.etablissement,
+          },
+        },
+      },
+    };
+  }
+
   async create(creerEpreuveDto: CreerEpreuveDto, professeurId: number) {
     this.logger.log(`Création d'une épreuve: ${creerEpreuveDto.titre} par professeur ID: ${professeurId}`);
     // pays is DERIVED from the parent Matiere (cascading up to the Etablissement),
@@ -41,7 +82,11 @@ export class EpreuvesService {
     }
     const newEpreuve = new Epreuve();
     newEpreuve.titre = creerEpreuveDto.titre;
+    // Row may exist before the PDF: the file is uploaded afterwards via
+    // /files/epreuves/:uuid/file, which backfills url. Seed empty until then.
     newEpreuve.url = creerEpreuveDto.url ?? '';
+    // duree_minutes is NOT NULL with no DB default; 0 = unspecified (consistent
+    // with nombre_pages), so a minimal create doesn't violate the constraint.
     newEpreuve.duree_minutes = creerEpreuveDto.duree_minutes ?? 0;
     newEpreuve.matiere_id = creerEpreuveDto.matiere_id;
     newEpreuve.professeur_id = professeurId;
@@ -96,43 +141,7 @@ export class EpreuvesService {
 
     this.logger.log(`${epreuves.length} épreuve(s) trouvée(s) sur ${total} total`);
 
-    // Transform to response DTO format with sanitized professeur
-    const data = epreuves.map(epreuve => ({
-      id: epreuve.id,
-      uuid: epreuve.uuid,
-      titre: epreuve.titre,
-      url: epreuve.url,
-      file_path: epreuve.file_path,
-      file_extension: epreuve.file_extension,
-      duree_minutes: epreuve.duree_minutes,
-      date_creation: epreuve.date_creation,
-      date_publication: epreuve.date_publication,
-      nombre_pages: epreuve.nombre_pages,
-      nombre_telechargements: epreuve.nombre_telechargements,
-      type: epreuve.type,
-      annee: epreuve.annee,
-      section: epreuve.section,
-      professeur: {
-        nom: epreuve.professeur.nom,
-        prenom: epreuve.professeur.prenom,
-        telephone: epreuve.professeur.telephone,
-      },
-      matiere: {
-        id: epreuve.matiere.id,
-        nom: epreuve.matiere.nom,
-        description: epreuve.matiere.description,
-        niveau_etude: {
-          id: epreuve.matiere.niveau_etude.id,
-          nom: epreuve.matiere.niveau_etude.nom,
-          duree_mois: epreuve.matiere.niveau_etude.duree_mois,
-          filiere: {
-            id: epreuve.matiere.niveau_etude.filiere.id,
-            nom: epreuve.matiere.niveau_etude.filiere.nom,
-            etablissement: epreuve.matiere.niveau_etude.filiere.etablissement,
-          },
-        },
-      },
-    }));
+    const data = epreuves.map(epreuve => this.toEpreuveResponse(epreuve));
 
     return {
       data,
@@ -157,43 +166,7 @@ export class EpreuvesService {
 
     this.logger.log(`Épreuve trouvée: ${epreuve.titre} (ID: ${id})`);
 
-    // Transform to response DTO format with sanitized professeur
-    return {
-      id: epreuve.id,
-      uuid: epreuve.uuid,
-      titre: epreuve.titre,
-      url: epreuve.url,
-      file_path: epreuve.file_path,
-      file_extension: epreuve.file_extension,
-      duree_minutes: epreuve.duree_minutes,
-      date_creation: epreuve.date_creation,
-      date_publication: epreuve.date_publication,
-      nombre_pages: epreuve.nombre_pages,
-      nombre_telechargements: epreuve.nombre_telechargements,
-      type: epreuve.type,
-      annee: epreuve.annee,
-      section: epreuve.section,
-      professeur: {
-        nom: epreuve.professeur.nom,
-        prenom: epreuve.professeur.prenom,
-        telephone: epreuve.professeur.telephone,
-      },
-      matiere: {
-        id: epreuve.matiere.id,
-        nom: epreuve.matiere.nom,
-        description: epreuve.matiere.description,
-        niveau_etude: {
-          id: epreuve.matiere.niveau_etude.id,
-          nom: epreuve.matiere.niveau_etude.nom,
-          duree_mois: epreuve.matiere.niveau_etude.duree_mois,
-          filiere: {
-            id: epreuve.matiere.niveau_etude.filiere.id,
-            nom: epreuve.matiere.niveau_etude.filiere.nom,
-            etablissement: epreuve.matiere.niveau_etude.filiere.etablissement,
-          },
-        },
-      },
-    };
+    return this.toEpreuveResponse(epreuve);
   }
 
   async findOneForDownload(id: string): Promise<{ url: string; titre: string }> {

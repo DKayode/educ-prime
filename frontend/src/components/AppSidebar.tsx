@@ -98,8 +98,9 @@ const navTree: NavItem[] = [
   },
   {
     title: "Approbations",
-    icon: ClipboardCheck,
+    icon: UserCheck,
     children: [
+      { title: "Épreuves en attente", icon: FileText, url: "/approbations/epreuves" },
       { title: "Concours en attente", icon: FileText, url: "/approbations/concours" },
     ],
   },
