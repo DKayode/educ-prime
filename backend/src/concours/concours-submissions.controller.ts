@@ -48,6 +48,19 @@ export class ConcoursSubmissionsController {
 
     @UseGuards(JwtAuthGuard, RoleGuard)
     @Roles(RoleType.ADMIN)
+    @Patch(':id/resolve')
+    @ApiOperation({ summary: 'Résoudre une soumission (Admin) — rattacher structure/titre existant, effacer le nom proposé' })
+    @ApiResponse({ status: 200, description: 'Soumission résolue (rattachée), persistée' })
+    resolve(
+        @CurrentCountry() pays: string,
+        @Param('id') id: string,
+        @Body() body: ApproveConcoursSubmissionDto,
+    ) {
+        return this.submissionsService.resolveSubmission(pays, +id, body);
+    }
+
+    @UseGuards(JwtAuthGuard, RoleGuard)
+    @Roles(RoleType.ADMIN)
     @Patch(':id/approve')
     @ApiOperation({ summary: 'Approuver une soumission (Admin) → crée le concours réel + email à l\'uploader' })
     @ApiResponse({ status: 200, description: 'Soumission approuvée, concours créé' })

@@ -111,6 +111,12 @@ export const concoursService = {
         return api.patch(`/concours/submissions/${id}/approve`, resolve ?? {});
     },
 
+    /** Admin: persistently bind a resolved structure/titre id onto a pending
+     *  submission (clears the proposed name). Removes the "à résoudre" prompt. */
+    async resolveSubmission(id: number, resolve: { structure_id?: number; titre_id?: number }): Promise<ConcoursSubmission> {
+        return api.patch(`/concours/submissions/${id}/resolve`, resolve);
+    },
+
     /** Admin: decline a submission (+ emails the uploader). */
     async declineSubmission(id: number): Promise<{ message: string; submission: ConcoursSubmission }> {
         return api.patch(`/concours/submissions/${id}/decline`, {});

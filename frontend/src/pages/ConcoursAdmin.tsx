@@ -25,43 +25,67 @@ import { titreService } from "@/lib/services/titre.service";
 import { useToast } from "@/hooks/use-toast";
 
 // Inline resolver for a missing (proposed) parent: pick an existing
-// structure/titre OR create the proposed one. Reports the resolved id upward.
+// structure/titre OR create the proposed one. The resolution is PERSISTED on
+// the submission (PATCH /resolve) so the prompt disappears for everyone and the
+// same missing entity can't be re-created. Creating reuses an existing row of
+// the same name (case-insensitive) instead of minting a duplicate.
 function ParentResolver({
     kind,
+    submissionId,
     proposedName,
     options,
-    value,
-    onResolved,
 }: {
     kind: 'structure' | 'titre';
+    submissionId: number;
     proposedName?: string | null;
     options: { id: number; nom: string }[];
-    value?: number;
-    onResolved: (id: number) => void;
 }) {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const label = kind === 'structure' ? 'structure' : 'titre';
+    const field = kind === 'structure' ? 'structure_id' : 'titre_id';
 
+    // Persist the binding onto the submission, then refresh the queue so the row
+    // reloads with proposed_* cleared (the resolver is replaced by the name).
+    const resolveMutation = useMutation({
+        mutationFn: (id: number) => concoursService.resolveSubmission(submissionId, { [field]: id }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["concours-submissions"] });
+        },
+        onError: (err: any) => {
+            toast({ title: "Erreur", description: err.message || "Échec du rattachement", variant: "destructive" });
+        },
+    });
+
+    // "+" create: reuse an existing row of the same name if present, else create,
+    // then bind the resolved id onto the submission.
     const createMutation = useMutation({
-        mutationFn: (nom: string) =>
-            kind === 'structure' ? structureService.create({ nom }) : titreService.create({ nom }),
-        onSuccess: (created: { id: number; nom: string }) => {
+        mutationFn: async (nom: string) => {
+            const match = options.find((o) => o.nom.trim().toLowerCase() === nom.trim().toLowerCase());
+            if (match) return match;
+            const created = kind === 'structure'
+                ? await structureService.create({ nom })
+                : await titreService.create({ nom });
+            return created as { id: number; nom: string };
+        },
+        onSuccess: async (row: { id: number; nom: string }) => {
             queryClient.invalidateQueries({ queryKey: [kind === 'structure' ? 'structures' : 'titres'] });
-            onResolved(created.id);
-            toast({ title: `${label.charAt(0).toUpperCase() + label.slice(1)} créé`, description: `« ${created.nom} » ajouté et rattaché.` });
+            await resolveMutation.mutateAsync(row.id);
+            toast({ title: `${label.charAt(0).toUpperCase() + label.slice(1)} rattaché`, description: `« ${row.nom} » rattaché à la soumission.` });
         },
         onError: (err: any) => {
             toast({ title: "Erreur", description: err.message || `Échec de la création du ${label}`, variant: "destructive" });
         },
     });
 
+    const busy = createMutation.isPending || resolveMutation.isPending;
+
     return (
         <div className="flex flex-col gap-1.5 min-w-[200px]">
             <span className="text-xs text-amber-600">
                 Proposé : « {proposedName || '—'} » — à résoudre
             </span>
-            <Select value={value ? String(value) : undefined} onValueChange={(v) => onResolved(Number(v))}>
+            <Select disabled={busy} onValueChange={(v) => resolveMutation.mutate(Number(v))}>
                 <SelectTrigger className="h-8">
                     <SelectValue placeholder={`Choisir un ${label} existant`} />
                 </SelectTrigger>
@@ -77,9 +101,9 @@ function ParentResolver({
                     size="sm"
                     className="h-7 justify-start"
                     onClick={() => createMutation.mutate(proposedName)}
-                    disabled={createMutation.isPending}
+                    disabled={busy}
                 >
-                    {createMutation.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
+                    {busy ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
                     Créer « {proposedName} »
                 </Button>
             )}
@@ -99,14 +123,12 @@ function SubmissionRow({
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
-    // Effective resolved ids: the submission's own id, or one chosen/created here.
-    const [structureId, setStructureId] = useState<number | undefined>(submission.structure_id ?? undefined);
-    const [titreId, setTitreId] = useState<number | undefined>(submission.titre_id ?? undefined);
-
-    const bothResolved = structureId != null && titreId != null;
+    // Resolution is persisted on the submission (PATCH /resolve), so the bound
+    // ids live on the row itself — no local state to drift out of sync.
+    const bothResolved = submission.structure_id != null && submission.titre_id != null;
 
     const approveMutation = useMutation({
-        mutationFn: () => concoursService.approveSubmission(submission.id, { structure_id: structureId, titre_id: titreId }),
+        mutationFn: () => concoursService.approveSubmission(submission.id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["concours-submissions"] });
             toast({ title: "Soumission approuvée", description: "Le concours a été créé et l'auteur notifié." });
@@ -148,10 +170,9 @@ function SubmissionRow({
                 {submission.missing_structure ? (
                     <ParentResolver
                         kind="structure"
+                        submissionId={submission.id}
                         proposedName={submission.proposed_structure}
                         options={structures}
-                        value={structureId}
-                        onResolved={setStructureId}
                     />
                 ) : (
                     <span>{submission.structure?.nom || '—'}</span>
@@ -161,10 +182,9 @@ function SubmissionRow({
                 {submission.missing_titre ? (
                     <ParentResolver
                         kind="titre"
+                        submissionId={submission.id}
                         proposedName={submission.proposed_titre}
                         options={titres}
-                        value={titreId}
-                        onResolved={setTitreId}
                     />
                 ) : (
                     <span>{submission.titre_ref?.nom || '—'}</span>
