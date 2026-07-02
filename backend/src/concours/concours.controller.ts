@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus, Version } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus, Version, Request } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ConcoursService } from './concours.service';
@@ -12,6 +12,7 @@ import { FilterConcoursDto } from './dto/filter-concours.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { ResourceAccessService } from '../resource-access/resource-access.service';
 
 @ApiTags('concours')
 @Controller('concours')
@@ -19,6 +20,7 @@ export class ConcoursController {
   constructor(
     private readonly concoursService: ConcoursService,
     private readonly fichiersService: FichiersService,
+    private readonly resourceAccessService: ResourceAccessService,
   ) { }
 
   @UseGuards(JwtAuthGuard, RoleGuard)
@@ -65,10 +67,14 @@ export class ConcoursController {
   @Get(':id/telechargement')
   async downloadFile(
     @Param('id') id: string,
+    @CurrentCountry() pays: string,
+    @Request() req,
     @Res() res: Response
   ) {
     const { url } = await this.concoursService.findOneForDownload(+id);
     const { buffer, contentType, filename } = await this.fichiersService.downloadFile(url);
+
+    await this.resourceAccessService.log('concours', +id, req.user?.utilisateurId ?? null, pays);
 
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

@@ -41,8 +41,8 @@ export class EpreuvesService {
     }
     const newEpreuve = new Epreuve();
     newEpreuve.titre = creerEpreuveDto.titre;
-    newEpreuve.url = creerEpreuveDto.url;
-    newEpreuve.duree_minutes = creerEpreuveDto.duree_minutes;
+    newEpreuve.url = creerEpreuveDto.url ?? '';
+    newEpreuve.duree_minutes = creerEpreuveDto.duree_minutes ?? 0;
     newEpreuve.matiere_id = creerEpreuveDto.matiere_id;
     newEpreuve.professeur_id = professeurId;
     newEpreuve.date_publication = creerEpreuveDto.date_publication;

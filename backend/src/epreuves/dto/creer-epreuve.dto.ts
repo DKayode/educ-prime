@@ -7,9 +7,10 @@ export class CreerEpreuveDto {
   @IsString()
   titre: string;
 
-  @ApiProperty({ description: 'URL du fichier de l\'épreuve' })
+  @ApiProperty({ description: 'URL du fichier de l\'épreuve', required: false })
+  @IsOptional()
   @IsString()
-  url: string;
+  url?: string;
 
   @ApiProperty({ example: 120, description: 'Durée en minutes', required: false })
   @IsOptional()

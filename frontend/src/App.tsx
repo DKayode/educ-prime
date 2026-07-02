@@ -33,6 +33,7 @@ import CompetencesAdmin from "./pages/CompetencesAdmin";
 import Notifications from "./pages/Notifications";
 import AppVersions from "./pages/AppVersions";
 import Parrainages from "./pages/Parrainages";
+import Indicateurs from "./pages/Indicateurs";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -88,6 +89,7 @@ const App = () => (
                       <Route path="/parrainages" element={<Parrainages />} />
                       <Route path="/admin/recruteurs" element={<RecruteursAdmin />} />
                       <Route path="/admin/competences" element={<CompetencesAdmin />} />
+                      <Route path="/indicateurs" element={<Indicateurs />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
