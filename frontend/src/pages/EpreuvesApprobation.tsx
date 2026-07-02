@@ -125,12 +125,21 @@ function ResolveDialog({ submission, open, onOpenChange }: {
 
     const createAndChoose = async (
         level: keyof ResolveSubmissionData,
+        name: string,
+        options: { id: number; nom: string }[],
         creator: () => Promise<{ id: number }>,
     ) => {
         try {
-            const created = await creator();
-            setChosen(c => ({ ...c, [level]: created.id }));
-            toast({ title: "Créé", description: "Entité créée et sélectionnée." });
+            // Reuse an existing entity of the same name (case-insensitive) instead
+            // of minting a duplicate; only create when truly new.
+            const trimmed = name.trim();
+            const existing = options.find(o => o.nom.trim().toLowerCase() === trimmed.toLowerCase());
+            const row = existing ?? await creator();
+            setChosen(c => ({ ...c, [level]: row.id }));
+            toast({
+                title: existing ? "Rattaché" : "Créé",
+                description: existing ? "Entité existante réutilisée." : "Entité créée et sélectionnée.",
+            });
         } catch (e: any) {
             toast({ title: "Erreur", description: e.message || "Échec de la création", variant: "destructive" });
         }
@@ -244,7 +253,10 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                                                 variant="secondary"
                                                 disabled={!lvl.canCreate || !(newNames[lvl.key] ?? lvl.proposed ?? '').trim()}
                                                 title={lvl.canCreate ? 'Créer cette entité' : 'Résolvez d\'abord le niveau parent'}
-                                                onClick={() => createAndChoose(lvl.key, () => lvl.create((newNames[lvl.key] ?? lvl.proposed ?? '').trim()))}
+                                                onClick={() => {
+                                                    const name = (newNames[lvl.key] ?? lvl.proposed ?? '').trim();
+                                                    createAndChoose(lvl.key, name, lvl.options, () => lvl.create(name));
+                                                }}
                                             >
                                                 Créer
                                             </Button>

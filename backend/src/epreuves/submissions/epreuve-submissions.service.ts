@@ -102,6 +102,41 @@ export class EpreuveSubmissionsService {
       }
     }
 
+    // Reject a duplicate PENDING submission (same effective parents + titre +
+    // année + section) so two users can't queue the same épreuve twice. Each
+    // parent matches by existing id when given, else by proposed name
+    // (case-insensitive), else "absent".
+    const pendDup = this.submissionsRepository.createQueryBuilder('s')
+      .where('s.pays = :pays', { pays: submissionPays })
+      .andWhere('s.status = :st', { st: ServiceStatusEnum.PENDING_APPROVAL })
+      .andWhere('LOWER(s.titre) = LOWER(:t)', { t: dto.titre })
+      .andWhere('s.section = :sec', { sec: section });
+    if (dto.annee == null) pendDup.andWhere('s.annee IS NULL');
+    else pendDup.andWhere('s.annee = :an', { an: dto.annee });
+    const matchParent = (
+      idCol: string, propCol: string,
+      id: number | null | undefined, name: string | null | undefined, k: string,
+    ) => {
+      if (id != null) {
+        pendDup.andWhere(`s.${idCol} = :${k}i`, { [`${k}i`]: id });
+      } else if (name && name.trim()) {
+        pendDup.andWhere(`s.${idCol} IS NULL AND LOWER(s.${propCol}) = LOWER(:${k}n)`, { [`${k}n`]: name.trim() });
+      } else {
+        pendDup.andWhere(`s.${idCol} IS NULL AND s.${propCol} IS NULL`);
+      }
+    };
+    matchParent('etablissement_id', 'proposed_etablissement', dto.etablissement_id, dto.proposed_etablissement, 'e');
+    matchParent('filiere_id', 'proposed_filiere', dto.filiere_id, dto.proposed_filiere, 'f');
+    matchParent('niveau_etude_id', 'proposed_niveau', dto.niveau_etude_id, dto.proposed_niveau, 'n');
+    matchParent('matiere_id', 'proposed_matiere', dto.matiere_id, dto.proposed_matiere, 'm');
+    const pendingDuplicate = await pendDup.getOne();
+    if (pendingDuplicate) {
+      this.logger.warn(`Soumission doublon (déjà en attente #${pendingDuplicate.id}) — refusée`);
+      throw new ConflictException(
+        "Une soumission identique (mêmes établissement, filière, niveau, matière, titre, année et session) est déjà en attente d'approbation.",
+      );
+    }
+
     const submission = new EpreuveSubmission();
     submission.etablissement_id = dto.etablissement_id ?? null;
     submission.proposed_etablissement = dto.proposed_etablissement ?? null;
@@ -306,12 +341,30 @@ export class EpreuveSubmissionsService {
       );
     }
 
+    // Safety net: never mint a duplicate real épreuve if one already exists for
+    // the same matière + titre + année + section (e.g. a sibling submission was
+    // approved first). matiere_id pins the whole parent chain.
+    const section = (submission.section as EpreuveSection) ?? EpreuveSection.NORMAL;
+    const dupEp = this.epreuvesRepository.createQueryBuilder('e')
+      .where('e.matiere_id = :m', { m: submission.matiere_id })
+      .andWhere('e.titre = :t', { t: submission.titre })
+      .andWhere('e.section = :s', { s: section });
+    if (submission.annee == null) dupEp.andWhere('e.annee IS NULL');
+    else dupEp.andWhere('e.annee = :a', { a: submission.annee });
+    const existingEp = await dupEp.getOne();
+    if (existingEp) {
+      this.logger.warn(`Approbation refusée: épreuve identique #${existingEp.id} existe déjà (soumission ${id})`);
+      throw new ConflictException(
+        'Une épreuve identique (matière, titre, année, session) existe déjà. Déclinez cette soumission.',
+      );
+    }
+
     const epreuve = new Epreuve();
     epreuve.titre = submission.titre;
     epreuve.matiere_id = submission.matiere_id;
     epreuve.professeur_id = submission.soumis_par_id;
     epreuve.annee = submission.annee ?? undefined;
-    epreuve.section = (submission.section as EpreuveSection) ?? EpreuveSection.NORMAL;
+    epreuve.section = section;
     epreuve.duree_minutes = 0;
     // Seed empty; promoteFile (below) fills these once we have the épreuve uuid.
     epreuve.file_path = '';
