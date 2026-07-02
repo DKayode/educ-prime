@@ -24,6 +24,7 @@ import Structures from "./pages/Structures";
 import Titres from "./pages/Titres";
 import Settings from "./pages/Settings";
 import ServicesAdmin from "./pages/ServicesAdmin";
+import EpreuvesApprobation from "./pages/EpreuvesApprobation";
 import OffresAdmin from "./pages/OffresAdmin";
 import ServiceTypesAdmin from "./pages/ServiceTypesAdmin";
 import RecruteursAdmin from "./pages/RecruteursAdmin";
@@ -66,6 +67,7 @@ const App = () => (
                       <Route path="/matieres" element={<Matieres />} />
                       <Route path="/niveaux" element={<Niveaux />} />
                       <Route path="/epreuves" element={<Epreuves />} />
+                      <Route path="/approbations/epreuves" element={<EpreuvesApprobation />} />
                       <Route path="/publicites" element={<Publicites />} />
                       <Route path="/evenements" element={<Evenements />} />
                       <Route path="/opportunites" element={<Opportunites />} />
