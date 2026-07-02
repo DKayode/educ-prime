@@ -78,6 +78,15 @@ export class Utilisateur {
   @Column({ type: 'enum', enum: SexeType, nullable: true })
   sexe: SexeType;
 
+  @Column({ type: 'date', nullable: true })
+  date_naissance: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  zone_residence: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  situation_handicap: string;
+
   @Column({ nullable: true })
   telephone: string;
 

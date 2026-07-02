@@ -4,9 +4,14 @@ import type { PaginationResponse, PaginationParams } from '../types/pagination';
 import { buildPaginationQuery } from '../types/pagination';
 
 export const etablissementsService = {
-  async getAll(params?: PaginationParams & { search?: string }): Promise<PaginationResponse<Etablissement>> {
+  async getAll(params?: PaginationParams & { search?: string; all?: boolean }): Promise<PaginationResponse<Etablissement>> {
     const query = buildPaginationQuery(params);
-    return api.get<PaginationResponse<Etablissement>>(`/etablissements${query}`);
+    // Admin must see every établissement (incl. those without épreuves), unlike
+    // the mobile default which hides empty ones. Opt out explicitly with all:false.
+    const includeAll = params?.all !== false;
+    const sep = query ? '&' : '?';
+    const suffix = includeAll ? `${sep}all=true` : '';
+    return api.get<PaginationResponse<Etablissement>>(`/etablissements${query}${suffix}`);
   },
 
   async getById(id: number): Promise<Etablissement> {
