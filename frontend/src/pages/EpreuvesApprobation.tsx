@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Wrench, AlertTriangle, Check, FileWarning } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Wrench, AlertTriangle, Check, FileWarning, Plus } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -257,7 +257,8 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                                             />
                                             <Button
                                                 type="button"
-                                                variant="secondary"
+                                                variant="default"
+                                                className="shrink-0 gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
                                                 disabled={!lvl.canCreate || !(newNames[lvl.key] ?? lvl.proposed ?? '').trim()}
                                                 title={lvl.canCreate ? 'Créer cette entité' : 'Résolvez d\'abord le niveau parent'}
                                                 onClick={() => {
@@ -265,6 +266,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                                                     createAndChoose(lvl.key, name, lvl.options, () => lvl.create(name));
                                                 }}
                                             >
+                                                <Plus className="h-4 w-4" />
                                                 Créer
                                             </Button>
                                         </div>
