@@ -1,5 +1,5 @@
-import { CreditWalletFromValidatedExamUseCase } from '../../src/payment/wallet/use-cases/credit-wallet-from-validated-exam.use-case';
-import { WalletStatus, FeeType } from '../../src/payment/shared/payment.enums';
+import { CreditWalletFromValidatedExamUseCase } from '../../wallet-balance/use-cases/credit-wallet-from-validated-exam.use-case';
+import { WalletStatus, FeeType } from '../../shared/payment.enums';
 
 const config = {
   getActive: async () => ({

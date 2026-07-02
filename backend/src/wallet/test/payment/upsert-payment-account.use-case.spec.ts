@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
-import { UpsertPaymentAccountUseCase } from '../../src/payment/user-payment/use-cases/upsert-payment-account.use-case';
-import { MobileMoneyProvider } from '../../src/payment/shared/payment.enums';
+import { UpsertPaymentAccountUseCase } from '../../user-payment/use-cases/upsert-payment-account.use-case';
+import { MobileMoneyProvider } from '../../shared/payment.enums';
 
 describe('UpsertPaymentAccountUseCase', () => {
   it('normalise le numéro Mobile Money avant persistance', async () => {

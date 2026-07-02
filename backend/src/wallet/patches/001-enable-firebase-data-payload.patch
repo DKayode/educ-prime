@@ -1,6 +1,0 @@
-*** Begin Patch
-*** Update File: src/firebase/firebase.service.ts
-@@
--      // data: this.stringifyData(payload.data),
-+      data: this.stringifyData(payload.data),
-*** End Patch

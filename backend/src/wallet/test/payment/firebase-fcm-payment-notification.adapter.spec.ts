@@ -1,6 +1,6 @@
-import { FirebaseFcmPaymentNotificationAdapter } from '../../src/payment/infrastructure/firebase-fcm-payment-notification.adapter';
-import { PaymentNotificationType } from '../../src/payment/shared/payment.enums';
-import { PaymentNotificationEntity } from '../../src/payment/user-payment/entities/payment-notification.entity';
+import { FirebaseFcmPaymentNotificationAdapter } from '../../infrastructure/firebase-fcm-payment-notification.adapter';
+import { PaymentNotificationType } from '../../shared/payment.enums';
+import { PaymentNotificationEntity } from '../../user-payment/entities/payment-notification.entity';
 
 describe('FirebaseFcmPaymentNotificationAdapter', () => {
   function makeRepositoryMock() {

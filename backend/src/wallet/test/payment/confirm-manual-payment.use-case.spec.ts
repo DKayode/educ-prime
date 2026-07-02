@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
-import { ConfirmManualPaymentUseCase } from '../../src/payment/user-payment/use-cases/admin-withdrawal.use-cases';
-import { MobileMoneyProvider, PaymentMethod, WalletStatus, WithdrawalStatus } from '../../src/payment/shared/payment.enums';
+import { ConfirmManualPaymentUseCase } from '../../user-payment/use-cases/admin-withdrawal.use-cases';
+import { MobileMoneyProvider, PaymentMethod, WalletStatus, WithdrawalStatus } from '../../shared/payment.enums';
 
 function buildUseCase() {
   let wallet = { id: 'w1', userId: 1, balance: 2000, availableBalance: 2000, pendingBalance: 0, currency: 'XOF', status: WalletStatus.ACTIVE };
@@ -30,7 +30,7 @@ describe('ConfirmManualPaymentUseCase', () => {
     });
 
     expect(result.wallet.availableBalance).toBe(1000);
-    expect(result.execution.phoneNumber).toBe('+229 0161345578');
+    expect((result.execution as any).phoneNumber).toBe('+229 0161345578');
   });
 
   it('refuse la confirmation admin si le numéro ne respecte pas +229 01XXXXXXXX', async () => {

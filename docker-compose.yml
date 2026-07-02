@@ -19,8 +19,6 @@ services:
     image: ${DOCKER_IMAGE_BACKEND:-ghcr.io/dkayode/edukia-backend:latest}
     container_name: edukia_backend
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
       # Database — managed Postgres on Neon. Connection string carries
       # credentials, host, db name, and sslmode=require; the previous

@@ -24,19 +24,6 @@ import { Publicite } from './publicites/entities/publicite.entity';
 import { Evenement } from './evenements/entities/evenement.entity';
 import { Opportunite } from './opportunites/entities/opportunite.entity';
 
-import { WalletEntity } from './wallet/src/payment/payment.entities';
-import { WalletTransactionEntity } from './wallet/src/payment/payment.entities';
-import { WalletRestrictionEntity } from './wallet/src/payment/payment.entities';
-import { WithdrawalRequestEntity } from './wallet/src/payment/payment.entities';
-import { PaymentExecutionEntity } from './wallet/src/payment/payment.entities';
-import { PaymentProofEntity } from './wallet/src/payment/payment.entities';
-import { PaymentConfigurationEntity } from './wallet/src/payment/payment.entities';
-import { UserPaymentAccountEntity } from './wallet/src/payment/payment.entities';
-import { UserPaymentAccountHistoryEntity } from './wallet/src/payment/payment.entities';
-import { PaymentBatchEntity } from './wallet/src/payment/payment.entities';
-import { PaymentAuditLogEntity } from './wallet/src/payment/payment.entities';
-import { PaymentNotificationEntity } from './wallet/src/payment/payment.entities';
-
 import { ContactsProfessionnel } from './contacts-professionnels/entities/contacts-professionnel.entity';
 import { PublicitesModule } from './publicites/publicites.module';
 import { EvenementsModule } from './evenements/evenements.module';
@@ -74,7 +61,7 @@ import { NotificationEmailModule } from './notification-email/notification-email
 import { BullModule } from '@nestjs/bullmq';
 import { CountryConfigModule } from './config/country-config.module';
 import { CountryMiddleware } from './config/country.middleware';
-import { PaymentModule } from './wallet/src/payment/payment.module';
+import { WalletModule } from './wallet/wallet.module';
 
 @Module({
   imports: [
@@ -119,18 +106,6 @@ import { PaymentModule } from './wallet/src/payment/payment.module';
       Favori,
       Category,
       Notification,
-      WalletEntity,
-      WalletTransactionEntity,
-      WalletRestrictionEntity,
-      WithdrawalRequestEntity,
-      PaymentExecutionEntity,
-      PaymentProofEntity,
-      PaymentConfigurationEntity,
-      UserPaymentAccountEntity,
-      UserPaymentAccountHistoryEntity,
-      PaymentBatchEntity,
-      PaymentAuditLogEntity,
-      PaymentNotificationEntity,
     ]),
     AuthModule,
     UtilisateursModule,
@@ -168,7 +143,7 @@ import { PaymentModule } from './wallet/src/payment/payment.module';
     RecruteursModule,
     CompetencesModule,
     OffresModule,
-    PaymentModule,
+    WalletModule
   ],
   controllers: [AppController],
   providers: [AppService],

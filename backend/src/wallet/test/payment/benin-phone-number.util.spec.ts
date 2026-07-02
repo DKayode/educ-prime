@@ -1,7 +1,7 @@
 import {
   isValidBeninMobileMoneyPhone,
   normalizeBeninMobileMoneyPhone,
-} from '../../src/payment/shared/benin-phone-number.util';
+} from '../../shared/benin-phone-number.util';
 
 describe('Benin mobile money phone number validation', () => {
   it('accepte et normalise le format +229 01XXXXXXXX', () => {

@@ -1,7 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
-import { RequestWithdrawalUseCase } from '../../src/payment/wallet/use-cases/request-withdrawal.use-case';
-import { RuleEngineService } from '../../src/payment/shared/rules-engine.service';
-import { FeeType, PaymentMethod, WalletStatus } from '../../src/payment/shared/payment.enums';
+import { RequestWithdrawalUseCase } from '../../wallet-balance/use-cases/request-withdrawal.use-case';
+import { RuleEngineService } from '../../shared/rules-engine.service';
+import { FeeType, PaymentMethod, WalletStatus } from '../../shared/payment.enums';
 
 const baseConfig = {
   minimumWithdrawal: 500, maximumWithdrawal: 50000, withdrawFee: 0, withdrawFeeType: FeeType.FIXED,
@@ -22,13 +22,29 @@ function buildUseCase(overrides: Partial<{
   };
   const restrictions: any = { findByUserId: async () => ({ userId: 1, canWithdraw: true, blocked: false }) };
   const withdrawals: any = { findOpenByWalletId: async () => null, sumPaidAmount: async () => 0, countPaid: async () => 0, create: async (d: any) => ({ id: 'wd1', ...d }) };
+  const withdrawalOtps: any = { create: async (d: any) => ({ id: 'otp1', ...d, createdAt: new Date() }) };
   const accounts: any = { findDefaultByUserId: async () => overrides.paymentAccount ?? ({ id: 'acc1', userId: 1, phoneNumber: '+229 0161345578' }) };
   const config: any = { getActive: async () => baseConfig };
   const users: any = { getPaymentProfile: async () => ({ id: 1, isEmailVerified: true, isDisabled: false }) };
   const notifications: any = { notifyUser: async () => undefined, notifyAdmins: async () => undefined };
   const audit: any = { log: async () => undefined };
+  const otpSender: any = { sendOtp: async () => ({ provider: 'console', messageId: null }) };
+  const configService: any = { get: (_key: string, fallback?: string) => fallback };
 
-  return new RequestWithdrawalUseCase(wallets, restrictions, withdrawals, accounts, config, users, notifications, audit, new RuleEngineService());
+  return new RequestWithdrawalUseCase(
+    wallets,
+    restrictions,
+    withdrawals,
+    withdrawalOtps,
+    accounts,
+    config,
+    users,
+    notifications,
+    audit,
+    otpSender,
+    new RuleEngineService(),
+    configService,
+  );
 }
 
 describe('RequestWithdrawalUseCase', () => {
