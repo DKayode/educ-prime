@@ -39,7 +39,7 @@ import { WithdrawalOtpEntity } from '../otp/entities/withdrawal-otp.entity';
 
 @Injectable()
 export class TypeOrmWalletRepository implements WalletRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WalletEntity> { return this.resolver.getRepository(WalletEntity); }
 
   async findById(walletId: string): Promise<WalletModel | null> {
@@ -83,7 +83,7 @@ export class TypeOrmWalletRepository implements WalletRepositoryPort {
 
 @Injectable()
 export class TypeOrmWalletTransactionRepository implements WalletTransactionRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WalletTransactionEntity> { return this.resolver.getRepository(WalletTransactionEntity); }
 
   existsByReference(reference: string): Promise<boolean> {
@@ -135,7 +135,7 @@ export class TypeOrmWalletTransactionRepository implements WalletTransactionRepo
 
 @Injectable()
 export class TypeOrmWalletRestrictionRepository implements WalletRestrictionRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WalletRestrictionEntity> { return this.resolver.getRepository(WalletRestrictionEntity); }
 
   async findByUserId(userId: number): Promise<WalletRestrictionModel | null> {
@@ -151,7 +151,7 @@ export class TypeOrmWalletRestrictionRepository implements WalletRestrictionRepo
 
 @Injectable()
 export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WithdrawalRequestEntity> { return this.resolver.getRepository(WithdrawalRequestEntity); }
 
   async create(data: Parameters<WithdrawalRequestRepositoryPort['create']>[0]): Promise<WithdrawalRequestModel> {
@@ -182,14 +182,38 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
   }
 
   async findWithPaymentDetailsByUserId(userId: number, page = 1, limit = 50) {
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 50;
+
+    /**
+     * Important TypeORM:
+     * Do not use database column names such as `w.created_at`, `w.wallet_id`,
+     * `w.payment_account_id` inside QueryBuilder expressions that also use
+     * `skip/take` and joins. TypeORM needs entity property paths to rebuild
+     * the paginated query metadata. With database column names, it can fail with:
+     * "Cannot read properties of undefined (reading 'databaseName')".
+     *
+     * We therefore use entity property names: `w.createdAt`, `w.walletId`,
+     * `w.paymentAccountId`, `wallet.userId`, `execution.withdrawalRequestId`.
+     */
     const [rows, total] = await this.repo.createQueryBuilder('w')
-      .leftJoin(WalletEntity, 'wallet', 'wallet.id = w.wallet_id')
-      .leftJoinAndMapOne('w.paymentAccount', UserPaymentAccountEntity, 'account', 'account.id = w.payment_account_id')
-      .leftJoinAndMapMany('w.paymentExecutions', PaymentExecutionEntity, 'execution', 'execution.withdrawal_request_id = w.id')
-      .where('wallet.user_id = :userId', { userId })
-      .orderBy('w.created_at', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit)
+      .leftJoin(WalletEntity, 'wallet', 'wallet.id = w.walletId')
+      .leftJoinAndMapOne(
+        'w.paymentAccount',
+        UserPaymentAccountEntity,
+        'account',
+        'account.id = w.paymentAccountId',
+      )
+      .leftJoinAndMapMany(
+        'w.paymentExecutions',
+        PaymentExecutionEntity,
+        'execution',
+        'execution.withdrawalRequestId = w.id',
+      )
+      .where('wallet.userId = :userId', { userId })
+      .orderBy('w.createdAt', 'DESC')
+      .skip((safePage - 1) * safeLimit)
+      .take(safeLimit)
       .getManyAndCount();
 
     return {
@@ -325,7 +349,7 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
 
 @Injectable()
 export class TypeOrmWithdrawalOtpRepository implements WithdrawalOtpRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WithdrawalOtpEntity> { return this.resolver.getRepository(WithdrawalOtpEntity); }
 
   async create(data: Parameters<WithdrawalOtpRepositoryPort['create']>[0]): Promise<WithdrawalOtpModel> {
@@ -383,7 +407,7 @@ export class TypeOrmWithdrawalOtpRepository implements WithdrawalOtpRepositoryPo
 
 @Injectable()
 export class TypeOrmUserPaymentAccountRepository implements UserPaymentAccountRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<UserPaymentAccountEntity> { return this.resolver.getRepository(UserPaymentAccountEntity); }
   private get historyRepo(): Repository<UserPaymentAccountHistoryEntity> { return this.resolver.getRepository(UserPaymentAccountHistoryEntity); }
 
@@ -442,7 +466,7 @@ export class TypeOrmUserPaymentAccountRepository implements UserPaymentAccountRe
 
 @Injectable()
 export class TypeOrmPaymentExecutionRepository implements PaymentExecutionRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<PaymentExecutionEntity> { return this.resolver.getRepository(PaymentExecutionEntity); }
   private get proofRepo(): Repository<PaymentProofEntity> { return this.resolver.getRepository(PaymentProofEntity); }
 
@@ -474,7 +498,7 @@ export class TypeOrmPaymentExecutionRepository implements PaymentExecutionReposi
 
 @Injectable()
 export class TypeOrmPaymentConfigurationRepository implements PaymentConfigurationRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<PaymentConfigurationEntity> { return this.resolver.getRepository(PaymentConfigurationEntity); }
 
   async getActive(): Promise<PaymentConfigurationModel> {
@@ -492,7 +516,7 @@ export class TypeOrmPaymentConfigurationRepository implements PaymentConfigurati
 
 @Injectable()
 export class UtilisateursUserProfileAdapter implements UserProfilePort {
-  constructor(private readonly utilisateursService: UtilisateursService) {}
+  constructor(private readonly utilisateursService: UtilisateursService) { }
 
   async getPaymentProfile(userId: number) {
     const user: any = await this.utilisateursService.findOne(String(userId));
@@ -509,7 +533,7 @@ export class UtilisateursUserProfileAdapter implements UserProfilePort {
 
 @Injectable()
 export class TypeOrmPaymentNotificationAdapter implements PaymentNotificationPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<PaymentNotificationEntity> { return this.resolver.getRepository(PaymentNotificationEntity); }
 
   async notifyUser(payload: Parameters<PaymentNotificationPort['notifyUser']>[0]) {
@@ -525,7 +549,7 @@ export class TypeOrmPaymentNotificationAdapter implements PaymentNotificationPor
 
 @Injectable()
 export class TypeOrmPaymentAuditLogAdapter implements PaymentAuditLogPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<PaymentAuditLogEntity> { return this.resolver.getRepository(PaymentAuditLogEntity); }
 
   async log(payload: Parameters<PaymentAuditLogPort['log']>[0]) {
