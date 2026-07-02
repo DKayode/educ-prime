@@ -101,16 +101,22 @@ function ResolveDialog({ submission, open, onOpenChange }: {
 
     // Hooks must run before any early return — keep useMutation above the
     // `!submission` guard (this no-op-when-closed dialog toggles submission).
-    const resolveMutation = useMutation({
-        mutationFn: () => epreuveSubmissionsService.resolve(submission!.id, chosen),
+    // Each level persists to the submission the moment it's resolved (created or
+    // picked), so there's no separate "save" step.
+    const persistMutation = useMutation({
+        mutationFn: (patch: ResolveSubmissionData) => epreuveSubmissionsService.resolve(submission!.id, patch),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin-submissions'] });
-            toast({ title: "Parents mis à jour", description: "La soumission a été résolue." });
-            reset();
-            onOpenChange(false);
         },
-        onError: (e: any) => toast({ title: "Erreur", description: e.message || "Échec de la résolution", variant: "destructive" }),
+        onError: (e: any) => toast({ title: "Erreur", description: e.message || "Échec du rattachement", variant: "destructive" }),
     });
+
+    // Bind one level onto the submission immediately (local state drives the
+    // in-dialog hierarchy; the PATCH persists it).
+    const resolveField = async (level: keyof ResolveSubmissionData, id: number) => {
+        setChosen(c => ({ ...c, [level]: id }));
+        await persistMutation.mutateAsync({ [level]: id });
+    };
 
     if (!submission) return null;
 
@@ -135,10 +141,10 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             const trimmed = name.trim();
             const existing = options.find(o => o.nom.trim().toLowerCase() === trimmed.toLowerCase());
             const row = existing ?? await creator();
-            setChosen(c => ({ ...c, [level]: row.id }));
+            await resolveField(level, row.id);
             toast({
-                title: existing ? "Rattaché" : "Créé",
-                description: existing ? "Entité existante réutilisée." : "Entité créée et sélectionnée.",
+                title: existing ? "Rattaché" : "Créé et rattaché",
+                description: existing ? "Entité existante réutilisée et rattachée." : "Entité créée et rattachée à la soumission.",
             });
         } catch (e: any) {
             toast({ title: "Erreur", description: e.message || "Échec de la création", variant: "destructive" });
@@ -196,7 +202,8 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                 <DialogHeader>
                     <DialogTitle>Résoudre les parents — {submission.titre}</DialogTitle>
                     <DialogDescription>
-                        Pour chaque niveau manquant, sélectionnez une entité existante ou créez-la.
+                        Pour chaque niveau manquant, sélectionnez une entité existante ou créez-la —
+                        chaque choix est enregistré automatiquement sur la soumission.
                         L'approbation sera possible une fois les quatre niveaux résolus.
                     </DialogDescription>
                 </DialogHeader>
@@ -230,7 +237,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                                     <div className="space-y-2">
                                         <Select
                                             value={chosen[lvl.key] ? String(chosen[lvl.key]) : undefined}
-                                            onValueChange={(v) => setChosen(c => ({ ...c, [lvl.key]: parseInt(v) }))}
+                                            onValueChange={(v) => resolveField(lvl.key, parseInt(v))}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Choisir une entité existante…" />
@@ -269,13 +276,9 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => { reset(); onOpenChange(false); }}>Annuler</Button>
-                    <Button
-                        onClick={() => resolveMutation.mutate()}
-                        disabled={resolveMutation.isPending || Object.keys(chosen).length === 0}
-                    >
-                        {resolveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Enregistrer la résolution
+                    <Button onClick={() => { reset(); onOpenChange(false); }} disabled={persistMutation.isPending}>
+                        {persistMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Fermer
                     </Button>
                 </DialogFooter>
             </DialogContent>
