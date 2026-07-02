@@ -21,19 +21,29 @@ export const matieresService = {
   async create(data: {
     nom: string;
     description?: string;
-    filiere_id?: string;
-    niveau_etude_id?: string;
+    filiere_id?: string | number;
+    niveau_etude_id?: string | number;
   }): Promise<Matiere> {
-    return api.post<Matiere>('/matieres', data);
+    // The backend DTO requires numeric ids (@IsNumber, no implicit coercion),
+    // so normalize before sending — callers may pass either.
+    return api.post<Matiere>('/matieres', {
+      ...data,
+      filiere_id: data.filiere_id != null ? Number(data.filiere_id) : undefined,
+      niveau_etude_id: data.niveau_etude_id != null ? Number(data.niveau_etude_id) : undefined,
+    });
   },
 
   async update(id: string, data: {
     nom?: string;
     description?: string;
-    filiere_id?: string;
-    niveau_etude_id?: string;
+    filiere_id?: string | number;
+    niveau_etude_id?: string | number;
   }): Promise<Matiere> {
-    return api.put<Matiere>(`/matieres/${id}`, data);
+    return api.put<Matiere>(`/matieres/${id}`, {
+      ...data,
+      filiere_id: data.filiere_id != null ? Number(data.filiere_id) : undefined,
+      niveau_etude_id: data.niveau_etude_id != null ? Number(data.niveau_etude_id) : undefined,
+    });
   },
 
   async delete(id: string): Promise<void> {

@@ -175,8 +175,8 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             canCreate: !!eff.niveau_etude_id,
             create: (nom) => matieresService.create({
                 nom,
-                niveau_etude_id: String(eff.niveau_etude_id),
-                filiere_id: eff.filiere_id ? String(eff.filiere_id) : undefined,
+                niveau_etude_id: eff.niveau_etude_id!,
+                filiere_id: eff.filiere_id!,
             }),
         },
     ];
