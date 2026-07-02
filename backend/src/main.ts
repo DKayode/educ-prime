@@ -1,11 +1,19 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType, VERSION_NEUTRAL } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { CountryConfigService } from './config/country-config.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // URI versioning: opt-in per route via @Version('1') → /v1/<route>.
+  // defaultVersion VERSION_NEUTRAL keeps every existing unversioned route
+  // resolving exactly as before (no /v1 prefix required).
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: VERSION_NEUTRAL,
+  });
 
   // Enable CORS for frontend access
   app.enableCors({

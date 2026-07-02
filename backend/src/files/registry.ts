@@ -63,6 +63,17 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
         // 1-hour download window — concours PDFs are large, don't drop mid-session.
         file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', downloadTtlSeconds: 3600 },
     },
+    concours_submissions: {
+        // Private: pending user-submitted concours PDFs. Same shape as concours.file
+        // — at approval the file is PROMOTED (server-side copy) into the real
+        // concours's own key via FilesService.promoteFile.
+        // TRANSITIONAL NOTE: step-2 uploads to this slot should go through the
+        // PROXY endpoint (POST /files/concours_submissions/:uuid/file/upload), not
+        // the presigned direct-PUT — the proxy is what mirrors the bytes to
+        // Firebase and populates `url`, so the submission carries a Firebase URL
+        // that promoteFile can copy forward before mobile cuts over to R2.
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', downloadTtlSeconds: 3600 },
+    },
     epreuves: {
         // Private: exam papers are gated behind authorized, short-lived reads.
         // 1-hour upload + download window — exam PDFs are large and slow to push.

@@ -17,6 +17,8 @@ import Publicites from "./pages/Publicites";
 import Evenements from "./pages/Evenements";
 import Opportunites from "./pages/Opportunites";
 import Concours from "./pages/Concours";
+import ConcoursGrouped from "./pages/ConcoursGrouped";
+import ConcoursAdmin from "./pages/ConcoursAdmin";
 import ContactsProfessionnels from "./pages/ContactsProfessionnels";
 import Parcours from "./pages/Parcours";
 import Categories from "./pages/Categories";
@@ -72,6 +74,8 @@ const App = () => (
                       <Route path="/evenements" element={<Evenements />} />
                       <Route path="/opportunites" element={<Opportunites />} />
                       <Route path="/concours" element={<Concours />} />
+                      <Route path="/concours/groupes" element={<ConcoursGrouped />} />
+                      <Route path="/approbations/concours" element={<ConcoursAdmin />} />
                       <Route path="/forums" element={<Forums />} />
                       <Route path="/parcours" element={<Parcours />} />
                       <Route path="/categories" element={<Categories />} />

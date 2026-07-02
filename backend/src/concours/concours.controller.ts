@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus, Version, Request } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ConcoursService } from './concours.service';
@@ -11,6 +11,7 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { FilterConcoursDto } from './dto/filter-concours.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
+import { PaginationDto } from '../common/dto/pagination.dto';
 import { ResourceAccessService } from '../resource-access/resource-access.service';
 
 @ApiTags('concours')
@@ -38,9 +39,22 @@ export class ConcoursController {
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche textuelle (Titre ou Lieu)' })
   @ApiQuery({ name: 'annee', required: false, type: Number, description: 'Filtrer par année' })
   @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Trier par (annee, titre) [Default: titre]' })
-
   findAll(@Query() filterDto: FilterConcoursDto) {
     return this.concoursService.findAll(filterDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Version('1')
+  @Get()
+  @ApiOperation({ summary: 'Concours groupés par titre officiel (structure + titre), instances par année imbriquées' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche sur le titre officiel (structure / titre)' })
+  findGroupedV1(
+    @CurrentCountry() pays: string,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return this.concoursService.findGroupedByTitle(pays, paginationDto);
   }
 
   @UseGuards(JwtAuthGuard)
