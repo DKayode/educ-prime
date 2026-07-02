@@ -60,6 +60,7 @@ import { RecruteursModule } from './recruteurs/recruteurs.module';
 import { CompetencesModule } from './competences/competences.module';
 import { OffresModule } from './offres/offres.module';
 import { KpiModule } from './kpi/kpi.module';
+import { SubmissionsStatsModule } from './submissions-stats/submissions-stats.module';
 import { NotificationEmailModule } from './notification-email/notification-email.module';
 import { BullModule } from '@nestjs/bullmq';
 import { CountryConfigModule } from './config/country-config.module';
@@ -148,6 +149,7 @@ import { CountryMiddleware } from './config/country.middleware';
     CompetencesModule,
     OffresModule,
     KpiModule,
+    SubmissionsStatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
