@@ -27,6 +27,29 @@ export class EpreuveSubmissionsController {
     return this.submissionsService.createSubmission(pays, dto, req.user.utilisateurId);
   }
 
+  // Registered BEFORE the admin @Get() so 'mine' is never captured as a param.
+  // JwtAuthGuard only (any authenticated user, NOT admin) — returns ONLY the
+  // caller's own submissions, pays-scoped.
+  @UseGuards(JwtAuthGuard)
+  @Get('mine')
+  @ApiOperation({ summary: 'Mes soumissions d\'épreuves — les soumissions de l\'utilisateur connecté, infos associées résolues/proposées' })
+  @ApiQuery({ name: 'status', required: false, enum: ServiceStatusEnum, description: 'Filtrer par statut (défaut: tous)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async findMine(
+    @CurrentCountry() pays: string,
+    @Request() req,
+    @Query('status') status?: ServiceStatusEnum,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.submissionsService.findMine(pays, req.user.utilisateurId, {
+      status,
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 10,
+    });
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Get()
