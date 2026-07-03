@@ -14,7 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Wrench, AlertTriangle, Check, FileWarning, Plus } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Wrench, AlertTriangle, Check, FileWarning, Plus, Eye } from "lucide-react";
+import { filesService } from "@/lib/services/files.service";
 import {
     Select,
     SelectContent,
@@ -334,6 +335,22 @@ export default function EpreuvesApprobation() {
 
     const handleLimitChange = (val: string) => { setLimit(parseInt(val)); setPage(1); };
 
+    // Open the submitted PDF in a new tab. Prefer a fresh presigned R2 link
+    // (private slot); fall back to the legacy Firebase url. Open the tab
+    // synchronously (inside the click) so the browser doesn't block the popup.
+    const viewFile = async (sub: EpreuveSubmission) => {
+        const win = window.open("", "_blank");
+        try {
+            const res = await filesService.getDownloadUrl("epreuve_submissions", sub.uuid, "file");
+            const url = res?.url || sub.url;
+            if (url) { if (win) win.location.href = url; else window.open(url, "_blank", "noopener"); }
+            else { win?.close(); toast({ title: "Fichier indisponible", description: "Aucun fichier associé à cette soumission.", variant: "destructive" }); }
+        } catch (e: any) {
+            if (sub.url && win) win.location.href = sub.url;
+            else { win?.close(); toast({ title: "Erreur", description: e?.message || "Impossible d'ouvrir le fichier.", variant: "destructive" }); }
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div>
@@ -423,6 +440,11 @@ export default function EpreuvesApprobation() {
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end gap-2">
+                                                        {hasFile && (
+                                                            <Button variant="ghost" size="icon" onClick={() => viewFile(sub)} title="Voir le fichier soumis">
+                                                                <Eye className="h-4 w-4 text-blue-500" />
+                                                            </Button>
+                                                        )}
                                                         {isPending && (
                                                             <>
                                                                 {hasMissing && (

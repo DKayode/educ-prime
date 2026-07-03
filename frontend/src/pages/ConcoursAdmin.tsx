@@ -18,7 +18,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Plus, Eye } from "lucide-react";
+import { filesService } from "@/lib/services/files.service";
 import { concoursService, ConcoursSubmission } from "@/lib/services/concours.service";
 import { structureService } from "@/lib/services/structure.service";
 import { titreService } from "@/lib/services/titre.service";
@@ -159,6 +160,22 @@ function SubmissionRow({
     // A file is mandatory to approve (the submission exists to collect the PDF).
     const hasFile = !!(submission.file_path || submission.url);
     const pending = approveMutation.isPending || declineMutation.isPending;
+
+    // Open the submitted PDF in a new tab. Prefer a fresh presigned R2 link
+    // (private slot); fall back to the legacy Firebase url. Open the tab in the
+    // click handler so the browser doesn't block the popup.
+    const viewFile = async () => {
+        const win = window.open("", "_blank");
+        try {
+            const res = await filesService.getDownloadUrl("concours_submissions", submission.uuid, "file");
+            const url = res?.url || submission.url;
+            if (url) { if (win) win.location.href = url; else window.open(url, "_blank", "noopener"); }
+            else { win?.close(); toast({ title: "Fichier indisponible", description: "Aucun fichier associé à cette soumission.", variant: "destructive" }); }
+        } catch (e: any) {
+            if (submission.url && win) win.location.href = submission.url;
+            else { win?.close(); toast({ title: "Erreur", description: e?.message || "Impossible d'ouvrir le fichier.", variant: "destructive" }); }
+        }
+    };
     const canApprove = bothResolved && hasFile;
     const approveTitle = !hasFile
         ? "En attente du fichier"
@@ -197,6 +214,11 @@ function SubmissionRow({
                 <div className="flex items-center justify-end gap-2">
                     {!hasFile && (
                         <Badge variant="outline" className="border-amber-500 text-amber-600">Fichier manquant</Badge>
+                    )}
+                    {hasFile && (
+                        <Button variant="ghost" size="icon" onClick={viewFile} title="Voir le fichier soumis">
+                            <Eye className="h-4 w-4 text-blue-500" />
+                        </Button>
                     )}
                     <Button
                         variant="ghost"
