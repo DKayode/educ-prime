@@ -170,6 +170,40 @@ export class ConcoursSubmissionsService {
         };
     }
 
+    // Self-service: the caller's OWN concours submissions, pays-scoped, newest
+    // first, paginated, optional status filter. Unlike the admin findAll, there
+    // is NO forced pending_approval default — with no ?status the user sees ALL
+    // their submissions (approved/declined/pending). structure/titre_ref are
+    // joined so resolved names show; soumis_par is NOT joined (the caller owns
+    // the rows), so withMissingFlags serializes soumis_par as null and no
+    // uploader row — hence no password — is ever returned.
+    async findMine(pays: string, soumisParId: number, status: string | undefined, paginationDto: PaginationDto): Promise<PaginationResponse<any>> {
+        const { page = 1, limit = 10 } = paginationDto;
+        this.logger.log(`Mes soumissions concours (pays=${pays}, soumis_par=${soumisParId}, status=${status ?? 'tous'}, page=${page}, limit=${limit})`);
+
+        const qb = this.submissionRepository.createQueryBuilder('submission')
+            .leftJoinAndSelect('submission.structure', 'structure')
+            .leftJoinAndSelect('submission.titre_ref', 'titre_ref')
+            .where('submission.pays = :pays', { pays })
+            .andWhere('submission.soumis_par_id = :soumisParId', { soumisParId })
+            .orderBy('submission.date_creation', 'DESC')
+            .skip((page - 1) * limit)
+            .take(limit);
+
+        if (status) {
+            qb.andWhere('submission.status = :status', { status });
+        }
+
+        const [rows, total] = await qb.getManyAndCount();
+        return {
+            data: rows.map(r => this.withMissingFlags(r)),
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
+    }
+
     // Admin: bind a resolved structure/titre id onto a PENDING submission and
     // clear the matching proposed name — PERSISTED, so the "à résoudre" prompt
     // disappears for everyone and the same missing entity can't be re-created.
