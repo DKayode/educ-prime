@@ -335,19 +335,18 @@ export default function EpreuvesApprobation() {
 
     const handleLimitChange = (val: string) => { setLimit(parseInt(val)); setPage(1); };
 
-    // Open the submitted PDF in a new tab. Prefer a fresh presigned R2 link
-    // (private slot); fall back to the legacy Firebase url. Open the tab
+    // Open the submitted PDF in a new tab using the Cloudflare R2 presigned URL
+    // ONLY (private slot) — never the legacy Firebase link. Open the tab
     // synchronously (inside the click) so the browser doesn't block the popup.
     const viewFile = async (sub: EpreuveSubmission) => {
         const win = window.open("", "_blank");
         try {
             const res = await filesService.getDownloadUrl("epreuve_submissions", sub.uuid, "file");
-            const url = res?.url || sub.url;
-            if (url) { if (win) win.location.href = url; else window.open(url, "_blank", "noopener"); }
-            else { win?.close(); toast({ title: "Fichier indisponible", description: "Aucun fichier associé à cette soumission.", variant: "destructive" }); }
+            if (res?.url) { if (win) win.location.href = res.url; else window.open(res.url, "_blank", "noopener"); }
+            else { win?.close(); toast({ title: "Fichier indisponible", description: "Impossible de générer le lien R2 du fichier.", variant: "destructive" }); }
         } catch (e: any) {
-            if (sub.url && win) win.location.href = sub.url;
-            else { win?.close(); toast({ title: "Erreur", description: e?.message || "Impossible d'ouvrir le fichier.", variant: "destructive" }); }
+            win?.close();
+            toast({ title: "Erreur", description: e?.message || "Impossible d'ouvrir le fichier depuis R2.", variant: "destructive" });
         }
     };
 
