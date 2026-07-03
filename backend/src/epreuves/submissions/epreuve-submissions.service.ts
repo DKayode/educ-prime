@@ -203,14 +203,11 @@ export class EpreuveSubmissionsService {
     };
   }
 
-  // Admin queue: list submissions (optional status filter), with parents resolved
-  // and missing ones flagged.
-  async findAllForAdmin(
-    pays: string,
-    opts: { status?: ServiceStatusEnum; page?: number; limit?: number },
-  ): Promise<PaginationResponse<ReturnType<EpreuveSubmissionsService['toSubmissionResponse']>>> {
-    const { status, page = 1, limit = 10 } = opts;
-    const qb = this.submissionsRepository.createQueryBuilder('submission')
+  // Shared parent-join chain: eager-loads every ancestor path so
+  // toSubmissionResponse can derive a level from its deepest resolved
+  // descendant. Does NOT join soumis_par — callers add it only when needed.
+  private baseSubmissionQuery() {
+    return this.submissionsRepository.createQueryBuilder('submission')
       .leftJoinAndSelect('submission.etablissement', 'etablissement')
       .leftJoinAndSelect('submission.filiere', 'filiere')
       .leftJoinAndSelect('filiere.etablissement', 'f_etab')
@@ -220,9 +217,52 @@ export class EpreuveSubmissionsService {
       .leftJoinAndSelect('submission.matiere', 'matiere')
       .leftJoinAndSelect('matiere.niveau_etude', 'm_niveau')
       .leftJoinAndSelect('m_niveau.filiere', 'm_filiere')
-      .leftJoinAndSelect('m_filiere.etablissement', 'm_etab')
+      .leftJoinAndSelect('m_filiere.etablissement', 'm_etab');
+  }
+
+  // Admin queue: list submissions (optional status filter), with parents resolved
+  // and missing ones flagged.
+  async findAllForAdmin(
+    pays: string,
+    opts: { status?: ServiceStatusEnum; page?: number; limit?: number },
+  ): Promise<PaginationResponse<ReturnType<EpreuveSubmissionsService['toSubmissionResponse']>>> {
+    const { status, page = 1, limit = 10 } = opts;
+    const qb = this.baseSubmissionQuery()
       .leftJoinAndSelect('submission.soumis_par', 'soumis_par')
       .where('submission.pays = :pays', { pays })
+      .orderBy('submission.date_creation', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (status) {
+      qb.andWhere('submission.status = :status', { status });
+    }
+
+    const [rows, total] = await qb.getManyAndCount();
+    return {
+      data: rows.map(r => this.toSubmissionResponse(r)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // Self-service: the caller's OWN épreuve submissions, pays-scoped, newest
+  // first, paginated, optional status filter. Same rich rows as the admin list
+  // (resolved/proposed parents + missing flags + file/status/date), but scoped
+  // to soumis_par_id so a user never sees another user's rows. soumis_par is not
+  // joined — the caller already knows it's theirs, and omitting it guarantees no
+  // uploader row (hence no password) is ever serialized.
+  async findMine(
+    pays: string,
+    soumisParId: number,
+    opts: { status?: ServiceStatusEnum; page?: number; limit?: number },
+  ): Promise<PaginationResponse<ReturnType<EpreuveSubmissionsService['toSubmissionResponse']>>> {
+    const { status, page = 1, limit = 10 } = opts;
+    const qb = this.baseSubmissionQuery()
+      .where('submission.pays = :pays', { pays })
+      .andWhere('submission.soumis_par_id = :soumisParId', { soumisParId })
       .orderBy('submission.date_creation', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);

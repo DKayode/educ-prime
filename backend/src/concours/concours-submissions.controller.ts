@@ -32,6 +32,23 @@ export class ConcoursSubmissionsController {
         return this.submissionsService.createSubmission(pays, userId, dto);
     }
 
+    // Registered BEFORE the admin @Get() so 'mine' is never captured as a param.
+    // JwtAuthGuard only (any authenticated user, NOT admin) — returns ONLY the
+    // caller's own submissions, pays-scoped, all statuses unless ?status given.
+    @UseGuards(JwtAuthGuard)
+    @Get('mine')
+    @ApiOperation({ summary: 'Mes soumissions de concours — les soumissions de l\'utilisateur connecté, structure/titre résolus ou proposés' })
+    @ApiQuery({ name: 'status', required: false, description: 'Filtrer par statut (défaut: tous)' })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    findMine(
+        @CurrentCountry() pays: string,
+        @Request() req,
+        @Query() query: SubmissionsQueryDto,
+    ) {
+        return this.submissionsService.findMine(pays, req.user.utilisateurId, query.status, query);
+    }
+
     @UseGuards(JwtAuthGuard, RoleGuard)
     @Roles(RoleType.ADMIN)
     @Get()
