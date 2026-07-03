@@ -18,7 +18,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Plus, Eye } from "lucide-react";
+import { filesService } from "@/lib/services/files.service";
 import { concoursService, ConcoursSubmission } from "@/lib/services/concours.service";
 import { structureService } from "@/lib/services/structure.service";
 import { titreService } from "@/lib/services/titre.service";
@@ -159,6 +160,21 @@ function SubmissionRow({
     // A file is mandatory to approve (the submission exists to collect the PDF).
     const hasFile = !!(submission.file_path || submission.url);
     const pending = approveMutation.isPending || declineMutation.isPending;
+
+    // Open the submitted PDF in a new tab using the Cloudflare R2 presigned URL
+    // ONLY (private slot) — never the legacy Firebase link. Open the tab in the
+    // click handler so the browser doesn't block the popup.
+    const viewFile = async () => {
+        const win = window.open("", "_blank");
+        try {
+            const res = await filesService.getDownloadUrl("concours_submissions", submission.uuid, "file");
+            if (res?.url) { if (win) win.location.href = res.url; else window.open(res.url, "_blank", "noopener"); }
+            else { win?.close(); toast({ title: "Fichier indisponible", description: "Impossible de générer le lien R2 du fichier.", variant: "destructive" }); }
+        } catch (e: any) {
+            win?.close();
+            toast({ title: "Erreur", description: e?.message || "Impossible d'ouvrir le fichier depuis R2.", variant: "destructive" });
+        }
+    };
     const canApprove = bothResolved && hasFile;
     const approveTitle = !hasFile
         ? "En attente du fichier"
@@ -197,6 +213,11 @@ function SubmissionRow({
                 <div className="flex items-center justify-end gap-2">
                     {!hasFile && (
                         <Badge variant="outline" className="border-amber-500 text-amber-600">Fichier manquant</Badge>
+                    )}
+                    {hasFile && (
+                        <Button variant="ghost" size="icon" onClick={viewFile} title="Voir le fichier soumis">
+                            <Eye className="h-4 w-4 text-blue-500" />
+                        </Button>
                     )}
                     <Button
                         variant="ghost"

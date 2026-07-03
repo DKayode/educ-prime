@@ -14,7 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Wrench, AlertTriangle, Check, FileWarning, Plus } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Wrench, AlertTriangle, Check, FileWarning, Plus, Eye } from "lucide-react";
+import { filesService } from "@/lib/services/files.service";
 import {
     Select,
     SelectContent,
@@ -334,6 +335,21 @@ export default function EpreuvesApprobation() {
 
     const handleLimitChange = (val: string) => { setLimit(parseInt(val)); setPage(1); };
 
+    // Open the submitted PDF in a new tab using the Cloudflare R2 presigned URL
+    // ONLY (private slot) — never the legacy Firebase link. Open the tab
+    // synchronously (inside the click) so the browser doesn't block the popup.
+    const viewFile = async (sub: EpreuveSubmission) => {
+        const win = window.open("", "_blank");
+        try {
+            const res = await filesService.getDownloadUrl("epreuve_submissions", sub.uuid, "file");
+            if (res?.url) { if (win) win.location.href = res.url; else window.open(res.url, "_blank", "noopener"); }
+            else { win?.close(); toast({ title: "Fichier indisponible", description: "Impossible de générer le lien R2 du fichier.", variant: "destructive" }); }
+        } catch (e: any) {
+            win?.close();
+            toast({ title: "Erreur", description: e?.message || "Impossible d'ouvrir le fichier depuis R2.", variant: "destructive" });
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div>
@@ -423,6 +439,11 @@ export default function EpreuvesApprobation() {
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end gap-2">
+                                                        {hasFile && (
+                                                            <Button variant="ghost" size="icon" onClick={() => viewFile(sub)} title="Voir le fichier soumis">
+                                                                <Eye className="h-4 w-4 text-blue-500" />
+                                                            </Button>
+                                                        )}
                                                         {isPending && (
                                                             <>
                                                                 {hasMissing && (
