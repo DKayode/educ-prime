@@ -155,7 +155,7 @@ const navTree: NavItem[] = [
     title: "Système",
     icon: Settings,
     children: [
-      { title: "Statistiques", icon: BarChart3 },
+      { title: "Statistiques", icon: BarChart3, url: "/statistiques-approbations" },
       { title: "Paramètres", icon: SlidersHorizontal },
       { title: "Contacts Pro", icon: Contact, url: "/contacts-professionnels" },
       { title: "Notifications", icon: Bell, url: "/notifications" },
