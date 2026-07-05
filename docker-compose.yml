@@ -48,6 +48,14 @@ services:
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
       R2_PUBLIC_BUCKET: ${R2_PUBLIC_BUCKET}
       R2_PUBLIC_BUCKET_URL: ${R2_PUBLIC_BUCKET_URL}
+      # Wallet / payments. PAYMENT_INTERNAL_API_KEY guards the internal
+      # exam-reward credit endpoint — MUST be set: an empty value makes the
+      # InternalApiKeyGuard fail open (see nginx: /internal/ is also blocked at
+      # the edge as defense-in-depth). TWILIO_* powers withdrawal OTP SMS.
+      PAYMENT_INTERNAL_API_KEY: ${PAYMENT_INTERNAL_API_KEY}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_FROM: ${TWILIO_FROM}
     networks:
       - edukia_network
     depends_on:

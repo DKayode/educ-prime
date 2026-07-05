@@ -1,0 +1,13 @@
+export { WalletEntity } from './wallet-balance/entities/wallet.entity';
+export { WalletTransactionEntity } from './wallet-balance/entities/wallet-transaction.entity';
+export { WalletRestrictionEntity } from './wallet-balance/entities/wallet-restriction.entity';
+export { WithdrawalRequestEntity } from './user-payment/entities/withdrawal-request.entity';
+export { PaymentExecutionEntity } from './user-payment/entities/payment-execution.entity';
+export { PaymentProofEntity } from './user-payment/entities/payment-proof.entity';
+export { PaymentConfigurationEntity } from './user-payment/entities/payment-configuration.entity';
+export { UserPaymentAccountEntity } from './user-payment/entities/user-payment-account.entity';
+export { UserPaymentAccountHistoryEntity } from './user-payment/entities/user-payment-account-history.entity';
+export { PaymentBatchEntity } from './user-payment/entities/payment-batch.entity';
+export { PaymentAuditLogEntity } from './user-payment/entities/payment-audit-log.entity';
+export { PaymentNotificationEntity } from './user-payment/entities/payment-notification.entity';
+export { WithdrawalOtpEntity } from './otp/entities/withdrawal-otp.entity';

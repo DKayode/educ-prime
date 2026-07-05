@@ -35,6 +35,8 @@ import {
   ChevronRight,
   BookOpen,
   ClipboardCheck,
+  Wallet,
+  Banknote,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -150,6 +152,14 @@ const navTree: NavItem[] = [
       { title: "Utilisateurs", icon: User, url: "/users" },
       { title: "Indicateurs", icon: BarChart3, url: "/indicateurs" },
       { title: "Parrainage", icon: UserPlus, url: "/parrainages" },
+    ],
+  },
+  {
+    title: "Wallet",
+    icon: Wallet,
+    children: [
+      { title: "Retraits", icon: Banknote, url: "/admin/retraits" },
+      { title: "Configuration", icon: SlidersHorizontal, url: "/admin/wallet-configuration" },
     ],
   },
   {

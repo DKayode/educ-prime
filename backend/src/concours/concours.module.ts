@@ -10,6 +10,7 @@ import { FichiersModule } from '../fichiers/fichiers.module';
 import { MailModule } from '../mail/mail.module';
 import { FilesModule } from '../files/files.module';
 import { ResourceAccessModule } from '../resource-access/resource-access.module';
+import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ResourceAccessModule } from '../resource-access/resource-access.module'
     MailModule,
     FilesModule,
     ResourceAccessModule,
+    WalletModule,
   ],
   // ConcoursSubmissionsController FIRST: its literal `/concours/submissions`
   // routes must register before ConcoursController's `/concours/:id`.

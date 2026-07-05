@@ -36,6 +36,8 @@ import AppVersions from "./pages/AppVersions";
 import Parrainages from "./pages/Parrainages";
 import Indicateurs from "./pages/Indicateurs";
 import StatistiquesApprobations from "./pages/StatistiquesApprobations";
+import RetraitsWallet from "./pages/RetraitsWallet";
+import ConfigurationWallet from "./pages/ConfigurationWallet";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -94,6 +96,8 @@ const App = () => (
                       <Route path="/admin/competences" element={<CompetencesAdmin />} />
                       <Route path="/indicateurs" element={<Indicateurs />} />
                       <Route path="/statistiques-approbations" element={<StatistiquesApprobations />} />
+                      <Route path="/admin/retraits" element={<RetraitsWallet />} />
+                      <Route path="/admin/wallet-configuration" element={<ConfigurationWallet />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
