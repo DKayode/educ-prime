@@ -7,6 +7,12 @@ export class TypeProfil {
     @PrimaryGeneratedColumn()
     id: number;
 
+    // Requis par le registre R2 FilesModule (résolution de la ligne par uuid
+    // pour le slot public type_profils.icone). Mirroir de categories.uuid.
+    @ApiProperty({ description: 'UUID du type de profil' })
+    @Column({ type: 'uuid', unique: true, default: () => 'gen_random_uuid()' })
+    uuid: string;
+
     @ApiProperty({ description: 'Titre du type de profil' })
     @Column({ type: 'varchar', length: 255 })
     titre: string;

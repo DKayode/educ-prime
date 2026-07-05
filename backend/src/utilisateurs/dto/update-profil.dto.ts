@@ -13,4 +13,5 @@ export class UpdateProfilDto extends PickType(MajUtilisateurDto, [
     'date_naissance',
     'zone_residence',
     'situation_handicap',
+    'type_profil_id',
 ] as const) { }

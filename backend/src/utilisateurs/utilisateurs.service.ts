@@ -3,6 +3,7 @@ import { Repository, Brackets, LessThan, IsNull } from 'typeorm';
 import { Utilisateur } from './entities/utilisateur.entity';
 import { Prestataire } from '../prestataires/entities/prestataire.entity';
 import { Recruteur } from '../recruteurs/entities/recruteur.entity';
+import { TypeProfil } from '../type-profils/entities/type-profil.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CountryContextService } from '../config/country-context.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -350,6 +351,22 @@ export class UtilisateursService {
       throw new NotFoundException('Utilisateur non trouvé');
     }
 
+    // Type de profil : valider qu'il existe ET appartient au pays de l'utilisateur.
+    // `undefined` = champ absent (on n'y touche pas) ; `null` = retirer l'assignation.
+    if (majUtilisateurDto.type_profil_id !== undefined && majUtilisateurDto.type_profil_id !== null) {
+      const typeProfil = await this.resolver.getRepository(TypeProfil).findOne({
+        where: { id: majUtilisateurDto.type_profil_id },
+      });
+      if (!typeProfil) {
+        throw new NotFoundException(`Type de profil ${majUtilisateurDto.type_profil_id} non trouvé`);
+      }
+      if (typeProfil.pays !== user.pays) {
+        throw new BadRequestException(
+          `Le type de profil ${majUtilisateurDto.type_profil_id} n'appartient pas à votre pays`,
+        );
+      }
+    }
+
     // Update user
     Object.assign(user, majUtilisateurDto);
     const updatedUser = await this.utilisateursRepository.save(user);
@@ -378,6 +395,40 @@ export class UtilisateursService {
       where: { utilisateur_id: userId },
     });
     return { isRecruteur: !!recruteur };
+  }
+
+  /**
+   * Résout le type de profil d'un utilisateur pour la réponse GET /utilisateurs/profil.
+   * Renvoie l'id brut (`type_profil_id`) + l'objet `type_profil`
+   * { id, titre, sous_titre, icone_path } (ou null si non assigné).
+   */
+  async getTypeProfilForProfil(userId: number): Promise<{
+    type_profil_id: number | null;
+    type_profil: { id: number; titre: string; sous_titre: string | null; icone_path: string | null } | null;
+  }> {
+    const user = await this.utilisateursRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'type_profil_id'],
+    });
+    const typeProfilId = user?.type_profil_id ?? null;
+    if (!typeProfilId) {
+      return { type_profil_id: null, type_profil: null };
+    }
+    const typeProfil = await this.resolver.getRepository(TypeProfil).findOne({
+      where: { id: typeProfilId },
+      select: ['id', 'titre', 'sous_titre', 'icone_path'],
+    });
+    return {
+      type_profil_id: typeProfilId,
+      type_profil: typeProfil
+        ? {
+          id: typeProfil.id,
+          titre: typeProfil.titre,
+          sous_titre: typeProfil.sous_titre ?? null,
+          icone_path: typeProfil.icone_path ?? null,
+        }
+        : null,
+    };
   }
 
   async verifyEmail(email: string) {

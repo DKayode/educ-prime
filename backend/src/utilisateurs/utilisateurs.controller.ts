@@ -55,12 +55,15 @@ export class UtilisateursController {
     const { isVerified: isEmailVerified } = await this.utilisateursService.isEmailVerified(userIdNum);
     const { isPrestataire } = await this.utilisateursService.isPrestataire(userIdNum);
     const { isRecruteur } = await this.utilisateursService.isRecruteur(userIdNum);
+    const { type_profil_id, type_profil } = await this.utilisateursService.getTypeProfilForProfil(userIdNum);
 
     return {
       ...profil,
       isEmailVerified,
       isPrestataire,
-      isRecruteur
+      isRecruteur,
+      type_profil_id,
+      type_profil,
     };
   }
 

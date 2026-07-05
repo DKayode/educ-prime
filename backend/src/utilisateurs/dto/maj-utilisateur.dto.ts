@@ -53,4 +53,9 @@ export class MajUtilisateurDto {
   @IsOptional()
   @IsNumber()
   niveau_etude_id?: number;
+
+  // Type de profil (personnalisation) — nullable : null pour le retirer.
+  @IsOptional()
+  @IsNumber()
+  type_profil_id?: number | null;
 }
