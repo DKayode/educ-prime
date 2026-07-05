@@ -15,15 +15,20 @@ import {
   YAxis,
 } from "recharts";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { statsService } from "@/lib/services/stats.service";
 import { filieresService } from "@/lib/services/filieres.service";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 const BREAKDOWN_COLORS = ["#4f46e5", "#10b981", "#f59e0b"];
 
 export default function Dashboard() {
+  const [allCountries, setAllCountries] = useState(false);
+
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn: () => statsService.getDashboardStats(),
+    queryKey: ['dashboard-stats', allCountries],
+    queryFn: () => statsService.getDashboardStats(allCountries),
     staleTime: 30000, // Cache for 30 seconds
   });
 
@@ -75,11 +80,27 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Tableau de bord</h1>
-        <p className="text-muted-foreground">
-          Vue d'ensemble — <span className="font-medium text-foreground">{countryLabel}</span> · {today}
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Tableau de bord</h1>
+          <p className="text-muted-foreground">
+            Vue d'ensemble —{" "}
+            <span className="font-medium text-foreground">
+              {allCountries ? "Tous les pays" : countryLabel}
+            </span>{" "}
+            · {today}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="all-countries"
+            checked={allCountries}
+            onCheckedChange={setAllCountries}
+          />
+          <Label htmlFor="all-countries" className="cursor-pointer text-sm">
+            Tous les pays
+          </Label>
+        </div>
       </div>
 
       {/* Stat cards — bound to real /stats counts */}

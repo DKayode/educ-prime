@@ -5,6 +5,7 @@ export interface DashboardStats {
   etablissementsCount: number;
   filieresCount: number;
   matieresCount: number;
+  niveauEtudeCount: number;
   epreuvesCount: number;
   publicitesCount: number;
   evenementsCount: number;
@@ -12,11 +13,14 @@ export interface DashboardStats {
   concoursCount: number;
   contactsProfessionnelsCount: number;
   parcoursCount: number;
+  categoriesCount?: number;
 }
 
 export const statsService = {
-  async getDashboardStats(): Promise<DashboardStats> {
-    const stats = await api.get<DashboardStats>('/stats');
+  // `allCountries` drops the ?country= param so /stats aggregates across every
+  // configured country; otherwise the stats are scoped to the selected country.
+  async getDashboardStats(allCountries = false): Promise<DashboardStats> {
+    const stats = await api.get<DashboardStats>('/stats', { skipCountry: allCountries });
 
     return stats;
   },

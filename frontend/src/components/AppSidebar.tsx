@@ -107,6 +107,14 @@ const navTree: NavItem[] = [
       { title: "Épreuves en attente", icon: FileText, url: "/approbations/epreuves" },
       { title: "Concours en attente", icon: FileText, url: "/approbations/concours" },
       { title: "Statistiques", icon: BarChart3, url: "/statistiques-approbations" },
+      {
+        title: "Wallet",
+        icon: Wallet,
+        children: [
+          { title: "Retraits", icon: Banknote, url: "/admin/retraits" },
+          { title: "Configuration", icon: SlidersHorizontal, url: "/admin/wallet-configuration" },
+        ],
+      },
     ],
   },
   {
@@ -163,14 +171,6 @@ const navTree: NavItem[] = [
           { title: "Villes", icon: MapPin, url: "/villes" },
         ],
       },
-    ],
-  },
-  {
-    title: "Wallet",
-    icon: Wallet,
-    children: [
-      { title: "Retraits", icon: Banknote, url: "/admin/retraits" },
-      { title: "Configuration", icon: SlidersHorizontal, url: "/admin/wallet-configuration" },
     ],
   },
   {
