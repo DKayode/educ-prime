@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, Star, MessageSquare, User, Trash2 } from "lucide-react";
 import { offresService, OffreItem } from "@/lib/services/offres.service";
+import { TypeProfilChecklist } from "@/components/TypeProfilChecklist";
+import { typeProfilTaggingService } from "@/lib/services/typeProfilTagging.service";
 import { avisService } from "@/lib/services/avis.service";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -45,6 +47,9 @@ export default function OffresAdmin() {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [viewOffre, setViewOffre] = useState<OffreItem | null>(null);
+    // Type-profil tagging in the view dialog (this admin page has no create/edit form).
+    const [viewOffreTypeProfilIds, setViewOffreTypeProfilIds] = useState<number[]>([]);
+    const [savingTags, setSavingTags] = useState(false);
     const [viewRecruteur, setViewRecruteur] = useState<OffreItem['recruteur'] | null>(null);
     const [selectedOffreAvisId, setSelectedOffreAvisId] = useState<number | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -92,6 +97,30 @@ export default function OffresAdmin() {
 
     const handleUpdateStatus = (id: number, newStatus: string) => {
         updateStatusMutation.mutate({ id, status: newStatus });
+    };
+
+    // Prefill the checklist when an offre's detail dialog opens.
+    useEffect(() => {
+        if (viewOffre?.id) {
+            typeProfilTaggingService.get('offres', viewOffre.id)
+                .then(setViewOffreTypeProfilIds)
+                .catch(() => setViewOffreTypeProfilIds([]));
+        } else {
+            setViewOffreTypeProfilIds([]);
+        }
+    }, [viewOffre?.id]);
+
+    const handleSaveOffreTags = async () => {
+        if (!viewOffre) return;
+        setSavingTags(true);
+        try {
+            await typeProfilTaggingService.set('offres', viewOffre.id, viewOffreTypeProfilIds);
+            toast({ title: "Succès", description: "Types de profil enregistrés" });
+        } catch (e: any) {
+            toast({ title: "Erreur", description: e.message || "Échec de l'enregistrement", variant: "destructive" });
+        } finally {
+            setSavingTags(false);
+        }
     };
 
     const deleteMutation = useMutation({
@@ -390,6 +419,12 @@ export default function OffresAdmin() {
                                 </div>
                             )}
 
+                            <div className="border-t pt-4">
+                                <TypeProfilChecklist value={viewOffreTypeProfilIds} onChange={setViewOffreTypeProfilIds} />
+                                <Button className="mt-3" size="sm" onClick={handleSaveOffreTags} disabled={savingTags}>
+                                    {savingTags ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enregistrement...</> : "Enregistrer les types de profil"}
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </DialogContent>
