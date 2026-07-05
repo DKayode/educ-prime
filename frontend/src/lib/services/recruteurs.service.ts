@@ -2,11 +2,15 @@ import { api } from '../api';
 
 export interface RecruteurItem {
     id: number;
+    uuid: string;
     numero_ifu: string | null;
     nom: string;
     nom_recruteur: string;
     prenom: string;
     utilisateur_id: number;
+    // Full public R2 URL for the profile photo (public slot stores the URL).
+    profil_photo_path: string | null;
+    profil_photo_extension: string | null;
     photo_profil: string | null;
     photo_identite: string | null;
     adresse: string | null;

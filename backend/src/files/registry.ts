@@ -115,6 +115,11 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
         // content (legacy `media`) is sometimes a video — no clean image target, not mirrored.
         content: { pathColumn: 'content_image_path', extColumn: 'content_image_extension', authorized: IMAGE_EXTS, public: true },
     },
+    recruteurs: {
+        // Sibling of `prestataires.profil` — public profile photo, mirrored to
+        // the legacy Firebase `photo_profil` column during the transition.
+        profil: { pathColumn: 'profil_photo_path', extColumn: 'profil_photo_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'photo_profil' },
+    },
     services: {
         image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'image_couverture' },
     },
