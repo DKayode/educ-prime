@@ -14,6 +14,7 @@ import { FormResponse } from './entities/form-response.entity';
 import { FormAnswer } from './entities/form-answer.entity';
 import { CreerCampaignDto, CreerSectionDto } from './dto/creer-campaign.dto';
 import { MajStatutDto } from './dto/maj-statut.dto';
+import { MajCampaignDto } from './dto/maj-campaign.dto';
 import { FilterCampaignDto } from './dto/filter-campaign.dto';
 import { SoumettreReponseDto } from './dto/soumettre-reponse.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
@@ -98,6 +99,18 @@ export class FormsService {
       });
       if (!campaign) {
         throw new NotFoundException('Campagne non trouvée');
+      }
+      // Structural edits are frozen once responses exist — replacing the tree
+      // would cascade-delete collected answers. Title/description stay editable
+      // via updateMeta; statut via updateStatut.
+      const [{ count }] = await manager.query(
+        `SELECT COUNT(*)::int AS count FROM form_responses WHERE campaign_id = $1`,
+        [uuid],
+      );
+      if (count > 0) {
+        throw new ConflictException(
+          'Impossible de modifier la structure: des réponses existent déjà',
+        );
       }
       campaign.titre = dto.titre;
       campaign.description = dto.description ?? null;
@@ -216,6 +229,21 @@ export class FormsService {
     if (dto.statut === 'archived' && !campaign.date_fin) {
       campaign.date_fin = new Date();
     }
+    await this.campaignRepository.save(campaign);
+    return this.serializeCampaign(campaign);
+  }
+
+  // Metadata-only edit (titre/description) — always allowed, never touches the
+  // section/question tree, so it stays available after responses exist.
+  async updateMeta(pays: string, uuid: string, dto: MajCampaignDto) {
+    const campaign = await this.campaignRepository.findOne({
+      where: { id: uuid, pays },
+    });
+    if (!campaign) {
+      throw new NotFoundException('Campagne non trouvée');
+    }
+    if (dto.titre !== undefined) campaign.titre = dto.titre;
+    if (dto.description !== undefined) campaign.description = dto.description ?? null;
     await this.campaignRepository.save(campaign);
     return this.serializeCampaign(campaign);
   }

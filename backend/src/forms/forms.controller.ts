@@ -15,6 +15,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { FormsService } from './forms.service';
 import { CreerCampaignDto } from './dto/creer-campaign.dto';
 import { MajStatutDto } from './dto/maj-statut.dto';
+import { MajCampaignDto } from './dto/maj-campaign.dto';
 import { FilterCampaignDto } from './dto/filter-campaign.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -69,6 +70,18 @@ export class FormsController {
     @Body() dto: CreerCampaignDto,
   ) {
     return this.formsService.update(pays, uuid, dto);
+  }
+
+  @Patch(':uuid')
+  @ApiOperation({
+    summary: 'Modifier les métadonnées (titre/description) — sans toucher à la structure',
+  })
+  updateMeta(
+    @CurrentCountry() pays: string,
+    @Param('uuid') uuid: string,
+    @Body() dto: MajCampaignDto,
+  ) {
+    return this.formsService.updateMeta(pays, uuid, dto);
   }
 
   @Patch(':uuid/statut')
