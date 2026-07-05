@@ -38,7 +38,7 @@ export class DepartementController {
   }
 
   @Post('import-csv')
-  @UseInterceptors(FileInterceptor('file', { storage: multer.memoryStorage() }))
+  @UseInterceptors(FileInterceptor('file', { storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Importer des départements via CSV (colonnes: nom,code). Scope via ?country=' })
   async importCsv(

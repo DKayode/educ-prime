@@ -35,7 +35,7 @@ export class VilleController {
   }
 
   @Post('import-csv')
-  @UseInterceptors(FileInterceptor('file', { storage: multer.memoryStorage() }))
+  @UseInterceptors(FileInterceptor('file', { storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Importer des villes via CSV (colonnes: departement_nom,ville_nom). Scope via ?country=' })
   async importCsv(
