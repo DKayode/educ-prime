@@ -13,6 +13,7 @@ import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
 import { PaginationResponse } from '../../common/interfaces/pagination-response.interface';
 import { CreerSubmissionDto } from './dto/creer-submission.dto';
 import { ResoudreSubmissionDto } from './dto/resoudre-submission.dto';
+import { CreditWalletFromValidatedExamUseCase } from '../../wallet/wallet-balance/use-cases/credit-wallet-from-validated-exam.use-case';
 
 @Injectable()
 export class EpreuveSubmissionsService {
@@ -22,6 +23,7 @@ export class EpreuveSubmissionsService {
     private readonly resolver: DataSourceResolver,
     private readonly mailService: MailService,
     private readonly filesService: FilesService,
+    private readonly creditWalletFromExam: CreditWalletFromValidatedExamUseCase,
   ) { }
 
   private get submissionsRepository(): Repository<EpreuveSubmission> {
@@ -434,6 +436,16 @@ export class EpreuveSubmissionsService {
 
     submission.status = ServiceStatusEnum.APPROVED;
     await this.submissionsRepository.save(submission);
+
+    // Reward the uploader's wallet for the validated épreuve. Best-effort — a
+    // failure here must not undo the approval. Idempotent: the use-case keys on
+    // reference EXAM_REWARD:<uuid>, so re-approving never double-credits.
+    if (submission.soumis_par_id != null) {
+      this.creditWalletFromExam
+        .execute({ userId: submission.soumis_par_id, examId: savedEpreuve.uuid, description: 'Épreuve validée' })
+        .then((res: any) => this.logger.log(`Wallet crédité (épreuve ${savedEpreuve.uuid}) pour user ${submission.soumis_par_id}${res?.duplicated ? ' [déjà crédité]' : ''}`))
+        .catch(err => this.logger.error(`Crédit wallet échoué (soumission ${id}): ${err.message}`));
+    }
 
     if (submission.soumis_par?.email) {
       this.mailService.sendServiceStatusUpdateEmail(

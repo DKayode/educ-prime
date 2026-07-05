@@ -11,6 +11,7 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { MailService } from '../mail/mail.service';
 import { FilesService } from '../files/files.service';
+import { CreditWalletFromValidatedExamUseCase } from '../wallet/wallet-balance/use-cases/credit-wallet-from-validated-exam.use-case';
 
 @Injectable()
 export class ConcoursSubmissionsService {
@@ -20,6 +21,7 @@ export class ConcoursSubmissionsService {
         private readonly resolver: DataSourceResolver,
         private readonly mailService: MailService,
         private readonly filesService: FilesService,
+        private readonly creditWalletFromExam: CreditWalletFromValidatedExamUseCase,
     ) { }
 
     private get submissionRepository(): Repository<ConcoursSubmission> {
@@ -346,6 +348,16 @@ export class ConcoursSubmissionsService {
 
         submission.status = ServiceStatusEnum.APPROVED;
         await this.submissionRepository.save(submission);
+
+        // Reward the uploader's wallet for the validated concours. Best-effort —
+        // never undo the approval on failure. Idempotent via reference
+        // EXAM_REWARD:<uuid> (re-approving does not double-credit).
+        if (submission.soumis_par_id != null) {
+            this.creditWalletFromExam
+                .execute({ userId: submission.soumis_par_id, examId: savedConcours.uuid, description: 'Concours validé' })
+                .then((res: any) => this.logger.log(`Wallet crédité (concours ${savedConcours.uuid}) pour user ${submission.soumis_par_id}${res?.duplicated ? ' [déjà crédité]' : ''}`))
+                .catch(err => this.logger.error(`Crédit wallet échoué (soumission ${id}): ${err.message}`));
+        }
 
         this.logger.log(`Soumission ${id} approuvée → concours ${savedConcours.id} (${savedConcours.titre}), fichier promu vers ${promoted.file_path}`);
         this.notifyUploader(submission, ServiceStatusEnum.APPROVED, savedConcours.titre);
