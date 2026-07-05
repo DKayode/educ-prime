@@ -3,7 +3,7 @@ import type { PaginationResponse, PaginationParams } from '../types/pagination';
 import { buildPaginationQuery } from '../types/pagination';
 
 export interface Departement {
-  id: number;
+  id: string; // uuid
   nom: string;
   code?: string | null;
   pays?: string;
@@ -24,7 +24,7 @@ export const departementsService = {
     return api.get<PaginationResponse<Departement>>(`/departements${buildPaginationQuery(params)}`);
   },
 
-  async getById(id: number): Promise<Departement> {
+  async getById(id: string): Promise<Departement> {
     return api.get<Departement>(`/departements/${id}`);
   },
 
@@ -32,11 +32,11 @@ export const departementsService = {
     return api.post<Departement>('/departements', data);
   },
 
-  async update(id: number, data: Partial<{ nom: string; code: string }>): Promise<Departement> {
+  async update(id: string, data: Partial<{ nom: string; code: string }>): Promise<Departement> {
     return api.put<Departement>(`/departements/${id}`, data);
   },
 
-  async delete(id: number): Promise<{ message: string }> {
+  async delete(id: string): Promise<{ message: string }> {
     // remove() is country-scoped server-side; DELETE carries no body and
     // api.delete doesn't auto-append ?country=, so pass it explicitly.
     const country = api.getCountry();

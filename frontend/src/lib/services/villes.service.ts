@@ -4,9 +4,9 @@ import { buildPaginationQuery } from '../types/pagination';
 import type { Departement, ImportSummary } from './departements.service';
 
 export interface Ville {
-  id: number;
+  id: string; // uuid
   nom: string;
-  departement_id: number;
+  departement_id: string; // uuid
   pays?: string;
   departement?: Departement;
   date_creation?: string;
@@ -14,24 +14,24 @@ export interface Ville {
 
 export const villesService = {
   async getAll(
-    params?: PaginationParams & { search?: string; departement_id?: number },
+    params?: PaginationParams & { search?: string; departement_id?: string },
   ): Promise<PaginationResponse<Ville>> {
     return api.get<PaginationResponse<Ville>>(`/villes${buildPaginationQuery(params)}`);
   },
 
-  async getById(id: number): Promise<Ville> {
+  async getById(id: string): Promise<Ville> {
     return api.get<Ville>(`/villes/${id}`);
   },
 
-  async create(data: { nom: string; departement_id: number }): Promise<Ville> {
+  async create(data: { nom: string; departement_id: string }): Promise<Ville> {
     return api.post<Ville>('/villes', data);
   },
 
-  async update(id: number, data: Partial<{ nom: string; departement_id: number }>): Promise<Ville> {
+  async update(id: string, data: Partial<{ nom: string; departement_id: string }>): Promise<Ville> {
     return api.put<Ville>(`/villes/${id}`, data);
   },
 
-  async delete(id: number): Promise<{ message: string }> {
+  async delete(id: string): Promise<{ message: string }> {
     // country-scoped server-side; append ?country= explicitly (see departements.service)
     const country = api.getCountry();
     return api.delete(`/villes/${id}?country=${encodeURIComponent(country)}`);

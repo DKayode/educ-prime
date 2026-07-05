@@ -62,7 +62,7 @@ const ALL = "all";
 export default function Villes() {
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
     const [editing, setEditing] = useState<Ville | null>(null);
     const [createNom, setCreateNom] = useState("");
     const [createDeptId, setCreateDeptId] = useState<string>("");
@@ -83,7 +83,7 @@ export default function Villes() {
     });
     const departements = deptResponse?.data || [];
 
-    const departementId = filterDeptId === ALL ? undefined : Number(filterDeptId);
+    const departementId = filterDeptId === ALL ? undefined : filterDeptId;
     const { data: response, isLoading } = useQuery({
         queryKey: ["villes", debouncedSearch, page, limit, departementId],
         queryFn: () => villesService.getAll({ search: debouncedSearch, page, limit, departement_id: departementId }),
@@ -92,7 +92,7 @@ export default function Villes() {
     const totalPages = response?.totalPages || 1;
 
     const createMutation = useMutation({
-        mutationFn: (data: { nom: string; departement_id: number }) => villesService.create(data),
+        mutationFn: (data: { nom: string; departement_id: string }) => villesService.create(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["villes"] });
             setIsCreateDialogOpen(false);
@@ -106,7 +106,7 @@ export default function Villes() {
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, data }: { id: number; data: Partial<{ nom: string; departement_id: number }> }) => villesService.update(id, data),
+        mutationFn: ({ id, data }: { id: string; data: Partial<{ nom: string; departement_id: string }> }) => villesService.update(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["villes"] });
             setIsEditDialogOpen(false);
@@ -119,7 +119,7 @@ export default function Villes() {
     });
 
     const deleteMutation = useMutation({
-        mutationFn: (id: number) => villesService.delete(id),
+        mutationFn: (id: string) => villesService.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["villes"] });
             setDeleteId(null);
@@ -153,7 +153,7 @@ export default function Villes() {
             toast({ title: "Erreur", description: "Veuillez choisir un département", variant: "destructive" });
             return;
         }
-        createMutation.mutate({ nom: createNom, departement_id: Number(createDeptId) });
+        createMutation.mutate({ nom: createNom, departement_id: createDeptId });
     };
 
     const handleEdit = (e: React.FormEvent) => {
@@ -169,7 +169,7 @@ export default function Villes() {
 
     const openCreateDialog = () => {
         setCreateNom("");
-        setCreateDeptId(departementId ? String(departementId) : "");
+        setCreateDeptId(departementId ?? "");
         setIsCreateDialogOpen(true);
     };
 
@@ -195,7 +195,7 @@ export default function Villes() {
                         <SelectContent>
                             <SelectItem value={ALL}>Tous les départements</SelectItem>
                             {departements.map((d) => (
-                                <SelectItem key={d.id} value={String(d.id)}>{d.nom}</SelectItem>
+                                <SelectItem key={d.id} value={d.id}>{d.nom}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -231,7 +231,7 @@ export default function Villes() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {departements.map((d) => (
-                                                    <SelectItem key={d.id} value={String(d.id)}>{d.nom}</SelectItem>
+                                                    <SelectItem key={d.id} value={d.id}>{d.nom}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -306,13 +306,13 @@ export default function Villes() {
                             <div className="grid gap-4 py-4">
                                 <div className="grid gap-2">
                                     <Label>Département *</Label>
-                                    <Select value={String(editing.departement_id)} onValueChange={(v) => setEditing({ ...editing, departement_id: Number(v) })}>
+                                    <Select value={editing.departement_id} onValueChange={(v) => setEditing({ ...editing, departement_id: v })}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Choisir un département" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {departements.map((d) => (
-                                                <SelectItem key={d.id} value={String(d.id)}>{d.nom}</SelectItem>
+                                                <SelectItem key={d.id} value={d.id}>{d.nom}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>

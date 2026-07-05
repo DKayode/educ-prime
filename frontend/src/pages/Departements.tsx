@@ -57,7 +57,7 @@ function toastImportSummary(toast: ReturnType<typeof useToast>["toast"], summary
 export default function Departements() {
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
     const [editing, setEditing] = useState<Departement | null>(null);
     const [formData, setFormData] = useState<DepartementFormData>({ nom: "", code: "" });
     const [search, setSearch] = useState("");
@@ -90,7 +90,7 @@ export default function Departements() {
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, data }: { id: number; data: Partial<DepartementFormData> }) => departementsService.update(id, data),
+        mutationFn: ({ id, data }: { id: string; data: Partial<DepartementFormData> }) => departementsService.update(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["departements"] });
             setIsEditDialogOpen(false);
@@ -103,7 +103,7 @@ export default function Departements() {
     });
 
     const deleteMutation = useMutation({
-        mutationFn: (id: number) => departementsService.delete(id),
+        mutationFn: (id: string) => departementsService.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["departements"] });
             setDeleteId(null);
