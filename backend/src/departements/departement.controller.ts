@@ -28,13 +28,20 @@ import { CurrentCountry } from '../common/decorators/current-country.decorator';
 export class DepartementController {
   constructor(private readonly departementService: DepartementService) {}
 
+  // Expose the identifier as `uuid` (the PK is a uuid) in the API response.
+  private toResponse(d: any) {
+    return d
+      ? { uuid: d.id, nom: d.nom, code: d.code, pays: d.pays, date_creation: d.date_creation }
+      : d;
+  }
+
   @Post()
   @ApiOperation({ summary: 'Créer un département' })
   async create(
     @CurrentCountry() pays: string,
     @Body() dto: CreerDepartementDto,
   ) {
-    return this.departementService.create(pays, dto);
+    return this.toResponse(await this.departementService.create(pays, dto));
   }
 
   @Post('import-csv')
@@ -55,13 +62,14 @@ export class DepartementController {
     @CurrentCountry() pays: string,
     @Query() filterDto: FilterDepartementDto,
   ) {
-    return this.departementService.findAll(pays, filterDto);
+    const res = await this.departementService.findAll(pays, filterDto);
+    return { ...res, data: res.data.map((d) => this.toResponse(d)) };
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un département par son ID' })
   async findOne(@CurrentCountry() pays: string, @Param('id') id: string) {
-    return this.departementService.findOne(pays, id);
+    return this.toResponse(await this.departementService.findOne(pays, id));
   }
 
   @Put(':id')
@@ -71,7 +79,7 @@ export class DepartementController {
     @Param('id') id: string,
     @Body() dto: MajDepartementDto,
   ) {
-    return this.departementService.update(pays, id, dto);
+    return this.toResponse(await this.departementService.update(pays, id, dto));
   }
 
   @Delete(':id')

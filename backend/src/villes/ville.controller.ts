@@ -28,10 +28,26 @@ import { CurrentCountry } from '../common/decorators/current-country.decorator';
 export class VilleController {
   constructor(private readonly villeService: VilleService) {}
 
+  // Expose `uuid` (the PK is a uuid) and only the nested `departement` object
+  // ({ uuid, nom }); the raw `departement_id` is dropped (redundant).
+  private toResponse(v: any) {
+    return v
+      ? {
+          uuid: v.id,
+          nom: v.nom,
+          pays: v.pays,
+          date_creation: v.date_creation,
+          departement: v.departement
+            ? { uuid: v.departement.id, nom: v.departement.nom }
+            : null,
+        }
+      : v;
+  }
+
   @Post()
   @ApiOperation({ summary: 'Créer une ville (scopée au département parent)' })
   async create(@CurrentCountry() pays: string, @Body() dto: CreerVilleDto) {
-    return this.villeService.create(pays, dto);
+    return this.toResponse(await this.villeService.create(pays, dto));
   }
 
   @Post('import-csv')
@@ -53,13 +69,14 @@ export class VilleController {
     @CurrentCountry() pays: string,
     @Query() filterDto: FilterVilleDto,
   ) {
-    return this.villeService.findAll(pays, filterDto);
+    const res = await this.villeService.findAll(pays, filterDto);
+    return { ...res, data: res.data.map((v) => this.toResponse(v)) };
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer une ville par son ID' })
   async findOne(@CurrentCountry() pays: string, @Param('id') id: string) {
-    return this.villeService.findOne(pays, id);
+    return this.toResponse(await this.villeService.findOne(pays, id));
   }
 
   @Put(':id')
@@ -69,7 +86,7 @@ export class VilleController {
     @Param('id') id: string,
     @Body() dto: MajVilleDto,
   ) {
-    return this.villeService.update(pays, id, dto);
+    return this.toResponse(await this.villeService.update(pays, id, dto));
   }
 
   @Delete(':id')

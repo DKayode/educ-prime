@@ -58,7 +58,8 @@ export class VilleService {
     this.logger.log(
       `Ville créée: ${saved.nom} (ID: ${saved.id}, dept: ${saved.departement_id}, pays: ${saved.pays})`,
     );
-    return saved;
+    // reload with the departement relation so the response carries { departement }
+    return this.findOne(pays, saved.id);
   }
 
   async findAll(
@@ -140,7 +141,9 @@ export class VilleService {
     ville.nom = nom;
     ville.departement_id = departement_id;
     ville.pays = derivedPays;
-    return this.villeRepository.save(ville);
+    const saved = await this.villeRepository.save(ville);
+    // reload with the (possibly changed) departement relation for the response
+    return this.findOne(pays, saved.id);
   }
 
   async remove(pays: string, id: string): Promise<{ message: string }> {

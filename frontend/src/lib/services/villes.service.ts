@@ -4,11 +4,10 @@ import { buildPaginationQuery } from '../types/pagination';
 import type { Departement, ImportSummary } from './departements.service';
 
 export interface Ville {
-  id: string; // uuid
+  uuid: string;
   nom: string;
-  departement_id: string; // uuid
   pays?: string;
-  departement?: Departement;
+  departement?: Departement; // { uuid, nom }
   date_creation?: string;
 }
 

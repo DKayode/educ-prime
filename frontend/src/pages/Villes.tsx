@@ -64,6 +64,7 @@ export default function Villes() {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [editing, setEditing] = useState<Ville | null>(null);
+    const [editDeptId, setEditDeptId] = useState<string>("");
     const [createNom, setCreateNom] = useState("");
     const [createDeptId, setCreateDeptId] = useState<string>("");
     const [filterDeptId, setFilterDeptId] = useState<string>(ALL);
@@ -159,11 +160,12 @@ export default function Villes() {
     const handleEdit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!editing) return;
-        updateMutation.mutate({ id: editing.id, data: { nom: editing.nom, departement_id: editing.departement_id } });
+        updateMutation.mutate({ id: editing.uuid, data: { nom: editing.nom, departement_id: editDeptId } });
     };
 
     const openEditDialog = (item: Ville) => {
         setEditing(item);
+        setEditDeptId(item.departement?.uuid ?? "");
         setIsEditDialogOpen(true);
     };
 
@@ -195,7 +197,7 @@ export default function Villes() {
                         <SelectContent>
                             <SelectItem value={ALL}>Tous les départements</SelectItem>
                             {departements.map((d) => (
-                                <SelectItem key={d.id} value={d.id}>{d.nom}</SelectItem>
+                                <SelectItem key={d.uuid} value={d.uuid}>{d.nom}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -231,7 +233,7 @@ export default function Villes() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {departements.map((d) => (
-                                                    <SelectItem key={d.id} value={d.id}>{d.nom}</SelectItem>
+                                                    <SelectItem key={d.uuid} value={d.uuid}>{d.nom}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -267,13 +269,13 @@ export default function Villes() {
                             </TableHeader>
                             <TableBody>
                                 {villes.map((item) => (
-                                    <TableRow key={item.id}>
+                                    <TableRow key={item.uuid}>
                                         <TableCell className="font-medium">{item.nom}</TableCell>
                                         <TableCell className="text-muted-foreground text-sm">{item.departement?.nom || "—"}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
                                                 <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}><Pencil className="h-4 w-4" /></Button>
-                                                <Button variant="ghost" size="icon" onClick={() => setDeleteId(item.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                                <Button variant="ghost" size="icon" onClick={() => setDeleteId(item.uuid)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -306,13 +308,13 @@ export default function Villes() {
                             <div className="grid gap-4 py-4">
                                 <div className="grid gap-2">
                                     <Label>Département *</Label>
-                                    <Select value={editing.departement_id} onValueChange={(v) => setEditing({ ...editing, departement_id: v })}>
+                                    <Select value={editDeptId} onValueChange={setEditDeptId}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Choisir un département" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {departements.map((d) => (
-                                                <SelectItem key={d.id} value={d.id}>{d.nom}</SelectItem>
+                                                <SelectItem key={d.uuid} value={d.uuid}>{d.nom}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
