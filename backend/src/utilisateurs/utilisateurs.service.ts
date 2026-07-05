@@ -128,7 +128,7 @@ export class UtilisateursService {
       this.isPrestataire(user.id),
       this.isRecruteur(user.id),
     ]);
-    return {
+    const result: any = {
       ...this.withProfil(user),
       departement: user.departement ? { uuid: user.departement.id, nom: user.departement.nom } : null,
       ville: user.ville ? { uuid: user.ville.id, nom: user.ville.nom } : null,
@@ -137,6 +137,13 @@ export class UtilisateursService {
       isPrestataire,
       isRecruteur,
     };
+    // geo-profile: raw ids are redundant in the RESPONSE now that departement/ville are {uuid,nom}.
+    // Strip them from the returned object ONLY — the spread above is a fresh copy, so the entity
+    // is untouched and the columns stay in the select lists (updateProfil validation reads
+    // user.departement_id / user.ville_id off the entity, not this response).
+    delete result.departement_id;
+    delete result.ville_id;
+    return result;
   }
 
   async findByEmail(email: string) {
