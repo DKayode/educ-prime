@@ -139,7 +139,7 @@ export default function Departements() {
     const handleEdit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!editing) return;
-        updateMutation.mutate({ id: editing.id, data: { nom: editing.nom, code: editing.code || "" } });
+        updateMutation.mutate({ id: editing.uuid, data: { nom: editing.nom, code: editing.code || "" } });
     };
 
     const openEditDialog = (item: Departement) => {
@@ -226,13 +226,13 @@ export default function Departements() {
                             </TableHeader>
                             <TableBody>
                                 {departements.map((item) => (
-                                    <TableRow key={item.id}>
+                                    <TableRow key={item.uuid}>
                                         <TableCell className="font-medium">{item.nom}</TableCell>
                                         <TableCell className="text-muted-foreground text-sm">{item.code || "—"}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
                                                 <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}><Pencil className="h-4 w-4" /></Button>
-                                                <Button variant="ghost" size="icon" onClick={() => setDeleteId(item.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                                <Button variant="ghost" size="icon" onClick={() => setDeleteId(item.uuid)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                             </div>
                                         </TableCell>
                                     </TableRow>

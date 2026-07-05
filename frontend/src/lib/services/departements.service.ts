@@ -3,7 +3,7 @@ import type { PaginationResponse, PaginationParams } from '../types/pagination';
 import { buildPaginationQuery } from '../types/pagination';
 
 export interface Departement {
-  id: string; // uuid
+  uuid: string;
   nom: string;
   code?: string | null;
   pays?: string;
