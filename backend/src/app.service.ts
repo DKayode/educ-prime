@@ -4,6 +4,7 @@ import { Utilisateur, RoleType } from './utilisateurs/entities/utilisateur.entit
 import { Etablissement } from './etablissements/entities/etablissement.entity';
 import { Filiere } from './filieres/entities/filiere.entity';
 import { Matiere } from './matieres/entities/matiere.entity';
+import { NiveauEtude } from './niveau-etude/entities/niveau-etude.entity';
 import { Epreuve } from './epreuves/entities/epreuve.entity';
 import { Publicite } from './publicites/entities/publicite.entity';
 import { Evenement } from './evenements/entities/evenement.entity';
@@ -24,6 +25,7 @@ export class AppService {
   private get etablissementsRepository(): Repository<Etablissement> { return this.resolver.getRepository(Etablissement); }
   private get filieresRepository(): Repository<Filiere> { return this.resolver.getRepository(Filiere); }
   private get matieresRepository(): Repository<Matiere> { return this.resolver.getRepository(Matiere); }
+  private get niveauEtudeRepository(): Repository<NiveauEtude> { return this.resolver.getRepository(NiveauEtude); }
   private get epreuvesRepository(): Repository<Epreuve> { return this.resolver.getRepository(Epreuve); }
   private get publicitesRepository(): Repository<Publicite> { return this.resolver.getRepository(Publicite); }
   private get evenementsRepository(): Repository<Evenement> { return this.resolver.getRepository(Evenement); }
@@ -56,6 +58,7 @@ export class AppService {
       etablissementsCount,
       filieresCount,
       matieresCount,
+      niveauEtudeCount,
       epreuvesCount,
       publicitesCount,
       evenementsCount,
@@ -69,6 +72,7 @@ export class AppService {
       this.etablissementsRepository.count({ where: { pays } }),
       this.filieresRepository.count({ where: { pays } }),
       this.matieresRepository.count({ where: { pays } }),
+      this.niveauEtudeRepository.count({ where: { pays } }),
       this.epreuvesRepository.count({ where: { pays } }),
       this.publicitesRepository.count({ where: { pays } }),
       this.evenementsRepository.count({ where: { pays } }),
@@ -85,6 +89,7 @@ export class AppService {
       etablissementsCount,
       filieresCount,
       matieresCount,
+      niveauEtudeCount,
       epreuvesCount: epreuvesCount + concoursCount,
       publicitesCount,
       evenementsCount,
@@ -101,12 +106,13 @@ export class AppService {
    * query; the grand totals are the sums of those groups, so we never query
    * twice. Returns the flat totals PLUS a `par_pays` array of the same shape.
    */
-  private async getAllCountriesStats(): Promise<StatsTotals & { par_pays: CountryStats[] }> {
+  private async getAllCountriesStats(): Promise<StatsTotals> {
     const [
       users,
       etablissements,
       filieres,
       matieres,
+      niveauEtude,
       epreuves,
       publicites,
       evenements,
@@ -121,6 +127,7 @@ export class AppService {
       this.groupByCountry(this.etablissementsRepository),
       this.groupByCountry(this.filieresRepository),
       this.groupByCountry(this.matieresRepository),
+      this.groupByCountry(this.niveauEtudeRepository),
       this.groupByCountry(this.epreuvesRepository),
       this.groupByCountry(this.publicitesRepository),
       this.groupByCountry(this.evenementsRepository),
@@ -132,21 +139,11 @@ export class AppService {
     ]);
 
     const maps: EntityMaps = {
-      users, etablissements, filieres, matieres, epreuves, publicites,
+      users, etablissements, filieres, matieres, niveauEtude, epreuves, publicites,
       evenements, opportunites, concours, contactsProfessionnels, parcours, categories,
     };
 
-    // Every country that appears in any aggregate.
-    const countries = new Set<string>();
-    for (const m of Object.values(maps)) {
-      for (const c of m.keys()) countries.add(c);
-    }
-
-    const par_pays: CountryStats[] = [...countries]
-      .sort()
-      .map(pays => ({ pays, ...this.assembleTotals(maps, pays) }));
-
-    return { ...this.assembleTotals(maps, null), par_pays };
+    return this.assembleTotals(maps, null);
   }
 
   /**
@@ -190,6 +187,7 @@ export class AppService {
       etablissementsCount: sum(maps.etablissements),
       filieresCount: sum(maps.filieres),
       matieresCount: sum(maps.matieres),
+      niveauEtudeCount: sum(maps.niveauEtude),
       epreuvesCount: epreuvesCount + concoursCount,
       publicitesCount: sum(maps.publicites),
       evenementsCount: sum(maps.evenements),
@@ -207,6 +205,7 @@ export interface StatsTotals {
   etablissementsCount: number;
   filieresCount: number;
   matieresCount: number;
+  niveauEtudeCount: number;
   epreuvesCount: number;
   publicitesCount: number;
   evenementsCount: number;
@@ -221,13 +220,14 @@ export interface CountryStats extends StatsTotals {
   pays: string;
 }
 
-export type StatsResponse = StatsTotals & { par_pays?: CountryStats[] };
+export type StatsResponse = StatsTotals;
 
 interface EntityMaps {
   users: Map<string, number>;
   etablissements: Map<string, number>;
   filieres: Map<string, number>;
   matieres: Map<string, number>;
+  niveauEtude: Map<string, number>;
   epreuves: Map<string, number>;
   publicites: Map<string, number>;
   evenements: Map<string, number>;
