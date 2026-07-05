@@ -185,8 +185,12 @@ class ApiClient {
     }
   }
 
-  async get<T>(endpoint: string): Promise<T> {
-    return this.request<T>(this.withCountryQuery(endpoint), { method: 'GET' });
+  // `skipCountry` sends the request with no ?country= param so the backend can
+  // aggregate across all countries (used by the "Tous les pays" dashboard
+  // toggle against /stats). Endpoints not built for it still default server-side.
+  async get<T>(endpoint: string, opts?: { skipCountry?: boolean }): Promise<T> {
+    const url = opts?.skipCountry ? endpoint : this.withCountryQuery(endpoint);
+    return this.request<T>(url, { method: 'GET' });
   }
 
   async post<T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> {

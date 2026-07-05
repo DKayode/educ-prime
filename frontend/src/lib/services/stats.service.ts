@@ -12,11 +12,21 @@ export interface DashboardStats {
   concoursCount: number;
   contactsProfessionnelsCount: number;
   parcoursCount: number;
+  categoriesCount?: number;
+  // Present only when aggregating across all countries: per-country splits.
+  par_pays?: CountryStats[];
+}
+
+export interface CountryStats extends DashboardStats {
+  pays: string;
 }
 
 export const statsService = {
-  async getDashboardStats(): Promise<DashboardStats> {
-    const stats = await api.get<DashboardStats>('/stats');
+  // `allCountries` drops the ?country= param so /stats aggregates across every
+  // configured country (and returns a par_pays breakdown); otherwise the stats
+  // are scoped to the currently selected country.
+  async getDashboardStats(allCountries = false): Promise<DashboardStats> {
+    const stats = await api.get<DashboardStats>('/stats', { skipCountry: allCountries });
 
     return stats;
   },
