@@ -118,6 +118,10 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
     services: {
         image: { pathColumn: 'image_path', extColumn: 'image_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'image_couverture' },
     },
+    type_profils: {
+        // Public image slot — copied EXACTLY from categories.icone (same policy).
+        icone: { pathColumn: 'icone_path', extColumn: 'icone_extension', authorized: IMAGE_EXTS, public: true },
+    },
     utilisateurs: {
         profil: { pathColumn: 'profil_photo_path', extColumn: 'profil_photo_extension', authorized: IMAGE_EXTS, public: true, legacyColumn: 'photo' },
     },
