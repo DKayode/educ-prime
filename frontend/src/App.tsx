@@ -22,6 +22,7 @@ import ConcoursAdmin from "./pages/ConcoursAdmin";
 import ContactsProfessionnels from "./pages/ContactsProfessionnels";
 import Parcours from "./pages/Parcours";
 import Categories from "./pages/Categories";
+import TypesProfil from "./pages/TypesProfil";
 import Structures from "./pages/Structures";
 import Titres from "./pages/Titres";
 import Settings from "./pages/Settings";
@@ -82,6 +83,7 @@ const App = () => (
                       <Route path="/forums" element={<Forums />} />
                       <Route path="/parcours" element={<Parcours />} />
                       <Route path="/categories" element={<Categories />} />
+                      <Route path="/types-profil" element={<TypesProfil />} />
                       <Route path="/structures" element={<Structures />} />
                       <Route path="/titres" element={<Titres />} />
                       <Route path="/contacts-professionnels" element={<ContactsProfessionnels />} />

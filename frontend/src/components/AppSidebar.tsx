@@ -163,6 +163,13 @@ const navTree: NavItem[] = [
     ],
   },
   {
+    title: "Personnalisation",
+    icon: UserCog,
+    children: [
+      { title: "Types de profil", icon: Tags, url: "/types-profil" },
+    ],
+  },
+  {
     title: "Système",
     icon: Settings,
     children: [
