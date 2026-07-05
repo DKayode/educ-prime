@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -11,8 +11,10 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, User, Upload } from "lucide-react";
 import { recruteursService, RecruteurItem } from "@/lib/services/recruteurs.service";
+import { filesService } from "@/lib/services/files.service";
+import { FileImage } from "@/components/FileImage";
 import { useToast } from "@/hooks/use-toast";
 import {
     Select,
@@ -66,6 +68,46 @@ export default function RecruteursAdmin() {
 
     const handleUpdateStatus = (id: number, newStatus: string) => {
         updateStatusMutation.mutate({ id, status: newStatus });
+    };
+
+    // Profile-photo upload via the shared R2 files pipeline (public `profil`
+    // slot). Routes through filesService.uploadFile, which stores the public
+    // URL on recruteurs.profil_photo_path and mirrors the legacy photo_profil.
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const uploadPhotoMutation = useMutation({
+        mutationFn: ({ uuid, file }: { uuid: string; file: File }) =>
+            filesService.uploadFile('recruteurs', uuid, 'profil', file),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["admin-recruteurs"] });
+            toast({
+                title: "Photo mise à jour",
+                description: "La photo de profil du recruteur a été enregistrée.",
+            });
+        },
+        onError: (error: any) => {
+            toast({
+                title: "Erreur",
+                description: error.message || "Échec de l'envoi de la photo",
+                variant: "destructive",
+            });
+        },
+    });
+
+    const handlePhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = ""; // allow re-selecting the same file
+        if (!file || !viewRecruteur?.uuid) return;
+        uploadPhotoMutation.mutate(
+            { uuid: viewRecruteur.uuid, file },
+            {
+                onSuccess: (res) => {
+                    // Reflect the new URL immediately in the open dialog.
+                    setViewRecruteur((prev) =>
+                        prev ? { ...prev, profil_photo_path: res.path } : prev,
+                    );
+                },
+            },
+        );
     };
 
     const getStatusBadgeVariant = (status: string) => {
@@ -171,6 +213,7 @@ export default function RecruteursAdmin() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead>Photo</TableHead>
                                         <TableHead>Nom Complet</TableHead>
                                         <TableHead>Email Utilisateur</TableHead>
                                         <TableHead>IFU</TableHead>
@@ -182,13 +225,29 @@ export default function RecruteursAdmin() {
                                 <TableBody>
                                     {paginatedRecruteurs.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="text-center text-muted-foreground">
+                                            <TableCell colSpan={7} className="text-center text-muted-foreground">
                                                 Aucun recruteur trouvé.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
                                         paginatedRecruteurs.map((recruteur) => (
                                             <TableRow key={recruteur.id}>
+                                                <TableCell>
+                                                    <FileImage
+                                                        entity="recruteurs"
+                                                        uuid={recruteur.uuid}
+                                                        slot="profil"
+                                                        url={recruteur.profil_photo_path}
+                                                        fallback={recruteur.photo_profil}
+                                                        alt={`${recruteur.prenom} ${recruteur.nom}`}
+                                                        className="h-10 w-10 object-cover rounded-full bg-muted/20"
+                                                        placeholder={
+                                                            <div className="h-10 w-10 bg-muted rounded-full flex items-center justify-center">
+                                                                <User className="h-5 w-5 text-muted-foreground" />
+                                                            </div>
+                                                        }
+                                                    />
+                                                </TableCell>
                                                 <TableCell className="font-medium">
                                                     {recruteur.prenom} {recruteur.nom}
                                                 </TableCell>
@@ -282,6 +341,42 @@ export default function RecruteursAdmin() {
                     </DialogHeader>
                     {viewRecruteur && (
                         <div className="space-y-4 text-sm mt-4">
+                            <div className="flex flex-col items-center gap-3">
+                                <FileImage
+                                    entity="recruteurs"
+                                    uuid={viewRecruteur.uuid}
+                                    slot="profil"
+                                    url={viewRecruteur.profil_photo_path}
+                                    fallback={viewRecruteur.photo_profil}
+                                    alt={`${viewRecruteur.prenom} ${viewRecruteur.nom}`}
+                                    className="h-24 w-24 object-cover rounded-full bg-muted/20"
+                                    placeholder={
+                                        <div className="h-24 w-24 bg-muted rounded-full flex items-center justify-center">
+                                            <User className="h-10 w-10 text-muted-foreground" />
+                                        </div>
+                                    }
+                                />
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handlePhotoSelected}
+                                />
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploadPhotoMutation.isPending}
+                                >
+                                    {uploadPhotoMutation.isPending ? (
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    ) : (
+                                        <Upload className="h-4 w-4 mr-2" />
+                                    )}
+                                    Changer la photo
+                                </Button>
+                            </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <h4 className="font-semibold text-muted-foreground">Nom</h4>
