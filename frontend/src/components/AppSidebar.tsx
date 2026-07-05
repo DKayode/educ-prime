@@ -37,6 +37,8 @@ import {
   ClipboardCheck,
   Wallet,
   Banknote,
+  Map,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -152,6 +154,15 @@ const navTree: NavItem[] = [
       { title: "Utilisateurs", icon: User, url: "/users" },
       { title: "Indicateurs", icon: BarChart3, url: "/indicateurs" },
       { title: "Parrainage", icon: UserPlus, url: "/parrainages" },
+      {
+        // geo-profile: Géographie subgroup, nested under Utilisateurs
+        title: "Géographie",
+        icon: Map,
+        children: [
+          { title: "Départements", icon: MapPin, url: "/departements" },
+          { title: "Villes", icon: MapPin, url: "/villes" },
+        ],
+      },
     ],
   },
   {

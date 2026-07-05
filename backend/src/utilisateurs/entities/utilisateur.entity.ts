@@ -3,6 +3,8 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Etablissement } from '../../etablissements/entities/etablissement.entity';
 import { Filiere } from '../../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../../niveau-etude/entities/niveau-etude.entity';
+import { Departement } from '../../departements/entities/departement.entity';
+import { Ville } from '../../villes/entities/ville.entity';
 import { Commentaire } from 'src/commentaires/entities/commentaire.entity';
 import { Exclude } from 'class-transformer';
 import { NotificationUtilisateur } from 'src/notifications/entities/notification-utilisateur.entity';
@@ -125,6 +127,21 @@ export class Utilisateur {
   @ManyToOne(() => NiveauEtude, { nullable: true })
   @JoinColumn({ name: 'niveau_etude_id' })
   niveau_etude: NiveauEtude;
+
+  // geo-profile: cascade pays -> departement -> ville (both nullable uuid FKs)
+  @Column({ type: 'uuid', nullable: true })
+  departement_id: string;
+
+  @ManyToOne(() => Departement, { nullable: true })
+  @JoinColumn({ name: 'departement_id' })
+  departement: Departement;
+
+  @Column({ type: 'uuid', nullable: true })
+  ville_id: string;
+
+  @ManyToOne(() => Ville, { nullable: true })
+  @JoinColumn({ name: 'ville_id' })
+  ville: Ville;
 
   @OneToMany(() => Commentaire, commentaire => commentaire.utilisateur)
   commentaires: Commentaire[];

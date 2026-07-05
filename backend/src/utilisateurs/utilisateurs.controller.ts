@@ -49,19 +49,9 @@ export class UtilisateursController {
     const userId = req.user.utilisateurId.toString();
     const email = req.user.email;
     console.log(`[UtilisateursController] Récupération du profil pour l'utilisateur: ${email} (ID: ${userId})`);
+    // geo-profile: unified complete user shape (geo {uuid,nom} + age + booleans) via the service
     const profil = await this.utilisateursService.findOne(userId);
-    const userIdNum = parseInt(userId);
-
-    const { isVerified: isEmailVerified } = await this.utilisateursService.isEmailVerified(userIdNum);
-    const { isPrestataire } = await this.utilisateursService.isPrestataire(userIdNum);
-    const { isRecruteur } = await this.utilisateursService.isRecruteur(userIdNum);
-
-    return {
-      ...profil,
-      isEmailVerified,
-      isPrestataire,
-      isRecruteur
-    };
+    return this.utilisateursService.enrichUserComplete(profil);
   }
 
   @UseGuards(JwtAuthGuard, RoleGuard)
@@ -239,18 +229,8 @@ export class UtilisateursController {
   @ApiResponse({ status: 200, description: 'Profil récupéré avec succès' })
   @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
   async getByUuid(@Param('uuid') uuid: string) {
+    // geo-profile: same unified complete user shape as the list + /profil
     const profil = await this.utilisateursService.findByUuid(uuid);
-    const userIdNum = profil.id;
-
-    const { isVerified: isEmailVerified } = await this.utilisateursService.isEmailVerified(userIdNum);
-    const { isPrestataire } = await this.utilisateursService.isPrestataire(userIdNum);
-    const { isRecruteur } = await this.utilisateursService.isRecruteur(userIdNum);
-
-    return {
-      ...profil,
-      isEmailVerified,
-      isPrestataire,
-      isRecruteur
-    };
+    return this.utilisateursService.enrichUserComplete(profil);
   }
 }

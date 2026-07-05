@@ -3,6 +3,8 @@ import { Repository, Brackets, LessThan, IsNull } from 'typeorm';
 import { Utilisateur } from './entities/utilisateur.entity';
 import { Prestataire } from '../prestataires/entities/prestataire.entity';
 import { Recruteur } from '../recruteurs/entities/recruteur.entity';
+import { Departement } from '../departements/entities/departement.entity';
+import { Ville } from '../villes/entities/ville.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CountryContextService } from '../config/country-context.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -38,6 +40,57 @@ export class UtilisateursService {
     return this.resolver.getRepository(Utilisateur);
   }
 
+  // geo-profile: repos for validating the profile pays -> departement -> ville cascade
+  private get departementRepository(): Repository<Departement> {
+    return this.resolver.getRepository(Departement);
+  }
+  private get villeRepository(): Repository<Ville> {
+    return this.resolver.getRepository(Ville);
+  }
+
+  // geo-profile: validate departement_id/ville_id against the user's pays before save.
+  // Throws 400 (not 404). Accepts explicit null to clear. Only runs for keys
+  // actually present on the DTO, so unrelated profile updates are untouched.
+  private async validateGeo(
+    userPays: string,
+    dto: { departement_id?: string | null; ville_id?: string | null },
+    user: Utilisateur,
+  ): Promise<void> {
+    const hasDept = dto.departement_id !== undefined;
+    const hasVille = dto.ville_id !== undefined;
+    if (!hasDept && !hasVille) return;
+
+    const finalDeptId = hasDept ? dto.departement_id : user.departement_id;
+    const finalVilleId = hasVille ? dto.ville_id : user.ville_id;
+
+    if (finalDeptId != null) {
+      const departement = await this.departementRepository.findOne({
+        where: { id: finalDeptId, pays: userPays },
+      });
+      if (!departement) {
+        throw new BadRequestException(
+          `Le département ${finalDeptId} n'existe pas pour ce pays`,
+        );
+      }
+    }
+
+    if (finalVilleId != null) {
+      if (finalDeptId == null) {
+        throw new BadRequestException(
+          'Une ville ne peut être définie sans département',
+        );
+      }
+      const ville = await this.villeRepository.findOne({
+        where: { id: finalVilleId },
+      });
+      if (!ville || ville.departement_id !== finalDeptId) {
+        throw new BadRequestException(
+          `La ville ${finalVilleId} n'appartient pas au département ${finalDeptId}`,
+        );
+      }
+    }
+  }
+
   /**
    * Expose le chemin public de la photo de profil (`profil_photo_path`) sous la
    * clé `profil` sur chaque utilisateur renvoyé par l'API. Aucun
@@ -49,6 +102,48 @@ export class UtilisateursService {
    */
   private withProfil<T extends Utilisateur>(user: T): T & { profil: string } {
     return Object.assign(user, { profil: user.profil_photo_path ?? '' });
+  }
+
+  // geo-profile: whole-years age from a 'YYYY-MM-DD' date_naissance; null if absent/invalid
+  private computeAge(dateNaissance?: string | null): number | null {
+    if (!dateNaissance) return null;
+    const dob = new Date(dateNaissance);
+    if (isNaN(dob.getTime())) return null;
+    const now = new Date();
+    let age = now.getFullYear() - dob.getFullYear();
+    const m = now.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+    return age >= 0 ? age : null;
+  }
+
+  // geo-profile: single source of truth for the complete user JSON shape returned by
+  // GET /utilisateurs (list), /utilisateurs/profil and /utilisateurs/:uuid — withProfil +
+  // geo {uuid,nom} + derived age + verify/prestataire/recruteur booleans. The caller must
+  // load the departement/ville relations (findOne/findByUuid/findAll all do).
+  // PERF NOTE: 3 boolean lookups per user (isEmailVerified/isPrestataire/isRecruteur) => N+1
+  // on the list (3 x page_size). Acceptable at the current default page size; batch if page size grows.
+  async enrichUserComplete<T extends Utilisateur>(user: T) {
+    const [{ isVerified }, { isPrestataire }, { isRecruteur }] = await Promise.all([
+      this.isEmailVerified(user.id),
+      this.isPrestataire(user.id),
+      this.isRecruteur(user.id),
+    ]);
+    const result: any = {
+      ...this.withProfil(user),
+      departement: user.departement ? { uuid: user.departement.id, nom: user.departement.nom } : null,
+      ville: user.ville ? { uuid: user.ville.id, nom: user.ville.nom } : null,
+      age: this.computeAge(user.date_naissance),
+      isEmailVerified: isVerified,
+      isPrestataire,
+      isRecruteur,
+    };
+    // geo-profile: raw ids are redundant in the RESPONSE now that departement/ville are {uuid,nom}.
+    // Strip them from the returned object ONLY — the spread above is a fresh copy, so the entity
+    // is untouched and the columns stay in the select lists (updateProfil validation reads
+    // user.departement_id / user.ville_id off the entity, not this response).
+    delete result.departement_id;
+    delete result.ville_id;
+    return result;
   }
 
   async findByEmail(email: string) {
@@ -246,8 +341,11 @@ export class UtilisateursService {
       .leftJoinAndSelect('utilisateur.etablissement', 'etablissement')
       .leftJoinAndSelect('utilisateur.filiere', 'filiere')
       .leftJoinAndSelect('utilisateur.niveau_etude', 'niveau_etude')
+      // geo-profile: join dept/ville so the list can expose them (shaped {id,nom} below)
+      .leftJoinAndSelect('utilisateur.departement', 'departement')
+      .leftJoinAndSelect('utilisateur.ville', 'ville')
       .loadRelationCountAndMap('utilisateur.filleulsCount', 'utilisateur.filleuls')
-      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.profil_photo_path', 'utilisateur.profil_photo_extension', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.pays', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'etablissement', 'filiere', 'niveau_etude'])
+      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.profil_photo_path', 'utilisateur.profil_photo_extension', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.pays', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'utilisateur.departement_id', 'utilisateur.ville_id', 'utilisateur.date_naissance', 'utilisateur.zone_residence', 'utilisateur.situation_handicap', 'etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'])
       .where('utilisateur.pays = :pays', { pays })
       .skip((page - 1) * limit)
       .take(limit);
@@ -296,8 +394,12 @@ export class UtilisateursService {
 
     this.logger.log(`${users.length} utilisateur(s) trouvé(s) sur ${total} total`);
 
+    // geo-profile: unify the list shape with /profil + /:uuid via enrichUserComplete
+    // (adds geo {uuid,nom}, age, and the 3 booleans). filleulsCount rides along via withProfil.
+    const data = await Promise.all(users.map((user) => this.enrichUserComplete(user)));
+
     return {
-      data: users.map((user) => this.withProfil(user)),
+      data: data as any,
       total,
       page,
       limit,
@@ -309,8 +411,12 @@ export class UtilisateursService {
     this.logger.log(`Recherche de l'utilisateur avec ID: ${id}`);
     const user = await this.utilisateursRepository.findOne({
       where: { id: parseInt(id) },
-      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage'],
-      relations: ['etablissement', 'filiere', 'niveau_etude'],
+      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage', 'departement_id', 'ville_id',
+        // geo-profile (D4): previously-dropped profile fields
+        'pays', 'date_naissance', 'zone_residence', 'situation_handicap', 'date_creation',
+        // geo-profile: match the unified list shape (enrichUserComplete)
+        'est_desactive', 'date_suppression_prevue'],
+      relations: ['etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'],
     });
 
     if (!user) {
@@ -326,8 +432,12 @@ export class UtilisateursService {
     this.logger.log(`Recherche de l'utilisateur avec UUID: ${uuid}`);
     const user = await this.utilisateursRepository.findOne({
       where: { uuid },
-      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage'],
-      relations: ['etablissement', 'filiere', 'niveau_etude'],
+      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage', 'departement_id', 'ville_id',
+        // geo-profile (D4): previously-dropped profile fields
+        'pays', 'date_naissance', 'zone_residence', 'situation_handicap', 'date_creation',
+        // geo-profile: match the unified list shape (enrichUserComplete)
+        'est_desactive', 'date_suppression_prevue'],
+      relations: ['etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'],
     });
 
     if (!user) {
@@ -349,6 +459,9 @@ export class UtilisateursService {
       this.logger.warn(`Mise à jour échouée: utilisateur ID ${id} introuvable`);
       throw new NotFoundException('Utilisateur non trouvé');
     }
+
+    // geo-profile: enforce the pays -> departement -> ville cascade
+    await this.validateGeo(user.pays, majUtilisateurDto, user);
 
     // Update user
     Object.assign(user, majUtilisateurDto);

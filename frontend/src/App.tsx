@@ -24,6 +24,8 @@ import Parcours from "./pages/Parcours";
 import Categories from "./pages/Categories";
 import Structures from "./pages/Structures";
 import Titres from "./pages/Titres";
+import Departements from "./pages/Departements";
+import Villes from "./pages/Villes";
 import Settings from "./pages/Settings";
 import ServicesAdmin from "./pages/ServicesAdmin";
 import EpreuvesApprobation from "./pages/EpreuvesApprobation";
@@ -84,6 +86,8 @@ const App = () => (
                       <Route path="/categories" element={<Categories />} />
                       <Route path="/structures" element={<Structures />} />
                       <Route path="/titres" element={<Titres />} />
+                      <Route path="/departements" element={<Departements />} />
+                      <Route path="/villes" element={<Villes />} />
                       <Route path="/contacts-professionnels" element={<ContactsProfessionnels />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/notifications" element={<Notifications />} />
