@@ -61,10 +61,24 @@ export class UtilisateursController {
       // geo-profile: expose departement/ville as {id, nom} (raw ids kept via spread)
       departement: profil.departement ? { id: profil.departement.id, nom: profil.departement.nom } : null,
       ville: profil.ville ? { id: profil.ville.id, nom: profil.ville.nom } : null,
+      // geo-profile (D4): derived age from date_naissance (pays + raw fields come via spread)
+      age: this.computeAge(profil.date_naissance),
       isEmailVerified,
       isPrestataire,
       isRecruteur
     };
+  }
+
+  // geo-profile (D4): whole-years age from a 'YYYY-MM-DD' date_naissance; null if absent/invalid
+  private computeAge(dateNaissance?: string | null): number | null {
+    if (!dateNaissance) return null;
+    const dob = new Date(dateNaissance);
+    if (isNaN(dob.getTime())) return null;
+    const now = new Date();
+    let age = now.getFullYear() - dob.getFullYear();
+    const m = now.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+    return age >= 0 ? age : null;
   }
 
   @UseGuards(JwtAuthGuard, RoleGuard)
@@ -251,6 +265,8 @@ export class UtilisateursController {
 
     return {
       ...profil,
+      // geo-profile (D4): derived age; pays + raw profile fields come via spread
+      age: this.computeAge(profil.date_naissance),
       isEmailVerified,
       isPrestataire,
       isRecruteur

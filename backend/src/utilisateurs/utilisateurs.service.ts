@@ -362,7 +362,9 @@ export class UtilisateursService {
     this.logger.log(`Recherche de l'utilisateur avec ID: ${id}`);
     const user = await this.utilisateursRepository.findOne({
       where: { id: parseInt(id) },
-      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage', 'departement_id', 'ville_id'],
+      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage', 'departement_id', 'ville_id',
+        // geo-profile (D4): previously-dropped profile fields
+        'pays', 'date_naissance', 'zone_residence', 'situation_handicap', 'date_creation'],
       relations: ['etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'],
     });
 
@@ -379,7 +381,9 @@ export class UtilisateursService {
     this.logger.log(`Recherche de l'utilisateur avec UUID: ${uuid}`);
     const user = await this.utilisateursRepository.findOne({
       where: { uuid },
-      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage'],
+      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage',
+        // geo-profile (D4): previously-dropped profile fields
+        'pays', 'date_naissance', 'zone_residence', 'situation_handicap', 'date_creation'],
       relations: ['etablissement', 'filiere', 'niveau_etude'],
     });
 
