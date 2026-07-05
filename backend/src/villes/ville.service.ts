@@ -98,7 +98,7 @@ export class VilleService {
 
   async findOne(pays: string, id: string): Promise<Ville> {
     const ville = await this.villeRepository.findOne({
-      where: { id: parseInt(id, 10), pays },
+      where: { id, pays },
       relations: ['departement'],
     });
     if (!ville) {

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsUUID } from 'class-validator';
 
 export class MajVilleDto {
   @IsOptional()
@@ -6,6 +6,6 @@ export class MajVilleDto {
   nom?: string;
 
   @IsOptional()
-  @IsNumber()
-  departement_id?: number;
+  @IsUUID()
+  departement_id?: string;
 }

@@ -128,16 +128,16 @@ export class Utilisateur {
   @JoinColumn({ name: 'niveau_etude_id' })
   niveau_etude: NiveauEtude;
 
-  // geo-profile: cascade pays -> departement -> ville (both nullable FKs)
-  @Column({ nullable: true })
-  departement_id: number;
+  // geo-profile: cascade pays -> departement -> ville (both nullable uuid FKs)
+  @Column({ type: 'uuid', nullable: true })
+  departement_id: string;
 
   @ManyToOne(() => Departement, { nullable: true })
   @JoinColumn({ name: 'departement_id' })
   departement: Departement;
 
-  @Column({ nullable: true })
-  ville_id: number;
+  @Column({ type: 'uuid', nullable: true })
+  ville_id: string;
 
   @ManyToOne(() => Ville, { nullable: true })
   @JoinColumn({ name: 'ville_id' })

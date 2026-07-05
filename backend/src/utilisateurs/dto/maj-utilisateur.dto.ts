@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsNumber, IsDateString, IsIn } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsNumber, IsDateString, IsIn, IsUUID } from 'class-validator';
 import { RoleType, SexeType } from '../entities/utilisateur.entity';
 
 export class MajUtilisateurDto {
@@ -54,13 +54,13 @@ export class MajUtilisateurDto {
   @IsNumber()
   niveau_etude_id?: number;
 
-  // geo-profile: nullable cascade (null clears). Validation of the
+  // geo-profile: nullable uuid cascade (null clears). Validation of the
   // pays -> departement -> ville chain happens in UtilisateursService.update.
   @IsOptional()
-  @IsNumber()
-  departement_id?: number | null;
+  @IsUUID()
+  departement_id?: string | null;
 
   @IsOptional()
-  @IsNumber()
-  ville_id?: number | null;
+  @IsUUID()
+  ville_id?: string | null;
 }

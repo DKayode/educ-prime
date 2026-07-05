@@ -1,5 +1,4 @@
-import { IsOptional, IsString, IsInt } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
 export class FilterVilleDto extends PaginationDto {
@@ -7,8 +6,8 @@ export class FilterVilleDto extends PaginationDto {
   @IsString()
   search?: string;
 
+  // geo uuid: the villes list filters by the parent département's uuid
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  departement_id?: number;
+  @IsUUID()
+  departement_id?: string;
 }

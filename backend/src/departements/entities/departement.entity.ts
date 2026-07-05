@@ -4,8 +4,8 @@ import { ApiProperty } from '@nestjs/swagger';
 @Entity('departements')
 export class Departement {
   @ApiProperty()
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ type: 'varchar', length: 50, default: 'benin' })
   pays: string;

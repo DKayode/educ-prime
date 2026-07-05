@@ -53,7 +53,7 @@ export class UtilisateursService {
   // actually present on the DTO, so unrelated profile updates are untouched.
   private async validateGeo(
     userPays: string,
-    dto: { departement_id?: number | null; ville_id?: number | null },
+    dto: { departement_id?: string | null; ville_id?: string | null },
     user: Utilisateur,
   ): Promise<void> {
     const hasDept = dto.departement_id !== undefined;

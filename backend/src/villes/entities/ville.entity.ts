@@ -12,8 +12,8 @@ import { Departement } from '../../departements/entities/departement.entity';
 @Entity('villes')
 export class Ville {
   @ApiProperty()
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ type: 'varchar', length: 50, default: 'benin' })
   pays: string;
@@ -23,8 +23,8 @@ export class Ville {
   nom: string;
 
   @ApiProperty()
-  @Column()
-  departement_id: number;
+  @Column('uuid')
+  departement_id: string;
 
   @ApiProperty({ type: () => Departement })
   @ManyToOne(() => Departement, { nullable: false, onDelete: 'CASCADE' })

@@ -77,7 +77,7 @@ export class DepartementService {
 
   async findOne(pays: string, id: string): Promise<Departement> {
     const departement = await this.departementRepository.findOne({
-      where: { id: parseInt(id, 10), pays },
+      where: { id, pays },
     });
     if (!departement) {
       throw new NotFoundException('Département non trouvé');
