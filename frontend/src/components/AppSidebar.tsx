@@ -36,6 +36,7 @@ import {
   BookOpen,
   ClipboardCheck,
   Wallet,
+  Banknote,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -103,7 +104,6 @@ const navTree: NavItem[] = [
     children: [
       { title: "Épreuves en attente", icon: FileText, url: "/approbations/epreuves" },
       { title: "Concours en attente", icon: FileText, url: "/approbations/concours" },
-      { title: "Retraits (Wallet)", icon: Wallet, url: "/admin/retraits" },
       { title: "Statistiques", icon: BarChart3, url: "/statistiques-approbations" },
     ],
   },
@@ -155,11 +155,18 @@ const navTree: NavItem[] = [
     ],
   },
   {
+    title: "Wallet",
+    icon: Wallet,
+    children: [
+      { title: "Retraits", icon: Banknote, url: "/admin/retraits" },
+      { title: "Configuration", icon: SlidersHorizontal, url: "/admin/wallet-configuration" },
+    ],
+  },
+  {
     title: "Système",
     icon: Settings,
     children: [
       { title: "Paramètres", icon: SlidersHorizontal },
-      { title: "Configuration Wallet", icon: Wallet, url: "/admin/wallet-configuration" },
       { title: "Contacts Pro", icon: Contact, url: "/contacts-professionnels" },
       { title: "Notifications", icon: Bell, url: "/notifications" },
       { title: "Versions App", icon: Smartphone, url: "/app-versions" },
