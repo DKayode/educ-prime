@@ -10,6 +10,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse, ApiConsume
 import { ServiceStatusEnum } from '../common/enums/service-status.enum';
 import { TypeContratEnum } from '../common/enums/type-contrat.enum';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
+import { SetTypeProfilsDto } from '../common/dto/set-type-profils.dto';
 
 @ApiTags('services')
 @Controller('services')
@@ -39,6 +40,7 @@ export class ServicesController {
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAll(
         @CurrentCountry() pays: string,
+        @Request() req,
         @Query('localisation') localisation?: string,
         @Query('type') type?: string,
         @Query('tarifMin') tarifMin?: string,
@@ -48,6 +50,7 @@ export class ServicesController {
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
+        const viewer = { role: req.user?.role, utilisateurId: req.user?.utilisateurId };
         return this.servicesService.findAll(pays, {
             localisation,
             type,
@@ -57,7 +60,23 @@ export class ServicesController {
             type_contrat,
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 10,
-        });
+        }, viewer);
+    }
+
+    @Get(':id/type-profils')
+    @Roles(RoleType.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Récupérer la checklist de types de profil d\'un service (admin)' })
+    getTypeProfils(@Param('id', ParseIntPipe) id: number) {
+        return this.servicesService.getTypeProfilIds(id);
+    }
+
+    @Put(':id/type-profils')
+    @Roles(RoleType.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Définir (replace-set) la checklist de types de profil d\'un service (admin)' })
+    setTypeProfils(@Param('id', ParseIntPipe) id: number, @Body() dto: SetTypeProfilsDto) {
+        return this.servicesService.setTypeProfilIds(id, dto.typeProfilIds);
     }
 
     @Get('user')

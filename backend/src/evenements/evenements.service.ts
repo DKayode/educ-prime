@@ -8,18 +8,43 @@ import { UpdateEvenementDto } from './dto/update-evenement.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { FilterEvenementDto, EvenementSortBy } from './dto/filter-evenement.dto';
+import {
+  TypeProfilVisibilityService,
+  TypeProfilJoinConfig,
+  ViewerContext,
+} from '../type-profils/type-profil-visibility.service';
 
 @Injectable()
 export class EvenementsService {
   private readonly logger = new Logger(EvenementsService.name);
 
+  private readonly typeProfilJoin: TypeProfilJoinConfig = {
+    joinTable: 'evenement_type_profils',
+    fkColumn: 'evenement_id',
+  };
+
   constructor(
     private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
+    private readonly typeProfilVisibility: TypeProfilVisibilityService,
   ) { }
 
   private get evenementRepository(): Repository<Evenement> {
     return this.resolver.getRepository(Evenement);
+  }
+
+  /** Lit la checklist de types de profil taguée sur un événement. */
+  async getTypeProfilIds(id: number): Promise<{ typeProfilIds: number[] }> {
+    await this.findOne(id);
+    const typeProfilIds = await this.typeProfilVisibility.getTypeProfilIds(this.typeProfilJoin, id);
+    return { typeProfilIds };
+  }
+
+  /** Remplace (replace-set) la checklist de types de profil d'un événement. */
+  async setTypeProfilIds(id: number, typeProfilIds: number[]): Promise<{ typeProfilIds: number[] }> {
+    await this.findOne(id);
+    const saved = await this.typeProfilVisibility.setTypeProfilIds(this.typeProfilJoin, id, typeProfilIds);
+    return { typeProfilIds: saved };
   }
 
   async create(creerEvenementDto: CreerEvenementDto) {
@@ -32,7 +57,7 @@ export class EvenementsService {
 
 
 
-  async findAll(filterDto: FilterEvenementDto): Promise<PaginationResponse<Evenement>> {
+  async findAll(filterDto: FilterEvenementDto, viewer?: ViewerContext): Promise<PaginationResponse<Evenement>> {
     const { page = 1, limit = 10, search, sort_by, sort_order = 'DESC' } = filterDto;
     this.logger.log(`Récupération des événements - Page: ${page}, Limit: ${limit}, SortBy: ${sort_by}, Order: ${sort_order}`);
 
@@ -65,6 +90,9 @@ export class EvenementsService {
       queryBuilder.orderBy('evenement.date', 'DESC');
       queryBuilder.addOrderBy('evenement.date_creation', 'DESC');
     }
+
+    // Visibilité par type de profil : non-admin ⇒ non-tagué OU partage son type_profil.
+    await this.typeProfilVisibility.applyVisibilityFilter(queryBuilder, 'evenement', this.typeProfilJoin, viewer);
 
     const [evenements, total] = await queryBuilder
       .skip((page - 1) * limit)
