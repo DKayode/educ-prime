@@ -303,7 +303,7 @@ export class UtilisateursService {
       .leftJoinAndSelect('utilisateur.departement', 'departement')
       .leftJoinAndSelect('utilisateur.ville', 'ville')
       .loadRelationCountAndMap('utilisateur.filleulsCount', 'utilisateur.filleuls')
-      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.profil_photo_path', 'utilisateur.profil_photo_extension', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.pays', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'])
+      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.profil_photo_path', 'utilisateur.profil_photo_extension', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.pays', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'utilisateur.departement_id', 'utilisateur.ville_id', 'etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'])
       .where('utilisateur.pays = :pays', { pays })
       .skip((page - 1) * limit)
       .take(limit);
@@ -353,11 +353,11 @@ export class UtilisateursService {
     this.logger.log(`${users.length} utilisateur(s) trouvé(s) sur ${total} total`);
 
     return {
-      // geo-profile: expose departement/ville as {id, nom} (same shape as GET /utilisateurs/profil)
+      // geo-profile: expose departement/ville as {uuid, nom} (same shape as GET /utilisateurs/profil)
       data: users.map((user) => ({
         ...this.withProfil(user),
-        departement: user.departement ? { id: user.departement.id, nom: user.departement.nom } : null,
-        ville: user.ville ? { id: user.ville.id, nom: user.ville.nom } : null,
+        departement: user.departement ? { uuid: user.departement.id, nom: user.departement.nom } : null,
+        ville: user.ville ? { uuid: user.ville.id, nom: user.ville.nom } : null,
       })) as any,
       total,
       page,

@@ -58,9 +58,9 @@ export class UtilisateursController {
 
     return {
       ...profil,
-      // geo-profile: expose departement/ville as {id, nom} (raw ids kept via spread)
-      departement: profil.departement ? { id: profil.departement.id, nom: profil.departement.nom } : null,
-      ville: profil.ville ? { id: profil.ville.id, nom: profil.ville.nom } : null,
+      // geo-profile: expose departement/ville as {uuid, nom} (raw ids kept via spread)
+      departement: profil.departement ? { uuid: profil.departement.id, nom: profil.departement.nom } : null,
+      ville: profil.ville ? { uuid: profil.ville.id, nom: profil.ville.nom } : null,
       // geo-profile (D4): derived age from date_naissance (pays + raw fields come via spread)
       age: this.computeAge(profil.date_naissance),
       isEmailVerified,
