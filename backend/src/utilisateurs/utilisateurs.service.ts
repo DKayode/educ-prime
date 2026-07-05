@@ -3,6 +3,8 @@ import { Repository, Brackets, LessThan, IsNull } from 'typeorm';
 import { Utilisateur } from './entities/utilisateur.entity';
 import { Prestataire } from '../prestataires/entities/prestataire.entity';
 import { Recruteur } from '../recruteurs/entities/recruteur.entity';
+import { Departement } from '../departements/entities/departement.entity';
+import { Ville } from '../villes/entities/ville.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CountryContextService } from '../config/country-context.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -36,6 +38,57 @@ export class UtilisateursService {
 
   private get utilisateursRepository(): Repository<Utilisateur> {
     return this.resolver.getRepository(Utilisateur);
+  }
+
+  // geo-profile: repos for validating the profile pays -> departement -> ville cascade
+  private get departementRepository(): Repository<Departement> {
+    return this.resolver.getRepository(Departement);
+  }
+  private get villeRepository(): Repository<Ville> {
+    return this.resolver.getRepository(Ville);
+  }
+
+  // geo-profile: validate departement_id/ville_id against the user's pays before save.
+  // Throws 400 (not 404). Accepts explicit null to clear. Only runs for keys
+  // actually present on the DTO, so unrelated profile updates are untouched.
+  private async validateGeo(
+    userPays: string,
+    dto: { departement_id?: number | null; ville_id?: number | null },
+    user: Utilisateur,
+  ): Promise<void> {
+    const hasDept = dto.departement_id !== undefined;
+    const hasVille = dto.ville_id !== undefined;
+    if (!hasDept && !hasVille) return;
+
+    const finalDeptId = hasDept ? dto.departement_id : user.departement_id;
+    const finalVilleId = hasVille ? dto.ville_id : user.ville_id;
+
+    if (finalDeptId != null) {
+      const departement = await this.departementRepository.findOne({
+        where: { id: finalDeptId, pays: userPays },
+      });
+      if (!departement) {
+        throw new BadRequestException(
+          `Le département ${finalDeptId} n'existe pas pour ce pays`,
+        );
+      }
+    }
+
+    if (finalVilleId != null) {
+      if (finalDeptId == null) {
+        throw new BadRequestException(
+          'Une ville ne peut être définie sans département',
+        );
+      }
+      const ville = await this.villeRepository.findOne({
+        where: { id: finalVilleId },
+      });
+      if (!ville || ville.departement_id !== finalDeptId) {
+        throw new BadRequestException(
+          `La ville ${finalVilleId} n'appartient pas au département ${finalDeptId}`,
+        );
+      }
+    }
   }
 
   /**
@@ -309,8 +362,8 @@ export class UtilisateursService {
     this.logger.log(`Recherche de l'utilisateur avec ID: ${id}`);
     const user = await this.utilisateursRepository.findOne({
       where: { id: parseInt(id) },
-      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage'],
-      relations: ['etablissement', 'filiere', 'niveau_etude'],
+      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage', 'departement_id', 'ville_id'],
+      relations: ['etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'],
     });
 
     if (!user) {
@@ -349,6 +402,9 @@ export class UtilisateursService {
       this.logger.warn(`Mise à jour échouée: utilisateur ID ${id} introuvable`);
       throw new NotFoundException('Utilisateur non trouvé');
     }
+
+    // geo-profile: enforce the pays -> departement -> ville cascade
+    await this.validateGeo(user.pays, majUtilisateurDto, user);
 
     // Update user
     Object.assign(user, majUtilisateurDto);

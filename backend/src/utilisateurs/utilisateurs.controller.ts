@@ -58,6 +58,9 @@ export class UtilisateursController {
 
     return {
       ...profil,
+      // geo-profile: expose departement/ville as {id, nom} (raw ids kept via spread)
+      departement: profil.departement ? { id: profil.departement.id, nom: profil.departement.nom } : null,
+      ville: profil.ville ? { id: profil.ville.id, nom: profil.ville.nom } : null,
       isEmailVerified,
       isPrestataire,
       isRecruteur

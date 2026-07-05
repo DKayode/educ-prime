@@ -53,4 +53,14 @@ export class MajUtilisateurDto {
   @IsOptional()
   @IsNumber()
   niveau_etude_id?: number;
+
+  // geo-profile: nullable cascade (null clears). Validation of the
+  // pays -> departement -> ville chain happens in UtilisateursService.update.
+  @IsOptional()
+  @IsNumber()
+  departement_id?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  ville_id?: number | null;
 }
