@@ -104,6 +104,41 @@ export class UtilisateursService {
     return Object.assign(user, { profil: user.profil_photo_path ?? '' });
   }
 
+  // geo-profile: whole-years age from a 'YYYY-MM-DD' date_naissance; null if absent/invalid
+  private computeAge(dateNaissance?: string | null): number | null {
+    if (!dateNaissance) return null;
+    const dob = new Date(dateNaissance);
+    if (isNaN(dob.getTime())) return null;
+    const now = new Date();
+    let age = now.getFullYear() - dob.getFullYear();
+    const m = now.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+    return age >= 0 ? age : null;
+  }
+
+  // geo-profile: single source of truth for the complete user JSON shape returned by
+  // GET /utilisateurs (list), /utilisateurs/profil and /utilisateurs/:uuid — withProfil +
+  // geo {uuid,nom} + derived age + verify/prestataire/recruteur booleans. The caller must
+  // load the departement/ville relations (findOne/findByUuid/findAll all do).
+  // PERF NOTE: 3 boolean lookups per user (isEmailVerified/isPrestataire/isRecruteur) => N+1
+  // on the list (3 x page_size). Acceptable at the current default page size; batch if page size grows.
+  async enrichUserComplete<T extends Utilisateur>(user: T) {
+    const [{ isVerified }, { isPrestataire }, { isRecruteur }] = await Promise.all([
+      this.isEmailVerified(user.id),
+      this.isPrestataire(user.id),
+      this.isRecruteur(user.id),
+    ]);
+    return {
+      ...this.withProfil(user),
+      departement: user.departement ? { uuid: user.departement.id, nom: user.departement.nom } : null,
+      ville: user.ville ? { uuid: user.ville.id, nom: user.ville.nom } : null,
+      age: this.computeAge(user.date_naissance),
+      isEmailVerified: isVerified,
+      isPrestataire,
+      isRecruteur,
+    };
+  }
+
   async findByEmail(email: string) {
     this.logger.log(`Recherche de l'utilisateur par email: ${email}`);
     return this.utilisateursRepository.findOne({
@@ -303,7 +338,7 @@ export class UtilisateursService {
       .leftJoinAndSelect('utilisateur.departement', 'departement')
       .leftJoinAndSelect('utilisateur.ville', 'ville')
       .loadRelationCountAndMap('utilisateur.filleulsCount', 'utilisateur.filleuls')
-      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.profil_photo_path', 'utilisateur.profil_photo_extension', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.pays', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'utilisateur.departement_id', 'utilisateur.ville_id', 'etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'])
+      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.profil_photo_path', 'utilisateur.profil_photo_extension', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.pays', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'utilisateur.departement_id', 'utilisateur.ville_id', 'utilisateur.date_naissance', 'utilisateur.zone_residence', 'utilisateur.situation_handicap', 'etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'])
       .where('utilisateur.pays = :pays', { pays })
       .skip((page - 1) * limit)
       .take(limit);
@@ -352,13 +387,12 @@ export class UtilisateursService {
 
     this.logger.log(`${users.length} utilisateur(s) trouvé(s) sur ${total} total`);
 
+    // geo-profile: unify the list shape with /profil + /:uuid via enrichUserComplete
+    // (adds geo {uuid,nom}, age, and the 3 booleans). filleulsCount rides along via withProfil.
+    const data = await Promise.all(users.map((user) => this.enrichUserComplete(user)));
+
     return {
-      // geo-profile: expose departement/ville as {uuid, nom} (same shape as GET /utilisateurs/profil)
-      data: users.map((user) => ({
-        ...this.withProfil(user),
-        departement: user.departement ? { uuid: user.departement.id, nom: user.departement.nom } : null,
-        ville: user.ville ? { uuid: user.ville.id, nom: user.ville.nom } : null,
-      })) as any,
+      data: data as any,
       total,
       page,
       limit,
@@ -372,7 +406,9 @@ export class UtilisateursService {
       where: { id: parseInt(id) },
       select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage', 'departement_id', 'ville_id',
         // geo-profile (D4): previously-dropped profile fields
-        'pays', 'date_naissance', 'zone_residence', 'situation_handicap', 'date_creation'],
+        'pays', 'date_naissance', 'zone_residence', 'situation_handicap', 'date_creation',
+        // geo-profile: match the unified list shape (enrichUserComplete)
+        'est_desactive', 'date_suppression_prevue'],
       relations: ['etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'],
     });
 
@@ -389,10 +425,12 @@ export class UtilisateursService {
     this.logger.log(`Recherche de l'utilisateur avec UUID: ${uuid}`);
     const user = await this.utilisateursRepository.findOne({
       where: { uuid },
-      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage',
+      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage', 'departement_id', 'ville_id',
         // geo-profile (D4): previously-dropped profile fields
-        'pays', 'date_naissance', 'zone_residence', 'situation_handicap', 'date_creation'],
-      relations: ['etablissement', 'filiere', 'niveau_etude'],
+        'pays', 'date_naissance', 'zone_residence', 'situation_handicap', 'date_creation',
+        // geo-profile: match the unified list shape (enrichUserComplete)
+        'est_desactive', 'date_suppression_prevue'],
+      relations: ['etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'],
     });
 
     if (!user) {

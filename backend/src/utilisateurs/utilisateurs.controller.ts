@@ -49,36 +49,9 @@ export class UtilisateursController {
     const userId = req.user.utilisateurId.toString();
     const email = req.user.email;
     console.log(`[UtilisateursController] Récupération du profil pour l'utilisateur: ${email} (ID: ${userId})`);
+    // geo-profile: unified complete user shape (geo {uuid,nom} + age + booleans) via the service
     const profil = await this.utilisateursService.findOne(userId);
-    const userIdNum = parseInt(userId);
-
-    const { isVerified: isEmailVerified } = await this.utilisateursService.isEmailVerified(userIdNum);
-    const { isPrestataire } = await this.utilisateursService.isPrestataire(userIdNum);
-    const { isRecruteur } = await this.utilisateursService.isRecruteur(userIdNum);
-
-    return {
-      ...profil,
-      // geo-profile: expose departement/ville as {uuid, nom} (raw ids kept via spread)
-      departement: profil.departement ? { uuid: profil.departement.id, nom: profil.departement.nom } : null,
-      ville: profil.ville ? { uuid: profil.ville.id, nom: profil.ville.nom } : null,
-      // geo-profile (D4): derived age from date_naissance (pays + raw fields come via spread)
-      age: this.computeAge(profil.date_naissance),
-      isEmailVerified,
-      isPrestataire,
-      isRecruteur
-    };
-  }
-
-  // geo-profile (D4): whole-years age from a 'YYYY-MM-DD' date_naissance; null if absent/invalid
-  private computeAge(dateNaissance?: string | null): number | null {
-    if (!dateNaissance) return null;
-    const dob = new Date(dateNaissance);
-    if (isNaN(dob.getTime())) return null;
-    const now = new Date();
-    let age = now.getFullYear() - dob.getFullYear();
-    const m = now.getMonth() - dob.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
-    return age >= 0 ? age : null;
+    return this.utilisateursService.enrichUserComplete(profil);
   }
 
   @UseGuards(JwtAuthGuard, RoleGuard)
@@ -256,20 +229,8 @@ export class UtilisateursController {
   @ApiResponse({ status: 200, description: 'Profil récupéré avec succès' })
   @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
   async getByUuid(@Param('uuid') uuid: string) {
+    // geo-profile: same unified complete user shape as the list + /profil
     const profil = await this.utilisateursService.findByUuid(uuid);
-    const userIdNum = profil.id;
-
-    const { isVerified: isEmailVerified } = await this.utilisateursService.isEmailVerified(userIdNum);
-    const { isPrestataire } = await this.utilisateursService.isPrestataire(userIdNum);
-    const { isRecruteur } = await this.utilisateursService.isRecruteur(userIdNum);
-
-    return {
-      ...profil,
-      // geo-profile (D4): derived age; pays + raw profile fields come via spread
-      age: this.computeAge(profil.date_naissance),
-      isEmailVerified,
-      isPrestataire,
-      isRecruteur
-    };
+    return this.utilisateursService.enrichUserComplete(profil);
   }
 }
