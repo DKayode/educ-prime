@@ -15,4 +15,5 @@ export class UpdateProfilDto extends PickType(MajUtilisateurDto, [
     'situation_handicap',
     'departement_id',
     'ville_id',
+    'type_profil_id',
 ] as const) { }

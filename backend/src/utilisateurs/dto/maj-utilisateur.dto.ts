@@ -63,4 +63,9 @@ export class MajUtilisateurDto {
   @IsOptional()
   @IsUUID()
   ville_id?: string | null;
+
+  // Type de profil (personnalisation) — nullable : null pour le retirer.
+  @IsOptional()
+  @IsNumber()
+  type_profil_id?: number | null;
 }

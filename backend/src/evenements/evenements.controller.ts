@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { SetTypeProfilsDto } from '../common/dto/set-type-profils.dto';
 import { Response } from 'express';
 import { EvenementsService } from './evenements.service';
 import { CreerEvenementDto } from './dto/create-evenement.dto';
@@ -33,8 +34,27 @@ export class EvenementsController {
   @Get()
   @ApiOperation({ summary: 'Récupérer la liste des événements' })
   @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
-  findAll(@Query() filterDto: FilterEvenementDto) {
-    return this.evenementsService.findAll(filterDto);
+  findAll(@Query() filterDto: FilterEvenementDto, @Request() req) {
+    const viewer = { role: req.user?.role, utilisateurId: req.user?.utilisateurId };
+    return this.evenementsService.findAll(filterDto, viewer);
+  }
+
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @ApiBearerAuth()
+  @Get(':id/type-profils')
+  @ApiOperation({ summary: 'Récupérer la checklist de types de profil d\'un événement (admin)' })
+  getTypeProfils(@Param('id') id: string) {
+    return this.evenementsService.getTypeProfilIds(+id);
+  }
+
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @ApiBearerAuth()
+  @Put(':id/type-profils')
+  @ApiOperation({ summary: 'Définir (replace-set) la checklist de types de profil d\'un événement (admin)' })
+  setTypeProfils(@Param('id') id: string, @Body() dto: SetTypeProfilsDto) {
+    return this.evenementsService.setTypeProfilIds(+id, dto.typeProfilIds);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -13,6 +13,11 @@ import { MailService } from '../mail/mail.service';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { TypeFichier } from '../fichiers/entities/fichier.entity';
 import { TypeContratEnum } from '../common/enums/type-contrat.enum';
+import {
+    TypeProfilVisibilityService,
+    TypeProfilJoinConfig,
+    ViewerContext,
+} from '../type-profils/type-profil-visibility.service';
 
 export interface ServiceFilterDto {
     localisation?: string;
@@ -34,11 +39,37 @@ export interface AvisStats {
 export class ServicesService {
     private readonly logger = new Logger(ServicesService.name);
 
+    private readonly typeProfilJoin: TypeProfilJoinConfig = {
+        joinTable: 'service_type_profils',
+        fkColumn: 'service_id',
+    };
+
     constructor(
         private readonly resolver: DataSourceResolver,
         private readonly mailService: MailService,
         private readonly fichiersService: FichiersService,
+        private readonly typeProfilVisibility: TypeProfilVisibilityService,
     ) { }
+
+    /** Lit la checklist de types de profil taguée sur un service. */
+    async getTypeProfilIds(id: number): Promise<{ typeProfilIds: number[] }> {
+        await this.findOneOrFail(id);
+        const typeProfilIds = await this.typeProfilVisibility.getTypeProfilIds(this.typeProfilJoin, id);
+        return { typeProfilIds };
+    }
+
+    /** Remplace (replace-set) la checklist de types de profil d'un service. */
+    async setTypeProfilIds(id: number, typeProfilIds: number[]): Promise<{ typeProfilIds: number[] }> {
+        await this.findOneOrFail(id);
+        const saved = await this.typeProfilVisibility.setTypeProfilIds(this.typeProfilJoin, id, typeProfilIds);
+        return { typeProfilIds: saved };
+    }
+
+    private async findOneOrFail(id: number): Promise<Service> {
+        const service = await this.servicesRepository.findOne({ where: { id } });
+        if (!service) throw new NotFoundException('Service non trouvé');
+        return service;
+    }
 
     private get servicesRepository(): Repository<Service> { return this.resolver.getRepository(Service); }
     private get typesRepository(): Repository<Type> { return this.resolver.getRepository(Type); }
@@ -165,7 +196,7 @@ export class ServicesService {
         return this.servicesRepository.save(service);
     }
 
-    async findAll(pays: string, filters: ServiceFilterDto) {
+    async findAll(pays: string, filters: ServiceFilterDto, viewer?: ViewerContext) {
         const { localisation, type, tarifMin, tarifMax, search, type_contrat, page = 1, limit = 10 } = filters;
 
         const qb = this.servicesWithRelations()
@@ -193,6 +224,9 @@ export class ServicesService {
                     .orWhere('service.description ILIKE :search', { search: `%${search}%` });
             }));
         }
+
+        // Visibilité par type de profil : non-admin ⇒ non-tagué OU partage son type_profil.
+        await this.typeProfilVisibility.applyVisibilityFilter(qb, 'service', this.typeProfilJoin, viewer);
 
         const [data, total] = await qb
             .orderBy('service.created_at', 'DESC')

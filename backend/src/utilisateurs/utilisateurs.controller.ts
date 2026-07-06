@@ -51,7 +51,11 @@ export class UtilisateursController {
     console.log(`[UtilisateursController] Récupération du profil pour l'utilisateur: ${email} (ID: ${userId})`);
     // geo-profile: unified complete user shape (geo {uuid,nom} + age + booleans) via the service
     const profil = await this.utilisateursService.findOne(userId);
-    return this.utilisateursService.enrichUserComplete(profil);
+    // geo/hotfix: enrichUserComplete builds geo {uuid,nom} + age_group + booleans;
+    // graft the resolved type_profil (personnalisation) on top.
+    const enriched = await this.utilisateursService.enrichUserComplete(profil);
+    const { type_profil_id, type_profil } = await this.utilisateursService.getTypeProfilForProfil(parseInt(userId));
+    return { ...enriched, type_profil_id, type_profil };
   }
 
   @UseGuards(JwtAuthGuard, RoleGuard)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight, Star, MessageSquare, User, Trash2 } from "lucide-react";
 import { servicesService, ServiceItem } from "@/lib/services/services.service";
+import { TypeProfilChecklist } from "@/components/TypeProfilChecklist";
+import { typeProfilTaggingService } from "@/lib/services/typeProfilTagging.service";
 import { avisService } from "@/lib/services/avis.service";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -45,6 +47,9 @@ export default function ServicesAdmin() {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [viewService, setViewService] = useState<ServiceItem | null>(null);
+    // Type-profil tagging in the view dialog (this admin page has no create/edit form).
+    const [viewServiceTypeProfilIds, setViewServiceTypeProfilIds] = useState<number[]>([]);
+    const [savingTags, setSavingTags] = useState(false);
     const [viewPrestataire, setViewPrestataire] = useState<ServiceItem['prestataire'] | null>(null);
     const [selectedServiceAvisId, setSelectedServiceAvisId] = useState<number | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -92,6 +97,30 @@ export default function ServicesAdmin() {
 
     const handleUpdateStatus = (id: number, newStatus: string) => {
         updateStatusMutation.mutate({ id, status: newStatus });
+    };
+
+    // Prefill the checklist when a service's detail dialog opens.
+    useEffect(() => {
+        if (viewService?.id) {
+            typeProfilTaggingService.get('services', viewService.id)
+                .then(setViewServiceTypeProfilIds)
+                .catch(() => setViewServiceTypeProfilIds([]));
+        } else {
+            setViewServiceTypeProfilIds([]);
+        }
+    }, [viewService?.id]);
+
+    const handleSaveServiceTags = async () => {
+        if (!viewService) return;
+        setSavingTags(true);
+        try {
+            await typeProfilTaggingService.set('services', viewService.id, viewServiceTypeProfilIds);
+            toast({ title: "Succès", description: "Types de profil enregistrés" });
+        } catch (e: any) {
+            toast({ title: "Erreur", description: e.message || "Échec de l'enregistrement", variant: "destructive" });
+        } finally {
+            setSavingTags(false);
+        }
     };
 
     const deleteMutation = useMutation({
@@ -394,6 +423,12 @@ export default function ServicesAdmin() {
                                 </div>
                             )}
 
+                            <div className="border-t pt-4">
+                                <TypeProfilChecklist value={viewServiceTypeProfilIds} onChange={setViewServiceTypeProfilIds} />
+                                <Button className="mt-3" size="sm" onClick={handleSaveServiceTags} disabled={savingTags}>
+                                    {savingTags ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enregistrement...</> : "Enregistrer les types de profil"}
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </DialogContent>

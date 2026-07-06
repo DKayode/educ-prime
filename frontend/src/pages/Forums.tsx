@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Loader2, Trash2, ArrowUpDown, MessageSquare, Heart, Image as ImageIcon } from "lucide-react";
 import { forumService } from "@/lib/services/forum.service";
+import { TypeProfilChecklist } from "@/components/TypeProfilChecklist";
+import { typeProfilTaggingService } from "@/lib/services/typeProfilTagging.service";
 import { useToast } from "@/hooks/use-toast";
 import {
     AlertDialog,
@@ -153,6 +155,7 @@ export default function Forums() {
         theme: "",
         content: "",
     });
+    const [newTypeProfilIds, setNewTypeProfilIds] = useState<number[]>([]);
 
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -170,6 +173,10 @@ export default function Forums() {
             if (selectedFile) {
                 await forumService.uploadPhoto(forum.id, selectedFile);
             }
+            // type-profil checklist (separate side-call, only if selected).
+            if (newTypeProfilIds.length > 0) {
+                await typeProfilTaggingService.set('forums', forum.id, newTypeProfilIds);
+            }
             return forum;
         },
         onSuccess: () => {
@@ -177,6 +184,7 @@ export default function Forums() {
             setIsCreateOpen(false);
             setNewForum({ theme: "", content: "", });
             setSelectedFile(null);
+            setNewTypeProfilIds([]);
             toast({ title: "Succès", description: "Forum créé avec succès" });
         },
         onError: (error: any) => {
@@ -440,6 +448,8 @@ export default function Forums() {
                                 }}
                             />
                         </div>
+
+                        <TypeProfilChecklist value={newTypeProfilIds} onChange={setNewTypeProfilIds} />
 
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>Annuler</Button>

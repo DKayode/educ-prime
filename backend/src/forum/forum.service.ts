@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { Repository, IsNull, ILike } from 'typeorm';
+import { Repository, IsNull, ILike, Not, In } from 'typeorm';
 import { LikesPolymorphicService } from '../likes-polymorphic/likes-polymorphic.service';
 import { CreateForumDto } from './dto/create-forum.dto';
 import { UpdateForumDto } from './dto/update-forum.dto';
@@ -11,16 +11,43 @@ import { Forum } from './entities/forum.entity';
 import { CommentaireUser } from '../comments-polymorphic/entities/commentaire-user.entity';
 import { LikeUser } from '../likes-polymorphic/entities/like-user.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
+import {
+    TypeProfilVisibilityService,
+    TypeProfilJoinConfig,
+    ViewerContext,
+} from '../type-profils/type-profil-visibility.service';
 
 @Injectable()
 export class ForumService {
+    private readonly typeProfilJoin: TypeProfilJoinConfig = {
+        joinTable: 'forum_type_profils',
+        fkColumn: 'forum_id',
+    };
+
     constructor(
         private readonly resolver: DataSourceResolver,
         private readonly likesService: LikesPolymorphicService,
         private readonly fichiersService: FichiersService,
+        private readonly typeProfilVisibility: TypeProfilVisibilityService,
     ) { }
 
     private get forumRepository(): Repository<Forum> { return this.resolver.getRepository(Forum); }
+
+    /** Lit la checklist de types de profil taguée sur un forum. */
+    async getTypeProfilIds(id: number): Promise<{ typeProfilIds: number[] }> {
+        const forum = await this.forumRepository.findOne({ where: { id } });
+        if (!forum) throw new NotFoundException(`Forum with ID ${id} not found`);
+        const typeProfilIds = await this.typeProfilVisibility.getTypeProfilIds(this.typeProfilJoin, id);
+        return { typeProfilIds };
+    }
+
+    /** Remplace (replace-set) la checklist de types de profil d'un forum. */
+    async setTypeProfilIds(id: number, typeProfilIds: number[]): Promise<{ typeProfilIds: number[] }> {
+        const forum = await this.forumRepository.findOne({ where: { id } });
+        if (!forum) throw new NotFoundException(`Forum with ID ${id} not found`);
+        const saved = await this.typeProfilVisibility.setTypeProfilIds(this.typeProfilJoin, id, typeProfilIds);
+        return { typeProfilIds: saved };
+    }
     private get commentsRepository(): Repository<CommentaireUser> { return this.resolver.getRepository(CommentaireUser); }
     private get likesRepository(): Repository<LikeUser> { return this.resolver.getRepository(LikeUser); }
 
@@ -59,7 +86,7 @@ export class ForumService {
         }).format(date);
     }
 
-    async findAll(pays: string, filterDto: FilterForumDto, userId: number): Promise<PaginationResponse<any>> {
+    async findAll(pays: string, filterDto: FilterForumDto, userId: number, viewer?: ViewerContext): Promise<PaginationResponse<any>> {
         const { page = 1, limit = 10, search, sortBy = 'date_creation', sort_order = 'DESC' } = filterDto;
         const skip = (page - 1) * limit;
         const take = limit;
@@ -67,6 +94,13 @@ export class ForumService {
         const where: any = { pays, deleted_at: IsNull() };
         if (search) {
             where.theme = ILike(`%${search}%`);
+        }
+
+        // Visibilité par type de profil (chemin findAndCount) : on EXCLUT les forums
+        // cachés pour l'appelant (tagués sans partager son type_profil). Admin/no-viewer ⇒ null.
+        const hidden = await this.typeProfilVisibility.hiddenEntityIds(this.typeProfilJoin, viewer);
+        if (hidden && hidden.length) {
+            where.id = Not(In(hidden));
         }
 
         const [forums, total] = await this.forumRepository.findAndCount({

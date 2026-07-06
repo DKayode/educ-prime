@@ -9,6 +9,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { TypeContratEnum } from '../common/enums/type-contrat.enum';
+import { SetTypeProfilsDto } from '../common/dto/set-type-profils.dto';
 
 @ApiTags('offres')
 @Controller('offres')
@@ -26,6 +27,7 @@ export class OffresController {
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAll(
         @CurrentCountry() pays: string,
+        @Request() req,
         @Query('type') type?: string,
         @Query('prixMin') prixMin?: string,
         @Query('prixMax') prixMax?: string,
@@ -34,6 +36,10 @@ export class OffresController {
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
+        // Route PUBLIQUE (non gardée) : req.user est undefined → on passe un viewer
+        // TRUTHY {role:undefined,utilisateurId:undefined} (jamais undefined) pour que
+        // l'anonyme ne voie que les offres non-taguées, sans court-circuiter le filtre.
+        const viewer = { role: req.user?.role, utilisateurId: req.user?.utilisateurId };
         return this.offresService.findAll(pays, {
             type,
             prixMin: prixMin ? parseFloat(prixMin) : undefined,
@@ -42,7 +48,7 @@ export class OffresController {
             type_contrat,
             page: page ? parseInt(page, 10) : 1,
             limit: limit ? parseInt(limit, 10) : 10,
-        });
+        }, viewer);
     }
 
     @Get('user')
@@ -58,10 +64,11 @@ export class OffresController {
         @Query('limit') limit?: string,
     ) {
         const userId = req.user.utilisateurId;
+        const viewer = { role: req.user?.role, utilisateurId: userId };
         return this.offresService.findAllByUser(pays, userId, {
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 10,
-        });
+        }, viewer);
     }
 
     @Get('all')
@@ -80,6 +87,24 @@ export class OffresController {
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 10,
         });
+    }
+
+    @Get(':id/type-profils')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(RoleType.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Récupérer la checklist de types de profil d\'une offre (admin)' })
+    getTypeProfils(@Param('id', ParseIntPipe) id: number) {
+        return this.offresService.getTypeProfilIds(id);
+    }
+
+    @Put(':id/type-profils')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(RoleType.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Définir (replace-set) la checklist de types de profil d\'une offre (admin)' })
+    setTypeProfils(@Param('id', ParseIntPipe) id: number, @Body() dto: SetTypeProfilsDto) {
+        return this.offresService.setTypeProfilIds(id, dto.typeProfilIds);
     }
 
     @Get(':id')
