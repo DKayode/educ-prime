@@ -44,6 +44,7 @@ export class AuthService {
       role: registerDto.role,
       sexe: registerDto.sexe,
       date_naissance: registerDto.date_naissance,
+      age_group: registerDto.age_group,
       zone_residence: registerDto.zone_residence,
       situation_handicap: registerDto.situation_handicap,
       code_parrainage: registerDto.code_parrainage

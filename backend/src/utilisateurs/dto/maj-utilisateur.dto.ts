@@ -27,6 +27,10 @@ export class MajUtilisateurDto {
   date_naissance?: string;
 
   @IsOptional()
+  @IsString()
+  age_group?: string;
+
+  @IsOptional()
   @IsIn(['rural', 'urbain'])
   zone_residence?: string;
 

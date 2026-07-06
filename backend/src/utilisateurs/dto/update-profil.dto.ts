@@ -11,6 +11,7 @@ export class UpdateProfilDto extends PickType(MajUtilisateurDto, [
     'sexe',
     'telephone',
     'date_naissance',
+    'age_group',
     'zone_residence',
     'situation_handicap',
     'departement_id',

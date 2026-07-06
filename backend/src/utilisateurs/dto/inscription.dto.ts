@@ -74,6 +74,11 @@ export class InscriptionDto {
   @IsDateString()
   date_naissance?: string;
 
+  @ApiProperty({ example: '25-34', description: "Tranche d'âge (remplace date_naissance)", required: false })
+  @IsOptional()
+  @IsString()
+  age_group?: string;
+
   @ApiProperty({ enum: ['rural', 'urbain'], description: 'Zone de résidence (PII optionnelle)', required: false })
   @IsOptional()
   @IsIn(['rural', 'urbain'])

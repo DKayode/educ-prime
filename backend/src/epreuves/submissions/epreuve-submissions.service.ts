@@ -49,11 +49,13 @@ export class EpreuveSubmissionsService {
   // here) or a proposed name (captured for the admin to resolve at approval). The
   // duplicate check runs ONLY when all four parents resolve to existing ids.
   async createSubmission(pays: string, dto: CreerSubmissionDto, soumisParId: number) {
-    this.logger.log(`Soumission d'épreuve: "${dto.titre}" par utilisateur ${soumisParId}`);
+    this.logger.log(`Soumission d'épreuve par utilisateur ${soumisParId}`);
 
     // Validate each provided id and capture its pays — the DEEPEST resolved parent
     // wins (matiere > niveau > filiere > etablissement); none resolved → request country.
     let derivedPays: string | undefined;
+    // Nom de matière pour le titre auto-construit (nom proposé, sinon nom de la matière résolue).
+    let matiereNom: string | null = dto.proposed_matiere?.trim() || null;
 
     if (dto.etablissement_id != null) {
       const e = await this.etablissementsRepository.findOne({ where: { id: dto.etablissement_id } });
@@ -74,13 +76,19 @@ export class EpreuveSubmissionsService {
       const m = await this.matieresRepository.findOne({ where: { id: dto.matiere_id } });
       if (!m) throw new NotFoundException(`Matière #${dto.matiere_id} introuvable`);
       derivedPays = m.pays;
+      matiereNom = m.nom;
     }
 
     const submissionPays = derivedPays ?? pays ?? 'benin';
     const section = dto.section ?? EpreuveSection.NORMAL;
+    // Titre auto-construit à partir de (matière + section + année) — plus saisi par l'utilisateur.
+    const titre = [matiereNom ?? 'Épreuve', section, dto.annee != null ? String(dto.annee) : null]
+      .map((p) => (p == null ? '' : String(p).trim()))
+      .filter((p) => p !== '')
+      .join(' — ');
 
     // Duplicate check ONLY when all four parents are existing ids. matiere_id
-    // pins the whole chain, so matiere_id + titre + annee + section identifies it.
+    // pins the whole chain, so matiere_id + annee + section identifies it (titre exclu).
     const allFourResolved =
       dto.etablissement_id != null && dto.filiere_id != null &&
       dto.niveau_etude_id != null && dto.matiere_id != null;
@@ -88,7 +96,6 @@ export class EpreuveSubmissionsService {
     if (allFourResolved) {
       const dupQb = this.epreuvesRepository.createQueryBuilder('epreuve')
         .where('epreuve.matiere_id = :matiere_id', { matiere_id: dto.matiere_id })
-        .andWhere('epreuve.titre = :titre', { titre: dto.titre })
         .andWhere('epreuve.section = :section', { section });
       if (dto.annee === null || dto.annee === undefined) {
         dupQb.andWhere('epreuve.annee IS NULL');
@@ -99,7 +106,7 @@ export class EpreuveSubmissionsService {
       if (duplicate) {
         this.logger.warn(`Doublon refusé: l'épreuve #${duplicate.id} a déjà ce tuple complet`);
         throw new ConflictException(
-          "Une épreuve avec ce même établissement, filière, niveau, matière, titre, année et session existe déjà.",
+          "Une épreuve avec ces mêmes établissement, filière, niveau, matière, année et session existe déjà.",
         );
       }
     }
@@ -111,7 +118,6 @@ export class EpreuveSubmissionsService {
     const pendDup = this.submissionsRepository.createQueryBuilder('s')
       .where('s.pays = :pays', { pays: submissionPays })
       .andWhere('s.status = :st', { st: ServiceStatusEnum.PENDING_APPROVAL })
-      .andWhere('LOWER(s.titre) = LOWER(:t)', { t: dto.titre })
       .andWhere('s.section = :sec', { sec: section });
     if (dto.annee == null) pendDup.andWhere('s.annee IS NULL');
     else pendDup.andWhere('s.annee = :an', { an: dto.annee });
@@ -135,7 +141,7 @@ export class EpreuveSubmissionsService {
     if (pendingDuplicate) {
       this.logger.warn(`Soumission doublon (déjà en attente #${pendingDuplicate.id}) — refusée`);
       throw new ConflictException(
-        "Une soumission identique (mêmes établissement, filière, niveau, matière, titre, année et session) est déjà en attente d'approbation.",
+        "Une soumission identique (mêmes établissement, filière, niveau, matière, année et session) est déjà en attente d'approbation.",
       );
     }
 
@@ -148,7 +154,7 @@ export class EpreuveSubmissionsService {
     submission.proposed_niveau = dto.proposed_niveau ?? null;
     submission.matiere_id = dto.matiere_id ?? null;
     submission.proposed_matiere = dto.proposed_matiere ?? null;
-    submission.titre = dto.titre;
+    submission.titre = titre;
     submission.annee = dto.annee ?? null;
     submission.section = section;
     submission.pays = submissionPays;
@@ -384,12 +390,11 @@ export class EpreuveSubmissionsService {
     }
 
     // Safety net: never mint a duplicate real épreuve if one already exists for
-    // the same matière + titre + année + section (e.g. a sibling submission was
-    // approved first). matiere_id pins the whole parent chain.
+    // the same matière + année + section (titre exclu — il est déterministe).
+    // matiere_id pins the whole parent chain.
     const section = (submission.section as EpreuveSection) ?? EpreuveSection.NORMAL;
     const dupEp = this.epreuvesRepository.createQueryBuilder('e')
       .where('e.matiere_id = :m', { m: submission.matiere_id })
-      .andWhere('e.titre = :t', { t: submission.titre })
       .andWhere('e.section = :s', { s: section });
     if (submission.annee == null) dupEp.andWhere('e.annee IS NULL');
     else dupEp.andWhere('e.annee = :a', { a: submission.annee });
@@ -397,7 +402,7 @@ export class EpreuveSubmissionsService {
     if (existingEp) {
       this.logger.warn(`Approbation refusée: épreuve identique #${existingEp.id} existe déjà (soumission ${id})`);
       throw new ConflictException(
-        'Une épreuve identique (matière, titre, année, session) existe déjà. Déclinez cette soumission.',
+        'Une épreuve identique (matière, année, session) existe déjà. Déclinez cette soumission.',
       );
     }
 

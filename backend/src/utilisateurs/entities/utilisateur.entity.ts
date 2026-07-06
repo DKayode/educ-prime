@@ -83,6 +83,10 @@ export class Utilisateur {
   @Column({ type: 'date', nullable: true })
   date_naissance: string;
 
+  // Tranche d'âge — remplace date_naissance côté profil/inscription.
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  age_group: string;
+
   @Column({ type: 'varchar', length: 20, nullable: true })
   zone_residence: string;
 

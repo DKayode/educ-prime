@@ -104,18 +104,6 @@ export class UtilisateursService {
     return Object.assign(user, { profil: user.profil_photo_path ?? '' });
   }
 
-  // geo-profile: whole-years age from a 'YYYY-MM-DD' date_naissance; null if absent/invalid
-  private computeAge(dateNaissance?: string | null): number | null {
-    if (!dateNaissance) return null;
-    const dob = new Date(dateNaissance);
-    if (isNaN(dob.getTime())) return null;
-    const now = new Date();
-    let age = now.getFullYear() - dob.getFullYear();
-    const m = now.getMonth() - dob.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
-    return age >= 0 ? age : null;
-  }
-
   // geo-profile: single source of truth for the complete user JSON shape returned by
   // GET /utilisateurs (list), /utilisateurs/profil and /utilisateurs/:uuid — withProfil +
   // geo {uuid,nom} + derived age + verify/prestataire/recruteur booleans. The caller must
@@ -132,17 +120,16 @@ export class UtilisateursService {
       ...this.withProfil(user),
       departement: user.departement ? { uuid: user.departement.id, nom: user.departement.nom } : null,
       ville: user.ville ? { uuid: user.ville.id, nom: user.ville.nom } : null,
-      age: this.computeAge(user.date_naissance),
+      // hotfix: tranche d'âge remplace date_naissance/age dans la réponse profil.
+      age_group: (user as any).age_group ?? null,
       isEmailVerified: isVerified,
       isPrestataire,
       isRecruteur,
     };
-    // geo-profile: raw ids are redundant in the RESPONSE now that departement/ville are {uuid,nom}.
-    // Strip them from the returned object ONLY — the spread above is a fresh copy, so the entity
-    // is untouched and the columns stay in the select lists (updateProfil validation reads
-    // user.departement_id / user.ville_id off the entity, not this response).
+    // raw ids redundant (departement/ville are {uuid,nom}); date_naissance replaced by age_group.
     delete result.departement_id;
     delete result.ville_id;
+    delete result.date_naissance;
     return result;
   }
 
@@ -345,7 +332,7 @@ export class UtilisateursService {
       .leftJoinAndSelect('utilisateur.departement', 'departement')
       .leftJoinAndSelect('utilisateur.ville', 'ville')
       .loadRelationCountAndMap('utilisateur.filleulsCount', 'utilisateur.filleuls')
-      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.profil_photo_path', 'utilisateur.profil_photo_extension', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.pays', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'utilisateur.departement_id', 'utilisateur.ville_id', 'utilisateur.date_naissance', 'utilisateur.zone_residence', 'utilisateur.situation_handicap', 'etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'])
+      .select(['utilisateur.id', 'utilisateur.nom', 'utilisateur.prenom', 'utilisateur.email', 'utilisateur.pseudo', 'utilisateur.uuid', 'utilisateur.photo', 'utilisateur.profil_photo_path', 'utilisateur.profil_photo_extension', 'utilisateur.sexe', 'utilisateur.telephone', 'utilisateur.role', 'utilisateur.pays', 'utilisateur.est_desactive', 'utilisateur.date_suppression_prevue', 'utilisateur.date_creation', 'utilisateur.mon_code_parrainage', 'utilisateur.departement_id', 'utilisateur.ville_id', 'utilisateur.date_naissance', 'utilisateur.age_group', 'utilisateur.zone_residence', 'utilisateur.situation_handicap', 'etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'])
       .where('utilisateur.pays = :pays', { pays })
       .skip((page - 1) * limit)
       .take(limit);
@@ -413,7 +400,7 @@ export class UtilisateursService {
       where: { id: parseInt(id) },
       select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage', 'departement_id', 'ville_id',
         // geo-profile (D4): previously-dropped profile fields
-        'pays', 'date_naissance', 'zone_residence', 'situation_handicap', 'date_creation',
+        'pays', 'date_naissance', 'age_group', 'zone_residence', 'situation_handicap', 'date_creation',
         // geo-profile: match the unified list shape (enrichUserComplete)
         'est_desactive', 'date_suppression_prevue'],
       relations: ['etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'],
@@ -434,7 +421,7 @@ export class UtilisateursService {
       where: { uuid },
       select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage', 'departement_id', 'ville_id',
         // geo-profile (D4): previously-dropped profile fields
-        'pays', 'date_naissance', 'zone_residence', 'situation_handicap', 'date_creation',
+        'pays', 'date_naissance', 'age_group', 'zone_residence', 'situation_handicap', 'date_creation',
         // geo-profile: match the unified list shape (enrichUserComplete)
         'est_desactive', 'date_suppression_prevue'],
       relations: ['etablissement', 'filiere', 'niveau_etude', 'departement', 'ville'],
