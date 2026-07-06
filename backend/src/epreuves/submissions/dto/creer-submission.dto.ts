@@ -47,9 +47,11 @@ export class CreerSubmissionDto {
   @IsString()
   proposed_matiere?: string;
 
-  @ApiProperty({ description: "Titre de l'épreuve" })
+  // Auto-construit côté serveur à partir de (matière + section + année) — ignoré s'il est fourni.
+  @ApiProperty({ required: false, description: "Ignoré : le titre est construit automatiquement (matière + section + année)" })
+  @IsOptional()
   @IsString()
-  titre: string;
+  titre?: string;
 
   @ApiProperty({ required: false, description: "Année de l'épreuve" })
   @IsOptional()

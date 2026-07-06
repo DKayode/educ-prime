@@ -72,7 +72,7 @@ export default function Epreuves() {
 
   const [formData, setFormData] = useState({
     titre: "",
-    type: "" as EpreuveType | "",
+    type: "Examens" as EpreuveType, // épreuve upload toujours de type Examens
     duree_minutes: "",
     nombre_pages: "",
     matiere_id: "",
@@ -137,6 +137,17 @@ export default function Epreuves() {
     enabled: !!selectedEtablissement && !!selectedFiliere && !!selectedNiveau,
   });
   const matieres = matieresResponse?.data || [];
+
+  // Titre auto-construit à partir de (matière + section + année) — même règle que le backend.
+  useEffect(() => {
+    const matiereNom = matieres.find((m) => m.id?.toString() === formData.matiere_id)?.nom;
+    if (!matiereNom) return; // sans le nom de la matière, on garde le titre existant
+    const titre = [matiereNom, formData.section, formData.annee]
+      .map((p) => String(p ?? "").trim())
+      .filter((p) => p !== "")
+      .join(" — ");
+    setFormData((prev) => (prev.titre === titre ? prev : { ...prev, titre }));
+  }, [formData.matiere_id, formData.section, formData.annee, matieres]);
 
   const createMutation = useMutation({
     mutationFn: async (data: { file: File; titre: string; type?: string; duree_minutes: number; nombre_pages?: number; matiere_id: number; date_publication?: string; annee?: number; section?: EpreuveSection }) => {
@@ -211,7 +222,7 @@ export default function Epreuves() {
   const resetForm = () => {
     setFormData({
       titre: "",
-      type: "",
+      type: "Examens",
       duree_minutes: "",
       nombre_pages: "",
       matiere_id: "",
@@ -253,7 +264,8 @@ export default function Epreuves() {
 
     setFormData({
       titre: epreuve.titre,
-      type: epreuve.type || "",
+      type: "Examens", // toujours forcé à Examens
+
       duree_minutes: epreuve.duree_minutes?.toString() || "",
       nombre_pages: epreuve.nombre_pages?.toString() || "",
       matiere_id: (epreuve.matiere_id || epreuve.matiere?.id)?.toString() || "",
@@ -363,32 +375,28 @@ export default function Epreuves() {
             </DialogHeader>
             <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
               <div className="space-y-2">
-                <Label htmlFor="titre">Titre de l'épreuve *</Label>
+                <Label htmlFor="titre">Titre de l'épreuve (auto)</Label>
                 <Input
                   id="titre"
-                  placeholder="Ex: Examen Final Informatique"
+                  placeholder="Généré depuis matière + section + année"
                   value={formData.titre}
-                  onChange={(e) => setFormData({ ...formData, titre: e.target.value })}
+                  readOnly
+                  className="bg-muted text-muted-foreground"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Construit automatiquement : matière — section — année.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="type">Type d'épreuve *</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value) => setFormData({ ...formData, type: value as EpreuveType })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner le type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Interrogation">Interrogation</SelectItem>
-                      <SelectItem value="Devoirs">Devoirs</SelectItem>
-                      <SelectItem value="Concours">Concours</SelectItem>
-                      <SelectItem value="Examens">Examens</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="type">Type d'épreuve</Label>
+                  <Input
+                    id="type"
+                    value="Examens"
+                    readOnly
+                    className="bg-muted text-muted-foreground"
+                  />
                 </div>
 
                 {!editData && (

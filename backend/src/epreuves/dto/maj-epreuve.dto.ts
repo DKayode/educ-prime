@@ -1,4 +1,5 @@
 import { IsString, IsNumber, IsOptional, IsDate, IsEnum, IsInt } from 'class-validator';
+import { Type } from 'class-transformer';
 import { EpreuveType, EpreuveSection } from '../entities/epreuve.entity';
 
 export class MajEpreuveDto {
@@ -19,6 +20,7 @@ export class MajEpreuveDto {
   matiere_id?: number;
 
   @IsOptional()
+  @Type(() => Date)
   @IsDate()
   date_publication?: Date;
 

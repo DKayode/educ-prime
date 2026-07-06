@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNumber, IsOptional, IsDate, IsEnum, IsInt } from 'class-validator';
+import { Type } from 'class-transformer';
 import { EpreuveType, EpreuveSection } from '../entities/epreuve.entity';
 
 export class CreerEpreuveDto {
@@ -24,8 +25,9 @@ export class CreerEpreuveDto {
   @IsNumber()
   matiere_id: number;
 
-  @ApiProperty({ description: 'Date de publication', required: false })
+  @ApiProperty({ description: 'Date de publication (ISO / datetime-local)', required: false })
   @IsOptional()
+  @Type(() => Date)
   @IsDate()
   date_publication?: Date;
 
