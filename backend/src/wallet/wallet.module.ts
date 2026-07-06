@@ -30,6 +30,8 @@ import {
 import { CreateWalletForUserUseCase } from './wallet-balance/use-cases/create-wallet-for-user.use-case';
 import { CreditWalletFromValidatedExamUseCase } from './wallet-balance/use-cases/credit-wallet-from-validated-exam.use-case';
 import { GetMyWalletUseCase } from './wallet-balance/use-cases/get-my-wallet.use-case';
+import { GetMyWalletTransactionsUseCase } from './wallet-balance/use-cases/get-my-wallet-transactions.use-case';
+import { GetMyWalletOverviewUseCase } from './wallet-balance/use-cases/get-my-wallet-overview.use-case';
 import { RequestWithdrawalUseCase } from './wallet-balance/use-cases/request-withdrawal.use-case';
 import { VerifyWithdrawalOtpUseCase } from './otp/use-cases/verify-withdrawal-otp.use-case';
 import { GetWithdrawalOtpDebugCodeUseCase } from './otp/use-cases/get-withdrawal-otp-debug-code.use-case';
@@ -85,6 +87,8 @@ import { TwilioOtpSmsAdapter } from './otp/twilio-otp-sms.adapter';
     CreateWalletForUserUseCase,
     CreditWalletFromValidatedExamUseCase,
     GetMyWalletUseCase,
+    GetMyWalletTransactionsUseCase,
+    GetMyWalletOverviewUseCase,
     RequestWithdrawalUseCase,
     VerifyWithdrawalOtpUseCase,
     GetWithdrawalOtpDebugCodeUseCase,

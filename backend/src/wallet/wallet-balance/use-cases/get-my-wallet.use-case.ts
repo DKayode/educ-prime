@@ -1,18 +1,11 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { WALLET_TRANSACTION_REPOSITORY } from '../../shared/payment.tokens';
-import { WalletTransactionRepositoryPort } from '../../shared/payment.ports';
+import { Injectable } from '@nestjs/common';
 import { CreateWalletForUserUseCase } from './create-wallet-for-user.use-case';
 
 @Injectable()
 export class GetMyWalletUseCase {
-  constructor(
-    private readonly createWalletForUser: CreateWalletForUserUseCase,
-    @Inject(WALLET_TRANSACTION_REPOSITORY) private readonly transactions: WalletTransactionRepositoryPort,
-  ) {}
+  constructor(private readonly createWalletForUser: CreateWalletForUserUseCase) {}
 
-  async execute(userId: number, page = 1, limit = 20) {
-    const wallet = await this.createWalletForUser.execute(userId);
-    const transactions = await this.transactions.findByWalletId(wallet.id!, page, limit);
-    return { wallet, transactions: transactions.data, totalTransactions: transactions.total, page, limit };
+  async execute(userId: number) {
+    return this.createWalletForUser.execute(userId);
   }
 }
