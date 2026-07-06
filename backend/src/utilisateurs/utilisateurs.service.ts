@@ -109,13 +109,14 @@ export class UtilisateursService {
   // GET /utilisateurs (list), /utilisateurs/profil and /utilisateurs/:uuid — withProfil +
   // geo {uuid,nom} + derived age + verify/prestataire/recruteur booleans. The caller must
   // load the departement/ville relations (findOne/findByUuid/findAll all do).
-  // PERF NOTE: 3 boolean lookups per user (isEmailVerified/isPrestataire/isRecruteur) => N+1
-  // on the list (3 x page_size). Acceptable at the current default page size; batch if page size grows.
+  // PERF NOTE: 4 lookups per user (isEmailVerified/isPrestataire/isRecruteur + type_profil)
+  // => N+1 on the list (4 x page_size). Acceptable at the current default page size; batch if it grows.
   async enrichUserComplete<T extends Utilisateur>(user: T) {
-    const [{ isVerified }, { isPrestataire }, { isRecruteur }] = await Promise.all([
+    const [{ isVerified }, { isPrestataire }, { isRecruteur }, typeProfil] = await Promise.all([
       this.isEmailVerified(user.id),
       this.isPrestataire(user.id),
       this.isRecruteur(user.id),
+      this.getTypeProfilForProfil(user.id),
     ]);
     const result: any = {
       ...this.withProfil(user),
@@ -126,6 +127,9 @@ export class UtilisateursService {
       isEmailVerified: isVerified,
       isPrestataire,
       isRecruteur,
+      // type-profils: id brut + objet résolu, sur les 3 endpoints (liste / profil / :uuid).
+      type_profil_id: typeProfil.type_profil_id,
+      type_profil: typeProfil.type_profil,
     };
     // raw ids redundant now that departement/ville are {uuid,nom}.
     delete result.departement_id;
