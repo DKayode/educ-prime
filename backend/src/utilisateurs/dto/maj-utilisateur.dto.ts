@@ -1,5 +1,5 @@
 import { IsOptional, IsString, IsEnum, IsNumber, IsDateString, IsIn, IsUUID } from 'class-validator';
-import { RoleType, SexeType } from '../entities/utilisateur.entity';
+import { RoleType, SexeType, AgeGroup } from '../entities/utilisateur.entity';
 
 export class MajUtilisateurDto {
   @IsOptional()
@@ -23,12 +23,8 @@ export class MajUtilisateurDto {
   sexe?: SexeType;
 
   @IsOptional()
-  @IsDateString()
-  date_naissance?: string;
-
-  @IsOptional()
-  @IsString()
-  age_group?: string;
+  @IsEnum(AgeGroup, { message: "La tranche d'âge doit être une valeur valide" })
+  age_group?: AgeGroup;
 
   @IsOptional()
   @IsIn(['rural', 'urbain'])

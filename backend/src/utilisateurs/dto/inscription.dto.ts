@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsString, MinLength, IsOptional, IsEnum, IsNumber, IsDateString, IsIn } from 'class-validator';
-import { RoleType, SexeType } from '../entities/utilisateur.entity';
+import { RoleType, SexeType, AgeGroup } from '../entities/utilisateur.entity';
 
 export class InscriptionDto {
   @ApiProperty({ example: 'Doe', description: 'Le nom de l\'utilisateur' })
@@ -69,15 +69,10 @@ export class InscriptionDto {
   @IsString()
   code_parrainage?: string;
 
-  @ApiProperty({ example: '1995-04-23', description: 'Date de naissance (PII optionnelle, consentement)', required: false })
+  @ApiProperty({ enum: AgeGroup, example: '18 - 25', description: "Tranche d'âge (valeurs prédéfinies)", required: false })
   @IsOptional()
-  @IsDateString()
-  date_naissance?: string;
-
-  @ApiProperty({ example: '25-34', description: "Tranche d'âge (remplace date_naissance)", required: false })
-  @IsOptional()
-  @IsString()
-  age_group?: string;
+  @IsEnum(AgeGroup)
+  age_group?: AgeGroup;
 
   @ApiProperty({ enum: ['rural', 'urbain'], description: 'Zone de résidence (PII optionnelle)', required: false })
   @IsOptional()

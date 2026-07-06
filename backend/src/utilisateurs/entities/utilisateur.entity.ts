@@ -28,6 +28,22 @@ export enum SexeType {
   AUTRE = 'Autre'
 }
 
+// Tranches d'âge prédéfinies — remplacent la date de naissance.
+export enum AgeGroup {
+  UNDER_18 = '< 18',
+  FROM_18_25 = '18 - 25',
+  FROM_26_35 = '26 - 35',
+  FROM_36_50 = '36 - 50',
+  OVER_50 = '> 50',
+}
+
+// Tranches considérées « ≤ 35 ans » pour les KPI démographiques.
+export const AGE_GROUPS_UNDER_35: AgeGroup[] = [
+  AgeGroup.UNDER_18,
+  AgeGroup.FROM_18_25,
+  AgeGroup.FROM_26_35,
+];
+
 @Entity('utilisateurs')
 export class Utilisateur {
   @PrimaryGeneratedColumn()
@@ -80,12 +96,9 @@ export class Utilisateur {
   @Column({ type: 'enum', enum: SexeType, nullable: true })
   sexe: SexeType;
 
-  @Column({ type: 'date', nullable: true })
-  date_naissance: string;
-
-  // Tranche d'âge — remplace date_naissance côté profil/inscription.
+  // Tranche d'âge (valeurs prédéfinies AgeGroup) — remplace la date de naissance.
   @Column({ type: 'varchar', length: 30, nullable: true })
-  age_group: string;
+  age_group: AgeGroup;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
   zone_residence: string;

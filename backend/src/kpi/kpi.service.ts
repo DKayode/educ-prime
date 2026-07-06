@@ -9,9 +9,9 @@ import { DataSource } from 'typeorm';
  *
  * Conventions (confirmed in the spec):
  *  - apprenant / learner = role 'étudiant'; female = sexe 'F'.
- *  - age ≤ 35 at registration: born on/after date_creation − 35 years, i.e.
- *    date_naissance >= date_creation − interval '35 years'. NULL birthdates are
- *    excluded automatically (the comparison is NULL → not counted).
+ *  - age ≤ 35: age_group in the under-35 buckets ('< 18','18 - 25','26 - 35').
+ *    NULL age_group is excluded automatically (not counted). Replaces the former
+ *    date_naissance-based computation.
  *  - disability: situation_handicap IS NOT NULL AND <> 'aucun'.
  *  - logins (KPI 8 / 15): distinct refresh_tokens.utilisateur_id in the period
  *    (refresh_tokens has no pays, so we join utilisateurs for the country scope).
@@ -29,14 +29,14 @@ export class KpiService {
       `
       SELECT
         COUNT(*)                                                                                  AS total_users,
-        COUNT(*) FILTER (WHERE date_naissance >= (date_creation - interval '35 years'))           AS users_age_35,
+        COUNT(*) FILTER (WHERE age_group IN ('< 18','18 - 25','26 - 35'))           AS users_age_35,
         COUNT(*) FILTER (WHERE sexe = 'F')                                                         AS female_users,
-        COUNT(*) FILTER (WHERE sexe = 'F' AND date_naissance >= (date_creation - interval '35 years')) AS female_age_35,
+        COUNT(*) FILTER (WHERE sexe = 'F' AND age_group IN ('< 18','18 - 25','26 - 35')) AS female_age_35,
         COUNT(*) FILTER (WHERE zone_residence = 'rural')                                           AS rural_users,
         COUNT(*) FILTER (WHERE situation_handicap IS NOT NULL AND situation_handicap <> 'aucun')   AS disability_users,
         COUNT(*) FILTER (WHERE role = 'étudiant')                                                  AS learners,
-        COUNT(*) FILTER (WHERE role = 'étudiant' AND date_naissance >= (date_creation - interval '35 years')) AS learners_age_35,
-        COUNT(*) FILTER (WHERE role = 'étudiant' AND sexe = 'F' AND date_naissance >= (date_creation - interval '35 years')) AS learners_age_35_female,
+        COUNT(*) FILTER (WHERE role = 'étudiant' AND age_group IN ('< 18','18 - 25','26 - 35')) AS learners_age_35,
+        COUNT(*) FILTER (WHERE role = 'étudiant' AND sexe = 'F' AND age_group IN ('< 18','18 - 25','26 - 35')) AS learners_age_35_female,
         COUNT(*) FILTER (WHERE role = 'étudiant' AND sexe = 'F')                                   AS female_learners,
         COUNT(*) FILTER (WHERE role = 'étudiant' AND zone_residence = 'rural')                     AS rural_learners,
         COUNT(*) FILTER (WHERE role = 'étudiant' AND situation_handicap IS NOT NULL AND situation_handicap <> 'aucun') AS disability_learners
