@@ -19,6 +19,12 @@ export interface TypeProfilsFilters extends PaginationParams {
     search?: string;
 }
 
+/** Une ligne du registre entité ↔ type de profil (audience). */
+export interface EntityTypeProfilAssoc {
+    entity: string;
+    type_profil: { uuid: string; id: number; titre: string; sous_titre: string | null } | null;
+}
+
 export const typeProfilsService = {
     async getAll(params?: TypeProfilsFilters): Promise<PaginationResponse<TypeProfil>> {
         const query = buildPaginationQuery(params);
@@ -49,5 +55,15 @@ export const typeProfilsService = {
      */
     async uploadIcone(uuid: string, file: File) {
         return filesService.uploadFile('type_profils', uuid, 'icone', file);
+    },
+
+    /** Registre : type de profil associé à chaque entité de contenu (audience). */
+    async getRegistry(): Promise<EntityTypeProfilAssoc[]> {
+        return api.get<EntityTypeProfilAssoc[]>('/type-profils/registry');
+    },
+
+    /** Associe (ou dissocie si type_profil_id = null) une entité à un type de profil. */
+    async setAssociation(entity: string, type_profil_id: number | null): Promise<EntityTypeProfilAssoc> {
+        return api.put<EntityTypeProfilAssoc>('/type-profils/registry', { entity, type_profil_id });
     },
 };

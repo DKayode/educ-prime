@@ -20,6 +20,7 @@ export class OpportunitesService {
 
   // Jointure type-profils de cette entité (constantes internes).
   private readonly typeProfilJoin: TypeProfilJoinConfig = {
+    entity: 'opportunite',
     joinTable: 'opportunite_type_profils',
     fkColumn: 'opportunite_id',
   };

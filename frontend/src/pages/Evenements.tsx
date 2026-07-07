@@ -357,7 +357,6 @@ export default function Evenements() {
                                         )}
                                     </div>
                                 </div>
-                                <TypeProfilChecklist value={newTypeProfilIds} onChange={setNewTypeProfilIds} />
                             </div>
                             <DialogFooter>
                                 <Button type="submit" disabled={createMutation.isPending || isUploading}>
@@ -594,7 +593,6 @@ export default function Evenements() {
                                 />
                             </div>
                             <div className="mt-4">
-                                <TypeProfilChecklist value={editTypeProfilIds} onChange={setEditTypeProfilIds} />
                             </div>
                         </div>
                         <DialogFooter>

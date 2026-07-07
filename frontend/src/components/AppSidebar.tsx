@@ -178,6 +178,7 @@ const navTree: NavItem[] = [
     icon: UserCog,
     children: [
       { title: "Types de profil", icon: Tags, url: "/types-profil" },
+      { title: "Associations audience", icon: Tags, url: "/types-profil/associations" },
     ],
   },
   {

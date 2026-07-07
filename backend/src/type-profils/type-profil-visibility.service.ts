@@ -1,17 +1,22 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Brackets, SelectQueryBuilder } from 'typeorm';
+import { SelectQueryBuilder } from 'typeorm';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
+import { CountryContextService } from '../config/country-context.service';
 import { RoleType, Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
+import { EntityTypeProfil } from './entities/entity-type-profil.entity';
 
 /**
- * Identifie une jointure entité↔type_profils. `joinTable` et `fkColumn` sont des
- * CONSTANTES internes (définies par chaque service, jamais des entrées client),
- * donc leur interpolation dans du SQL brut ne présente aucun risque d'injection.
+ * Identifie une entité de contenu pour la visibilité par type de profil.
+ * `entity` sert au REGISTRE (entity_type_profil). `joinTable`/`fkColumn` sont
+ * hérités du tagging par-ligne (désormais dormant) et restent des CONSTANTES
+ * internes (jamais des entrées client).
  */
 export interface TypeProfilJoinConfig {
-    /** table de jointure, ex. 'opportunite_type_profils' */
+    /** nom d'entité pour le registre, ex. 'evenement' */
+    entity: string;
+    /** table de jointure héritée (dormant), ex. 'opportunite_type_profils' */
     joinTable: string;
-    /** colonne FK de l'entité dans la table de jointure, ex. 'opportunite_id' */
+    /** colonne FK héritée (dormant), ex. 'opportunite_id' */
     fkColumn: string;
 }
 
@@ -22,19 +27,21 @@ export interface ViewerContext {
 }
 
 /**
- * Helper PARTAGÉ (un seul, pas 5 copies) pour le tagging + la visibilité par
- * type de profil sur les 5 entités de contenu.
+ * Helper PARTAGÉ pour la visibilité par type de profil (modèle REGISTRE).
+ * L'audience est gérée AU NIVEAU DE L'ENTITÉ via `entity_type_profil` :
+ * une entité non associée est publique ; sinon elle n'est visible que par les
+ * appelants partageant le type_profil associé. Les admins ne sont pas filtrés.
  */
 @Injectable()
 export class TypeProfilVisibilityService {
-    constructor(private readonly resolver: DataSourceResolver) { }
+    constructor(
+        private readonly resolver: DataSourceResolver,
+        private readonly context: CountryContextService,
+    ) { }
 
     /**
-     * Applique la règle de visibilité à un QueryBuilder de findAll :
-     * un appelant NON-admin ne voit une ligne que si elle est NON-TAGUÉE
-     * (aucune ligne de jointure) OU si elle partage le type_profil_id de
-     * l'appelant. Les admins (et les contextes sans viewer, ex. appels
-     * internes/panel admin) ne sont PAS affectés — aucun filtre ajouté.
+     * QueryBuilder findAll : si l'entité est masquée pour l'appelant, aucune
+     * ligne ne remonte (`1 = 0`). `alias` conservé pour compat de signature.
      */
     async applyVisibilityFilter(
         qb: SelectQueryBuilder<any>,
@@ -42,58 +49,27 @@ export class TypeProfilVisibilityService {
         cfg: TypeProfilJoinConfig,
         viewer?: ViewerContext,
     ): Promise<void> {
-        // Admins & contextes sans viewer : inchangés.
-        if (!viewer || viewer.role === RoleType.ADMIN) return;
-
-        const typeProfilId = await this.resolveViewerTypeProfilId(viewer.utilisateurId);
-
-        const untagged =
-            `NOT EXISTS (SELECT 1 FROM ${cfg.joinTable} j WHERE j.${cfg.fkColumn} = ${alias}.id)`;
-
-        if (typeProfilId == null) {
-            // Appelant sans type_profil → uniquement les lignes non-taguées (publiques). Intentionnel.
-            qb.andWhere(untagged);
-            return;
-        }
-
-        qb.andWhere(
-            new Brackets((w) => {
-                w.where(untagged).orWhere(
-                    `EXISTS (SELECT 1 FROM ${cfg.joinTable} j WHERE j.${cfg.fkColumn} = ${alias}.id AND j.type_profil_id = :__viewerTypeProfilId)`,
-                    { __viewerTypeProfilId: typeProfilId },
-                );
-            }),
-        );
+        if (await this.isEntityHidden(cfg, viewer)) qb.andWhere('1 = 0');
     }
 
     /**
-     * Variante COMPLÉMENT pour les services basés sur repository.findAndCount
-     * (pas de QueryBuilder — ex. forum). Renvoie les ids d'entités CACHÉES pour
-     * l'appelant (= taguées ET ne partageant PAS son type_profil), à exclure via
-     * `where.id = Not(In(...))`. Renvoie null si aucun filtre ne s'applique
-     * (admin / sans viewer). Même règle que applyVisibilityFilter, exprimée en
-     * complément ; l'ensemble est borné par le nombre de lignes TAGUÉES (minorité).
+     * Vrai si l'entité entière est masquée pour l'appelant. Pour les services
+     * basés sur repository.findAndCount (ex. forum) : renvoyer une page vide.
      */
-    async hiddenEntityIds(cfg: TypeProfilJoinConfig, viewer?: ViewerContext): Promise<number[] | null> {
-        if (!viewer || viewer.role === RoleType.ADMIN) return null;
+    async isEntityHidden(cfg: TypeProfilJoinConfig, viewer?: ViewerContext): Promise<boolean> {
+        if (!viewer || viewer.role === RoleType.ADMIN) return false;
+        const pays = this.context.getCountry();
+        const entityTypeProfilId = await this.getEntityAssociation(pays, cfg.entity);
+        if (entityTypeProfilId == null) return false; // non associée → publique
+        const viewerTypeProfilId = await this.resolveViewerTypeProfilId(viewer.utilisateurId);
+        return viewerTypeProfilId == null || viewerTypeProfilId !== entityTypeProfilId;
+    }
 
-        const typeProfilId = await this.resolveViewerTypeProfilId(viewer.utilisateurId);
-        const ds = this.resolver.getDataSource();
-
-        let rows: any[];
-        if (typeProfilId == null) {
-            // Sans type_profil → toutes les lignes taguées sont cachées.
-            rows = await ds.query(`SELECT DISTINCT ${cfg.fkColumn} AS id FROM ${cfg.joinTable}`);
-        } else {
-            // Taguées SANS aucun tag correspondant au type_profil de l'appelant.
-            rows = await ds.query(
-                `SELECT ${cfg.fkColumn} AS id FROM ${cfg.joinTable}
-                 GROUP BY ${cfg.fkColumn}
-                 HAVING SUM(CASE WHEN type_profil_id = $1 THEN 1 ELSE 0 END) = 0`,
-                [typeProfilId],
-            );
-        }
-        return rows.map((r) => Number(r.id));
+    private async getEntityAssociation(pays: string, entity: string): Promise<number | null> {
+        const row = await this.resolver
+            .getRepository(EntityTypeProfil)
+            .findOne({ where: { entity, pays } });
+        return row?.type_profil_id ?? null;
     }
 
     /** Lit la checklist (ids de type_profil) taguée sur une ligne d'entité. */

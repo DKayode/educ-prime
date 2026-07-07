@@ -424,7 +424,6 @@ export default function ServicesAdmin() {
                             )}
 
                             <div className="border-t pt-4">
-                                <TypeProfilChecklist value={viewServiceTypeProfilIds} onChange={setViewServiceTypeProfilIds} />
                                 <Button className="mt-3" size="sm" onClick={handleSaveServiceTags} disabled={savingTags}>
                                     {savingTags ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enregistrement...</> : "Enregistrer les types de profil"}
                                 </Button>

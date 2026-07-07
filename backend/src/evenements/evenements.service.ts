@@ -19,6 +19,7 @@ export class EvenementsService {
   private readonly logger = new Logger(EvenementsService.name);
 
   private readonly typeProfilJoin: TypeProfilJoinConfig = {
+    entity: 'evenement',
     joinTable: 'evenement_type_profils',
     fkColumn: 'evenement_id',
   };

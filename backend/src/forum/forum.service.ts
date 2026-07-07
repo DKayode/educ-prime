@@ -20,6 +20,7 @@ import {
 @Injectable()
 export class ForumService {
     private readonly typeProfilJoin: TypeProfilJoinConfig = {
+        entity: 'forum',
         joinTable: 'forum_type_profils',
         fkColumn: 'forum_id',
     };
@@ -96,11 +97,10 @@ export class ForumService {
             where.theme = ILike(`%${search}%`);
         }
 
-        // Visibilité par type de profil (chemin findAndCount) : on EXCLUT les forums
-        // cachés pour l'appelant (tagués sans partager son type_profil). Admin/no-viewer ⇒ null.
-        const hidden = await this.typeProfilVisibility.hiddenEntityIds(this.typeProfilJoin, viewer);
-        if (hidden && hidden.length) {
-            where.id = Not(In(hidden));
+        // Visibilité par type de profil (chemin findAndCount) : registre entité-niveau.
+        // Si l'entité forum est masquée pour l'appelant → aucune ligne.
+        if (await this.typeProfilVisibility.isEntityHidden(this.typeProfilJoin, viewer)) {
+            where.id = -1;
         }
 
         const [forums, total] = await this.forumRepository.findAndCount({

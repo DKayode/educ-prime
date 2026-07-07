@@ -449,7 +449,6 @@ export default function Forums() {
                             />
                         </div>
 
-                        <TypeProfilChecklist value={newTypeProfilIds} onChange={setNewTypeProfilIds} />
 
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>Annuler</Button>

@@ -40,6 +40,7 @@ export class ServicesService {
     private readonly logger = new Logger(ServicesService.name);
 
     private readonly typeProfilJoin: TypeProfilJoinConfig = {
+        entity: 'service',
         joinTable: 'service_type_profils',
         fkColumn: 'service_id',
     };

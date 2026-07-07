@@ -9,6 +9,7 @@ import { TypeProfilsService } from './type-profils.service';
 import { CreateTypeProfilDto } from './dto/create-type-profil.dto';
 import { UpdateTypeProfilDto } from './dto/update-type-profil.dto';
 import { FilterTypeProfilDto } from './dto/filter-type-profil.dto';
+import { SetEntityTypeProfilDto } from './dto/set-entity-type-profil.dto';
 
 @ApiTags('type-profils')
 @Controller('type-profils')
@@ -32,6 +33,24 @@ export class TypeProfilsController {
     @ApiResponse({ status: 200, description: 'Liste récupérée avec succès' })
     findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterTypeProfilDto) {
         return this.typeProfilsService.findAll(pays, filterDto);
+    }
+
+    // REGISTRE entité ↔ type de profil. Déclaré AVANT :id pour ne pas capter 'registry'.
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @Get('registry')
+    @ApiOperation({ summary: 'Registre : type de profil associé à chaque entité (audience)' })
+    getRegistry(@CurrentCountry() pays: string) {
+        return this.typeProfilsService.getRegistry(pays);
+    }
+
+    @UseGuards(JwtAuthGuard, RoleGuard)
+    @Roles(RoleType.ADMIN)
+    @ApiBearerAuth()
+    @Put('registry')
+    @ApiOperation({ summary: 'Associer/dissocier une entité à un type de profil' })
+    setRegistry(@CurrentCountry() pays: string, @Body() dto: SetEntityTypeProfilDto) {
+        return this.typeProfilsService.setAssociation(pays, dto.entity, dto.type_profil_id ?? null);
     }
 
     @UseGuards(JwtAuthGuard)

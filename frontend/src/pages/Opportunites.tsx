@@ -333,7 +333,6 @@ export default function Opportunites() {
                                     <Label htmlFor="lien_postuler">Lien pour postuler</Label>
                                     <Input id="lien_postuler" value={formData.lien_postuler} onChange={(e) => setFormData({ ...formData, lien_postuler: e.target.value })} />
                                 </div>
-                                <TypeProfilChecklist value={newTypeProfilIds} onChange={setNewTypeProfilIds} />
                             </div>
                             <DialogFooter>
                                 <Button type="submit" disabled={createMutation.isPending || isUploading}>
@@ -555,7 +554,6 @@ export default function Opportunites() {
                                 />
                             </div>
                             <div className="mt-4">
-                                <TypeProfilChecklist value={editTypeProfilIds} onChange={setEditTypeProfilIds} />
                             </div>
                         </div>
                         <DialogFooter>

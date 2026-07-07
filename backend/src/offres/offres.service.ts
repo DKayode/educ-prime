@@ -38,6 +38,7 @@ export interface AvisStats {
 @Injectable()
 export class OffresService {
     private readonly typeProfilJoin: TypeProfilJoinConfig = {
+        entity: 'offre',
         joinTable: 'offre_type_profils',
         fkColumn: 'offre_id',
     };
@@ -286,9 +287,8 @@ export class OffresService {
 
         // Liste authentifiée : visibilité par type de profil (chemin findAndCount).
         const where: any = { pays, utilisateur_id: userId };
-        const hidden = await this.typeProfilVisibility.hiddenEntityIds(this.typeProfilJoin, viewer);
-        if (hidden && hidden.length) {
-            where.id = Not(In(hidden));
+        if (await this.typeProfilVisibility.isEntityHidden(this.typeProfilJoin, viewer)) {
+            where.id = -1; // entité masquée pour l'appelant → aucune ligne
         }
 
         const [data, total] = await this.offresRepository.findAndCount({

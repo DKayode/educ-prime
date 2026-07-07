@@ -420,7 +420,6 @@ export default function OffresAdmin() {
                             )}
 
                             <div className="border-t pt-4">
-                                <TypeProfilChecklist value={viewOffreTypeProfilIds} onChange={setViewOffreTypeProfilIds} />
                                 <Button className="mt-3" size="sm" onClick={handleSaveOffreTags} disabled={savingTags}>
                                     {savingTags ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enregistrement...</> : "Enregistrer les types de profil"}
                                 </Button>
