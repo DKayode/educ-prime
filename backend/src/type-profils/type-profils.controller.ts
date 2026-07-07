@@ -48,9 +48,9 @@ export class TypeProfilsController {
     @Roles(RoleType.ADMIN)
     @ApiBearerAuth()
     @Put('registry')
-    @ApiOperation({ summary: 'Associer/dissocier une entité à un type de profil' })
+    @ApiOperation({ summary: "Remplacer la liste des types de profil d'une entité (audience)" })
     setRegistry(@CurrentCountry() pays: string, @Body() dto: SetEntityTypeProfilDto) {
-        return this.typeProfilsService.setAssociation(pays, dto.entity, dto.type_profil_id ?? null);
+        return this.typeProfilsService.setAssociations(pays, dto.entity, dto.type_profil_ids ?? []);
     }
 
     @UseGuards(JwtAuthGuard)

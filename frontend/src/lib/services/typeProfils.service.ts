@@ -19,10 +19,10 @@ export interface TypeProfilsFilters extends PaginationParams {
     search?: string;
 }
 
-/** Une ligne du registre entité ↔ type de profil (audience). */
+/** Une ligne du registre entité ↔ types de profil (audience). Plusieurs possibles. */
 export interface EntityTypeProfilAssoc {
     entity: string;
-    type_profil: { uuid: string; id: number; titre: string; sous_titre: string | null } | null;
+    type_profils: { uuid: string; id: number; titre: string; sous_titre: string | null }[];
 }
 
 export const typeProfilsService = {
@@ -62,8 +62,8 @@ export const typeProfilsService = {
         return api.get<EntityTypeProfilAssoc[]>('/type-profils/registry');
     },
 
-    /** Associe (ou dissocie si type_profil_id = null) une entité à un type de profil. */
-    async setAssociation(entity: string, type_profil_id: number | null): Promise<EntityTypeProfilAssoc> {
-        return api.put<EntityTypeProfilAssoc>('/type-profils/registry', { entity, type_profil_id });
+    /** Remplace la liste complète des types de profil d'une entité ([] pour dissocier). */
+    async setAssociations(entity: string, type_profil_ids: number[]): Promise<EntityTypeProfilAssoc> {
+        return api.put<EntityTypeProfilAssoc>('/type-profils/registry', { entity, type_profil_ids });
     },
 };

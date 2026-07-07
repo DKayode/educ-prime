@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsInt, IsOptional } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsOptional } from 'class-validator';
 import { TAGGABLE_ENTITIES } from '../taggable-entities';
 
 export class SetEntityTypeProfilDto {
@@ -7,8 +7,13 @@ export class SetEntityTypeProfilDto {
   @IsIn(TAGGABLE_ENTITIES as unknown as string[])
   entity: string;
 
-  @ApiProperty({ required: false, nullable: true, description: 'Type de profil (null pour dissocier)' })
+  @ApiProperty({
+    type: [Number],
+    required: false,
+    description: 'Liste complète des types de profil (remplace la sélection ; [] pour dissocier)',
+  })
   @IsOptional()
-  @IsInt()
-  type_profil_id?: number | null;
+  @IsArray()
+  @IsInt({ each: true })
+  type_profil_ids?: number[];
 }

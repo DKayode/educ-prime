@@ -59,17 +59,18 @@ export class TypeProfilVisibilityService {
     async isEntityHidden(cfg: TypeProfilJoinConfig, viewer?: ViewerContext): Promise<boolean> {
         if (!viewer || viewer.role === RoleType.ADMIN) return false;
         const pays = this.context.getCountry();
-        const entityTypeProfilId = await this.getEntityAssociation(pays, cfg.entity);
-        if (entityTypeProfilId == null) return false; // non associée → publique
+        const entityTypeProfilIds = await this.getEntityAssociations(pays, cfg.entity);
+        if (entityTypeProfilIds.length === 0) return false; // non associée → publique
         const viewerTypeProfilId = await this.resolveViewerTypeProfilId(viewer.utilisateurId);
-        return viewerTypeProfilId == null || viewerTypeProfilId !== entityTypeProfilId;
+        // Visible si l'appelant partage l'UN des types de profil associés à l'entité.
+        return viewerTypeProfilId == null || !entityTypeProfilIds.includes(viewerTypeProfilId);
     }
 
-    private async getEntityAssociation(pays: string, entity: string): Promise<number | null> {
-        const row = await this.resolver
+    private async getEntityAssociations(pays: string, entity: string): Promise<number[]> {
+        const rows = await this.resolver
             .getRepository(EntityTypeProfil)
-            .findOne({ where: { entity, pays } });
-        return row?.type_profil_id ?? null;
+            .find({ where: { entity, pays } });
+        return rows.map((r) => r.type_profil_id);
     }
 
     /** Lit la checklist (ids de type_profil) taguée sur une ligne d'entité. */

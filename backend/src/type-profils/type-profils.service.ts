@@ -27,37 +27,43 @@ export class TypeProfilsService {
         return t ? { uuid: t.uuid, id: t.id, titre: t.titre, sous_titre: t.sous_titre ?? null } : null;
     }
 
-    // REGISTRE — quel type de profil est associé à chaque entité (par pays).
-    // Renvoie toujours les 5 entités (type_profil = null si non associée = publique).
+    // REGISTRE — les types de profil associés à chaque entité (par pays). Une entité
+    // peut en avoir PLUSIEURS. Renvoie toujours les 5 entités (liste vide = publique).
     async getRegistry(pays: string) {
         const rows = await this.registryRepository.find({ where: { pays }, relations: ['type_profil'] });
-        const byEntity = new Map(rows.map((r) => [r.entity, r.type_profil]));
-        return TAGGABLE_ENTITIES.map((entity) => ({ entity, type_profil: this.tp(byEntity.get(entity)) }));
+        const byEntity = new Map<string, any[]>();
+        for (const r of rows) {
+            if (!byEntity.has(r.entity)) byEntity.set(r.entity, []);
+            byEntity.get(r.entity)!.push(this.tp(r.type_profil));
+        }
+        return TAGGABLE_ENTITIES.map((entity) => ({ entity, type_profils: byEntity.get(entity) ?? [] }));
     }
 
-    // Associe (ou dissocie si type_profil_id = null) une entité à un type de profil.
-    async setAssociation(pays: string, entity: string, typeProfilId: number | null) {
+    // Remplace INTÉGRALEMENT la liste des types de profil d'une entité (replace-set).
+    // [] = dissocier (l'entité redevient publique). Valide que chaque type existe.
+    async setAssociations(pays: string, entity: string, typeProfilIds: number[]) {
         if (!TAGGABLE_ENTITIES.includes(entity as any)) {
             throw new BadRequestException(`Entité inconnue: '${entity}'. Attendu: ${TAGGABLE_ENTITIES.join(', ')}`);
         }
-        const existing = await this.registryRepository.findOne({ where: { entity, pays } });
-        if (typeProfilId == null) {
-            if (existing) await this.registryRepository.remove(existing);
-            return { entity, type_profil: null };
+        const unique = Array.from(
+            new Set((typeProfilIds ?? []).map((n) => Number(n)).filter((n) => Number.isInteger(n))),
+        );
+        if (unique.length) {
+            const existing = await this.typeProfilRepository.find({ where: unique.map((id) => ({ id, pays })) });
+            const existingIds = new Set(existing.map((t) => t.id));
+            const missing = unique.filter((id) => !existingIds.has(id));
+            if (missing.length) {
+                throw new NotFoundException(`Type(s) de profil introuvable(s) pour ce pays: ${missing.join(', ')}`);
+            }
         }
-        const typeProfil = await this.typeProfilRepository.findOne({ where: { id: typeProfilId, pays } });
-        if (!typeProfil) {
-            throw new NotFoundException(`Type de profil ${typeProfilId} non trouvé pour ce pays`);
-        }
-        if (existing) {
-            existing.type_profil_id = typeProfilId;
-            await this.registryRepository.save(existing);
-        } else {
-            await this.registryRepository.save(
-                this.registryRepository.create({ entity, type_profil_id: typeProfilId, pays }),
-            );
-        }
-        return { entity, type_profil: this.tp(typeProfil) };
+        await this.resolver.getDataSource().transaction(async (em) => {
+            await em.delete(EntityTypeProfil, { entity, pays });
+            for (const tpId of unique) {
+                await em.save(em.create(EntityTypeProfil, { entity, type_profil_id: tpId, pays }));
+            }
+        });
+        const rows = await this.registryRepository.find({ where: { entity, pays }, relations: ['type_profil'] });
+        return { entity, type_profils: rows.map((r) => this.tp(r.type_profil)) };
     }
 
     // pays vient de @CurrentCountry() : PREMIER argument, jamais dans un DTO.
