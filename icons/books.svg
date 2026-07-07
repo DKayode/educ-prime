@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Books">
+  <!-- bottom book -->
+  <rect x="12" y="42" width="40" height="9" rx="2" fill="#e5484d"/>
+  <rect x="16" y="42" width="3" height="9" fill="#a01216" opacity=".55"/>
+  <!-- middle book -->
+  <rect x="10" y="32" width="42" height="9" rx="2" fill="#3b82f6"/>
+  <rect x="14" y="32" width="3" height="9" fill="#1e4fa0" opacity=".55"/>
+  <!-- top book -->
+  <rect x="15" y="22" width="37" height="9" rx="2" fill="#12b76a"/>
+  <rect x="19" y="22" width="3" height="9" fill="#0a7f49" opacity=".55"/>
+</svg>

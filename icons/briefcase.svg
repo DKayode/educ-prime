@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Briefcase">
+  <!-- handle -->
+  <path d="M25 21v-4a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v4" fill="none" stroke="#7a4a1e" stroke-width="3" stroke-linecap="round"/>
+  <!-- body -->
+  <rect x="9" y="21" width="46" height="31" rx="4" fill="#b5701f"/>
+  <!-- top band -->
+  <path d="M13 21h38a4 4 0 0 1 4 4v4H9v-4a4 4 0 0 1 4-4z" fill="#c98a3d"/>
+  <!-- latch -->
+  <rect x="28" y="33" width="8" height="7" rx="1.5" fill="#7a4a1e"/>
+</svg>

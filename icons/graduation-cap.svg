@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Graduation cap">
+  <!-- mortarboard -->
+  <path d="M32 13 60 26 32 39 4 26z" fill="#22315a"/>
+  <!-- cap (head part) -->
+  <path d="M18 32v11c0 3.5 6.3 6 14 6s14-2.5 14-6V32l-14 6.5z" fill="#2f4373"/>
+  <!-- tassel -->
+  <path d="M60 26v14" fill="none" stroke="#f4b400" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="60" cy="43" r="3.2" fill="#f4b400"/>
+</svg>

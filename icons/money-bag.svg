@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Money bag">
+  <!-- tied neck -->
+  <path d="M23 13h18l-4.5 9h-9z" fill="#b98a1f"/>
+  <!-- bag body -->
+  <path d="M27.5 22C17 27 12 37 12 44.5 12 51 19.5 54 32 54s20-3 20-9.5C52 37 47 27 36.5 22z" fill="#e0b431"/>
+  <!-- dollar sign -->
+  <text x="32" y="47" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" fill="#7a5c10">$</text>
+</svg>
