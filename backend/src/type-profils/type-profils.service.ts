@@ -66,6 +66,20 @@ export class TypeProfilsService {
         return { entity, type_profils: rows.map((r) => this.tp(r.type_profil)) };
     }
 
+    // Inverse du registre : entités associées à un type de profil (par uuid).
+    async getEntitiesForTypeProfil(pays: string, uuid: string): Promise<string[]> {
+        const typeProfil = await this.typeProfilRepository.findOne({ where: { uuid, pays } });
+        if (!typeProfil) {
+            throw new NotFoundException(`Type de profil ${uuid} non trouvé pour ce pays`);
+        }
+        const rows = await this.registryRepository.find({
+            where: { type_profil_id: typeProfil.id, pays },
+        });
+        const associated = new Set(rows.map((r) => r.entity));
+        // Ordre canonique des entités.
+        return TAGGABLE_ENTITIES.filter((e) => associated.has(e));
+    }
+
     // pays vient de @CurrentCountry() : PREMIER argument, jamais dans un DTO.
     async create(pays: string, dto: CreateTypeProfilDto): Promise<TypeProfil> {
         this.logger.log(`Création d'un type de profil: ${dto.titre} (pays=${pays})`);

@@ -55,6 +55,14 @@ export class TypeProfilsController {
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
+    @Get(':uuid/entities')
+    @ApiOperation({ summary: 'Entités de contenu associées à un type de profil (par uuid)' })
+    getEntities(@CurrentCountry() pays: string, @Param('uuid') uuid: string) {
+        return this.typeProfilsService.getEntitiesForTypeProfil(pays, uuid);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
     @Get(':id')
     @ApiOperation({ summary: 'Récupérer un type de profil par son ID' })
     @ApiResponse({ status: 200, description: 'Type de profil récupéré avec succès' })
