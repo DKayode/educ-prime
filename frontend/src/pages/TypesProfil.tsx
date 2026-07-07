@@ -1,10 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Tags, Plus, Pencil, Trash2, Loader2, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Tags, Plus, Pencil, Trash2, Loader2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { typeProfilsService } from "@/lib/services/typeProfils.service";
-import { filesService } from "@/lib/services/files.service";
-import { FileImage } from "@/components/FileImage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -41,29 +39,54 @@ import {
 interface TypeProfilFormData {
   titre: string;
   sous_titre: string;
+  icone: string;
 }
 
-// Sanitize the local-file preview URL before it reaches <img src>: only allow the
-// blob:/data: schemes that URL.createObjectURL / FileReader produce. Blocks any
-// other scheme (e.g. javascript:) — clears the js/xss-through-dom scan on the src sink.
-function safePreviewUrl(url: string | null): string {
-  if (!url) return "";
-  try {
-    const protocol = new URL(url).protocol;
-    return protocol === "blob:" || protocol === "data:" ? url : "";
-  } catch {
-    return "";
-  }
+// Emojis proposés pour l'icône (l'admin peut aussi coller n'importe quel emoji).
+const PRESET_EMOJIS = ["🎓", "📚", "💼", "💰", "🏫", "🧑‍🏫", "👨‍🎓", "👩‍💼", "💡", "🔬", "⚙️", "🎨", "🏆", "🌍", "❤️", "⭐"];
+
+function IconePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <div className="flex h-10 w-10 items-center justify-center rounded-md border text-2xl">
+          {value || "🙂"}
+        </div>
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value.slice(0, 8))}
+          placeholder="Coller un emoji"
+          className="w-40"
+        />
+        {value && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => onChange("")}>
+            Effacer
+          </Button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {PRESET_EMOJIS.map((emoji) => (
+          <button
+            key={emoji}
+            type="button"
+            onClick={() => onChange(emoji)}
+            className={`flex h-8 w-8 items-center justify-center rounded border text-lg hover:bg-muted ${value === emoji ? "ring-2 ring-primary" : ""}`}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function TypesProfil() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [editingTypeProfil, setEditingTypeProfil] = useState<{ id: number; uuid?: string; icone_path?: string } & TypeProfilFormData | null>(null);
+  const [editingTypeProfil, setEditingTypeProfil] = useState<{ id: number; uuid?: string } & TypeProfilFormData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
-  const [iconeFile, setIconeFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
@@ -71,21 +94,8 @@ export default function TypesProfil() {
   const [formData, setFormData] = useState<TypeProfilFormData>({
     titre: "",
     sous_titre: "",
+    icone: "",
   });
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  // Safe object URL management for the local file preview.
-  useEffect(() => {
-    if (!iconeFile) {
-      setPreviewUrl(null);
-      return;
-    }
-    const objectUrl = URL.createObjectURL(iconeFile);
-    setPreviewUrl(objectUrl);
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-    };
-  }, [iconeFile]);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -140,29 +150,16 @@ export default function TypesProfil() {
     setIsUploading(true);
 
     try {
-      // Create the row first; backend assigns the uuid we use as the R2 key.
-      // Icône is OPTIONAL — create must succeed even when no file is chosen.
-      const newTypeProfil = await typeProfilsService.create({
+      await typeProfilsService.create({
         titre: formData.titre,
         sous_titre: formData.sous_titre || undefined,
+        icone: formData.icone || undefined,
       });
-
-      if (iconeFile && newTypeProfil.uuid) {
-        try {
-          await filesService.uploadFile('type_profils', newTypeProfil.uuid, 'icone', iconeFile);
-          toast({ title: "Succès", description: "Type de profil créé avec icône" });
-        } catch (uploadError) {
-          console.error("Failed to upload icône", uploadError);
-          toast({ title: "Attention", description: "Type de profil créé mais échec de l'upload de l'icône" });
-        }
-      } else {
-        toast({ title: "Succès", description: "Type de profil créé avec succès" });
-      }
+      toast({ title: "Succès", description: "Type de profil créé avec succès" });
 
       queryClient.invalidateQueries({ queryKey: ["type-profils"] });
       setIsCreateDialogOpen(false);
-      setFormData({ titre: "", sous_titre: "" });
-      setIconeFile(null);
+      setFormData({ titre: "", sous_titre: "", icone: "" });
     } catch (error: any) {
       toast({ title: "Erreur", description: error.message || "Échec de la création", variant: "destructive" });
     } finally {
@@ -181,18 +178,13 @@ export default function TypesProfil() {
         data: {
           titre: editingTypeProfil.titre,
           sous_titre: editingTypeProfil.sous_titre,
+          icone: editingTypeProfil.icone || undefined,
         },
       });
-
-      // Upload a new icône if the user picked one (optional).
-      if (iconeFile && editingTypeProfil.uuid) {
-        await filesService.uploadFile('type_profils', editingTypeProfil.uuid, 'icone', iconeFile);
-      }
     } catch (error: any) {
       console.error("Update failed", error);
     } finally {
       setIsUploading(false);
-      setIconeFile(null);
     }
   };
 
@@ -200,11 +192,10 @@ export default function TypesProfil() {
     setEditingTypeProfil({
       id: typeProfil.id,
       uuid: typeProfil.uuid,
-      icone_path: typeProfil.icone_path,
       titre: typeProfil.titre,
       sous_titre: typeProfil.sous_titre || "",
+      icone: typeProfil.icone || "",
     });
-    setIconeFile(null);
     setIsEditDialogOpen(true);
   };
 
@@ -260,37 +251,11 @@ export default function TypesProfil() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="icone">Icône</Label>
-                  <div className="flex items-center gap-4">
-                    <Input
-                      id="icone"
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) setIconeFile(file);
-                      }}
-                      className="cursor-pointer"
-                    />
-                    {iconeFile && (
-                      <div className="relative h-10 w-10">
-                        <img
-                          src={safePreviewUrl(previewUrl)}
-                          alt="Preview"
-                          className="h-full w-full object-cover rounded"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="absolute -top-2 -right-2 h-4 w-4 rounded-full"
-                          onClick={() => setIconeFile(null)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                  <Label>Icône (emoji)</Label>
+                  <IconePicker
+                    value={formData.icone}
+                    onChange={(v) => setFormData({ ...formData, icone: v })}
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -347,19 +312,9 @@ export default function TypesProfil() {
                   {typeProfils.map((typeProfil) => (
                     <TableRow key={typeProfil.id}>
                       <TableCell>
-                        <FileImage
-                          entity="type_profils"
-                          uuid={typeProfil.uuid}
-                          slot="icone"
-                          url={typeProfil.icone_path}
-                          alt={`Icône ${typeProfil.titre}`}
-                          className="h-10 w-10 object-contain rounded-md"
-                          placeholder={
-                            <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center">
-                              <Tags className="h-5 w-5 text-muted-foreground" />
-                            </div>
-                          }
-                        />
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted text-2xl">
+                          {typeProfil.icone || <Tags className="h-5 w-5 text-muted-foreground" />}
+                        </div>
                       </TableCell>
                       <TableCell className="font-medium">{typeProfil.titre}</TableCell>
                       <TableCell>{typeProfil.sous_titre || "—"}</TableCell>
@@ -449,50 +404,13 @@ export default function TypesProfil() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-icone">Icône</Label>
-              <div className="flex items-center gap-4">
-                {iconeFile ? (
-                  <div className="relative h-16 w-16">
-                    <img
-                      src={safePreviewUrl(previewUrl)}
-                      alt="Preview"
-                      className="h-full w-full object-contain rounded-md border"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 p-0"
-                      onClick={() => setIconeFile(null)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ) : editingTypeProfil?.uuid ? (
-                  <div className="relative h-16 w-16">
-                    <FileImage
-                      entity="type_profils"
-                      uuid={editingTypeProfil.uuid}
-                      slot="icone"
-                      url={editingTypeProfil.icone_path}
-                      alt="Icône actuelle"
-                      className="h-full w-full object-contain rounded-md border"
-                    />
-                  </div>
-                ) : null}
-                <div className="flex-1">
-                  <Input
-                    id="edit-icone"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setIconeFile(e.target.files[0]);
-                      }
-                    }}
-                  />
-                </div>
-              </div>
+              <Label>Icône (emoji)</Label>
+              {editingTypeProfil && (
+                <IconePicker
+                  value={editingTypeProfil.icone}
+                  onChange={(v) => setEditingTypeProfil({ ...editingTypeProfil, icone: v })}
+                />
+              )}
             </div>
             <DialogFooter>
               <Button type="submit" disabled={isUploading || updateMutation.isPending}>

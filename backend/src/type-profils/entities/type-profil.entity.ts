@@ -21,6 +21,12 @@ export class TypeProfil {
     @Column({ type: 'varchar', length: 255, nullable: true })
     sous_titre?: string;
 
+    // Icône = un emoji (ex. "🎓"). Remplace le fichier importé (slot R2 ci-dessous),
+    // qui reste présent mais dormant pour compat.
+    @ApiProperty({ description: "Emoji de l'icône (ex. 🎓)", required: false })
+    @Column({ type: 'varchar', length: 32, nullable: true })
+    icone?: string;
+
     // Icône via le registre R2 FilesModule (slot public `type_profils.icone`).
     // Colonnes NULLABLE : un admin peut créer un type de profil sans icône.
     // Un slot public écrit l'URL complète directement dans icone_path.
