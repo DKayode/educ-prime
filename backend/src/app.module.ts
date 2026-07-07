@@ -46,6 +46,7 @@ import { TitreModule } from './titre/titre.module';
 import { Titre } from './titre/entities/titre.entity';
 import { DepartementModule } from './departements/departement.module';
 import { VilleModule } from './villes/ville.module';
+import { FormsModule } from './forms/forms.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -141,6 +142,7 @@ import { CountryMiddleware } from './config/country.middleware';
     TitreModule,
     DepartementModule,
     VilleModule,
+    FormsModule,
     NotificationsModule,
     NotificationEmailModule,
     FirebaseModule,

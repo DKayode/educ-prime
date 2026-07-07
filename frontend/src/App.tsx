@@ -42,6 +42,9 @@ import Indicateurs from "./pages/Indicateurs";
 import StatistiquesApprobations from "./pages/StatistiquesApprobations";
 import RetraitsWallet from "./pages/RetraitsWallet";
 import ConfigurationWallet from "./pages/ConfigurationWallet";
+import EnquetesCampagnes from "./pages/EnquetesCampagnes";
+import EnquetesBuilder from "./pages/EnquetesBuilder";
+import EnquetesResultats from "./pages/EnquetesResultats";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -106,6 +109,10 @@ const App = () => (
                       <Route path="/statistiques-approbations" element={<StatistiquesApprobations />} />
                       <Route path="/admin/retraits" element={<RetraitsWallet />} />
                       <Route path="/admin/wallet-configuration" element={<ConfigurationWallet />} />
+                      <Route path="/enquetes" element={<EnquetesCampagnes />} />
+                      <Route path="/enquetes/nouveau" element={<EnquetesBuilder />} />
+                      <Route path="/enquetes/:uuid/edition" element={<EnquetesBuilder />} />
+                      <Route path="/enquetes/:uuid/resultats" element={<EnquetesResultats />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>

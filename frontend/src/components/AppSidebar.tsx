@@ -39,6 +39,7 @@ import {
   Banknote,
   Map,
   MapPin,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -144,6 +145,13 @@ const navTree: NavItem[] = [
       { title: "Avis", icon: Star },
       { title: "Types (Services, Offres)", icon: Layers, url: "/admin/service-types" },
       { title: "Compétences", icon: Cog, url: "/admin/competences" },
+    ],
+  },
+  {
+    title: "Enquêtes",
+    icon: ClipboardList,
+    children: [
+      { title: "Campagnes", icon: ClipboardList, url: "/enquetes" },
     ],
   },
   {
