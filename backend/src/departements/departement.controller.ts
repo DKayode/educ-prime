@@ -72,6 +72,14 @@ export class DepartementController {
     return this.toResponse(await this.departementService.findOne(pays, id));
   }
 
+  @Get(':id/villes')
+  @ApiOperation({ summary: "Lister les villes d'un département (par uuid)" })
+  @ApiResponse({ status: 200, description: 'Villes du département' })
+  async findVilles(@CurrentCountry() pays: string, @Param('id') id: string) {
+    const villes = await this.departementService.findVilles(pays, id);
+    return villes.map((v) => ({ uuid: v.id, nom: v.nom }));
+  }
+
   @Put(':id')
   @ApiOperation({ summary: 'Mettre à jour un département' })
   async update(

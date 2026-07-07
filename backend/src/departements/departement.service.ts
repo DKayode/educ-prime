@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { Departement } from './entities/departement.entity';
+import { Ville } from '../villes/entities/ville.entity';
 import { CreerDepartementDto } from './dto/creer-departement.dto';
 import { MajDepartementDto } from './dto/maj-departement.dto';
 import { FilterDepartementDto } from './dto/filter-departement.dto';
@@ -22,7 +23,18 @@ export class DepartementService {
   constructor(
     @InjectRepository(Departement)
     private readonly departementRepository: Repository<Departement>,
+    @InjectRepository(Ville)
+    private readonly villeRepository: Repository<Ville>,
   ) {}
+
+  // Villes d'un département (scopé pays via findOne). Renvoie la liste triée par nom.
+  async findVilles(pays: string, departementId: string): Promise<Ville[]> {
+    await this.findOne(pays, departementId); // 404 si le département n'existe pas pour ce pays
+    return this.villeRepository.find({
+      where: { departement_id: departementId },
+      order: { nom: 'ASC' },
+    });
+  }
 
   async create(pays: string, dto: CreerDepartementDto): Promise<Departement> {
     const existing = await this.departementRepository.findOne({
