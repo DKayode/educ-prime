@@ -6,6 +6,8 @@ import { opportunitesService, type Opportunite, type OpportuniteType } from "@/l
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { filesService } from "@/lib/services/files.service";
 import { FileImage } from "@/components/FileImage";
+import { TypeProfilChecklist } from "@/components/TypeProfilChecklist";
+import { typeProfilTaggingService } from "@/lib/services/typeProfilTagging.service";
 import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +36,9 @@ export default function Opportunites() {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [editingOpportunite, setEditingOpportunite] = useState<Opportunite | null>(null);
+    // Type-profil checklist selection (create vs edit dialogs).
+    const [newTypeProfilIds, setNewTypeProfilIds] = useState<number[]>([]);
+    const [editTypeProfilIds, setEditTypeProfilIds] = useState<number[]>([]);
 
     // Filters state
     const [searchTerm, setSearchTerm] = useState("");
@@ -151,12 +156,24 @@ export default function Opportunites() {
                 }
             }
 
+            // Step 3: type-profil checklist (separate side-call). Only PUT when
+            // something is selected — a fresh row is untagged by default.
+            if (newTypeProfilIds.length > 0) {
+                try {
+                    await typeProfilTaggingService.set('opportunites', createdOpportunite.id, newTypeProfilIds);
+                } catch (tagError) {
+                    console.error("Failed to save type-profils", tagError);
+                    toast({ title: "Attention", description: "Opportunité créée mais échec de l'enregistrement des types de profil" });
+                }
+            }
+
             // Success
             queryClient.invalidateQueries({ queryKey: ["opportunites"] });
             queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
             setIsCreateDialogOpen(false);
             setFormData({ titre: "", type: "Bourses", organisme: "", lieu: "", date_publication: "", image: "", lien_postuler: "", actif: true });
             setSelectedFile(null);
+            setNewTypeProfilIds([]);
             setImageVersion(Date.now());
             toast({ title: "Succès", description: "Opportunité créée avec succès" });
         } catch (error: any) {
@@ -190,11 +207,16 @@ export default function Opportunites() {
                 await filesService.uploadFile('opportunites', editingOpportunite.uuid, 'image', selectedFile);
             }
 
+            // Step 3: replace-set the type-profil checklist (always PUT so edits
+            // can also CLEAR tags).
+            await typeProfilTaggingService.set('opportunites', editingOpportunite.id, editTypeProfilIds);
+
             // Success
             queryClient.invalidateQueries({ queryKey: ["opportunites"] });
             setIsEditDialogOpen(false);
             setEditingOpportunite(null);
             setSelectedFile(null);
+            setEditTypeProfilIds([]);
             setImageVersion(Date.now());
             toast({ title: "Succès", description: "Opportunité mise à jour avec succès" });
         } catch (error: any) {
@@ -395,7 +417,7 @@ export default function Opportunites() {
                                         <TableCell><Badge variant={opp.actif ? "default" : "secondary"}>{opp.actif ? "Actif" : "Inactif"}</Badge></TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <Button variant="ghost" size="icon" onClick={() => { setEditingOpportunite(opp); setIsEditDialogOpen(true); }}>
+                                                <Button variant="ghost" size="icon" onClick={() => { setEditingOpportunite(opp); setEditTypeProfilIds([]); setIsEditDialogOpen(true); typeProfilTaggingService.get('opportunites', opp.id).then(setEditTypeProfilIds).catch(() => { }); }}>
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
                                                 <Button variant="ghost" size="icon" onClick={() => setDeleteId(opp.id)}>
@@ -530,6 +552,8 @@ export default function Opportunites() {
                                     onChange={(e) => setEditingOpportunite(editingOpportunite ? { ...editingOpportunite, actif: e.target.checked } : null)}
                                     className="h-4 w-4"
                                 />
+                            </div>
+                            <div className="mt-4">
                             </div>
                         </div>
                         <DialogFooter>

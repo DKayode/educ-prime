@@ -1,6 +1,11 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { Repository, In, ILike } from 'typeorm';
+import { Repository, In, ILike, Not } from 'typeorm';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
+import {
+    TypeProfilVisibilityService,
+    TypeProfilJoinConfig,
+    ViewerContext,
+} from '../type-profils/type-profil-visibility.service';
 import { CreateOffreDto, UpdateOffreDto } from './dto/offre.dto';
 
 import { FichiersService } from '../fichiers/fichiers.service';
@@ -32,11 +37,34 @@ export interface AvisStats {
 
 @Injectable()
 export class OffresService {
+    private readonly typeProfilJoin: TypeProfilJoinConfig = {
+        entity: 'offre',
+        joinTable: 'offre_type_profils',
+        fkColumn: 'offre_id',
+    };
+
     constructor(
         private readonly resolver: DataSourceResolver,
         private fichiersService: FichiersService,
-        private mailService: MailService
+        private mailService: MailService,
+        private readonly typeProfilVisibility: TypeProfilVisibilityService,
     ) { }
+
+    /** Lit la checklist de types de profil taguée sur une offre. */
+    async getTypeProfilIds(id: number): Promise<{ typeProfilIds: number[] }> {
+        const offre = await this.offresRepository.findOne({ where: { id } });
+        if (!offre) throw new NotFoundException(`Offre #${id} introuvable`);
+        const typeProfilIds = await this.typeProfilVisibility.getTypeProfilIds(this.typeProfilJoin, id);
+        return { typeProfilIds };
+    }
+
+    /** Remplace (replace-set) la checklist de types de profil d'une offre. */
+    async setTypeProfilIds(id: number, typeProfilIds: number[]): Promise<{ typeProfilIds: number[] }> {
+        const offre = await this.offresRepository.findOne({ where: { id } });
+        if (!offre) throw new NotFoundException(`Offre #${id} introuvable`);
+        const saved = await this.typeProfilVisibility.setTypeProfilIds(this.typeProfilJoin, id, typeProfilIds);
+        return { typeProfilIds: saved };
+    }
 
     private get offresRepository(): Repository<Offre> { return this.resolver.getRepository(Offre); }
     private get typesRepository(): Repository<Type> { return this.resolver.getRepository(Type); }
@@ -206,7 +234,7 @@ export class OffresService {
         return this.formatOffre(fullOffre);
     }
 
-    async findAll(pays: string, filters: OffreFilterDto) {
+    async findAll(pays: string, filters: OffreFilterDto, viewer?: ViewerContext) {
         const { type, prixMin, prixMax, search, type_contrat, page = 1, limit = 10 } = filters;
 
         const queryBuilder = this.offresRepository.createQueryBuilder('offre')
@@ -235,6 +263,11 @@ export class OffresService {
             queryBuilder.andWhere('(offre.titre ILIKE :search OR offre.description ILIKE :search)', { search: `%${search}%` });
         }
 
+        // Visibilité par type de profil. Route publique/non-gardée : le contrôleur
+        // passe un viewer TRUTHY {role:undefined,utilisateurId:undefined} → anonyme
+        // = non-tagué uniquement (jamais `undefined`, qui shunterait le filtre).
+        await this.typeProfilVisibility.applyVisibilityFilter(queryBuilder, 'offre', this.typeProfilJoin, viewer);
+
         queryBuilder.orderBy('offre.created_at', 'DESC');
         queryBuilder.skip((page - 1) * limit).take(limit);
 
@@ -249,11 +282,17 @@ export class OffresService {
         };
     }
 
-    async findAllByUser(pays: string, userId: number, pagination: { page: number, limit: number }) {
+    async findAllByUser(pays: string, userId: number, pagination: { page: number, limit: number }, viewer?: ViewerContext) {
         const { page = 1, limit = 10 } = pagination;
 
+        // Liste authentifiée : visibilité par type de profil (chemin findAndCount).
+        const where: any = { pays, utilisateur_id: userId };
+        if (await this.typeProfilVisibility.isEntityHidden(this.typeProfilJoin, viewer)) {
+            where.id = -1; // entité masquée pour l'appelant → aucune ligne
+        }
+
         const [data, total] = await this.offresRepository.findAndCount({
-            where: { pays, utilisateur_id: userId },
+            where,
             relations: ['type', 'competences'],
             order: { created_at: 'DESC' },
             skip: (page - 1) * limit,

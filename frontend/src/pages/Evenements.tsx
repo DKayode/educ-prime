@@ -6,6 +6,8 @@ import { evenementsService, type Evenement } from "@/lib/services/evenements.ser
 import { fichiersService } from "@/lib/services/fichiers.service";
 import { filesService } from "@/lib/services/files.service";
 import { FileImage } from "@/components/FileImage";
+import { TypeProfilChecklist } from "@/components/TypeProfilChecklist";
+import { typeProfilTaggingService } from "@/lib/services/typeProfilTagging.service";
 import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +59,8 @@ export default function Evenements() {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [editingEvenement, setEditingEvenement] = useState<Evenement | null>(null);
+    const [newTypeProfilIds, setNewTypeProfilIds] = useState<number[]>([]);
+    const [editTypeProfilIds, setEditTypeProfilIds] = useState<number[]>([]);
     const [formData, setFormData] = useState<EvenementFormData>({
         titre: "",
         description: "",
@@ -168,12 +172,23 @@ export default function Evenements() {
                 }
             }
 
+            // Step 3: type-profil checklist (separate side-call, only if selected).
+            if (newTypeProfilIds.length > 0) {
+                try {
+                    await typeProfilTaggingService.set('evenements', createdEvenement.id, newTypeProfilIds);
+                } catch (tagError) {
+                    console.error("Failed to save type-profils", tagError);
+                    toast({ title: "Attention", description: "Événement créé mais échec de l'enregistrement des types de profil" });
+                }
+            }
+
             // Success
             queryClient.invalidateQueries({ queryKey: ["evenements"] });
             queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
             setIsCreateDialogOpen(false);
             setFormData({ titre: "", description: "", date: "", lieu: "", lien_inscription: "", image: "", actif: true });
             setSelectedFile(null);
+            setNewTypeProfilIds([]);
             setImageVersion(Date.now());
             toast({ title: "Succès", description: "Événement créé avec succès" });
         } catch (error: any) {
@@ -209,10 +224,14 @@ export default function Evenements() {
                 await filesService.uploadFile('evenements', editingEvenement.uuid, 'image', selectedFile);
             }
 
+            // Step 3: replace-set the type-profil checklist (always PUT so edits can clear).
+            await typeProfilTaggingService.set('evenements', editingEvenement.id, editTypeProfilIds);
+
             // Success
             queryClient.invalidateQueries({ queryKey: ["evenements"] });
             setIsEditDialogOpen(false);
             setEditingEvenement(null);
+            setEditTypeProfilIds([]);
             setSelectedFile(null); // Clear file
             setImageVersion(Date.now());
             toast({ title: "Succès", description: "Événement mis à jour avec succès" });
@@ -427,7 +446,9 @@ export default function Evenements() {
                                                     size="icon"
                                                     onClick={() => {
                                                         setEditingEvenement(evenement);
+                                                        setEditTypeProfilIds([]);
                                                         setIsEditDialogOpen(true);
+                                                        typeProfilTaggingService.get('evenements', evenement.id).then(setEditTypeProfilIds).catch(() => { });
                                                     }}
                                                 >
                                                     <Pencil className="h-4 w-4" />
@@ -570,6 +591,8 @@ export default function Evenements() {
                                     onChange={(e) => setEditingEvenement(editingEvenement ? { ...editingEvenement, actif: e.target.checked } : null)}
                                     className="h-4 w-4"
                                 />
+                            </div>
+                            <div className="mt-4">
                             </div>
                         </div>
                         <DialogFooter>

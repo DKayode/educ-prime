@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Query, Res, HttpStatus, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 import { OpportunitesService } from './opportunites.service';
 import { CreerOpportuniteDto } from './dto/create-opportunite.dto';
@@ -10,6 +10,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { FilterOpportuniteDto } from './dto/filter-opportunite.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
+import { SetTypeProfilsDto } from '../common/dto/set-type-profils.dto';
 
 @ApiTags('opportunites')
 @Controller('opportunites')
@@ -37,8 +38,28 @@ export class OpportunitesController {
   @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Trier par (date, name)' })
   @ApiQuery({ name: 'sort_order', required: false, type: String, description: 'Odre de tri (ASC, DESC)' })
   @ApiQuery({ name: 'actif', required: false, type: Boolean, description: 'Filtrer par statut actif' })
-  findAll(@Query() filterDto: FilterOpportuniteDto) {
-    return this.opportunitesService.findAll(filterDto);
+  findAll(@Query() filterDto: FilterOpportuniteDto, @Request() req) {
+    // Identité de l'appelant (JWT) → règle de visibilité par type de profil.
+    const viewer = { role: req.user?.role, utilisateurId: req.user?.utilisateurId };
+    return this.opportunitesService.findAll(filterDto, viewer);
+  }
+
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @ApiBearerAuth()
+  @Get(':id/type-profils')
+  @ApiOperation({ summary: 'Récupérer la checklist de types de profil d\'une opportunité (admin)' })
+  getTypeProfils(@Param('id') id: string) {
+    return this.opportunitesService.getTypeProfilIds(+id);
+  }
+
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @ApiBearerAuth()
+  @Put(':id/type-profils')
+  @ApiOperation({ summary: 'Définir (replace-set) la checklist de types de profil d\'une opportunité (admin)' })
+  setTypeProfils(@Param('id') id: string, @Body() dto: SetTypeProfilsDto) {
+    return this.opportunitesService.setTypeProfilIds(+id, dto.typeProfilIds);
   }
 
   @UseGuards(JwtAuthGuard)

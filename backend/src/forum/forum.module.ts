@@ -7,9 +7,10 @@ import { Forum } from './entities/forum.entity';
 import { LikesPolymorphicModule } from '../likes-polymorphic/likes-polymorphic.module';
 
 import { FichiersModule } from '../fichiers/fichiers.module';
+import { TypeProfilsModule } from '../type-profils/type-profils.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Forum]), LikesPolymorphicModule, FichiersModule],
+    imports: [TypeOrmModule.forFeature([Forum]), LikesPolymorphicModule, FichiersModule, TypeProfilsModule],
     controllers: [ForumController],
     providers: [ForumService],
 })

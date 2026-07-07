@@ -160,6 +160,12 @@ export class Utilisateur {
   @JoinColumn({ name: 'ville_id' })
   ville: Ville;
 
+  // Type de profil (personnalisation) — un seul par utilisateur, nullable.
+  // Scalaire seul (pas de relation) pour garder l'édition de cette entité
+  // partagée minimale ; l'objet type_profil est résolu côté service.
+  @Column({ nullable: true })
+  type_profil_id: number;
+
   @OneToMany(() => Commentaire, commentaire => commentaire.utilisateur)
   commentaires: Commentaire[];
 

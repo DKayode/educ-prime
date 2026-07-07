@@ -8,18 +8,45 @@ import { UpdateOpportuniteDto } from './dto/update-opportunite.dto';
 import { FilterOpportuniteDto, OpportuniteSortBy, OpportuniteSortOrder } from './dto/filter-opportunite.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { FindOptionsWhere, Like } from 'typeorm';
+import {
+  TypeProfilVisibilityService,
+  TypeProfilJoinConfig,
+  ViewerContext,
+} from '../type-profils/type-profil-visibility.service';
 
 @Injectable()
 export class OpportunitesService {
   private readonly logger = new Logger(OpportunitesService.name);
 
+  // Jointure type-profils de cette entité (constantes internes).
+  private readonly typeProfilJoin: TypeProfilJoinConfig = {
+    entity: 'opportunite',
+    joinTable: 'opportunite_type_profils',
+    fkColumn: 'opportunite_id',
+  };
+
   constructor(
     private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
+    private readonly typeProfilVisibility: TypeProfilVisibilityService,
   ) { }
 
   private get opportuniteRepository(): Repository<Opportunite> {
     return this.resolver.getRepository(Opportunite);
+  }
+
+  /** Lit la checklist de types de profil taguée sur une opportunité. */
+  async getTypeProfilIds(id: number): Promise<{ typeProfilIds: number[] }> {
+    await this.findOne(id); // 404 si l'opportunité n'existe pas
+    const typeProfilIds = await this.typeProfilVisibility.getTypeProfilIds(this.typeProfilJoin, id);
+    return { typeProfilIds };
+  }
+
+  /** Remplace (replace-set) la checklist de types de profil d'une opportunité. */
+  async setTypeProfilIds(id: number, typeProfilIds: number[]): Promise<{ typeProfilIds: number[] }> {
+    await this.findOne(id);
+    const saved = await this.typeProfilVisibility.setTypeProfilIds(this.typeProfilJoin, id, typeProfilIds);
+    return { typeProfilIds: saved };
   }
 
   async create(creerOpportuniteDto: CreerOpportuniteDto) {
@@ -30,7 +57,7 @@ export class OpportunitesService {
     return saved;
   }
 
-  async findAll(filterDto: FilterOpportuniteDto): Promise<PaginationResponse<Opportunite>> {
+  async findAll(filterDto: FilterOpportuniteDto, viewer?: ViewerContext): Promise<PaginationResponse<Opportunite>> {
     const { page = 1, limit = 10, search, type, sort_by = OpportuniteSortBy.DATE, sort_order = OpportuniteSortOrder.DESC, actif } = filterDto;
     this.logger.log(`Récupération des opportunités - filtres: ${JSON.stringify(filterDto)}`);
 
@@ -50,6 +77,10 @@ export class OpportunitesService {
     if (actif !== undefined) {
       queryBuilder.andWhere('opportunite.actif = :actif', { actif });
     }
+
+    // Visibilité par type de profil : non-admin ⇒ non-tagué OU partage son type_profil.
+    // Admin / sans viewer ⇒ inchangé.
+    await this.typeProfilVisibility.applyVisibilityFilter(queryBuilder, 'opportunite', this.typeProfilJoin, viewer);
 
     // Sorting
     if (sort_by === OpportuniteSortBy.NAME) {

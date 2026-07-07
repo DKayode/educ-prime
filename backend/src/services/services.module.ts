@@ -9,12 +9,14 @@ import { Prestataire } from '../prestataires/entities/prestataire.entity';
 import { Avis } from '../avis/entities/avis.entity';
 import { MailModule } from '../mail/mail.module';
 import { FichiersModule } from '../fichiers/fichiers.module';
+import { TypeProfilsModule } from '../type-profils/type-profils.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Service, Type, Utilisateur, Prestataire, Avis]),
     MailModule,
     FichiersModule,
+    TypeProfilsModule,
   ],
   controllers: [ServicesController],
   providers: [ServicesService]

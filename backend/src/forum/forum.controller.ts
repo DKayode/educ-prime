@@ -7,7 +7,11 @@ import { FilterForumDto } from './dto/filter-forum.dto';
 import { ApiTags, ApiBearerAuth, ApiQuery, ApiOkResponse, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
 import { Forum } from './entities/forum.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RoleGuard } from '../auth/guards/role.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
+import { SetTypeProfilsDto } from '../common/dto/set-type-profils.dto';
 
 @ApiTags('Forums')
 @Controller('forums')
@@ -32,7 +36,26 @@ export class ForumController {
     @ApiResponse({ status: 200, description: 'Liste des forums récupérée avec succès.', type: [Forum] })
     findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterForumDto, @Req() req) {
         const userId = req.user.utilisateurId;
-        return this.forumService.findAll(pays, filterDto, userId);
+        const viewer = { role: req.user?.role, utilisateurId: userId };
+        return this.forumService.findAll(pays, filterDto, userId, viewer);
+    }
+
+    @Get(':id/type-profils')
+    @UseGuards(JwtAuthGuard, RoleGuard)
+    @Roles(RoleType.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Récupérer la checklist de types de profil d\'un forum (admin)' })
+    getTypeProfils(@Param('id', ParseIntPipe) id: number) {
+        return this.forumService.getTypeProfilIds(id);
+    }
+
+    @Put(':id/type-profils')
+    @UseGuards(JwtAuthGuard, RoleGuard)
+    @Roles(RoleType.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Définir (replace-set) la checklist de types de profil d\'un forum (admin)' })
+    setTypeProfils(@Param('id', ParseIntPipe) id: number, @Body() dto: SetTypeProfilsDto) {
+        return this.forumService.setTypeProfilIds(id, dto.typeProfilIds);
     }
 
     @Get(':id')

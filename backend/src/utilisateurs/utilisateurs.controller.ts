@@ -49,7 +49,7 @@ export class UtilisateursController {
     const userId = req.user.utilisateurId.toString();
     const email = req.user.email;
     console.log(`[UtilisateursController] Récupération du profil pour l'utilisateur: ${email} (ID: ${userId})`);
-    // geo-profile: unified complete user shape (geo {uuid,nom} + age + booleans) via the service
+    // Unified complete user shape (geo {uuid,nom} + age_group + booleans + type_profil) via the service.
     const profil = await this.utilisateursService.findOne(userId);
     return this.utilisateursService.enrichUserComplete(profil);
   }
