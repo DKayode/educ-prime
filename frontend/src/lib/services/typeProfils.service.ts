@@ -8,7 +8,9 @@ export interface TypeProfil {
     uuid?: string;
     titre: string;
     sous_titre?: string;
-    /** Full public URL of the R2 icône (slot type_profils.icone). Prefer FileImage. */
+    /** Emoji de l'icône (ex. "🎓") — remplace le fichier importé. */
+    icone?: string;
+    /** Legacy: full public URL of the R2 icône (dormant since the emoji switch). */
     icone_path?: string;
     icone_extension?: string;
     pays?: string;
@@ -35,12 +37,12 @@ export const typeProfilsService = {
         return api.get<TypeProfil>(`/type-profils/${id}`);
     },
 
-    async create(data: { titre: string; sous_titre?: string }): Promise<TypeProfil> {
+    async create(data: { titre: string; sous_titre?: string; icone?: string }): Promise<TypeProfil> {
         // Country-scoped server-side via @CurrentCountry(); pays never in the body.
         return api.post<TypeProfil>('/type-profils', data);
     },
 
-    async update(id: number, data: Partial<{ titre: string; sous_titre: string }>): Promise<TypeProfil> {
+    async update(id: number, data: Partial<{ titre: string; sous_titre: string; icone: string }>): Promise<TypeProfil> {
         return api.put<TypeProfil>(`/type-profils/${id}`, data);
     },
 

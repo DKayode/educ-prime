@@ -13,7 +13,10 @@ export class CreateTypeProfilDto {
     @MaxLength(255)
     sous_titre?: string;
 
-    // NB: l'icône n'est PAS dans ce DTO — elle est téléversée séparément via le
-    // registre R2 FilesModule (POST /files/type_profils/:uuid/icone/upload), comme
-    // categories.icone. `pays` non plus : le middleware le retire des DTO.
+    // Icône = un emoji (remplace le fichier importé R2). `pays` reste retiré par le middleware.
+    @ApiProperty({ description: "Emoji de l'icône (ex. 🎓)", required: false })
+    @IsOptional()
+    @IsString()
+    @MaxLength(32)
+    icone?: string;
 }
