@@ -43,6 +43,19 @@ interface TypeProfilFormData {
   sous_titre: string;
 }
 
+// Sanitize the local-file preview URL before it reaches <img src>: only allow the
+// blob:/data: schemes that URL.createObjectURL / FileReader produce. Blocks any
+// other scheme (e.g. javascript:) — clears the js/xss-through-dom scan on the src sink.
+function safePreviewUrl(url: string | null): string {
+  if (!url) return "";
+  try {
+    const protocol = new URL(url).protocol;
+    return protocol === "blob:" || protocol === "data:" ? url : "";
+  } catch {
+    return "";
+  }
+}
+
 export default function TypesProfil() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -262,7 +275,7 @@ export default function TypesProfil() {
                     {iconeFile && (
                       <div className="relative h-10 w-10">
                         <img
-                          src={previewUrl || ""}
+                          src={safePreviewUrl(previewUrl)}
                           alt="Preview"
                           className="h-full w-full object-cover rounded"
                         />
@@ -441,7 +454,7 @@ export default function TypesProfil() {
                 {iconeFile ? (
                   <div className="relative h-16 w-16">
                     <img
-                      src={previewUrl || ""}
+                      src={safePreviewUrl(previewUrl)}
                       alt="Preview"
                       className="h-full w-full object-contain rounded-md border"
                     />
