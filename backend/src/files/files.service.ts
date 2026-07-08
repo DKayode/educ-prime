@@ -166,7 +166,12 @@ export class FilesService {
      */
     private storedPathFor(cfg: FileSlotConfig, entity: string, uuid: string, slot: string, extension: string): string {
         if (cfg.public) {
-            return this.publicUrl(buildObjectKey(entity, uuid, slot, extension));
+            // The R2 object key is DETERMINISTIC (<entity>/<uuid>/<slot>.<ext>) and public
+            // objects are served with `immutable` (PUBLIC_CACHE_CONTROL). A re-upload
+            // overwrites the object but keeps the SAME URL, so CDNs/browsers keep serving
+            // the stale copy. Append a per-upload version → a fresh URL (new CDN cache key)
+            // each time, so the new file is visible while caching stays aggressive.
+            return `${this.publicUrl(buildObjectKey(entity, uuid, slot, extension))}?v=${Date.now()}`;
         }
         return buildLogicalPath(entity, uuid, slot);
     }
