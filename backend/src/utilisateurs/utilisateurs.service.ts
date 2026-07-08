@@ -503,11 +503,12 @@ export class UtilisateursService {
   /**
    * Résout le type de profil d'un utilisateur pour la réponse GET /utilisateurs/profil.
    * Renvoie l'id brut (`type_profil_id`) + l'objet `type_profil`
-   * { id, titre, sous_titre, icone_path } (ou null si non assigné).
+   * { id, uuid, titre, sous_titre, icone } (ou null si non assigné). `icone` est
+   * l'emoji ; `icone_path` (R2, dormant) est conservé pour compat.
    */
   async getTypeProfilForProfil(userId: number): Promise<{
     type_profil_id: number | null;
-    type_profil: { id: number; titre: string; sous_titre: string | null; icone_path: string | null } | null;
+    type_profil: { id: number; uuid: string; titre: string; sous_titre: string | null; icone: string | null; icone_path: string | null } | null;
   }> {
     const user = await this.utilisateursRepository.findOne({
       where: { id: userId },
@@ -519,15 +520,17 @@ export class UtilisateursService {
     }
     const typeProfil = await this.resolver.getRepository(TypeProfil).findOne({
       where: { id: typeProfilId },
-      select: ['id', 'titre', 'sous_titre', 'icone_path'],
+      select: ['id', 'uuid', 'titre', 'sous_titre', 'icone', 'icone_path'],
     });
     return {
       type_profil_id: typeProfilId,
       type_profil: typeProfil
         ? {
           id: typeProfil.id,
+          uuid: typeProfil.uuid,
           titre: typeProfil.titre,
           sous_titre: typeProfil.sous_titre ?? null,
+          icone: typeProfil.icone ?? null,
           icone_path: typeProfil.icone_path ?? null,
         }
         : null,
