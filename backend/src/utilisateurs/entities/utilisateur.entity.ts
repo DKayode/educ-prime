@@ -103,8 +103,9 @@ export class Utilisateur {
   @Column({ type: 'varchar', length: 20, nullable: true })
   zone_residence: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  situation_handicap: string;
+  // Situation de handicap : booléen (oui/non). Remplace l'ancienne chaîne (visuel/auditif/…).
+  @Column({ type: 'boolean', nullable: true, default: false })
+  situation_handicap: boolean;
 
   @Column({ nullable: true })
   telephone: string;

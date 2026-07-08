@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsNumber, IsDateString, IsIn, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsNumber, IsDateString, IsIn, IsUUID, IsBoolean } from 'class-validator';
 import { RoleType, SexeType, AgeGroup } from '../entities/utilisateur.entity';
 
 export class MajUtilisateurDto {
@@ -31,8 +31,8 @@ export class MajUtilisateurDto {
   zone_residence?: string;
 
   @IsOptional()
-  @IsIn(['visuel', 'auditif', 'moteur', 'psychomoteur', 'aucun'])
-  situation_handicap?: string;
+  @IsBoolean()
+  situation_handicap?: boolean;
 
   @IsOptional()
   @IsString()
