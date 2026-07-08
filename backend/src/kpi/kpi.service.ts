@@ -12,7 +12,7 @@ import { DataSource } from 'typeorm';
  *  - age ≤ 35: age_group in the under-35 buckets ('< 18','18 - 25','26 - 35').
  *    NULL age_group is excluded automatically (not counted). Replaces the former
  *    date_naissance-based computation.
- *  - disability: situation_handicap IS NOT NULL AND <> 'aucun'.
+ *  - disability: situation_handicap IS TRUE (booléen).
  *  - logins (KPI 8 / 15): distinct refresh_tokens.utilisateur_id in the period
  *    (refresh_tokens has no pays, so we join utilisateurs for the country scope).
  *  - KPI 16: distinct learners with a resource_access row (épreuve|concours) in
@@ -33,13 +33,13 @@ export class KpiService {
         COUNT(*) FILTER (WHERE sexe = 'F')                                                         AS female_users,
         COUNT(*) FILTER (WHERE sexe = 'F' AND age_group IN ('< 18','18 - 25','26 - 35')) AS female_age_35,
         COUNT(*) FILTER (WHERE zone_residence = 'rural')                                           AS rural_users,
-        COUNT(*) FILTER (WHERE situation_handicap IS NOT NULL AND situation_handicap <> 'aucun')   AS disability_users,
+        COUNT(*) FILTER (WHERE situation_handicap IS TRUE)   AS disability_users,
         COUNT(*) FILTER (WHERE role = 'étudiant')                                                  AS learners,
         COUNT(*) FILTER (WHERE role = 'étudiant' AND age_group IN ('< 18','18 - 25','26 - 35')) AS learners_age_35,
         COUNT(*) FILTER (WHERE role = 'étudiant' AND sexe = 'F' AND age_group IN ('< 18','18 - 25','26 - 35')) AS learners_age_35_female,
         COUNT(*) FILTER (WHERE role = 'étudiant' AND sexe = 'F')                                   AS female_learners,
         COUNT(*) FILTER (WHERE role = 'étudiant' AND zone_residence = 'rural')                     AS rural_learners,
-        COUNT(*) FILTER (WHERE role = 'étudiant' AND situation_handicap IS NOT NULL AND situation_handicap <> 'aucun') AS disability_learners
+        COUNT(*) FILTER (WHERE role = 'étudiant' AND situation_handicap IS TRUE) AS disability_learners
       FROM utilisateurs
       WHERE pays = $1
         AND date_creation >= $2::date

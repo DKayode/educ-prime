@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength, IsOptional, IsEnum, IsNumber, IsDateString, IsIn } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsEnum, IsNumber, IsDateString, IsIn, IsBoolean } from 'class-validator';
 import { RoleType, SexeType, AgeGroup } from '../entities/utilisateur.entity';
 
 export class InscriptionDto {
@@ -79,8 +79,8 @@ export class InscriptionDto {
   @IsIn(['rural', 'urbain'])
   zone_residence?: string;
 
-  @ApiProperty({ enum: ['visuel', 'auditif', 'moteur', 'psychomoteur', 'aucun'], description: 'Situation de handicap (PII optionnelle)', required: false })
+  @ApiProperty({ example: false, description: 'Situation de handicap (oui/non)', required: false })
   @IsOptional()
-  @IsIn(['visuel', 'auditif', 'moteur', 'psychomoteur', 'aucun'])
-  situation_handicap?: string;
+  @IsBoolean()
+  situation_handicap?: boolean;
 }
