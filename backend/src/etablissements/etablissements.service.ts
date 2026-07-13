@@ -381,6 +381,7 @@ export class EtablissementsService {
     return {
       data: epreuves.map(epreuve => ({
         id: epreuve.id,
+        uuid: epreuve.uuid,
         titre: epreuve.titre,
         url: epreuve.url,
         duree_minutes: epreuve.duree_minutes,
