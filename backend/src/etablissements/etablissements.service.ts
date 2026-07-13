@@ -259,13 +259,19 @@ export class EtablissementsService {
     const { page = 1, limit = 10, search } = filterDto;
     this.logger.log(`Récupération des matières (pays=${pays}) pour niveau d'étude ID: ${niveauEtudeId} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
 
+    // Accept the établissement UUID (what clients receive in responses) OR its
+    // numeric id — uuids carry hyphens, numeric ids never do.
+    const etablissementWhere = etablissementId.includes('-')
+      ? { uuid: etablissementId }
+      : { id: parseInt(etablissementId) };
+
     // Verify niveau_etude belongs to filiere and etablissement
     const niveauEtude = await this.niveauEtudeRepository.findOne({
       where: {
         id: parseInt(niveauEtudeId),
         filiere: {
           id: parseInt(filiereId),
-          etablissement: { id: parseInt(etablissementId) }
+          etablissement: etablissementWhere,
         }
       },
     });
@@ -330,13 +336,19 @@ export class EtablissementsService {
     const { page = 1, limit = 10, search, type, matiere } = filterDto;
     this.logger.log(`Recherche des épreuves (pays=${pays}) pour niveau ID: ${niveauEtudeId} - Search: ${search}, Type: ${type}, Matière: ${matiere}`);
 
+    // Accept the établissement UUID (what clients receive in responses) OR its
+    // numeric id — uuids carry hyphens, numeric ids never do.
+    const etablissementWhere = etablissementId.includes('-')
+      ? { uuid: etablissementId }
+      : { id: parseInt(etablissementId) };
+
     // Verify niveau_etude belongs to filiere and etablissement
     const niveauEtude = await this.niveauEtudeRepository.findOne({
       where: {
         id: parseInt(niveauEtudeId),
         filiere: {
           id: parseInt(filiereId),
-          etablissement: { id: parseInt(etablissementId) }
+          etablissement: etablissementWhere,
         }
       },
     });
