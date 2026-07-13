@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserPlus, Loader2, Trash2, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
+import { Search, UserPlus, Loader2, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Eye } from "lucide-react";
 import { usersService } from "@/lib/services/users.service";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -45,7 +45,23 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
+// date_creation est stocké en UTC (le serveur Neon tourne en UTC). Affiché ici en
+// heure LOCALE du navigateur, avec la date ET l'heure.
+const fmtDateTime = (v?: string | null) =>
+  v ? new Date(v).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-";
+
+function Field({ label, value }: { label: string; value?: unknown }) {
+  const display = value === null || value === undefined || value === "" ? "—" : String(value);
+  return (
+    <div className="space-y-0.5">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="font-medium break-words">{display}</p>
+    </div>
+  );
+}
+
 export default function Users() {
+  const [detailsUser, setDetailsUser] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -254,10 +270,8 @@ export default function Users() {
                             {user.est_desactive ? "Non" : "Oui"}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          {user.date_creation
-                            ? new Date(user.date_creation).toLocaleDateString()
-                            : "-"}
+                        <TableCell className="whitespace-nowrap">
+                          {fmtDateTime(user.date_creation)}
                         </TableCell>
                         <TableCell>
                           {user.date_suppression_prevue
@@ -266,6 +280,14 @@ export default function Users() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDetailsUser(user)}
+                              title="Voir les détails"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -336,6 +358,44 @@ export default function Users() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={detailsUser !== null} onOpenChange={(open) => !open && setDetailsUser(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailsUser?.prenom} {detailsUser?.nom}</DialogTitle>
+            <DialogDescription>{detailsUser?.email}</DialogDescription>
+          </DialogHeader>
+          {detailsUser && (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <Field label="Rôle" value={detailsUser.role} />
+              <Field label="Pseudo" value={detailsUser.pseudo} />
+              <Field label="Téléphone" value={detailsUser.telephone} />
+              <Field label="Sexe" value={detailsUser.sexe} />
+              <Field label="Pays" value={detailsUser.pays} />
+              <Field label="Tranche d'âge" value={detailsUser.age_group} />
+              <Field label="Zone de résidence" value={detailsUser.zone_residence} />
+              <Field label="Situation handicap" value={detailsUser.situation_handicap ? "Oui" : "Non"} />
+              <Field label="Département" value={detailsUser.departement?.nom} />
+              <Field label="Ville" value={detailsUser.ville?.nom} />
+              <Field label="Établissement" value={detailsUser.etablissement?.nom} />
+              <Field label="Filière" value={detailsUser.filiere?.nom} />
+              <Field label="Niveau d'étude" value={detailsUser.niveau_etude?.nom} />
+              <Field label="Type de profil" value={detailsUser.type_profil ? `${detailsUser.type_profil.icone ?? ""} ${detailsUser.type_profil.titre}`.trim() : null} />
+              <Field label="Code parrainage" value={detailsUser.mon_code_parrainage} />
+              <Field label="Email vérifié" value={detailsUser.isEmailVerified ? "Oui" : "Non"} />
+              <Field label="Prestataire" value={detailsUser.isPrestataire ? "Oui" : "Non"} />
+              <Field label="Recruteur" value={detailsUser.isRecruteur ? "Oui" : "Non"} />
+              <Field label="Actif" value={detailsUser.est_desactive ? "Non" : "Oui"} />
+              <Field label="Créé le" value={fmtDateTime(detailsUser.date_creation)} />
+              <Field label="Suppression prévue" value={detailsUser.date_suppression_prevue ? fmtDateTime(detailsUser.date_suppression_prevue) : "—"} />
+              <div className="col-span-2"><Field label="UUID" value={detailsUser.uuid} /></div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailsUser(null)}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent>
