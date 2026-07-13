@@ -44,11 +44,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useCountryTimezone } from "@/hooks/useCountryTimezone";
 
-// date_creation est stocké en UTC (le serveur Neon tourne en UTC). Affiché ici en
-// heure LOCALE du navigateur, avec la date ET l'heure.
-const fmtDateTime = (v?: string | null) =>
-  v ? new Date(v).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-";
+// date_creation est stocké en UTC ; on l'affiche (date + heure) dans le fuseau du
+// PAYS sélectionné (ex. Benin → Africa/Cotonou), fourni par la config backend.
+const fmtDateTime = (v?: string | null, timeZone?: string) =>
+  v ? new Date(v).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone }) : "-";
 
 function Field({ label, value }: { label: string; value?: unknown }) {
   const display = value === null || value === undefined || value === "" ? "—" : String(value);
@@ -62,6 +63,7 @@ function Field({ label, value }: { label: string; value?: unknown }) {
 
 export default function Users() {
   const [detailsUser, setDetailsUser] = useState<any | null>(null);
+  const timeZone = useCountryTimezone();
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -271,7 +273,7 @@ export default function Users() {
                           </Badge>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          {fmtDateTime(user.date_creation)}
+                          {fmtDateTime(user.date_creation, timeZone)}
                         </TableCell>
                         <TableCell>
                           {user.date_suppression_prevue
@@ -386,8 +388,8 @@ export default function Users() {
               <Field label="Prestataire" value={detailsUser.isPrestataire ? "Oui" : "Non"} />
               <Field label="Recruteur" value={detailsUser.isRecruteur ? "Oui" : "Non"} />
               <Field label="Actif" value={detailsUser.est_desactive ? "Non" : "Oui"} />
-              <Field label="Créé le" value={fmtDateTime(detailsUser.date_creation)} />
-              <Field label="Suppression prévue" value={detailsUser.date_suppression_prevue ? fmtDateTime(detailsUser.date_suppression_prevue) : "—"} />
+              <Field label="Créé le" value={fmtDateTime(detailsUser.date_creation, timeZone)} />
+              <Field label="Suppression prévue" value={detailsUser.date_suppression_prevue ? fmtDateTime(detailsUser.date_suppression_prevue, timeZone) : "—"} />
               <div className="col-span-2"><Field label="UUID" value={detailsUser.uuid} /></div>
             </div>
           )}
