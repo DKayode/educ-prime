@@ -24,9 +24,11 @@ import {
 type NumKey = keyof PaymentConfigurationUpdate;
 type NumField = { key: NumKey; label: string; hint?: string };
 
-const REWARD_FIELDS: NumField[] = [
-  { key: "rewardPerExam", label: "Récompense par épreuve validée (XOF)", hint: "Montant crédité à l'auteur quand une épreuve est approuvée." },
-  { key: "rewardPerConcours", label: "Récompense par concours validé (XOF)", hint: "Montant crédité à l'auteur quand un concours est approuvé." },
+const REWARD_EXAM_FIELDS: NumField[] = [
+  { key: "rewardPerExam", label: "Montant (XOF)", hint: "Crédité à l'auteur quand une épreuve est approuvée." },
+];
+const REWARD_CONCOURS_FIELDS: NumField[] = [
+  { key: "rewardPerConcours", label: "Montant (XOF)", hint: "Crédité à l'auteur quand un concours est approuvé." },
 ];
 const WITHDRAW_FIELDS: NumField[] = [
   { key: "minimumWithdrawal", label: "Retrait minimum (XOF)" },
@@ -142,10 +144,16 @@ export default function ConfigurationWallet() {
         <p className="py-8 text-center text-sm text-destructive">Impossible de charger la configuration.</p>
       ) : (
         <div className="space-y-6">
-          <Card className="shadow-sm">
-            <CardHeader><CardTitle className="text-base">Récompense</CardTitle><CardDescription>Crédit versé à l'auteur d'une ressource approuvée · devise {currency}</CardDescription></CardHeader>
-            <CardContent>{renderNumFields(REWARD_FIELDS)}</CardContent>
-          </Card>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="shadow-sm">
+              <CardHeader><CardTitle className="text-base">Récompense épreuves</CardTitle><CardDescription>Crédit versé à l'auteur d'une épreuve approuvée · {currency}</CardDescription></CardHeader>
+              <CardContent>{renderNumFields(REWARD_EXAM_FIELDS)}</CardContent>
+            </Card>
+            <Card className="shadow-sm">
+              <CardHeader><CardTitle className="text-base">Récompense concours</CardTitle><CardDescription>Crédit versé à l'auteur d'un concours approuvé · {currency}</CardDescription></CardHeader>
+              <CardContent>{renderNumFields(REWARD_CONCOURS_FIELDS)}</CardContent>
+            </Card>
+          </div>
 
           <Card className="shadow-sm">
             <CardHeader><CardTitle className="text-base">Retraits</CardTitle><CardDescription>Bornes et frais des demandes de retrait</CardDescription></CardHeader>
