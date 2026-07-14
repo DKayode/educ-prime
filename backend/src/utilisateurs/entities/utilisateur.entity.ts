@@ -70,6 +70,11 @@ export class Utilisateur {
   @Column({ nullable: true, unique: true })
   mon_code_parrainage: string;
 
+  // Referral code the user typed at signup, kept verbatim even if it
+  // matches no user (parrain_id then stays null). Not unique.
+  @Column({ nullable: true })
+  code_parrainage_saisi: string;
+
   @Column({ unique: true })
   email: string;
 
