@@ -383,7 +383,8 @@ export default function Users() {
               <Field label="Filière" value={detailsUser.filiere?.nom} />
               <Field label="Niveau d'étude" value={detailsUser.niveau_etude?.nom} />
               <Field label="Type de profil" value={detailsUser.type_profil ? `${detailsUser.type_profil.icone ?? ""} ${detailsUser.type_profil.titre}`.trim() : null} />
-              <Field label="Code parrainage" value={detailsUser.mon_code_parrainage} />
+              <Field label="Son code parrainage" value={detailsUser.mon_code_parrainage} />
+              <Field label="Code parrainage saisi" value={detailsUser.code_parrainage_saisi} />
               <Field label="Email vérifié" value={detailsUser.isEmailVerified ? "Oui" : "Non"} />
               <Field label="Prestataire" value={detailsUser.isPrestataire ? "Oui" : "Non"} />
               <Field label="Recruteur" value={detailsUser.isRecruteur ? "Oui" : "Non"} />
