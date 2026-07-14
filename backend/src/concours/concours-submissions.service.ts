@@ -158,7 +158,7 @@ export class ConcoursSubmissionsService {
             .addSelect(['soumis_par.id', 'soumis_par.uuid', 'soumis_par.nom', 'soumis_par.prenom', 'soumis_par.email'])
             .where('submission.pays = :pays', { pays })
             .andWhere('submission.status = :status', { status: effectiveStatus })
-            .orderBy('submission.date_creation', 'DESC')
+            .orderBy('submission.date_creation', 'ASC')
             .skip((page - 1) * limit)
             .take(limit)
             .getManyAndCount();

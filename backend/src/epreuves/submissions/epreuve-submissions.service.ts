@@ -238,7 +238,7 @@ export class EpreuveSubmissionsService {
     const qb = this.baseSubmissionQuery()
       .leftJoinAndSelect('submission.soumis_par', 'soumis_par')
       .where('submission.pays = :pays', { pays })
-      .orderBy('submission.date_creation', 'DESC')
+      .orderBy('submission.date_creation', 'ASC')
       .skip((page - 1) * limit)
       .take(limit);
 
