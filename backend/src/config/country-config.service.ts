@@ -51,4 +51,21 @@ export class CountryConfigService {
     getCountryEntry(country: string): CountryConfigEntry | null {
         return this.configs.find(c => c.name === country) ?? null;
     }
+
+    // Non-canonical IANA names that some CONFIG payloads still carry; neither
+    // Node's ICU nor Postgres's tz database recognizes them, so map to the
+    // canonical zone (same offset) before any tz-aware computation.
+    private static readonly TZ_ALIASES: Record<string, string> = {
+        'Africa/Cotonou': 'Africa/Porto-Novo',
+    };
+
+    /**
+     * The country's IANA timezone, alias-normalized. Returns null when the
+     * config carries none — callers pick their own fallback (e.g. 'UTC').
+     */
+    getTimezone(country: string): string | null {
+        const raw = this.getCountryEntry(country)?.timezone ?? null;
+        if (!raw) return null;
+        return CountryConfigService.TZ_ALIASES[raw] ?? raw;
+    }
 }
