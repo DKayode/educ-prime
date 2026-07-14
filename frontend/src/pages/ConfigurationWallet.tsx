@@ -25,7 +25,8 @@ type NumKey = keyof PaymentConfigurationUpdate;
 type NumField = { key: NumKey; label: string; hint?: string };
 
 const REWARD_FIELDS: NumField[] = [
-  { key: "rewardPerExam", label: "Récompense par ressource validée (XOF)", hint: "Montant crédité à l'auteur quand une épreuve/concours est approuvé." },
+  { key: "rewardPerExam", label: "Récompense par épreuve validée (XOF)", hint: "Montant crédité à l'auteur quand une épreuve est approuvée." },
+  { key: "rewardPerConcours", label: "Récompense par concours validé (XOF)", hint: "Montant crédité à l'auteur quand un concours est approuvé." },
 ];
 const WITHDRAW_FIELDS: NumField[] = [
   { key: "minimumWithdrawal", label: "Retrait minimum (XOF)" },
@@ -51,7 +52,7 @@ const TOGGLES: { key: NumKey; label: string; hint?: string }[] = [
 ];
 
 const NUM_KEYS: NumKey[] = [
-  "rewardPerExam", "minimumWithdrawal", "maximumWithdrawal", "withdrawFee",
+  "rewardPerExam", "rewardPerConcours", "minimumWithdrawal", "maximumWithdrawal", "withdrawFee",
   "dailyWithdrawalLimit", "monthlyWithdrawalLimit", "minimumWalletBalance",
   "reviewDelayHours", "maxWithdrawPerDay", "maxWithdrawPerWeek", "maxWithdrawPerMonth",
 ];

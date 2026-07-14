@@ -51,6 +51,7 @@ export type FeeType = 'FIXED' | 'PERCENTAGE';
 export interface PaymentConfiguration {
   id: string;
   rewardPerExam: number;
+  rewardPerConcours: number;
   rewardEnabled: boolean;
   minimumWithdrawal: number;
   maximumWithdrawal: number;
