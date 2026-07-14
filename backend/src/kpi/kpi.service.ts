@@ -1,11 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { CountryConfigService } from '../config/country-config.service';
 
 /**
  * KPI dashboard (Mastercard Foundation reporting). Every figure is scoped by
  * country (pays) and by a [startDate, endDate] period. endDate is inclusive of
  * the whole day — the SQL upper bound is exclusive at endDate + 1 day.
+ *
+ * Day boundaries are interpreted in the COUNTRY's local timezone, not UTC:
+ * date_creation / accessed_at are stored as UTC-naive timestamps, so a Benin
+ * (UTC+1) signup at 00:30 local lands on the previous UTC day and would be
+ * miscounted by a plain `::date` window. We convert the [start, end] date
+ * bounds into their UTC instants for the country zone instead. The zone is
+ * resolved from config and validated against pg_timezone_names (fallback UTC),
+ * so an unknown name can never error the query.
  *
  * Conventions (confirmed in the spec):
  *  - apprenant / learner = role 'étudiant'; female = sexe 'F'.
@@ -20,10 +29,26 @@ import { DataSource } from 'typeorm';
  */
 @Injectable()
 export class KpiService {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly countryConfig: CountryConfigService,
+  ) {}
 
   async getKpis(pays: string, startDate: string, endDate: string) {
     const n = (v: unknown) => Number(v ?? 0);
+
+    // Resolve a guaranteed-valid zone for this country: config value
+    // (alias-normalized), then validated against pg_timezone_names so an
+    // unknown name silently degrades to UTC instead of erroring the query.
+    const [{ zone }] = await this.dataSource.query(
+      `SELECT COALESCE((SELECT name FROM pg_timezone_names WHERE name = $1), 'UTC') AS zone`,
+      [this.countryConfig.getTimezone(pays)],
+    );
+
+    // UTC instants of the country-local [start 00:00 … (end+1) 00:00) window.
+    // lo/hi params: $2 startDate, $3 endDate, $4 zone.
+    const lo = `($2::date::timestamp AT TIME ZONE $4) AT TIME ZONE 'UTC'`;
+    const hi = `(($3::date + interval '1 day')::timestamp AT TIME ZONE $4) AT TIME ZONE 'UTC'`;
 
     const [demographics] = await this.dataSource.query(
       `
@@ -42,10 +67,10 @@ export class KpiService {
         COUNT(*) FILTER (WHERE role = 'étudiant' AND situation_handicap IS TRUE) AS disability_learners
       FROM utilisateurs
       WHERE pays = $1
-        AND date_creation >= $2::date
-        AND date_creation < ($3::date + interval '1 day')
+        AND date_creation >= ${lo}
+        AND date_creation < ${hi}
       `,
-      [pays, startDate, endDate],
+      [pays, startDate, endDate, zone],
     );
 
     const [logins] = await this.dataSource.query(
@@ -56,25 +81,27 @@ export class KpiService {
       FROM refresh_tokens rt
       JOIN utilisateurs u ON u.id = rt.utilisateur_id
       WHERE u.pays = $1
-        AND rt.date_creation >= $2::date
-        AND rt.date_creation < ($3::date + interval '1 day')
+        AND rt.date_creation >= ${lo}
+        AND rt.date_creation < ${hi}
       `,
-      [pays, startDate, endDate],
+      [pays, startDate, endDate, zone],
     );
 
+    // KPI 16 windows are anchored on the country-local end-of-endDate instant.
+    const endUtc = `(($2::date + interval '1 day')::timestamp AT TIME ZONE $3) AT TIME ZONE 'UTC'`;
     const [access] = await this.dataSource.query(
       `
       SELECT
-        COUNT(DISTINCT ra.utilisateur_id) FILTER (WHERE ra.accessed_at >= (($2::date + interval '1 day') - interval '7 days'))  AS last_week,
-        COUNT(DISTINCT ra.utilisateur_id) FILTER (WHERE ra.accessed_at >= (($2::date + interval '1 day') - interval '14 days')) AS last_two_weeks,
-        COUNT(DISTINCT ra.utilisateur_id) FILTER (WHERE ra.accessed_at >= (($2::date + interval '1 day') - interval '1 month')) AS last_month
+        COUNT(DISTINCT ra.utilisateur_id) FILTER (WHERE ra.accessed_at >= (${endUtc} - interval '7 days'))  AS last_week,
+        COUNT(DISTINCT ra.utilisateur_id) FILTER (WHERE ra.accessed_at >= (${endUtc} - interval '14 days')) AS last_two_weeks,
+        COUNT(DISTINCT ra.utilisateur_id) FILTER (WHERE ra.accessed_at >= (${endUtc} - interval '1 month')) AS last_month
       FROM resource_access ra
       JOIN utilisateurs u ON u.id = ra.utilisateur_id AND u.role = 'étudiant'
       WHERE ra.pays = $1
         AND ra.resource_type IN ('epreuve', 'concours')
-        AND ra.accessed_at < ($2::date + interval '1 day')
+        AND ra.accessed_at < ${endUtc}
       `,
-      [pays, endDate],
+      [pays, endDate, zone],
     );
 
     return {
