@@ -166,37 +166,26 @@ export class EtablissementsService {
 
   // Hierarchical navigation methods
   async findFilieresById(pays: string, id: string, filterDto: FilterFiliereDto): Promise<PaginationResponse<FiliereResponseDto>> {
-    const { page = 1, limit = 10, search, all } = filterDto;
-    this.logger.log(`Récupération des filières (pays=${pays}) pour établissement ID: ${id} - Page: ${page}, Limite: ${limit}, Search: ${search}, All: ${all}`);
+    const { page = 1, limit = 10, search } = filterDto;
+    this.logger.log(`Récupération des filières (pays=${pays}) pour établissement ID: ${id} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
     await this.findOne(id); // Verify etablissement exists
 
-    const queryBuilder = this.filieresRepository.createQueryBuilder('filiere')
-      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
-      .where('filiere.pays = :pays', { pays })
-      .andWhere('etablissement.id = :etabId', { etabId: parseInt(id) });
-
-    // Default: only filières with at least one épreuve reachable through
-    // filière→niveau→matière→épreuve. all=true lifts the filter.
-    if (!all) {
-      queryBuilder.andWhere(
-        `EXISTS (
-          SELECT 1 FROM epreuves ep
-          INNER JOIN matieres m ON m.id = ep.matiere_id
-          INNER JOIN niveau_etude n ON n.id = m.niveau_etude_id
-          WHERE n.filiere_id = filiere.id
-        )`,
-      );
-    }
+    const whereCondition: FindOptionsWhere<Filiere> = {
+      pays,
+      etablissement: { id: parseInt(id) },
+    };
 
     if (search) {
-      queryBuilder.andWhere('unaccent(filiere.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
+      whereCondition.nom = Raw(alias => `unaccent(${alias}) ILIKE unaccent('%${search}%')`);
     }
 
-    const [filieres, total] = await queryBuilder
-      .orderBy('filiere.nom', filterDto.sort_order || 'ASC')
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getManyAndCount();
+    const [filieres, total] = await this.filieresRepository.findAndCount({
+      where: whereCondition,
+      relations: ['etablissement'],
+      order: { nom: filterDto.sort_order || 'ASC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
 
     this.logger.log(`${filieres.length} filière(s) trouvée(s) pour établissement ${id} sur ${total} total`);
 
@@ -214,8 +203,8 @@ export class EtablissementsService {
   }
 
   async findNiveauEtudeByFiliere(pays: string, etablissementId: string, filiereId: string, filterDto: FilterNiveauEtudeDto): Promise<PaginationResponse<NiveauEtude>> {
-    const { page = 1, limit = 10, search, all } = filterDto;
-    this.logger.log(`Récupération des niveaux d'étude (pays=${pays}) pour filière ID: ${filiereId} - Page: ${page}, Limite: ${limit}, Search: ${search}, All: ${all}`);
+    const { page = 1, limit = 10, search } = filterDto;
+    this.logger.log(`Récupération des niveaux d'étude (pays=${pays}) pour filière ID: ${filiereId} - Page: ${page}, Limite: ${limit}, Search: ${search}`);
 
     // Verify filiere belongs to etablissement
     const filiere = await this.filieresRepository.findOne({
@@ -229,33 +218,22 @@ export class EtablissementsService {
       throw new NotFoundException('Filière non trouvée pour cet établissement');
     }
 
-    const queryBuilder = this.niveauEtudeRepository.createQueryBuilder('niveau_etude')
-      .leftJoinAndSelect('niveau_etude.filiere', 'filiere')
-      .leftJoinAndSelect('filiere.etablissement', 'etablissement')
-      .where('niveau_etude.pays = :pays', { pays })
-      .andWhere('filiere.id = :filiereId', { filiereId: parseInt(filiereId) });
-
-    // Default: only niveaux with at least one épreuve reachable through
-    // niveau→matière→épreuve. all=true lifts the filter.
-    if (!all) {
-      queryBuilder.andWhere(
-        `EXISTS (
-          SELECT 1 FROM epreuves ep
-          INNER JOIN matieres m ON m.id = ep.matiere_id
-          WHERE m.niveau_etude_id = niveau_etude.id
-        )`,
-      );
-    }
+    const whereCondition: FindOptionsWhere<NiveauEtude> = {
+      pays,
+      filiere: { id: parseInt(filiereId) },
+    };
 
     if (search) {
-      queryBuilder.andWhere('unaccent(niveau_etude.nom) ILIKE unaccent(:search)', { search: `%${search}%` });
+      whereCondition.nom = Raw(alias => `unaccent(${alias}) ILIKE unaccent('%${search}%')`);
     }
 
-    const [niveaux, total] = await queryBuilder
-      .orderBy('niveau_etude.nom', filterDto.sort_order || 'ASC')
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getManyAndCount();
+    const [niveaux, total] = await this.niveauEtudeRepository.findAndCount({
+      where: whereCondition,
+      relations: ['filiere', 'filiere.etablissement'],
+      order: { nom: filterDto.sort_order || 'ASC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
 
     this.logger.log(`${niveaux.length} niveau(x) d'étude trouvé(s) pour filière ${filiereId} sur ${total} total`);
 
