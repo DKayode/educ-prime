@@ -449,7 +449,7 @@ export class UtilisateursService {
     const byToken: Record<string, any[]> = {};
     if (tokens.length) {
       const accounts = await this.utilisateursRepository.query(
-        `SELECT id, nom, prenom, email, pseudo, pays, role, uuid, fcm_token, date_creation
+        `SELECT id, nom, prenom, email, pseudo, pays, role, uuid, fcm_token, verifier, date_creation
          FROM utilisateurs
          WHERE pays = $1 AND fcm_token = ANY($2)
          ORDER BY date_creation ASC`,

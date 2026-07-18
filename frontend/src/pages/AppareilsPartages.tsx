@@ -133,6 +133,7 @@ function DeviceCard({ group }: { group: SharedDeviceGroup }) {
                                 <TableHead>Nom</TableHead>
                                 <TableHead>Email</TableHead>
                                 <TableHead>Rôle</TableHead>
+                                <TableHead>Vérifié</TableHead>
                                 <TableHead>Pays</TableHead>
                                 <TableHead>Créé le</TableHead>
                             </TableRow>
@@ -143,6 +144,11 @@ function DeviceCard({ group }: { group: SharedDeviceGroup }) {
                                     <TableCell className="font-medium">{[a.prenom, a.nom].filter(Boolean).join(" ") || "—"}</TableCell>
                                     <TableCell className="text-muted-foreground">{a.email}</TableCell>
                                     <TableCell><Badge variant="outline" className="capitalize">{a.role}</Badge></TableCell>
+                                    <TableCell>
+                                        {(a as any).verifier
+                                            ? <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Vérifié</Badge>
+                                            : <Badge variant="secondary">Non vérifié</Badge>}
+                                    </TableCell>
                                     <TableCell className="capitalize">{a.pays}</TableCell>
                                     <TableCell className="text-muted-foreground">{fmtDate((a as any).date_creation)}</TableCell>
                                 </TableRow>
