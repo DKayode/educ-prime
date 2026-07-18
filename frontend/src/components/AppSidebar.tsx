@@ -170,6 +170,7 @@ const navTree: NavItem[] = [
       { title: "Utilisateurs", icon: User, url: "/users" },
       { title: "Indicateurs", icon: BarChart3, url: "/indicateurs" },
       { title: "Parrainage", icon: UserPlus, url: "/parrainages" },
+      { title: "Appareils partagés", icon: Smartphone, url: "/appareils-partages" },
       {
         // geo-profile: Géographie subgroup, nested under Utilisateurs
         title: "Géographie",

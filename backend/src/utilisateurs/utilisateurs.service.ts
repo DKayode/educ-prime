@@ -400,6 +400,77 @@ export class UtilisateursService {
     };
   }
 
+  /**
+   * Comptes partageant un même token FCM (= même appareil / installation).
+   * Ne renvoie que les tokens portés par plus d'un compte, groupés et paginés
+   * par groupe (le token est la clé). Chaque groupe embarque ses comptes — les
+   * groupes sont petits (2-8). Scopé par pays comme le reste de l'admin.
+   */
+  async findSharedDevices(pays: string, filterDto: FilterUtilisateurDto) {
+    const page = Number(filterDto.page ?? 1);
+    const limit = Number(filterDto.limit ?? 10);
+    const offset = (page - 1) * limit;
+    const search = filterDto.search?.trim();
+
+    const params: any[] = [pays];
+    let searchClause = '';
+    if (search) {
+      params.push(`%${search}%`);
+      // A group matches if ANY of its accounts matches the term.
+      searchClause = `AND EXISTS (
+        SELECT 1 FROM utilisateurs s
+        WHERE s.fcm_token = u.fcm_token AND s.pays = $1
+          AND (unaccent(s.email) ILIKE unaccent($2)
+            OR unaccent(coalesce(s.nom, '')) ILIKE unaccent($2)
+            OR unaccent(coalesce(s.prenom, '')) ILIKE unaccent($2)
+            OR unaccent(coalesce(s.pseudo, '')) ILIKE unaccent($2)))`;
+    }
+
+    const groupClause = `
+      FROM utilisateurs u
+      WHERE u.pays = $1 AND NULLIF(TRIM(u.fcm_token), '') IS NOT NULL ${searchClause}
+      GROUP BY u.fcm_token
+      HAVING COUNT(*) > 1`;
+
+    const [{ n: total }] = await this.utilisateursRepository.query(
+      `SELECT COUNT(*)::int n FROM (SELECT u.fcm_token ${groupClause}) g`,
+      params,
+    );
+
+    const groups = await this.utilisateursRepository.query(
+      `SELECT u.fcm_token AS fcm_token, COUNT(*)::int AS accounts_count
+       ${groupClause}
+       ORDER BY accounts_count DESC, u.fcm_token
+       LIMIT ${limit} OFFSET ${offset}`,
+      params,
+    );
+
+    const tokens = groups.map((g: any) => g.fcm_token);
+    const byToken: Record<string, any[]> = {};
+    if (tokens.length) {
+      const accounts = await this.utilisateursRepository.query(
+        `SELECT id, nom, prenom, email, pseudo, pays, role, uuid, fcm_token, date_creation
+         FROM utilisateurs
+         WHERE pays = $1 AND fcm_token = ANY($2)
+         ORDER BY date_creation ASC`,
+        [pays, tokens],
+      );
+      for (const a of accounts) {
+        const tok = a.fcm_token;
+        delete a.fcm_token; // redundant per-account — it's the group key
+        (byToken[tok] ??= []).push(a);
+      }
+    }
+
+    const data = groups.map((g: any) => ({
+      fcm_token: g.fcm_token,
+      accounts_count: g.accounts_count,
+      accounts: byToken[g.fcm_token] ?? [],
+    }));
+
+    return { data, total: Number(total), page, limit, totalPages: Math.ceil(Number(total) / limit) };
+  }
+
   async findOne(id: string) {
     this.logger.log(`Recherche de l'utilisateur avec ID: ${id}`);
     const user = await this.utilisateursRepository.findOne({
