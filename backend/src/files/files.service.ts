@@ -6,7 +6,7 @@ import {
     InternalServerErrorException,
     Logger,
 } from '@nestjs/common';
-import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { DataSource } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -42,7 +42,13 @@ const MIME_BY_EXT: Record<string, string> = {
     avif: 'image/avif',
     svg: 'image/svg+xml',
     pdf: 'application/pdf',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    md: 'text/markdown',
 };
+// Virtual slots skip the DB row lookup, so the uuid must be validated in
+// isolation — a well-formed UUID can't smuggle path separators into the R2 key.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class FilesService {
@@ -186,6 +192,12 @@ export class FilesService {
      * primary key (id) so we can later UPDATE the path/extension columns.
      * Throws 404 if no row matches.
      */
+    private assertVirtualUuid(uuid: string) {
+        if (!UUID_RE.test(uuid)) {
+            throw new BadRequestException(`'${uuid}' is not a well-formed UUID.`);
+        }
+    }
+
     private async findRowIdByUuid(entity: string, uuid: string): Promise<number> {
         const rows = await this.dataSource.query(
             `SELECT id FROM "${entity}" WHERE uuid = $1 LIMIT 1`,
@@ -209,6 +221,7 @@ export class FilesService {
         path: string,
         extension: string,
     ) {
+        if (!cfg.pathColumn || !cfg.extColumn) return; // virtual slot — nothing to write
         await this.dataSource.query(
             `UPDATE "${entity}" SET "${cfg.pathColumn}" = $1, "${cfg.extColumn}" = $2 WHERE id = $3`,
             [path, extension, rowId],
@@ -227,7 +240,12 @@ export class FilesService {
     async createUploadUrl(entity: string, uuid: string, slot: string, rawExtension: string) {
         const cfg = this.resolveSlot(entity, slot);
         const extension = this.validateExtension(cfg, rawExtension);
-        const rowId = await this.findRowIdByUuid(entity, uuid);
+        let rowId: number | null = null;
+        if (cfg.virtual) {
+            this.assertVirtualUuid(uuid);
+        } else {
+            rowId = await this.findRowIdByUuid(entity, uuid);
+        }
 
         const storedPath = this.storedPathFor(cfg, entity, uuid, slot, extension);
         const key = buildObjectKey(entity, uuid, slot, extension);
@@ -243,7 +261,9 @@ export class FilesService {
         const uploadTtl = cfg.uploadTtlSeconds ?? UPLOAD_PRESIGN_TTL_SECONDS;
         const url = await getSignedUrl(this.client, command, { expiresIn: uploadTtl });
 
-        await this.writePathOnRow(entity, rowId, cfg, storedPath, extension);
+        if (rowId !== null) {
+            await this.writePathOnRow(entity, rowId, cfg, storedPath, extension);
+        }
 
         return {
             url,
@@ -270,7 +290,7 @@ export class FilesService {
      * so calling this for a public slot is a 400. Throws 404 if no file has
      * been registered yet.
      */
-    async createDownloadUrl(entity: string, uuid: string, slot: string) {
+    async createDownloadUrl(entity: string, uuid: string, slot: string, rawExtension?: string) {
         const cfg = this.resolveSlot(entity, slot);
         if (cfg.public) {
             throw new BadRequestException(
@@ -278,6 +298,42 @@ export class FilesService {
                 `issued. Read its URL straight from the entity's '${cfg.pathColumn}' ` +
                 `field; a plain GET on that URL serves the file.`,
             );
+        }
+        if (cfg.virtual) {
+            // No Edukia row holds the extension for a virtual slot — the owning
+            // service persisted it and must send it back. A HeadObject stands in
+            // for the row check so a never-uploaded key still 404s here instead
+            // of at the presigned GET.
+            this.assertVirtualUuid(uuid);
+            if (!rawExtension) {
+                throw new BadRequestException(
+                    `Slot '${entity}/${slot}' is virtual — pass ?extension=<ext> on download-url.`,
+                );
+            }
+            const extension = this.validateExtension(cfg, rawExtension);
+            const key = buildObjectKey(entity, uuid, slot, extension);
+            const bucket = this.bucketFor(cfg);
+            try {
+                await this.client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+            } catch {
+                throw new NotFoundException(
+                    `No file registered yet on ${entity}/${uuid}/${slot}. Upload one first.`,
+                );
+            }
+            const downloadTtl = Math.min(cfg.downloadTtlSeconds ?? this.downloadTtlSeconds, MAX_S3_PRESIGN_TTL);
+            const url = await getSignedUrl(
+                this.client,
+                new GetObjectCommand({ Bucket: bucket, Key: key }),
+                { expiresIn: downloadTtl },
+            );
+            return {
+                url,
+                method: 'GET' as const,
+                path: buildLogicalPath(entity, uuid, slot),
+                extension,
+                expires_in: downloadTtl,
+                public: false,
+            };
         }
         const rowId = await this.findRowIdByUuid(entity, uuid);
 
@@ -381,7 +437,12 @@ export class FilesService {
         const cfg = this.resolveSlot(entity, slot);
         const extFromName = (file.originalname.split('.').pop() ?? '').toLowerCase();
         const extension = this.validateExtension(cfg, extFromName);
-        const rowId = await this.findRowIdByUuid(entity, uuid);
+        let rowId: number | null = null;
+        if (cfg.virtual) {
+            this.assertVirtualUuid(uuid);
+        } else {
+            rowId = await this.findRowIdByUuid(entity, uuid);
+        }
 
         const storedPath = this.storedPathFor(cfg, entity, uuid, slot, extension);
         const key = buildObjectKey(entity, uuid, slot, extension);
@@ -397,12 +458,14 @@ export class FilesService {
             }),
         );
 
-        await this.writePathOnRow(entity, rowId, cfg, storedPath, extension);
+        if (rowId !== null) {
+            await this.writePathOnRow(entity, rowId, cfg, storedPath, extension);
 
-        // TRANSITIONAL: also push to Firebase + write the legacy URL column so
-        // the mobile app sees this file. Best-effort — a Firebase hiccup must
-        // not fail an upload that already succeeded against R2 (canonical).
-        await this.mirrorToFirebase(entity, uuid, slot, cfg, rowId, file.buffer, extension, file.mimetype);
+            // TRANSITIONAL: also push to Firebase + write the legacy URL column so
+            // the mobile app sees this file. Best-effort — a Firebase hiccup must
+            // not fail an upload that already succeeded against R2 (canonical).
+            await this.mirrorToFirebase(entity, uuid, slot, cfg, rowId, file.buffer, extension, file.mimetype);
+        }
 
         return { path: storedPath, extension, public: !!cfg.public };
     }

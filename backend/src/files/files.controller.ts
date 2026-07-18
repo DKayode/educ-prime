@@ -4,6 +4,7 @@ import {
     Get,
     Param,
     Post,
+    Query,
     UploadedFile,
     UseGuards,
     UseInterceptors,
@@ -16,6 +17,7 @@ import {
     ApiConsumes,
     ApiOperation,
     ApiParam,
+    ApiQuery,
     ApiResponse,
     ApiTags,
 } from '@nestjs/swagger';
@@ -151,16 +153,26 @@ export class FilesController {
             'returns a presigned GET URL valid for PRESIGN_DOWNLOAD_TTL_SECONDS (default ' +
             '10 min). Returns 400 for a public slot — read its URL directly from the ' +
             'entity\'s <slot>_path field. Returns 404 if no file has been uploaded yet. ' +
-            'Private slots: epreuves.file, concours.file, prestataires.identity.',
+            'Private slots: epreuves.file, concours.file, prestataires.identity, ' +
+            'kessiah_documents.file. VIRTUAL slots (kessiah_documents.file) have no ' +
+            'Edukia row holding the extension — the owning service must pass it back ' +
+            'via ?extension=<ext>.',
     })
     @ApiParam({ name: 'entity', example: 'epreuves', enum: KNOWN_ENTITIES, description: ENTITY_PARAM_DESC })
     @ApiParam({ name: 'uuid', description: 'UUID of the row that owns the file' })
     @ApiParam({ name: 'slot', example: 'file', enum: KNOWN_SLOTS, description: SLOT_PARAM_DESC })
+    @ApiQuery({
+        name: 'extension',
+        required: false,
+        example: 'docx',
+        description: 'File extension. REQUIRED for virtual slots (kessiah_documents.file); ignored otherwise.',
+    })
     async createDownloadUrl(
         @Param('entity') entity: string,
         @Param('uuid') uuid: string,
         @Param('slot') slot: string,
+        @Query('extension') extension?: string,
     ) {
-        return this.filesService.createDownloadUrl(entity, uuid, slot);
+        return this.filesService.createDownloadUrl(entity, uuid, slot, extension);
     }
 }
