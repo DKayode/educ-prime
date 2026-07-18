@@ -38,6 +38,7 @@ import CompetencesAdmin from "./pages/CompetencesAdmin";
 import Notifications from "./pages/Notifications";
 import AppVersions from "./pages/AppVersions";
 import Parrainages from "./pages/Parrainages";
+import AppareilsPartages from "./pages/AppareilsPartages";
 import Indicateurs from "./pages/Indicateurs";
 import StatistiquesApprobations from "./pages/StatistiquesApprobations";
 import RetraitsWallet from "./pages/RetraitsWallet";
@@ -103,6 +104,7 @@ const App = () => (
                       <Route path="/admin/service-types" element={<ServiceTypesAdmin />} />
                       <Route path="/app-versions" element={<AppVersions />} />
                       <Route path="/parrainages" element={<Parrainages />} />
+                      <Route path="/appareils-partages" element={<AppareilsPartages />} />
                       <Route path="/admin/recruteurs" element={<RecruteursAdmin />} />
                       <Route path="/admin/competences" element={<CompetencesAdmin />} />
                       <Route path="/indicateurs" element={<Indicateurs />} />

@@ -42,6 +42,14 @@ export class UtilisateursController {
     return this.utilisateursService.findAll(pays, filterDto);
   }
 
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @Get('appareils-partages')
+  @ApiOperation({ summary: 'Comptes partageant un même token FCM (appareils partagés)' })
+  async sharedDevices(@CurrentCountry() pays: string, @Query() filterDto: FilterUtilisateurDto) {
+    return this.utilisateursService.findSharedDevices(pays, filterDto);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('profil')
   @ApiOperation({ summary: 'Récupérer le profil utilisateur (JSON)' })
