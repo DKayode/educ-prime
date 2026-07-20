@@ -69,13 +69,14 @@ export class ConcoursService {
     return saved;
   }
 
-  async findAll(filterDto: FilterConcoursDto): Promise<PaginationResponse<Concours>> {
+  async findAll(pays: string, filterDto: FilterConcoursDto): Promise<PaginationResponse<Concours>> {
     const { page = 1, limit = 10, search, annee, sort_by = 'titre', sort_order = 'ASC' } = filterDto;
-    this.logger.log(`Récupération des concours - filtres: ${JSON.stringify(filterDto)}`);
+    this.logger.log(`Récupération des concours (pays=${pays}) - filtres: ${JSON.stringify(filterDto)}`);
 
     const queryBuilder = this.concoursRepository.createQueryBuilder('concours')
       .leftJoinAndSelect('concours.structure', 'structure')
-      .leftJoinAndSelect('concours.titre_ref', 'titre_ref');
+      .leftJoinAndSelect('concours.titre_ref', 'titre_ref')
+      .where('concours.pays = :pays', { pays });
 
     if (search) {
       queryBuilder.andWhere(
@@ -113,12 +114,13 @@ export class ConcoursService {
     };
   }
 
-  async getAnnees(): Promise<number[]> {
-    this.logger.log('Récupération des années disponibles');
+  async getAnnees(pays: string): Promise<number[]> {
+    this.logger.log(`Récupération des années disponibles (pays=${pays})`);
     const result = await this.concoursRepository
       .createQueryBuilder('concours')
       .select('DISTINCT concours.annee', 'annee')
-      .where('concours.annee IS NOT NULL')
+      .where('concours.pays = :pays', { pays })
+      .andWhere('concours.annee IS NOT NULL')
       .orderBy('concours.annee', 'DESC')
       .getRawMany();
 
