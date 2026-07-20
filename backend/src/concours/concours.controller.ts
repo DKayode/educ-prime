@@ -39,8 +39,8 @@ export class ConcoursController {
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche textuelle (Titre ou Lieu)' })
   @ApiQuery({ name: 'annee', required: false, type: Number, description: 'Filtrer par année' })
   @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Trier par (annee, titre) [Default: titre]' })
-  findAll(@Query() filterDto: FilterConcoursDto) {
-    return this.concoursService.findAll(filterDto);
+  findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterConcoursDto) {
+    return this.concoursService.findAll(pays, filterDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -59,8 +59,8 @@ export class ConcoursController {
 
   @UseGuards(JwtAuthGuard)
   @Get('annees')
-  getAnnees() {
-    return this.concoursService.getAnnees();
+  getAnnees(@CurrentCountry() pays: string) {
+    return this.concoursService.getAnnees(pays);
   }
 
   @UseGuards(JwtAuthGuard)
