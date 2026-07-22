@@ -18,6 +18,13 @@ import { FilterEpreuveDto } from '../epreuves/dto/filter-epreuve.dto';
 import { FiliereResponseDto } from '../filieres/dto/filiere-response.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 
+// Countries whose academic hierarchy is always returned in full, regardless of
+// the `all` query flag. The default lists hide établissements / filières /
+// niveaux that have no épreuve yet; for a new market like Sénégal (no épreuves
+// on the platform yet) that would leave the whole catalogue empty, so we always
+// surface everything for these countries.
+const SHOW_ALL_RESOURCES_COUNTRIES = new Set(['senegal']);
+
 @Injectable()
 export class EtablissementsService {
   private readonly logger = new Logger(EtablissementsService.name);
@@ -55,7 +62,8 @@ export class EtablissementsService {
     // through the chain épreuve→matière→niveau→filière→établissement, so the
     // mobile list never surfaces empty établissements. all=true lifts the
     // filter (admin management / parent pickers need every établissement).
-    if (!all) {
+    const showAll = all || SHOW_ALL_RESOURCES_COUNTRIES.has(pays);
+    if (!showAll) {
       queryBuilder.andWhere(
         `EXISTS (
           SELECT 1 FROM epreuves ep
@@ -177,7 +185,8 @@ export class EtablissementsService {
 
     // Default: only filières with at least one épreuve reachable through
     // filière→niveau→matière→épreuve. all=true lifts the filter.
-    if (!all) {
+    const showAll = all || SHOW_ALL_RESOURCES_COUNTRIES.has(pays);
+    if (!showAll) {
       queryBuilder.andWhere(
         `EXISTS (
           SELECT 1 FROM epreuves ep
@@ -237,7 +246,8 @@ export class EtablissementsService {
 
     // Default: only niveaux with at least one épreuve reachable through
     // niveau→matière→épreuve. all=true lifts the filter.
-    if (!all) {
+    const showAll = all || SHOW_ALL_RESOURCES_COUNTRIES.has(pays);
+    if (!showAll) {
       queryBuilder.andWhere(
         `EXISTS (
           SELECT 1 FROM epreuves ep
