@@ -21,6 +21,16 @@ export class ParcoursService {
   private get likeRepository(): Repository<Like> { return this.resolver.getRepository(Like); }
   private get favoriRepository(): Repository<Favori> { return this.resolver.getRepository(Favori); }
 
+  // Expose each nested comment's author profile photo URL as `profil` (public
+  // R2 path), and drop the full utilisateur relation so no sensitive user
+  // fields (e.g. password) leak into the parcours payload.
+  private withCommentProfils(parcours: any): any[] {
+    return (parcours.commentaires || []).map((cm: any) => {
+      const { utilisateur, ...rest } = cm;
+      return { ...rest, profil: utilisateur?.profil_photo_path || null };
+    });
+  }
+
   /**
    * Crée un nouveau parcours
    * @param createParcoursDto - Données pour créer le parcours
@@ -91,12 +101,13 @@ export class ParcoursService {
       order: { [filters.sortBy]: filters.order },
       skip,
       take: limit,
-      relations: ['commentaires', 'likes', 'favoris', 'category'],
+      relations: ['commentaires', 'commentaires.utilisateur', 'likes', 'favoris', 'category'],
     });
 
     // Ajout des compteurs
     const parcoursWithCounts = data.map(parcours => ({
       ...parcours,
+      commentaires: this.withCommentProfils(parcours),
       commentairesCount: parcours.commentaires?.length || 0,
       likesCount: parcours.likes?.filter(like => like.type == "like").length || 0,
       favorisCount: parcours.favoris?.length || 0,
@@ -122,7 +133,7 @@ export class ParcoursService {
   async findOne(id: number): Promise<Parcour> {
     const parcours = await this.parcoursRepository.findOne({
       where: { id },
-      relations: ['commentaires', 'likes', 'favoris', 'category'],
+      relations: ['commentaires', 'commentaires.utilisateur', 'likes', 'favoris', 'category'],
     });
 
     if (!parcours) {
@@ -132,6 +143,7 @@ export class ParcoursService {
     // Ajout des compteurs
     return {
       ...parcours,
+      commentaires: this.withCommentProfils(parcours),
       commentairesCount: parcours.commentaires?.length || 0,
       likesCount: parcours.likes?.filter(like => like.type == "like").length || 0,
       favorisCount: parcours.favoris?.length || 0,
