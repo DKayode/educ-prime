@@ -66,6 +66,31 @@ export class CommentairesService {
  * @param query - Paramètres de requête
  * @returns Liste paginée des commentaires avec métadonnées
  */
+  // Reshape a commentaire for API responses: drop the redundant FK columns
+  // (parcours_id / utilisateur_id — already carried by the sub-objects), add
+  // `uuid` to the parcours + utilisateur sub-objects, and expose the user's
+  // public profile photo URL as `profil` (replacing the legacy `photo`).
+  private mapCommentaire(commentaire: any) {
+    if (!commentaire) return commentaire;
+    const { parcours_id, utilisateur_id, utilisateur, parcours, ...rest } = commentaire;
+    return {
+      ...rest,
+      utilisateur: utilisateur ? {
+        id: utilisateur.id,
+        uuid: utilisateur.uuid,
+        nom: utilisateur.nom,
+        prenom: utilisateur.prenom,
+        email: utilisateur.email,
+        profil: utilisateur.profil_photo_path || null,
+      } : null,
+      parcours: parcours ? {
+        id: parcours.id,
+        uuid: parcours.uuid,
+        titre: parcours.titre,
+      } : null,
+    };
+  }
+
   async findAll(query: CommentaireQueryDto): Promise<{
     data: any[];
     meta: {
@@ -98,11 +123,13 @@ export class CommentairesService {
       .select([
         'commentaire',
         'utilisateur.id',
+        'utilisateur.uuid',
         'utilisateur.nom',
         'utilisateur.prenom',
-        'utilisateur.photo',
+        'utilisateur.profil_photo_path',
         'utilisateur.email',
         'parcours.id',
+        'parcours.uuid',
         'parcours.titre',
         'likes.id',
         'likes.type', // Important pour filtrer côté client si besoin
@@ -147,7 +174,7 @@ export class CommentairesService {
     const [data, total] = await qb.getManyAndCount();
 
     return {
-      data,
+      data: data.map((c) => this.mapCommentaire(c)),
       meta: {
         page,
         limit,
@@ -167,7 +194,7 @@ export class CommentairesService {
   async findOne(id: number): Promise<Commentaire> {
     const commentaire = await this.commentaireRepository.findOne({
       where: { id },
-      relations: ['parcours', 'likes', 'parent', 'enfants'],
+      relations: ['utilisateur', 'parcours', 'likes', 'parent', 'enfants'],
     });
 
     if (!commentaire) {
@@ -183,11 +210,11 @@ export class CommentairesService {
       where: { parent_id: commentaire.id },
     });
 
-    return {
+    return this.mapCommentaire({
       ...commentaire,
       likesCount: commentaire.likes?.filter(like => like.type == "like").length || 0,
       enfantsCount: commentaire.enfantsCount || 0,
-    };
+    });
 
     // return {
     //   ...commentaire,
