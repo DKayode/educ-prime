@@ -133,11 +133,13 @@ export class ForumService {
             const { user_id, user, ...forumWithoutUserId } = forum;
             const safeUser = user ? {
                 id: user.id,
+                uuid: user.uuid,
                 nom: user.nom,
                 prenom: user.prenom,
                 pseudo: user.pseudo,
                 email: user.email,
                 sexe: user.sexe,
+                profil: user.profil_photo_path || null,
             } : null;
 
             return {
@@ -188,11 +190,13 @@ export class ForumService {
         const { user_id, user, ...forumWithoutUserId } = forum;
         const safeUser = user ? {
             id: user.id,
+            uuid: user.uuid,
             nom: user.nom,
             prenom: user.prenom,
             pseudo: user.pseudo,
             email: user.email,
             sexe: user.sexe,
+            profil: user.profil_photo_path || null,
         } : null;
 
         return {
