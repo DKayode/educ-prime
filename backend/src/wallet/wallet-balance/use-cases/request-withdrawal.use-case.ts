@@ -24,7 +24,7 @@ import {
   WithdrawalOtpRepositoryPort,
   WithdrawalRequestRepositoryPort,
 } from '../../shared/payment.ports';
-import { PaymentMethod, PaymentNotificationType, WithdrawalStatus } from '../../shared/payment.enums';
+import { OtpDeliveryStatus, PaymentMethod, PaymentNotificationType, WithdrawalStatus } from '../../shared/payment.enums';
 import { RuleEngineService } from '../../shared/rules-engine.service';
 import { DEFAULT_WITHDRAWAL_RULES } from '../../shared/withdrawal.rules';
 import { generateNumericOtp, hashWithdrawalOtp } from '../../otp/otp.util';
@@ -70,6 +70,10 @@ export class RequestWithdrawalUseCase {
     }
 
     const existing = await this.withdrawals.findOpenByWalletId(wallet.id!);
+    if (existing?.status === WithdrawalStatus.SECURITY_REVIEW_REQUIRED && configuration.otpBlockWithdrawalCreation) {
+      throw new ForbiddenException('Une demande de retrait est en vérification de sécurité. Elle doit être débloquée par un administrateur avant toute nouvelle demande.');
+    }
+
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -100,6 +104,26 @@ export class RequestWithdrawalUseCase {
       : configuration.withdrawFee;
     const paymentDeadline = new Date(now); paymentDeadline.setDate(paymentDeadline.getDate() + 2);
 
+    if (!configuration.otpEnabled) {
+      const withdrawal = await this.withdrawals.create({
+        walletId: wallet.id!,
+        amount,
+        fees,
+        netAmount: Math.max(0, amount - fees),
+        paymentMethod: command.paymentMethod,
+        paymentAccountId: paymentAccount.id,
+        paymentDeadline,
+        status: WithdrawalStatus.PENDING,
+      });
+      await this.notifications.notifyAdmins({
+        title: 'Nouvelle demande de retrait',
+        message: `Un utilisateur a soumis une demande de retrait de ${withdrawal.amount} ${configuration.currency}.`,
+        type: PaymentNotificationType.ADMIN_WITHDRAWAL_ALERT,
+        metadata: { withdrawalRequestId: withdrawal.id, userId: command.userId },
+      });
+      return { ...withdrawal, message: 'Demande de retrait soumise sans OTP conformément à la configuration active.' };
+    }
+
     const withdrawal = await this.withdrawals.create({
       walletId: wallet.id!,
       amount,
@@ -111,28 +135,45 @@ export class RequestWithdrawalUseCase {
       status: WithdrawalStatus.OTP_PENDING,
     });
 
-    const otpLength = Number(this.config.get<string>('OTP_LENGTH', '6'));
-    const otpTtlMinutes = Number(this.config.get<string>('OTP_TTL_MINUTES', '10'));
-    const maxAttempts = Number(this.config.get<string>('OTP_MAX_ATTEMPTS', '3'));
-    const debugEnabled = this.config.get<string>('OTP_DEBUG_ENABLED', 'true') === 'true';
+    const otpLength = Number(configuration.otpLength || this.config.get<string>('OTP_LENGTH', '6'));
+    const otpTtlMinutes = Number(configuration.otpTtlMinutes || this.config.get<string>('OTP_TTL_MINUTES', '10'));
+    const maxAttempts = Number(configuration.otpMaxAttempts || this.config.get<string>('OTP_MAX_ATTEMPTS', '3'));
+    const debugEnabled = this.config.get<string>('OTP_DEBUG_ENABLED', 'true') === 'true' && this.config.get<string>('NODE_ENV', process.env.NODE_ENV || 'development') !== 'production';
     const otpSecret = this.config.get<string>('OTP_HASH_SECRET', this.config.get<string>('JWT_SECRET', 'edukia-wallet-lab-secret'));
     const code = generateNumericOtp(otpLength);
     const expiresAt = new Date(now.getTime() + otpTtlMinutes * 60 * 1000);
     const message = `EDUKIA : votre code de validation retrait est ${code}. Il expire dans ${otpTtlMinutes} minutes.`;
+    const configuredProvider = String(configuration.otpProvider || this.config.get<string>('OTP_SMS_PROVIDER', 'console')).toLowerCase();
 
-    let provider = 'console';
+    let provider = configuredProvider;
     let providerMessageId: string | null | undefined = null;
+    let providerBulkId: string | null | undefined = null;
     let failureReason: string | null = null;
     let otpStatus = WithdrawalOtpStatus.SENT;
+    let deliveryStatus = configuredProvider === 'infobip' ? OtpDeliveryStatus.CREATED : OtpDeliveryStatus.NOT_REQUIRED;
 
     try {
-      const sendResult = await this.otpSender.sendOtp({ phoneNumber: paymentAccount.phoneNumber, code, message });
-      provider = sendResult.provider;
+      const sendResult = await this.otpSender.sendOtp({
+        phoneNumber: paymentAccount.phoneNumber,
+        code,
+        message,
+        provider: configuredProvider,
+        withdrawalRequestId: withdrawal.id,
+        userId: command.userId,
+      });
+      provider = sendResult.provider || provider;
       providerMessageId = sendResult.messageId;
+      providerBulkId = sendResult.bulkId;
+      deliveryStatus = sendResult.deliveryStatus ?? (provider === 'infobip' ? OtpDeliveryStatus.SENT_TO_PROVIDER : OtpDeliveryStatus.NOT_REQUIRED);
     } catch (error) {
       otpStatus = WithdrawalOtpStatus.FAILED;
+      deliveryStatus = OtpDeliveryStatus.FAILED;
       failureReason = error instanceof Error ? error.message : 'Erreur inconnue pendant l’envoi OTP';
     }
+
+    const nextDeliveryCheckAt = deliveryStatus === OtpDeliveryStatus.SENT_TO_PROVIDER
+      ? new Date(now.getTime() + Number(this.config.get<string>('OTP_DELIVERY_UNKNOWN_AFTER_SECONDS', '120')) * 1000)
+      : null;
 
     const otp = await this.withdrawalOtps.create({
       withdrawalRequestId: withdrawal.id,
@@ -144,23 +185,35 @@ export class RequestWithdrawalUseCase {
       maxAttempts,
       provider,
       providerMessageId,
+      providerBulkId,
       failureReason,
       status: otpStatus,
+      deliveryStatus,
+      nextDeliveryCheckAt,
     });
 
     await this.notifications.notifyUser({
       userId: command.userId,
-      title: 'Code OTP envoyé',
-      message: `Un code de validation a été envoyé sur votre numéro Mobile Money ${paymentAccount.phoneNumber}.`,
+      title: 'Code OTP en cours d’envoi',
+      message: `Votre code de validation est en cours d’envoi sur le numéro Mobile Money ${paymentAccount.phoneNumber}.`,
       type: PaymentNotificationType.WITHDRAWAL_OTP_SENT,
-      metadata: { withdrawalRequestId: withdrawal.id, otpId: otp.id, expiresAt },
+      metadata: { withdrawalRequestId: withdrawal.id, otpId: otp.id, expiresAt, deliveryStatus },
     });
 
+    if (otpStatus === WithdrawalOtpStatus.FAILED) {
+      await this.notifications.notifyAdmins({
+        title: 'Échec envoi OTP retrait',
+        message: `L’envoi OTP pour une demande de retrait a échoué.`,
+        type: PaymentNotificationType.ADMIN_WITHDRAWAL_ALERT,
+        metadata: { withdrawalRequestId: withdrawal.id, userId: command.userId, failureReason },
+      });
+    }
+
     await this.audit.log({
-      action: 'WITHDRAWAL_OTP_SENT',
+      action: 'WITHDRAWAL_OTP_SENT_TO_PROVIDER',
       entity: 'WithdrawalRequest',
       entityId: withdrawal.id,
-      newValue: { userId: command.userId, amount, fees, netAmount: Math.max(0, amount - fees), phoneNumber: paymentAccount.phoneNumber, otpStatus },
+      newValue: { userId: command.userId, amount, fees, netAmount: Math.max(0, amount - fees), phoneNumber: paymentAccount.phoneNumber, otpStatus, deliveryStatus, provider, providerMessageId },
     });
 
     return {
@@ -169,13 +222,15 @@ export class RequestWithdrawalUseCase {
       otp: {
         sent: otpStatus === WithdrawalOtpStatus.SENT,
         provider,
+        deliveryStatus,
         expiresAt,
+        maxAttempts,
         debugAvailable: debugEnabled,
         failureReason,
       },
       message: otpStatus === WithdrawalOtpStatus.SENT
-        ? `Un code OTP a été envoyé au numéro ${paymentAccount.phoneNumber}. La demande sera soumise après validation du code.`
-        : `La demande est créée mais l’envoi OTP a échoué. Le développeur peut consulter le code via la route temporaire si OTP_DEBUG_ENABLED=true.`,
+        ? `Votre code de validation est en cours d’envoi au numéro ${paymentAccount.phoneNumber}. Si vous ne le recevez pas, vous pourrez demander un renvoi sécurisé.`
+        : `La demande est créée mais l’envoi OTP a échoué. Vous pouvez demander un nouveau code après quelques instants.`,
     };
   }
 }

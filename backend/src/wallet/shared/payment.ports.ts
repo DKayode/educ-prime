@@ -1,12 +1,14 @@
 import {
   FeeType,
   MobileMoneyProvider,
+  OtpDeliveryStatus,
   PaymentExecutionStatus,
   PaymentMethod,
   PaymentNotificationType,
   WalletStatus,
   WalletTransactionStatus,
   WalletTransactionType,
+  WithdrawalSecurityStatus,
   WithdrawalStatus,
 } from './payment.enums';
 import { WithdrawalOtpStatus } from '../otp/entities/withdrawal-otp.entity';
@@ -32,6 +34,17 @@ export interface PaymentConfigurationModel {
   maxWithdrawPerMonth: number;
   automaticWithdrawal: boolean;
   maintenanceMode: boolean;
+  otpEnabled: boolean;
+  otpLength: number;
+  otpTtlMinutes: number;
+  otpMaxAttempts: number;
+  otpResendCooldownSeconds: number;
+  otpMaxResends: number;
+  otpLockDurationMinutes: number;
+  otpRequireAdminUnlock: boolean;
+  otpAutoUnlockEnabled: boolean;
+  otpBlockWithdrawalCreation: boolean;
+  otpProvider: string;
 }
 
 export interface WalletModel {
@@ -108,6 +121,12 @@ export interface WithdrawalRequestModel {
   fees: number;
   netAmount: number;
   status: WithdrawalStatus;
+  securityStatus?: WithdrawalSecurityStatus;
+  securityReviewReason?: string | null;
+  securityReviewedBy?: number | null;
+  securityReviewedAt?: Date | null;
+  otpLockedAt?: Date | null;
+  otpUnlockedAt?: Date | null;
   paymentMethod: PaymentMethod;
   paymentAccountId?: string | null;
   paymentDeadline?: Date | null;
@@ -133,6 +152,8 @@ export interface WithdrawalRequestRepositoryPort {
   approve(id: string, adminId: number, deadline?: Date | null): Promise<WithdrawalRequestModel>;
   reject(id: string, adminId: number, reason: string): Promise<WithdrawalRequestModel>;
   markPending(id: string): Promise<WithdrawalRequestModel>;
+  markSecurityReviewRequired(id: string, reason: string): Promise<WithdrawalRequestModel>;
+  unlockOtpSecurityReview(id: string, adminId: number, reason: string): Promise<WithdrawalRequestModel>;
   markPaid(id: string): Promise<WithdrawalRequestModel>;
   sumPaidAmount(walletId: string, from: Date, to: Date): Promise<number>;
   countPaid(walletId: string, from: Date, to: Date): Promise<number>;
@@ -146,6 +167,7 @@ export interface WithdrawalRequestRepositoryPort {
     rejectedRequests: number;
     cancelledRequests: number;
     otpPendingRequests: number;
+    securityReviewRequiredRequests: number;
     totalRequestedAmount: number;
     totalPaidAmount: number;
     totalRejectedAmount: number;
@@ -166,7 +188,26 @@ export interface WithdrawalOtpModel {
   status: WithdrawalOtpStatus;
   provider: string;
   providerMessageId?: string | null;
+  providerBulkId?: string | null;
   failureReason?: string | null;
+  resendCount?: number;
+  lastSentAt?: Date | null;
+  lockedAt?: Date | null;
+  lockedReason?: string | null;
+  unlockedAt?: Date | null;
+  unlockedBy?: number | null;
+  unlockReason?: string | null;
+  deliveryStatus?: OtpDeliveryStatus;
+  providerStatusName?: string | null;
+  providerStatusGroupName?: string | null;
+  providerStatusDescription?: string | null;
+  deliveryErrorCode?: string | null;
+  deliveryErrorMessage?: string | null;
+  deliveredAt?: Date | null;
+  failedAt?: Date | null;
+  lastProviderCallbackAt?: Date | null;
+  deliveryCheckCount?: number;
+  nextDeliveryCheckAt?: Date | null;
   createdAt: Date;
 }
 
@@ -181,17 +222,54 @@ export interface WithdrawalOtpRepositoryPort {
     maxAttempts: number;
     provider: string;
     providerMessageId?: string | null;
+    providerBulkId?: string | null;
     failureReason?: string | null;
+    resendCount?: number;
     status?: WithdrawalOtpStatus;
+    deliveryStatus?: OtpDeliveryStatus;
+    nextDeliveryCheckAt?: Date | null;
   }): Promise<WithdrawalOtpModel>;
   findLatestByWithdrawalId(withdrawalRequestId: string): Promise<WithdrawalOtpModel | null>;
+  findByProviderMessageId(providerMessageId: string): Promise<WithdrawalOtpModel | null>;
+  findPendingDeliveryChecks(limit?: number): Promise<WithdrawalOtpModel[]>;
   incrementAttempt(id: string): Promise<WithdrawalOtpModel>;
+  incrementResend(id: string): Promise<WithdrawalOtpModel>;
   markVerified(id: string): Promise<WithdrawalOtpModel>;
   markExpired(id: string): Promise<WithdrawalOtpModel>;
+  markLocked(id: string, reason: string): Promise<WithdrawalOtpModel>;
+  expireActiveByWithdrawalId(withdrawalRequestId: string): Promise<void>;
+  markUnlocked(id: string, adminId: number, reason: string): Promise<WithdrawalOtpModel>;
+  updateProviderDeliveryStatus(id: string, data: {
+    deliveryStatus: OtpDeliveryStatus;
+    providerStatusName?: string | null;
+    providerStatusGroupName?: string | null;
+    providerStatusDescription?: string | null;
+    deliveryErrorCode?: string | null;
+    deliveryErrorMessage?: string | null;
+    deliveredAt?: Date | null;
+    failedAt?: Date | null;
+    lastProviderCallbackAt?: Date | null;
+    nextDeliveryCheckAt?: Date | null;
+    status?: WithdrawalOtpStatus;
+    failureReason?: string | null;
+  }): Promise<WithdrawalOtpModel>;
+  markDeliveryCheckAttempt(id: string, nextDeliveryCheckAt?: Date | null): Promise<WithdrawalOtpModel>;
 }
 
 export interface OtpSmsSenderPort {
-  sendOtp(payload: { phoneNumber: string; code: string; message: string }): Promise<{ provider: string; messageId?: string | null }>;
+  sendOtp(payload: {
+    phoneNumber: string;
+    code: string;
+    message: string;
+    provider?: string;
+    withdrawalRequestId?: string;
+    userId?: number;
+  }): Promise<{
+    provider: string;
+    messageId?: string | null;
+    bulkId?: string | null;
+    deliveryStatus?: OtpDeliveryStatus;
+  }>;
 }
 
 export interface UserPaymentAccountModel {

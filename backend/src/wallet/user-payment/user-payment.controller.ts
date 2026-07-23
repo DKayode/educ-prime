@@ -25,6 +25,7 @@ import { UpsertPaymentAccountDto } from './dto/upsert-payment-account.dto';
 import { ConfirmManualPaymentDto } from './dto/confirm-manual-payment.dto';
 import { UpdatePaymentConfigurationDto } from './dto/update-payment-configuration.dto';
 import { RejectWithdrawalDto } from './dto/reject-withdrawal.dto';
+import { UnlockWithdrawalOtpDto } from './dto/unlock-withdrawal-otp.dto';
 import { UpsertPaymentAccountUseCase } from './use-cases/upsert-payment-account.use-case';
 import { GetPaymentAccountsUseCase } from './use-cases/get-payment-accounts.use-case';
 import { GetUserPaymentActivityUseCase } from './use-cases/get-user-payment-activity.use-case';
@@ -34,6 +35,7 @@ import {
   GetPaymentConfigurationUseCase,
   ListAdminWithdrawalsUseCase,
   RejectWithdrawalUseCase,
+  UnlockWithdrawalOtpUseCase,
   UpdatePaymentConfigurationUseCase,
 } from './use-cases/admin-withdrawal.use-cases';
 
@@ -48,6 +50,7 @@ export class UserPaymentController {
     private readonly listAdminWithdrawals: ListAdminWithdrawalsUseCase,
     private readonly approveWithdrawal: ApproveWithdrawalUseCase,
     private readonly rejectWithdrawal: RejectWithdrawalUseCase,
+    private readonly unlockWithdrawalOtp: UnlockWithdrawalOtpUseCase,
     private readonly confirmManualPayment: ConfirmManualPaymentUseCase,
     private readonly getConfiguration: GetPaymentConfigurationUseCase,
     private readonly updateConfiguration: UpdatePaymentConfigurationUseCase,
@@ -123,6 +126,27 @@ export class UserPaymentController {
       req.user.utilisateurId,
       dto.reason,
     );
+  }
+
+  @UseGuards(RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @Patch('admin/withdrawals/:id/unlock-otp')
+  @ApiOperation({
+    summary: 'Débloquer une demande de retrait bloquée après échecs OTP',
+  })
+  @ApiParam({ name: 'id', description: 'Identifiant de la demande de retrait bloquée en vérification sécurité' })
+  unlockOtp(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() dto: UnlockWithdrawalOtpDto,
+  ) {
+    return this.unlockWithdrawalOtp.execute({
+      withdrawalRequestId: id,
+      adminId: req.user.utilisateurId,
+      reason: dto.reason,
+      verificationMethod: dto.verificationMethod,
+      allowNewOtp: dto.allowNewOtp ?? true,
+    });
   }
 
   @UseGuards(RoleGuard)
