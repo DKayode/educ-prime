@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { DecimalColumnTransformer } from '../../shared/decimal.transformer';
-import { FeeType } from '../../shared/payment.enums';
+import { FeeType, OtpProvider } from '../../shared/payment.enums';
 
 @Entity('payment_configurations')
 export class PaymentConfigurationEntity {
@@ -25,6 +25,19 @@ export class PaymentConfigurationEntity {
   @Column({ name: 'max_withdraw_per_month', type: 'integer', default: 10 }) maxWithdrawPerMonth: number;
   @Column({ name: 'automatic_withdrawal', default: false }) automaticWithdrawal: boolean;
   @Column({ name: 'maintenance_mode', default: false }) maintenanceMode: boolean;
+
+  @Column({ name: 'otp_enabled', default: true }) otpEnabled: boolean;
+  @Column({ name: 'otp_length', type: 'integer', default: 6 }) otpLength: number;
+  @Column({ name: 'otp_ttl_minutes', type: 'integer', default: 10 }) otpTtlMinutes: number;
+  @Column({ name: 'otp_max_attempts', type: 'integer', default: 3 }) otpMaxAttempts: number;
+  @Column({ name: 'otp_resend_cooldown_seconds', type: 'integer', default: 60 }) otpResendCooldownSeconds: number;
+  @Column({ name: 'otp_max_resends', type: 'integer', default: 2 }) otpMaxResends: number;
+  @Column({ name: 'otp_lock_duration_minutes', type: 'integer', default: 1440 }) otpLockDurationMinutes: number;
+  @Column({ name: 'otp_require_admin_unlock', default: true }) otpRequireAdminUnlock: boolean;
+  @Column({ name: 'otp_auto_unlock_enabled', default: false }) otpAutoUnlockEnabled: boolean;
+  @Column({ name: 'otp_block_withdrawal_creation', default: true }) otpBlockWithdrawalCreation: boolean;
+  @Column({ name: 'otp_provider', type: 'varchar', length: 30, default: OtpProvider.INFOBIP }) otpProvider: OtpProvider | string;
+
   @Column({ name: 'is_active', default: true }) isActive: boolean;
   @Column({ name: 'updated_by', type: 'integer', nullable: true }) updatedBy?: number | null;
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;

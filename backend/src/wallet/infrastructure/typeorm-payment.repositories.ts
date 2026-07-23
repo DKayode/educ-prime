@@ -1,8 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Between, DeepPartial, In, Repository } from 'typeorm';
+import { Between, DeepPartial, In, LessThanOrEqual, Repository } from 'typeorm';
 import { DataSourceResolver } from 'src/config/data-source-resolver.service';
 import { UtilisateursService } from 'src/utilisateurs/utilisateurs.service';
-import { Utilisateur } from 'src/utilisateurs/entities/utilisateur.entity';
 import {
   PaymentAuditLogPort,
   PaymentConfigurationModel,
@@ -23,7 +22,7 @@ import {
   WithdrawalRequestModel,
   WithdrawalRequestRepositoryPort,
 } from '../shared/payment.ports';
-import { WalletStatus, WalletTransactionType, WithdrawalStatus } from '../shared/payment.enums';
+import { OtpDeliveryStatus, WalletStatus, WalletTransactionType, WithdrawalSecurityStatus, WithdrawalStatus } from '../shared/payment.enums';
 import { WithdrawalOtpStatus } from '../otp/entities/withdrawal-otp.entity';
 import { WalletEntity } from '../wallet-balance/entities/wallet.entity';
 import { WalletTransactionEntity } from '../wallet-balance/entities/wallet-transaction.entity';
@@ -40,7 +39,7 @@ import { WithdrawalOtpEntity } from '../otp/entities/withdrawal-otp.entity';
 
 @Injectable()
 export class TypeOrmWalletRepository implements WalletRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) { }
+  constructor(private readonly resolver: DataSourceResolver) {}
   private get repo(): Repository<WalletEntity> { return this.resolver.getRepository(WalletEntity); }
 
   async findById(walletId: string): Promise<WalletModel | null> {
@@ -84,7 +83,7 @@ export class TypeOrmWalletRepository implements WalletRepositoryPort {
 
 @Injectable()
 export class TypeOrmWalletTransactionRepository implements WalletTransactionRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) { }
+  constructor(private readonly resolver: DataSourceResolver) {}
   private get repo(): Repository<WalletTransactionEntity> { return this.resolver.getRepository(WalletTransactionEntity); }
 
   existsByReference(reference: string): Promise<boolean> {
@@ -136,7 +135,7 @@ export class TypeOrmWalletTransactionRepository implements WalletTransactionRepo
 
 @Injectable()
 export class TypeOrmWalletRestrictionRepository implements WalletRestrictionRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) { }
+  constructor(private readonly resolver: DataSourceResolver) {}
   private get repo(): Repository<WalletRestrictionEntity> { return this.resolver.getRepository(WalletRestrictionEntity); }
 
   async findByUserId(userId: number): Promise<WalletRestrictionModel | null> {
@@ -152,7 +151,7 @@ export class TypeOrmWalletRestrictionRepository implements WalletRestrictionRepo
 
 @Injectable()
 export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) { }
+  constructor(private readonly resolver: DataSourceResolver) {}
   private get repo(): Repository<WithdrawalRequestEntity> { return this.resolver.getRepository(WithdrawalRequestEntity); }
 
   async create(data: Parameters<WithdrawalRequestRepositoryPort['create']>[0]): Promise<WithdrawalRequestModel> {
@@ -167,33 +166,26 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
   }
 
   async findOpenByWalletId(walletId: string): Promise<WithdrawalRequestModel | null> {
-    const row = await this.repo.findOne({ where: { walletId, status: In([WithdrawalStatus.OTP_PENDING, WithdrawalStatus.PENDING, WithdrawalStatus.APPROVED, WithdrawalStatus.PROCESSING]) } });
+    const row = await this.repo.findOne({
+      where: {
+        walletId,
+        status: In([
+          WithdrawalStatus.OTP_PENDING,
+          WithdrawalStatus.PENDING,
+          WithdrawalStatus.APPROVED,
+          WithdrawalStatus.PROCESSING,
+          WithdrawalStatus.SECURITY_REVIEW_REQUIRED,
+        ]),
+      },
+      order: { createdAt: 'DESC' },
+    });
     return row ? this.map(row) : null;
   }
 
   async findForAdmin(status?: WithdrawalStatus, page = 1, limit = 20) {
-    // Enrich each request with the requesting user (via wallet.userId) and the
-    // Mobile Money account, so the admin queue shows WHO asked and WHERE to pay.
-    const qb = this.repo.createQueryBuilder('w')
-      .leftJoin(WalletEntity, 'wallet', 'wallet.id = w.walletId')
-      .leftJoinAndMapOne('w.paymentAccount', UserPaymentAccountEntity, 'account', 'account.id = w.paymentAccountId')
-      .leftJoinAndMapOne('w.requester', Utilisateur, 'u', 'u.id = wallet.userId')
-      .addSelect('wallet.userId', 'w_user_id')
-      .orderBy('w.createdAt', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
-    if (status) qb.where('w.status = :status', { status });
-    const [rows, total] = await qb.getManyAndCount();
-    const data = rows.map((row: any) => ({
-      ...this.map(row),
-      user: row.requester
-        ? { id: row.requester.id, nom: row.requester.nom, prenom: row.requester.prenom, email: row.requester.email }
-        : null,
-      paymentAccount: row.paymentAccount
-        ? { operator: row.paymentAccount.operator, phoneNumber: row.paymentAccount.phoneNumber, accountName: row.paymentAccount.accountName }
-        : null,
-    }));
-    return { data, total };
+    const where = status ? { status } : {};
+    const [data, total] = await this.repo.findAndCount({ where, order: { createdAt: 'DESC' }, skip: (page - 1) * limit, take: limit });
+    return { data: data.map((row) => this.map(row)), total };
   }
 
   async findByWalletId(walletId: string, page = 1, limit = 50) {
@@ -205,31 +197,10 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
     const safePage = Number.isFinite(page) && page > 0 ? page : 1;
     const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 50;
 
-    /**
-     * Important TypeORM:
-     * Do not use database column names such as `w.created_at`, `w.wallet_id`,
-     * `w.payment_account_id` inside QueryBuilder expressions that also use
-     * `skip/take` and joins. TypeORM needs entity property paths to rebuild
-     * the paginated query metadata. With database column names, it can fail with:
-     * "Cannot read properties of undefined (reading 'databaseName')".
-     *
-     * We therefore use entity property names: `w.createdAt`, `w.walletId`,
-     * `w.paymentAccountId`, `wallet.userId`, `execution.withdrawalRequestId`.
-     */
     const [rows, total] = await this.repo.createQueryBuilder('w')
       .leftJoin(WalletEntity, 'wallet', 'wallet.id = w.walletId')
-      .leftJoinAndMapOne(
-        'w.paymentAccount',
-        UserPaymentAccountEntity,
-        'account',
-        'account.id = w.paymentAccountId',
-      )
-      .leftJoinAndMapMany(
-        'w.paymentExecutions',
-        PaymentExecutionEntity,
-        'execution',
-        'execution.withdrawalRequestId = w.id',
-      )
+      .leftJoinAndMapOne('w.paymentAccount', UserPaymentAccountEntity, 'account', 'account.id = w.paymentAccountId')
+      .leftJoinAndMapMany('w.paymentExecutions', PaymentExecutionEntity, 'execution', 'execution.withdrawalRequestId = w.id')
       .where('wallet.userId = :userId', { userId })
       .orderBy('w.createdAt', 'DESC')
       .skip((safePage - 1) * safeLimit)
@@ -244,6 +215,12 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
         fees: Number(row.fees),
         netAmount: Number(row.netAmount),
         status: row.status,
+        securityStatus: row.securityStatus,
+        securityReviewReason: row.securityReviewReason,
+        securityReviewedBy: row.securityReviewedBy,
+        securityReviewedAt: row.securityReviewedAt,
+        otpLockedAt: row.otpLockedAt,
+        otpUnlockedAt: row.otpUnlockedAt,
         paymentMethod: row.paymentMethod,
         paymentAccountId: row.paymentAccountId,
         paymentDeadline: row.paymentDeadline,
@@ -298,6 +275,32 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
     if (!row) throw new NotFoundException('Demande de retrait introuvable');
     if (row.status !== WithdrawalStatus.OTP_PENDING) throw new BadRequestException('Cette demande ne peut plus être validée par OTP');
     row.status = WithdrawalStatus.PENDING;
+    row.securityStatus = WithdrawalSecurityStatus.NORMAL;
+    return this.map(await this.repo.save(row));
+  }
+
+  async markSecurityReviewRequired(id: string, reason: string): Promise<WithdrawalRequestModel> {
+    const row = await this.repo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Demande de retrait introuvable');
+    row.status = WithdrawalStatus.SECURITY_REVIEW_REQUIRED;
+    row.securityStatus = WithdrawalSecurityStatus.UNDER_REVIEW;
+    row.securityReviewReason = reason;
+    row.otpLockedAt = new Date();
+    return this.map(await this.repo.save(row));
+  }
+
+  async unlockOtpSecurityReview(id: string, adminId: number, reason: string): Promise<WithdrawalRequestModel> {
+    const row = await this.repo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Demande de retrait introuvable');
+    if (row.status !== WithdrawalStatus.SECURITY_REVIEW_REQUIRED) {
+      throw new BadRequestException('Cette demande ne nécessite pas de déblocage OTP');
+    }
+    row.status = WithdrawalStatus.OTP_PENDING;
+    row.securityStatus = WithdrawalSecurityStatus.UNLOCKED;
+    row.securityReviewedBy = adminId;
+    row.securityReviewedAt = new Date();
+    row.otpUnlockedAt = new Date();
+    row.securityReviewReason = reason;
     return this.map(await this.repo.save(row));
   }
 
@@ -316,6 +319,12 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
       fees: Number(row.fees),
       netAmount: Number(row.netAmount),
       status: row.status,
+      securityStatus: row.securityStatus,
+      securityReviewReason: row.securityReviewReason,
+      securityReviewedBy: row.securityReviewedBy,
+      securityReviewedAt: row.securityReviewedAt,
+      otpLockedAt: row.otpLockedAt,
+      otpUnlockedAt: row.otpUnlockedAt,
       paymentMethod: row.paymentMethod,
       paymentAccountId: row.paymentAccountId,
       paymentDeadline: row.paymentDeadline,
@@ -326,9 +335,9 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
   async sumPaidAmount(walletId: string, from: Date, to: Date): Promise<number> {
     const result = await this.repo.createQueryBuilder('w')
       .select('COALESCE(SUM(w.amount), 0)', 'sum')
-      .where('w.wallet_id = :walletId', { walletId })
+      .where('w.walletId = :walletId', { walletId })
       .andWhere('w.status = :status', { status: WithdrawalStatus.PAID })
-      .andWhere('w.created_at BETWEEN :from AND :to', { from, to })
+      .andWhere('w.createdAt BETWEEN :from AND :to', { from, to })
       .getRawOne();
     return Number(result?.sum ?? 0);
   }
@@ -342,7 +351,7 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
       .select('w.status', 'status')
       .addSelect('COUNT(*)', 'count')
       .addSelect('COALESCE(SUM(w.amount), 0)', 'amount')
-      .where('w.wallet_id = :walletId', { walletId })
+      .where('w.walletId = :walletId', { walletId })
       .groupBy('w.status')
       .getRawMany();
 
@@ -352,7 +361,13 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
 
     return {
       totalRequests: rows.reduce((sum, row) => sum + Number(row.count), 0),
-      openRequests: [WithdrawalStatus.OTP_PENDING, WithdrawalStatus.PENDING, WithdrawalStatus.APPROVED, WithdrawalStatus.PROCESSING].reduce((sum, status) => sum + count(status), 0),
+      openRequests: [
+        WithdrawalStatus.OTP_PENDING,
+        WithdrawalStatus.PENDING,
+        WithdrawalStatus.APPROVED,
+        WithdrawalStatus.PROCESSING,
+        WithdrawalStatus.SECURITY_REVIEW_REQUIRED,
+      ].reduce((sum, status) => sum + count(status), 0),
       pendingRequests: count(WithdrawalStatus.PENDING),
       approvedRequests: count(WithdrawalStatus.APPROVED),
       processingRequests: count(WithdrawalStatus.PROCESSING),
@@ -360,6 +375,7 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
       rejectedRequests: count(WithdrawalStatus.REJECTED),
       cancelledRequests: count(WithdrawalStatus.CANCELLED),
       otpPendingRequests: count(WithdrawalStatus.OTP_PENDING),
+      securityReviewRequiredRequests: count(WithdrawalStatus.SECURITY_REVIEW_REQUIRED),
       totalRequestedAmount: rows.reduce((sum, row) => sum + Number(row.amount), 0),
       totalPaidAmount: amount(WithdrawalStatus.PAID),
       totalRejectedAmount: amount(WithdrawalStatus.REJECTED),
@@ -369,11 +385,15 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
 
 @Injectable()
 export class TypeOrmWithdrawalOtpRepository implements WithdrawalOtpRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) { }
+  constructor(private readonly resolver: DataSourceResolver) {}
   private get repo(): Repository<WithdrawalOtpEntity> { return this.resolver.getRepository(WithdrawalOtpEntity); }
 
   async create(data: Parameters<WithdrawalOtpRepositoryPort['create']>[0]): Promise<WithdrawalOtpModel> {
-    const entity = this.repo.create(data as DeepPartial<WithdrawalOtpEntity>);
+    const entity = this.repo.create({
+      ...data,
+      lastSentAt: new Date(),
+      deliveryStatus: data.deliveryStatus ?? OtpDeliveryStatus.CREATED,
+    } as DeepPartial<WithdrawalOtpEntity>);
     return this.map(await this.repo.save(entity));
   }
 
@@ -382,10 +402,40 @@ export class TypeOrmWithdrawalOtpRepository implements WithdrawalOtpRepositoryPo
     return row ? this.map(row) : null;
   }
 
+  async findByProviderMessageId(providerMessageId: string): Promise<WithdrawalOtpModel | null> {
+    const row = await this.repo.findOne({ where: { providerMessageId } });
+    return row ? this.map(row) : null;
+  }
+
+  async findPendingDeliveryChecks(limit = 50): Promise<WithdrawalOtpModel[]> {
+    const rows = await this.repo.find({
+      where: {
+        provider: 'infobip',
+        status: WithdrawalOtpStatus.SENT,
+        deliveryStatus: In([
+          OtpDeliveryStatus.SENT_TO_PROVIDER,
+          OtpDeliveryStatus.DELIVERY_UNKNOWN,
+        ]),
+        nextDeliveryCheckAt: LessThanOrEqual(new Date()),
+      },
+      order: { nextDeliveryCheckAt: 'ASC', createdAt: 'ASC' },
+      take: limit,
+    });
+    return rows.map((row) => this.map(row));
+  }
+
   async incrementAttempt(id: string): Promise<WithdrawalOtpModel> {
     const row = await this.repo.findOne({ where: { id } });
     if (!row) throw new NotFoundException('OTP introuvable');
     row.attemptCount += 1;
+    return this.map(await this.repo.save(row));
+  }
+
+  async incrementResend(id: string): Promise<WithdrawalOtpModel> {
+    const row = await this.repo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('OTP introuvable');
+    row.resendCount += 1;
+    row.lastSentAt = new Date();
     return this.map(await this.repo.save(row));
   }
 
@@ -404,6 +454,61 @@ export class TypeOrmWithdrawalOtpRepository implements WithdrawalOtpRepositoryPo
     return this.map(await this.repo.save(row));
   }
 
+  async markLocked(id: string, reason: string): Promise<WithdrawalOtpModel> {
+    const row = await this.repo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('OTP introuvable');
+    row.status = WithdrawalOtpStatus.LOCKED;
+    row.lockedAt = new Date();
+    row.lockedReason = reason;
+    return this.map(await this.repo.save(row));
+  }
+
+  async expireActiveByWithdrawalId(withdrawalRequestId: string): Promise<void> {
+    await this.repo.update(
+      { withdrawalRequestId, status: In([WithdrawalOtpStatus.SENT, WithdrawalOtpStatus.FAILED]) },
+      { status: WithdrawalOtpStatus.EXPIRED },
+    );
+  }
+
+  async markUnlocked(id: string, adminId: number, reason: string): Promise<WithdrawalOtpModel> {
+    const row = await this.repo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('OTP introuvable');
+    row.unlockedAt = new Date();
+    row.unlockedBy = adminId;
+    row.unlockReason = reason;
+    return this.map(await this.repo.save(row));
+  }
+
+  async updateProviderDeliveryStatus(id: string, data: Parameters<WithdrawalOtpRepositoryPort['updateProviderDeliveryStatus']>[1]): Promise<WithdrawalOtpModel> {
+    const row = await this.repo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('OTP introuvable');
+
+    row.deliveryStatus = data.deliveryStatus;
+    row.providerStatusName = data.providerStatusName ?? row.providerStatusName;
+    row.providerStatusGroupName = data.providerStatusGroupName ?? row.providerStatusGroupName;
+    row.providerStatusDescription = data.providerStatusDescription ?? row.providerStatusDescription;
+    row.deliveryErrorCode = data.deliveryErrorCode ?? row.deliveryErrorCode;
+    row.deliveryErrorMessage = data.deliveryErrorMessage ?? row.deliveryErrorMessage;
+    row.deliveredAt = data.deliveredAt ?? row.deliveredAt;
+    row.failedAt = data.failedAt ?? row.failedAt;
+    row.lastProviderCallbackAt = data.lastProviderCallbackAt ?? new Date();
+    row.nextDeliveryCheckAt = data.nextDeliveryCheckAt ?? null;
+
+    if (data.status) row.status = data.status;
+    if (data.failureReason) row.failureReason = data.failureReason;
+
+    return this.map(await this.repo.save(row));
+  }
+
+  async markDeliveryCheckAttempt(id: string, nextDeliveryCheckAt?: Date | null): Promise<WithdrawalOtpModel> {
+    const row = await this.repo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('OTP introuvable');
+    row.deliveryCheckCount += 1;
+    row.nextDeliveryCheckAt = nextDeliveryCheckAt ?? null;
+    row.lastProviderCallbackAt = new Date();
+    return this.map(await this.repo.save(row));
+  }
+
   private map(row: WithdrawalOtpEntity): WithdrawalOtpModel {
     return {
       id: row.id,
@@ -419,7 +524,26 @@ export class TypeOrmWithdrawalOtpRepository implements WithdrawalOtpRepositoryPo
       status: row.status,
       provider: row.provider,
       providerMessageId: row.providerMessageId,
+      providerBulkId: row.providerBulkId,
       failureReason: row.failureReason,
+      resendCount: row.resendCount,
+      lastSentAt: row.lastSentAt,
+      lockedAt: row.lockedAt,
+      lockedReason: row.lockedReason,
+      unlockedAt: row.unlockedAt,
+      unlockedBy: row.unlockedBy,
+      unlockReason: row.unlockReason,
+      deliveryStatus: row.deliveryStatus,
+      providerStatusName: row.providerStatusName,
+      providerStatusGroupName: row.providerStatusGroupName,
+      providerStatusDescription: row.providerStatusDescription,
+      deliveryErrorCode: row.deliveryErrorCode,
+      deliveryErrorMessage: row.deliveryErrorMessage,
+      deliveredAt: row.deliveredAt,
+      failedAt: row.failedAt,
+      lastProviderCallbackAt: row.lastProviderCallbackAt,
+      deliveryCheckCount: row.deliveryCheckCount,
+      nextDeliveryCheckAt: row.nextDeliveryCheckAt,
       createdAt: row.createdAt,
     };
   }
@@ -427,7 +551,7 @@ export class TypeOrmWithdrawalOtpRepository implements WithdrawalOtpRepositoryPo
 
 @Injectable()
 export class TypeOrmUserPaymentAccountRepository implements UserPaymentAccountRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) { }
+  constructor(private readonly resolver: DataSourceResolver) {}
   private get repo(): Repository<UserPaymentAccountEntity> { return this.resolver.getRepository(UserPaymentAccountEntity); }
   private get historyRepo(): Repository<UserPaymentAccountHistoryEntity> { return this.resolver.getRepository(UserPaymentAccountHistoryEntity); }
 
@@ -486,7 +610,7 @@ export class TypeOrmUserPaymentAccountRepository implements UserPaymentAccountRe
 
 @Injectable()
 export class TypeOrmPaymentExecutionRepository implements PaymentExecutionRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) { }
+  constructor(private readonly resolver: DataSourceResolver) {}
   private get repo(): Repository<PaymentExecutionEntity> { return this.resolver.getRepository(PaymentExecutionEntity); }
   private get proofRepo(): Repository<PaymentProofEntity> { return this.resolver.getRepository(PaymentProofEntity); }
 
@@ -518,7 +642,7 @@ export class TypeOrmPaymentExecutionRepository implements PaymentExecutionReposi
 
 @Injectable()
 export class TypeOrmPaymentConfigurationRepository implements PaymentConfigurationRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) { }
+  constructor(private readonly resolver: DataSourceResolver) {}
   private get repo(): Repository<PaymentConfigurationEntity> { return this.resolver.getRepository(PaymentConfigurationEntity); }
 
   async getActive(): Promise<PaymentConfigurationModel> {
@@ -536,7 +660,7 @@ export class TypeOrmPaymentConfigurationRepository implements PaymentConfigurati
 
 @Injectable()
 export class UtilisateursUserProfileAdapter implements UserProfilePort {
-  constructor(private readonly utilisateursService: UtilisateursService) { }
+  constructor(private readonly utilisateursService: UtilisateursService) {}
 
   async getPaymentProfile(userId: number) {
     const user: any = await this.utilisateursService.findOne(String(userId));
@@ -555,7 +679,7 @@ export class UtilisateursUserProfileAdapter implements UserProfilePort {
 
 @Injectable()
 export class TypeOrmPaymentNotificationAdapter implements PaymentNotificationPort {
-  constructor(private readonly resolver: DataSourceResolver) { }
+  constructor(private readonly resolver: DataSourceResolver) {}
   private get repo(): Repository<PaymentNotificationEntity> { return this.resolver.getRepository(PaymentNotificationEntity); }
 
   async notifyUser(payload: Parameters<PaymentNotificationPort['notifyUser']>[0]) {
@@ -571,7 +695,7 @@ export class TypeOrmPaymentNotificationAdapter implements PaymentNotificationPor
 
 @Injectable()
 export class TypeOrmPaymentAuditLogAdapter implements PaymentAuditLogPort {
-  constructor(private readonly resolver: DataSourceResolver) { }
+  constructor(private readonly resolver: DataSourceResolver) {}
   private get repo(): Repository<PaymentAuditLogEntity> { return this.resolver.getRepository(PaymentAuditLogEntity); }
 
   async log(payload: Parameters<PaymentAuditLogPort['log']>[0]) {

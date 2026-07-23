@@ -14,6 +14,9 @@ docker-compose.dev.yml
 postgres_data/
 postgres_data_dev/
 
+# Certbot runtime state (ACME account keys, live/archived certs) — never commit
+certbot/conf/
+
 # OS files
 .DS_Store
 Thumbs.db
