@@ -136,6 +136,7 @@ export class ServicesService {
                     nom: utilisateur.nom,
                     prenom: utilisateur.prenom,
                     email: utilisateur.email,
+                    profil: utilisateur.profil_photo_path || null,
                 },
             };
         }
@@ -149,6 +150,7 @@ export class ServicesService {
                 nom: utilisateur.nom,
                 prenom: utilisateur.prenom,
                 email: utilisateur.email,
+                profil: utilisateur.profil_photo_path || null,
             } : null,
             prestataire,
             avis,

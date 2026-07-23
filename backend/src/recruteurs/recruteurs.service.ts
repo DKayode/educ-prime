@@ -32,6 +32,7 @@ export class RecruteursService {
                 nom: utilisateur.nom,
                 prenom: utilisateur.prenom,
                 email: utilisateur.email,
+                profil: utilisateur.profil_photo_path || null,
             } : null,
         };
     }
