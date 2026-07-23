@@ -1,23 +1,29 @@
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
+  OTP_SMS_SENDER_PORT,
   PAYMENT_AUDIT_LOG_PORT,
   PAYMENT_CONFIGURATION_REPOSITORY,
   PAYMENT_EXECUTION_REPOSITORY,
   PAYMENT_NOTIFICATION_PORT,
   WALLET_REPOSITORY,
   WALLET_TRANSACTION_REPOSITORY,
+  WITHDRAWAL_OTP_REPOSITORY,
   WITHDRAWAL_REQUEST_REPOSITORY,
 } from '../../shared/payment.tokens';
 import {
+  OtpSmsSenderPort,
   PaymentAuditLogPort,
   PaymentConfigurationRepositoryPort,
   PaymentExecutionRepositoryPort,
   PaymentNotificationPort,
   WalletRepositoryPort,
   WalletTransactionRepositoryPort,
+  WithdrawalOtpRepositoryPort,
   WithdrawalRequestRepositoryPort,
 } from '../../shared/payment.ports';
 import {
+  OtpDeliveryStatus,
   MobileMoneyProvider,
   PaymentExecutionStatus,
   PaymentMethod,
@@ -28,6 +34,8 @@ import {
 } from '../../shared/payment.enums';
 import { WalletAggregate } from '../../wallet-balance/domain/wallet.aggregate';
 import { BENIN_MOBILE_MONEY_PHONE_ERROR_MESSAGE, normalizeBeninMobileMoneyPhone } from '../../shared/benin-phone-number.util';
+import { generateNumericOtp, hashWithdrawalOtp } from '../../otp/otp.util';
+import { WithdrawalOtpStatus } from '../../otp/entities/withdrawal-otp.entity';
 
 @Injectable()
 export class ListAdminWithdrawalsUseCase {
@@ -60,6 +68,144 @@ export class RejectWithdrawalUseCase {
     const withdrawal = await this.withdrawals.reject(id, adminId, reason);
     await this.audit.log({ adminId, action: 'WITHDRAWAL_REJECTED', entity: 'WithdrawalRequest', entityId: id, newValue: { reason } });
     return withdrawal;
+  }
+}
+
+@Injectable()
+export class UnlockWithdrawalOtpUseCase {
+  constructor(
+    @Inject(WITHDRAWAL_REQUEST_REPOSITORY) private readonly withdrawals: WithdrawalRequestRepositoryPort,
+    @Inject(WITHDRAWAL_OTP_REPOSITORY) private readonly otps: WithdrawalOtpRepositoryPort,
+    @Inject(WALLET_REPOSITORY) private readonly wallets: WalletRepositoryPort,
+    @Inject(PAYMENT_CONFIGURATION_REPOSITORY) private readonly configurations: PaymentConfigurationRepositoryPort,
+    @Inject(PAYMENT_NOTIFICATION_PORT) private readonly notifications: PaymentNotificationPort,
+    @Inject(PAYMENT_AUDIT_LOG_PORT) private readonly audit: PaymentAuditLogPort,
+    @Inject(OTP_SMS_SENDER_PORT) private readonly otpSender: OtpSmsSenderPort,
+    private readonly config: ConfigService,
+  ) {}
+
+  async execute(command: {
+    withdrawalRequestId: string;
+    adminId: number;
+    reason: string;
+    verificationMethod?: string;
+    allowNewOtp?: boolean;
+  }) {
+    const withdrawal = await this.withdrawals.findById(command.withdrawalRequestId);
+    if (!withdrawal) throw new NotFoundException('Demande de retrait introuvable');
+    if (withdrawal.status !== WithdrawalStatus.SECURITY_REVIEW_REQUIRED) {
+      throw new BadRequestException('Cette demande ne nécessite pas de déblocage OTP');
+    }
+
+    const wallet = await this.wallets.findById(withdrawal.walletId);
+    if (!wallet) throw new NotFoundException('Wallet introuvable');
+
+    const latestOtp = await this.otps.findLatestByWithdrawalId(withdrawal.id);
+    if (!latestOtp) throw new NotFoundException('Aucun OTP trouvé pour cette demande');
+
+    const configuration = await this.configurations.getActive();
+    const unlockReason = `${command.reason}${command.verificationMethod ? ` | Méthode: ${command.verificationMethod}` : ''}`;
+
+    await this.otps.markUnlocked(latestOtp.id, command.adminId, unlockReason);
+    await this.otps.expireActiveByWithdrawalId(withdrawal.id);
+    const unlockedWithdrawal = await this.withdrawals.unlockOtpSecurityReview(withdrawal.id, command.adminId, unlockReason);
+
+    let newOtp: Record<string, unknown> | null = null;
+    const shouldSendNewOtp = command.allowNewOtp !== false;
+    if (shouldSendNewOtp) {
+      const now = new Date();
+      const otpLength = Number(configuration.otpLength || this.config.get<string>('OTP_LENGTH', '6'));
+      const otpTtlMinutes = Number(configuration.otpTtlMinutes || this.config.get<string>('OTP_TTL_MINUTES', '10'));
+      const maxAttempts = Number(configuration.otpMaxAttempts || this.config.get<string>('OTP_MAX_ATTEMPTS', '3'));
+      const debugEnabled = this.config.get<string>('OTP_DEBUG_ENABLED', 'true') === 'true' && this.config.get<string>('NODE_ENV', process.env.NODE_ENV || 'development') !== 'production';
+      const otpSecret = this.config.get<string>('OTP_HASH_SECRET', this.config.get<string>('JWT_SECRET', 'edukia-wallet-lab-secret'));
+      const code = generateNumericOtp(otpLength);
+      const expiresAt = new Date(now.getTime() + otpTtlMinutes * 60 * 1000);
+      const message = `EDUKIA : votre nouveau code de validation retrait est ${code}. Il expire dans ${otpTtlMinutes} minutes.`;
+
+      let provider = configuration.otpProvider || latestOtp.provider || 'console';
+      let providerMessageId: string | null | undefined = null;
+      let providerBulkId: string | null | undefined = null;
+      let failureReason: string | null = null;
+      let status = WithdrawalOtpStatus.SENT;
+      let deliveryStatus = provider === 'infobip' ? OtpDeliveryStatus.CREATED : OtpDeliveryStatus.NOT_REQUIRED;
+
+      try {
+        const result = await this.otpSender.sendOtp({
+          phoneNumber: latestOtp.phoneNumber,
+          code,
+          message,
+          provider,
+          withdrawalRequestId: withdrawal.id,
+          userId: wallet.userId,
+        });
+        provider = result.provider || provider;
+        providerMessageId = result.messageId;
+        providerBulkId = result.bulkId;
+        deliveryStatus = result.deliveryStatus ?? (provider === 'infobip' ? OtpDeliveryStatus.SENT_TO_PROVIDER : OtpDeliveryStatus.NOT_REQUIRED);
+      } catch (error) {
+        status = WithdrawalOtpStatus.FAILED;
+        deliveryStatus = OtpDeliveryStatus.FAILED;
+        failureReason = error instanceof Error ? error.message : 'Erreur inconnue pendant l’envoi OTP';
+      }
+
+      const nextDeliveryCheckAt = deliveryStatus === OtpDeliveryStatus.SENT_TO_PROVIDER
+        ? new Date(now.getTime() + Number(this.config.get<string>('OTP_DELIVERY_UNKNOWN_AFTER_SECONDS', '120')) * 1000)
+        : null;
+
+      const createdOtp = await this.otps.create({
+        withdrawalRequestId: withdrawal.id,
+        userId: wallet.userId,
+        phoneNumber: latestOtp.phoneNumber,
+        codeHash: hashWithdrawalOtp(code, otpSecret),
+        debugCode: debugEnabled ? code : null,
+        expiresAt,
+        maxAttempts,
+        provider,
+        providerMessageId,
+        providerBulkId,
+        failureReason,
+        status,
+        deliveryStatus,
+        nextDeliveryCheckAt,
+      });
+
+      newOtp = {
+        id: createdOtp.id,
+        sent: status === WithdrawalOtpStatus.SENT,
+        provider,
+        deliveryStatus,
+        expiresAt,
+        debugAvailable: debugEnabled,
+        failureReason,
+      };
+    }
+
+    await this.notifications.notifyUser({
+      userId: wallet.userId,
+      title: 'Demande de retrait débloquée',
+      message: shouldSendNewOtp
+        ? 'Votre demande de retrait a été vérifiée. Un nouveau code OTP vous a été envoyé.'
+        : 'Votre demande de retrait a été débloquée par l’administration EDUKIA.',
+      type: PaymentNotificationType.WITHDRAWAL_OTP_UNLOCKED,
+      metadata: { withdrawalRequestId: withdrawal.id, newOtp },
+    });
+
+    await this.audit.log({
+      adminId: command.adminId,
+      action: 'WITHDRAWAL_OTP_UNLOCKED_BY_ADMIN',
+      entity: 'WithdrawalRequest',
+      entityId: withdrawal.id,
+      newValue: { reason: command.reason, verificationMethod: command.verificationMethod, allowNewOtp: shouldSendNewOtp, newOtp },
+    });
+
+    return {
+      withdrawal: unlockedWithdrawal,
+      otp: newOtp,
+      message: shouldSendNewOtp
+        ? 'Demande débloquée et nouvel OTP généré.'
+        : 'Demande débloquée. Aucun nouvel OTP n’a été envoyé.',
+    };
   }
 }
 

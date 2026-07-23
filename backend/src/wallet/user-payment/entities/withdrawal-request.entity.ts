@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { DecimalColumnTransformer } from '../../shared/decimal.transformer';
-import { PaymentMethod, WithdrawalStatus } from '../../shared/payment.enums';
+import { PaymentMethod, WithdrawalSecurityStatus, WithdrawalStatus } from '../../shared/payment.enums';
 
 @Entity('withdrawal_requests')
 @Index(['walletId', 'status'])
@@ -20,6 +20,14 @@ export class WithdrawalRequestEntity {
   @Column({ name: 'rejected_reason', type: 'text', nullable: true }) rejectedReason?: string | null;
   @Column({ name: 'payment_deadline', type: 'timestamp', nullable: true }) paymentDeadline?: Date | null;
   @Column({ type: 'integer', default: 0 }) priority: number;
+
+  @Column({ name: 'security_status', type: 'enum', enum: WithdrawalSecurityStatus, default: WithdrawalSecurityStatus.NORMAL }) securityStatus: WithdrawalSecurityStatus;
+  @Column({ name: 'security_review_reason', type: 'text', nullable: true }) securityReviewReason?: string | null;
+  @Column({ name: 'security_reviewed_by', type: 'integer', nullable: true }) securityReviewedBy?: number | null;
+  @Column({ name: 'security_reviewed_at', type: 'timestamp', nullable: true }) securityReviewedAt?: Date | null;
+  @Column({ name: 'otp_locked_at', type: 'timestamp', nullable: true }) otpLockedAt?: Date | null;
+  @Column({ name: 'otp_unlocked_at', type: 'timestamp', nullable: true }) otpUnlockedAt?: Date | null;
+
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
 }
