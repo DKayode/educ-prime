@@ -83,10 +83,11 @@ export class AvisService {
                 ...restAvis,
                 utilisateur: utilisateur ? {
                     id: utilisateur.id,
-                    ui: utilisateur.uuid,
+                    uuid: utilisateur.uuid,
                     nom: utilisateur.nom,
                     prenom: utilisateur.prenom,
                     email: utilisateur.email,
+                    profil: utilisateur.profil_photo_path || null,
                 } : null,
             };
         });

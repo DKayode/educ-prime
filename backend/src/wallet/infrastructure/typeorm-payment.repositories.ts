@@ -543,6 +543,8 @@ export class UtilisateursUserProfileAdapter implements UserProfilePort {
     const verification = await this.utilisateursService.isEmailVerified(userId);
     return {
       id: user.id,
+      uuid: user.uuid ?? null,
+      profil: user.profil_photo_path || null,
       email: user.email,
       telephone: user.telephone,
       isEmailVerified: verification.isVerified,

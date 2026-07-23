@@ -11,7 +11,7 @@ import { Avis } from '../avis/entities/avis.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
 
 const VALID_MODELS = ['Forums', 'Parcours', 'Commentaires', 'Avis'];
-const USER_FIELDS = ['id', 'nom', 'prenom', 'pseudo', 'email', 'sexe'] as const;
+const USER_FIELDS = ['id', 'uuid', 'nom', 'prenom', 'pseudo', 'email', 'sexe'] as const;
 
 const userSelect = USER_FIELDS.reduce((acc, f) => ({ ...acc, [f]: true }), {} as Record<string, true>);
 
@@ -210,7 +210,8 @@ export class CommentsPolymorphicService {
 
     private narrowUser(user: any) {
         if (!user) return null;
-        return USER_FIELDS.reduce((acc, f) => ({ ...acc, [f]: user[f] }), {} as Record<string, any>);
+        const base = USER_FIELDS.reduce((acc, f) => ({ ...acc, [f]: user[f] }), {} as Record<string, any>);
+        return { ...base, profil: user.profil_photo_path || null };
     }
 
     private mapResponse(
