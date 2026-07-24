@@ -51,11 +51,32 @@ services:
       # Wallet / payments. PAYMENT_INTERNAL_API_KEY guards the internal
       # exam-reward credit endpoint — MUST be set: an empty value makes the
       # InternalApiKeyGuard fail open (see nginx: /internal/ is also blocked at
-      # the edge as defense-in-depth). TWILIO_* powers withdrawal OTP SMS.
+      # the edge as defense-in-depth).
       PAYMENT_INTERNAL_API_KEY: ${PAYMENT_INTERNAL_API_KEY}
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
-      TWILIO_FROM: ${TWILIO_FROM}
+      # Withdrawal OTP SMS via Infobip (replaced Twilio). INFOBIP_BASE_URL +
+      # INFOBIP_API_KEY are REQUIRED — an empty value makes every OTP send throw
+      # "Configuration Infobip incomplète". INFOBIP_WEBHOOK_SECRET secures the
+      # delivery-report webhook (empty → the guard 403s all callbacks). The OTP_*
+      # vars tune code generation/resend/hash; set OTP_DEBUG_ENABLED=false in prod.
+      OTP_SMS_PROVIDER: ${OTP_SMS_PROVIDER}
+      OTP_DEBUG_ENABLED: ${OTP_DEBUG_ENABLED}
+      OTP_TTL_MINUTES: ${OTP_TTL_MINUTES}
+      OTP_LENGTH: ${OTP_LENGTH}
+      OTP_MAX_ATTEMPTS: ${OTP_MAX_ATTEMPTS}
+      OTP_HASH_SECRET: ${OTP_HASH_SECRET}
+      OTP_RESEND_COOLDOWN_SECONDS: ${OTP_RESEND_COOLDOWN_SECONDS}
+      OTP_MAX_RESENDS: ${OTP_MAX_RESENDS}
+      OTP_ANDROID_SMS_HASH: ${OTP_ANDROID_SMS_HASH}
+      INFOBIP_BASE_URL: ${INFOBIP_BASE_URL}
+      INFOBIP_API_KEY: ${INFOBIP_API_KEY}
+      INFOBIP_FROM: ${INFOBIP_FROM}
+      INFOBIP_SMS_ENDPOINT: ${INFOBIP_SMS_ENDPOINT}
+      INFOBIP_TIMEOUT_MS: ${INFOBIP_TIMEOUT_MS}
+      INFOBIP_REPORTS_ENDPOINT: ${INFOBIP_REPORTS_ENDPOINT}
+      INFOBIP_REMOVE_PLUS_FROM_TO: ${INFOBIP_REMOVE_PLUS_FROM_TO}
+      INFOBIP_WEBHOOK_SECRET: ${INFOBIP_WEBHOOK_SECRET}
+      INFOBIP_DELIVERY_REPORT_NOTIFY_URL: ${INFOBIP_DELIVERY_REPORT_NOTIFY_URL}
+      INFOBIP_NOTIFY_CONTENT_TYPE: ${INFOBIP_NOTIFY_CONTENT_TYPE}
     networks:
       - edukia_network
     depends_on:

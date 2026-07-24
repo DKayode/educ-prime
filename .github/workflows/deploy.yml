@@ -109,6 +109,29 @@ jobs:
             R2_PUBLIC_BUCKET=${{ secrets.R2_PUBLIC_BUCKET }}
             R2_PUBLIC_BUCKET_URL=${{ secrets.R2_PUBLIC_BUCKET_URL }}
             PAYMENT_INTERNAL_API_KEY=${{ secrets.PAYMENT_INTERNAL_API_KEY }}
+            # Wallet OTP — sensitive (set in the PRD GitHub environment secrets)
+            OTP_HASH_SECRET=${{ secrets.OTP_HASH_SECRET }}
+            INFOBIP_BASE_URL=${{ secrets.INFOBIP_BASE_URL }}
+            INFOBIP_API_KEY=${{ secrets.INFOBIP_API_KEY }}
+            INFOBIP_FROM=${{ secrets.INFOBIP_FROM }}
+            INFOBIP_WEBHOOK_SECRET=${{ secrets.INFOBIP_WEBHOOK_SECRET }}
+            # Wallet OTP — non-sensitive config, set literally here (not secrets).
+            # OTP_SMS_PROVIDER=infobip + OTP_DEBUG_ENABLED=false are the prod
+            # values (test.txt ships console/true for local dev only).
+            OTP_SMS_PROVIDER=infobip
+            OTP_DEBUG_ENABLED=false
+            OTP_TTL_MINUTES=10
+            OTP_LENGTH=6
+            OTP_MAX_ATTEMPTS=3
+            OTP_RESEND_COOLDOWN_SECONDS=60
+            OTP_MAX_RESENDS=2
+            OTP_ANDROID_SMS_HASH=omRcRPVzgWL
+            INFOBIP_SMS_ENDPOINT=/sms/2/text/advanced
+            INFOBIP_TIMEOUT_MS=10000
+            INFOBIP_REPORTS_ENDPOINT=/sms/1/reports
+            INFOBIP_REMOVE_PLUS_FROM_TO=true
+            INFOBIP_DELIVERY_REPORT_NOTIFY_URL=
+            INFOBIP_NOTIFY_CONTENT_TYPE=application/json
             ENV_EOF
 
             # Créer le fichier docker-compose.yml depuis le contenu du repo
