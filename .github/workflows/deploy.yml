@@ -109,6 +109,25 @@ jobs:
             R2_PUBLIC_BUCKET=${{ secrets.R2_PUBLIC_BUCKET }}
             R2_PUBLIC_BUCKET_URL=${{ secrets.R2_PUBLIC_BUCKET_URL }}
             PAYMENT_INTERNAL_API_KEY=${{ secrets.PAYMENT_INTERNAL_API_KEY }}
+            OTP_SMS_PROVIDER=${{ secrets.OTP_SMS_PROVIDER }}
+            OTP_DEBUG_ENABLED=${{ secrets.OTP_DEBUG_ENABLED }}
+            OTP_TTL_MINUTES=${{ secrets.OTP_TTL_MINUTES }}
+            OTP_LENGTH=${{ secrets.OTP_LENGTH }}
+            OTP_MAX_ATTEMPTS=${{ secrets.OTP_MAX_ATTEMPTS }}
+            OTP_HASH_SECRET=${{ secrets.OTP_HASH_SECRET }}
+            OTP_RESEND_COOLDOWN_SECONDS=${{ secrets.OTP_RESEND_COOLDOWN_SECONDS }}
+            OTP_MAX_RESENDS=${{ secrets.OTP_MAX_RESENDS }}
+            OTP_ANDROID_SMS_HASH=${{ secrets.OTP_ANDROID_SMS_HASH }}
+            INFOBIP_BASE_URL=${{ secrets.INFOBIP_BASE_URL }}
+            INFOBIP_API_KEY=${{ secrets.INFOBIP_API_KEY }}
+            INFOBIP_FROM=${{ secrets.INFOBIP_FROM }}
+            INFOBIP_SMS_ENDPOINT=${{ secrets.INFOBIP_SMS_ENDPOINT }}
+            INFOBIP_TIMEOUT_MS=${{ secrets.INFOBIP_TIMEOUT_MS }}
+            INFOBIP_REPORTS_ENDPOINT=${{ secrets.INFOBIP_REPORTS_ENDPOINT }}
+            INFOBIP_REMOVE_PLUS_FROM_TO=${{ secrets.INFOBIP_REMOVE_PLUS_FROM_TO }}
+            INFOBIP_WEBHOOK_SECRET=${{ secrets.INFOBIP_WEBHOOK_SECRET }}
+            INFOBIP_DELIVERY_REPORT_NOTIFY_URL=${{ secrets.INFOBIP_DELIVERY_REPORT_NOTIFY_URL }}
+            INFOBIP_NOTIFY_CONTENT_TYPE=${{ secrets.INFOBIP_NOTIFY_CONTENT_TYPE }}
             ENV_EOF
 
             # Créer le fichier docker-compose.yml depuis le contenu du repo
