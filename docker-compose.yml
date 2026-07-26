@@ -161,6 +161,9 @@ services:
     image: timberio/vector:0.44.0-debian
     container_name: edukia_vector
     restart: unless-stopped
+    # --watch-config so edits to vector.yaml auto-reload on deploy (compose does
+    # not recreate a container when only a bind-mounted file's contents change).
+    command: --watch-config --config-yaml /etc/vector/vector.yaml
     volumes:
       - ./observability/vector.yaml:/etc/vector/vector.yaml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
