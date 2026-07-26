@@ -1,0 +1,139 @@
+{
+  "uid": "edukia-logs-overview",
+  "title": "Edukia — Logs Overview",
+  "tags": ["edukia", "logs"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "backend_re",
+        "type": "constant",
+        "query": "edukia_backend",
+        "hide": 2
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Request rate (nginx, req/s)",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(rate({service=\"edukia_nginx\"} | json | __error__=\"\" [1m]))" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "5xx error rate (%)",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "percent", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 5 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(rate({service=\"edukia_nginx\"} | json | __error__=\"\" | status>=500 [5m])) / (sum(rate({service=\"edukia_nginx\"} | json | __error__=\"\" [5m])) > 0) * 100" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Backend errors (last 5m)",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(count_over_time({service=\"edukia_backend\"} | json | __error__=\"\" | level=\"error\" [5m]))" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "P95 latency (s)",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "expr": "quantile_over_time(0.95, {service=\"edukia_nginx\"} | json rt=\"request_time\" | __error__=\"\" | unwrap rt [5m])" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Requests by status class",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 20, "stacking": { "mode": "normal" } } } },
+      "targets": [
+        { "refId": "2xx", "legendFormat": "2xx", "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(rate({service=\"edukia_nginx\"} | json | __error__=\"\" | status>=200 | status<300 [1m]))" },
+        { "refId": "3xx", "legendFormat": "3xx", "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(rate({service=\"edukia_nginx\"} | json | __error__=\"\" | status>=300 | status<400 [1m]))" },
+        { "refId": "4xx", "legendFormat": "4xx", "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(rate({service=\"edukia_nginx\"} | json | __error__=\"\" | status>=400 | status<500 [1m]))" },
+        { "refId": "5xx", "legendFormat": "5xx", "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(rate({service=\"edukia_nginx\"} | json | __error__=\"\" | status>=500 [1m]))" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Latency percentiles (s)",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        { "refId": "p50", "legendFormat": "p50", "datasource": { "type": "loki", "uid": "loki" }, "expr": "quantile_over_time(0.50, {service=\"edukia_nginx\"} | json rt=\"request_time\" | __error__=\"\" | unwrap rt [5m])" },
+        { "refId": "p95", "legendFormat": "p95", "datasource": { "type": "loki", "uid": "loki" }, "expr": "quantile_over_time(0.95, {service=\"edukia_nginx\"} | json rt=\"request_time\" | __error__=\"\" | unwrap rt [5m])" },
+        { "refId": "p99", "legendFormat": "p99", "datasource": { "type": "loki", "uid": "loki" }, "expr": "quantile_over_time(0.99, {service=\"edukia_nginx\"} | json rt=\"request_time\" | __error__=\"\" | unwrap rt [5m])" }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Backend log levels",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } } },
+      "targets": [
+        { "refId": "A", "legendFormat": "{{level}}", "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum by (level) (count_over_time({service=\"edukia_backend\"} | json | __error__=\"\" [1m]))" }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Log volume per service",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "targets": [
+        { "refId": "A", "legendFormat": "{{service}}", "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum by (service) (count_over_time({service=~\"edukia_.+\"} [1m]))" }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Top endpoints (last 1h)",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 21 },
+      "targets": [
+        { "refId": "A", "instant": true, "datasource": { "type": "loki", "uid": "loki" }, "expr": "topk(15, sum by (uri) (count_over_time({service=\"edukia_nginx\"} | json | __error__=\"\" [1h])))" }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "logs",
+      "title": "Recent backend errors",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 21 },
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "expr": "{service=\"edukia_backend\"} | json | __error__=\"\" | level=\"error\"" }
+      ]
+    }
+  ]
+}
