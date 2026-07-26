@@ -137,9 +137,6 @@ jobs:
             INFOBIP_REMOVE_PLUS_FROM_TO=true
             INFOBIP_DELIVERY_REPORT_NOTIFY_URL=
             INFOBIP_NOTIFY_CONTENT_TYPE=application/json
-            LOKI_R2_ENDPOINT=${{ secrets.LOKI_R2_ENDPOINT }}
-            LOKI_R2_ACCESS_KEY_ID=${{ secrets.LOKI_R2_ACCESS_KEY_ID }}
-            LOKI_R2_SECRET_ACCESS_KEY=${{ secrets.LOKI_R2_SECRET_ACCESS_KEY }}
             GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
             ENV_EOF
 
