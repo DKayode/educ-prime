@@ -73,6 +73,20 @@ import { BullModule } from '@nestjs/bullmq';
 import { CountryConfigModule } from './config/country-config.module';
 import { CountryMiddleware } from './config/country.middleware';
 
+// pino-pretty is a devDependency, so it's absent from the prod-only Docker
+// runtime image (`npm install --only=production`). Only use the pretty
+// transport when it's actually resolvable — otherwise a docker dev stack
+// (NODE_ENV=development on that image) would crash with
+// "unable to determine transport target for pino-pretty". Falls back to JSON.
+const prettyLogsAvailable = (() => {
+  try {
+    require.resolve('pino-pretty');
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
 @Module({
   imports: [
     // Structured JSON logging (pino). In prod every log line is one JSON
@@ -84,9 +98,9 @@ import { CountryMiddleware } from './config/country.middleware';
     LoggerModule.forRoot({
       pinoHttp: {
         level: process.env.LOG_LEVEL || 'info',
-        // JSON in prod; pretty single-line in dev.
+        // Pretty single-line in dev when pino-pretty is installed; JSON otherwise.
         transport:
-          process.env.NODE_ENV !== 'production'
+          process.env.NODE_ENV !== 'production' && prettyLogsAvailable
             ? { target: 'pino-pretty', options: { singleLine: true } }
             : undefined,
         // Emit level as a string ("info") instead of a number — friendlier in Loki.
