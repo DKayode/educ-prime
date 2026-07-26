@@ -1,0 +1,13 @@
+# Load JSON dashboards from a mounted folder so they exist on first boot.
+apiVersion: 1
+providers:
+  - name: edukia
+    orgId: 1
+    folder: Edukia
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: false
