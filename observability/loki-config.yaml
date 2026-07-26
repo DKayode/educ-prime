@@ -1,0 +1,70 @@
+# Self-hosted Loki (monolithic / single-binary) with Cloudflare R2 as the
+# object store for BOTH chunks and the TSDB index. Sized for one VPS: all
+# components in one process, only small caches on local disk, bulk data in R2.
+# `${VAR}` are expanded at start via `-config.expand-env=true` (see compose).
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9095
+  log_level: info
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    s3:
+      # R2 S3 API endpoint, e.g. https://<accountid>.r2.cloudflarestorage.com
+      endpoint: ${LOKI_R2_ENDPOINT}
+      bucketnames: edukia-logs
+      access_key_id: ${LOKI_R2_ACCESS_KEY_ID}
+      secret_access_key: ${LOKI_R2_SECRET_ACCESS_KEY}
+      region: auto
+      s3forcepathstyle: true
+      insecure: false
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: s3
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/tsdb-index
+    cache_location: /loki/tsdb-cache
+    cache_ttl: 24h
+
+# 90-day retention: the compactor deletes chunks older than this from R2.
+limits_config:
+  retention_period: 2160h # 90 days
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  ingestion_rate_mb: 8
+  ingestion_burst_size_mb: 16
+  max_query_series: 5000
+  allow_structured_metadata: true
+  volume_enabled: true
+
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: s3
+
+# Disable the legacy table-manager retention (compactor owns retention now).
+table_manager:
+  retention_deletes_enabled: false
+  retention_period: 0
+
+analytics:
+  reporting_enabled: false

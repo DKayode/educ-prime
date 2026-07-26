@@ -135,11 +135,64 @@ services:
       - ./certbot/www:/var/www/certbot
     entrypoint: >
       /bin/sh -c ' if [ ! -f /etc/letsencrypt/live/educ-prime.com/fullchain.pem ]; then
-        certbot certonly --webroot --webroot-path=/var/www/certbot --email support@educ-prime.cloud --agree-tos --no-eff-email -d educ-prime.com -d api.educ-prime.com;
+        certbot certonly --webroot --webroot-path=/var/www/certbot --email support@educ-prime.cloud --agree-tos --no-eff-email -d educ-prime.com -d api.educ-prime.com -d grafana.educ-prime.com;
       fi; trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done; '
+    networks:
+      - edukia_network
+
+  # --- Observability: Vector -> Loki (R2 backend) -> Grafana ---
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: edukia_loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yaml -config.expand-env=true
+    environment:
+      # Reuse the app's account-wide R2 credentials (they can reach edukia-logs).
+      LOKI_R2_ENDPOINT: ${R2_ENDPOINT}
+      LOKI_R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      LOKI_R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+    volumes:
+      - ./observability/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - edukia_network
+
+  vector:
+    image: timberio/vector:0.44.0-debian
+    container_name: edukia_vector
+    restart: unless-stopped
+    volumes:
+      - ./observability/vector.yaml:/etc/vector/vector.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - vector_data:/var/lib/vector
+    depends_on:
+      - loki
+    networks:
+      - edukia_network
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: edukia_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_SERVER_ROOT_URL: https://grafana.educ-prime.com
+      GF_SERVER_DOMAIN: grafana.educ-prime.com
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - loki
     networks:
       - edukia_network
 
 networks:
   edukia_network:
     driver: bridge
+
+volumes:
+  loki_data:
+  vector_data:
+  grafana_data:

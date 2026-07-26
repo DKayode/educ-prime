@@ -34,6 +34,10 @@ jobs:
           NGINX_CONTENT=$(cat nginx/nginx.conf | base64 -w 0)
           echo "nginx_content=$NGINX_CONTENT" >> $GITHUB_OUTPUT
 
+          # Observability configs (loki, vector, grafana provisioning) as a tarball.
+          OBS_CONTENT=$(tar czf - observability | base64 -w 0)
+          echo "obs_content=$OBS_CONTENT" >> $GITHUB_OUTPUT
+
       # Absorb transient runner→VPS network blips (the last failure was
       # `dial tcp <vps>:22: i/o timeout`, i.e. the SSH action couldn't even
       # open the socket). Poll TCP/22 until it answers before attempting the
@@ -59,12 +63,13 @@ jobs:
         env:
           COMPOSE_CONTENT: ${{ steps.prepare.outputs.compose_content }}
           NGINX_CONTENT: ${{ steps.prepare.outputs.nginx_content }}
+          OBS_CONTENT: ${{ steps.prepare.outputs.obs_content }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          envs: COMPOSE_CONTENT,NGINX_CONTENT
+          envs: COMPOSE_CONTENT,NGINX_CONTENT,OBS_CONTENT
           # `timeout` = SSH connection-establishment timeout (only real knobs
           # appleboy/ssh-action@v1.0.0 exposes are `timeout` + `command_timeout`;
           # there is no native connect-retry). The "Wait for VPS SSH" step
@@ -132,6 +137,7 @@ jobs:
             INFOBIP_REMOVE_PLUS_FROM_TO=true
             INFOBIP_DELIVERY_REPORT_NOTIFY_URL=
             INFOBIP_NOTIFY_CONTENT_TYPE=application/json
+            GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
             ENV_EOF
 
             # Créer le fichier docker-compose.yml depuis le contenu du repo
@@ -139,6 +145,9 @@ jobs:
 
             # Créer le fichier nginx.conf depuis le contenu du repo
             echo "$NGINX_CONTENT" | base64 -d > ./nginx/nginx.conf
+
+            # Extraire les configs d'observabilité (loki, vector, grafana).
+            echo "$OBS_CONTENT" | base64 -d | tar xzf - -C "$DEPLOY_DIR"
 
             # Use Docker Compose v2 (the Go plugin, invoked as `docker compose`).
             # The legacy v1 Python binary (`docker-compose`, 1.29.2) crashes with
@@ -211,9 +220,29 @@ jobs:
                   --webroot-path=/var/www/certbot \
                   --email "$CERT_EMAIL" --agree-tos --no-eff-email \
                   --rsa-key-size 4096 \
-                  -d "$PRIMARY_DOMAIN" -d "api.$PRIMARY_DOMAIN" </dev/null || true
+                  -d "$PRIMARY_DOMAIN" -d "api.$PRIMARY_DOMAIN" -d "grafana.$PRIMARY_DOMAIN" </dev/null || true
 
               # Recharger nginx avec le vrai certificat
+              timeout 30 $COMPOSE exec -T nginx nginx -s reload </dev/null >/dev/null 2>&1 || true
+            fi
+
+            # Expand an existing certificate to cover grafana.educ-prime.com when
+            # it's missing (idempotent: certbot skips if already covered & not due
+            # for renewal). Requires a DNS A record for grafana.$PRIMARY_DOMAIN.
+            # Guarded so a not-yet-propagated DNS record never fails the deploy —
+            # nginx then serves the base cert for grafana (TLS warning) until the
+            # next deploy succeeds.
+            if ! grep -q "grafana.$PRIMARY_DOMAIN" "$DEPLOY_DIR/certbot/conf/live/$PRIMARY_DOMAIN/cert.pem" 2>/dev/null \
+               && ! openssl x509 -in "$DEPLOY_DIR/certbot/conf/live/$PRIMARY_DOMAIN/cert.pem" -noout -text 2>/dev/null | grep -q "grafana.$PRIMARY_DOMAIN"; then
+              echo "=== Expansion du certificat pour grafana.$PRIMARY_DOMAIN"
+              timeout 180 docker run --rm \
+                -v "$DEPLOY_DIR/certbot/conf:/etc/letsencrypt" \
+                -v "$DEPLOY_DIR/certbot/www:/var/www/certbot" \
+                certbot/certbot certonly --webroot \
+                  --webroot-path=/var/www/certbot \
+                  --email "$CERT_EMAIL" --agree-tos --no-eff-email \
+                  --rsa-key-size 4096 --expand \
+                  -d "$PRIMARY_DOMAIN" -d "api.$PRIMARY_DOMAIN" -d "grafana.$PRIMARY_DOMAIN" </dev/null || true
               timeout 30 $COMPOSE exec -T nginx nginx -s reload </dev/null >/dev/null 2>&1 || true
             fi
 
