@@ -185,6 +185,8 @@ services:
       GF_SERVER_DOMAIN: grafana.educ-prime.com
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
+      # Referenced by the Slack contact point provisioning ($__env{SLACK_WEBHOOK_URL}).
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro

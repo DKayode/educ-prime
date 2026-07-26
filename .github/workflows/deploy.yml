@@ -138,6 +138,7 @@ jobs:
             INFOBIP_DELIVERY_REPORT_NOTIFY_URL=
             INFOBIP_NOTIFY_CONTENT_TYPE=application/json
             GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
+            SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
             ENV_EOF
 
             # Créer le fichier docker-compose.yml depuis le contenu du repo
