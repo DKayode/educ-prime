@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { LoggerModule } from 'nestjs-pino';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UtilisateursModule } from './utilisateurs/utilisateurs.module';
@@ -74,6 +75,40 @@ import { CountryMiddleware } from './config/country.middleware';
 
 @Module({
   imports: [
+    // Structured JSON logging (pino). In prod every log line is one JSON
+    // object (shipped by Vector -> Loki -> R2 in the log pipeline); in dev it
+    // renders human-readable via pino-pretty. Setting app.useLogger() in
+    // main.ts routes every existing `new Logger(context)` call through this,
+    // so no call sites change. Sensitive request/response headers are redacted
+    // at the source; app-level scrubbing is layered again in Vector.
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: process.env.LOG_LEVEL || 'info',
+        // JSON in prod; pretty single-line in dev.
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? { target: 'pino-pretty', options: { singleLine: true } }
+            : undefined,
+        // Emit level as a string ("info") instead of a number — friendlier in Loki.
+        formatters: { level: (label) => ({ level: label }) },
+        // Stable label so the pipeline can key logs by service.
+        base: { service: 'edukia-backend' },
+        redact: {
+          paths: [
+            'req.headers.authorization',
+            'req.headers.cookie',
+            'req.headers["x-infobip-webhook-secret"]',
+            'req.headers["x-api-key"]',
+            'res.headers["set-cookie"]',
+          ],
+          censor: '[REDACTED]',
+        },
+        // Drop health/root pings from the auto HTTP access logs.
+        autoLogging: {
+          ignore: (req) => req.url === '/' || req.url === '/health',
+        },
+      },
+    }),
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
