@@ -1,11 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, VersioningType, VERSION_NEUTRAL } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { CountryConfigService } from './config/country-config.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // bufferLogs holds startup logs until the pino logger is wired below, so
+  // even Nest's own bootstrap lines come out as structured JSON.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
 
   // URI versioning: opt-in per route via @Version('1') → /v1/<route>.
   // defaultVersion VERSION_NEUTRAL keeps every existing unversioned route
