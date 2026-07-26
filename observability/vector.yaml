@@ -10,13 +10,12 @@ api:
 sources:
   containers:
     type: docker_logs
+    # Allowlist — only the services we care about right now. Add container
+    # names here (e.g. edukia_redis) to start shipping more. An explicit list
+    # also naturally excludes the logging stack itself (loki/vector/grafana).
     include_containers:
-      - edukia_
-    # Never tail the logging stack itself (avoids a feedback loop).
-    exclude_containers:
-      - edukia_vector
-      - edukia_loki
-      - edukia_grafana
+      - edukia_backend
+      - edukia_nginx
 
 transforms:
   process:
