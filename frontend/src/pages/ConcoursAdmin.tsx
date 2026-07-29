@@ -35,93 +35,6 @@ import { structureService } from "@/lib/services/structure.service";
 import { titreService } from "@/lib/services/titre.service";
 import { useToast } from "@/hooks/use-toast";
 
-// Inline resolver for a missing (proposed) parent: pick an existing
-// structure/titre OR create the proposed one. The resolution is PERSISTED on
-// the submission (PATCH /resolve) so the prompt disappears for everyone and the
-// same missing entity can't be re-created. Creating reuses an existing row of
-// the same name (case-insensitive) instead of minting a duplicate.
-function ParentResolver({
-    kind,
-    submissionId,
-    proposedName,
-    options,
-}: {
-    kind: 'structure' | 'titre';
-    submissionId: number;
-    proposedName?: string | null;
-    options: { id: number; nom: string }[];
-}) {
-    const { toast } = useToast();
-    const queryClient = useQueryClient();
-    const label = kind === 'structure' ? 'structure' : 'titre';
-    const field = kind === 'structure' ? 'structure_id' : 'titre_id';
-
-    // Persist the binding onto the submission, then refresh the queue so the row
-    // reloads with proposed_* cleared (the resolver is replaced by the name).
-    const resolveMutation = useMutation({
-        mutationFn: (id: number) => concoursService.resolveSubmission(submissionId, { [field]: id }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["concours-submissions"] });
-        },
-        onError: (err: any) => {
-            toast({ title: "Erreur", description: err.message || "Échec du rattachement", variant: "destructive" });
-        },
-    });
-
-    // "+" create: reuse an existing row of the same name if present, else create,
-    // then bind the resolved id onto the submission.
-    const createMutation = useMutation({
-        mutationFn: async (nom: string) => {
-            const match = options.find((o) => o.nom.trim().toLowerCase() === nom.trim().toLowerCase());
-            if (match) return match;
-            const created = kind === 'structure'
-                ? await structureService.create({ nom })
-                : await titreService.create({ nom });
-            return created as { id: number; nom: string };
-        },
-        onSuccess: async (row: { id: number; nom: string }) => {
-            queryClient.invalidateQueries({ queryKey: [kind === 'structure' ? 'structures' : 'titres'] });
-            await resolveMutation.mutateAsync(row.id);
-            toast({ title: `${label.charAt(0).toUpperCase() + label.slice(1)} rattaché`, description: `« ${row.nom} » rattaché à la soumission.` });
-        },
-        onError: (err: any) => {
-            toast({ title: "Erreur", description: err.message || `Échec de la création du ${label}`, variant: "destructive" });
-        },
-    });
-
-    const busy = createMutation.isPending || resolveMutation.isPending;
-
-    return (
-        <div className="flex flex-col gap-1.5 min-w-[200px]">
-            <span className="text-xs text-amber-600">
-                Proposé : « {proposedName || '—'} » — à résoudre
-            </span>
-            <Select disabled={busy} onValueChange={(v) => resolveMutation.mutate(Number(v))}>
-                <SelectTrigger className="h-8">
-                    <SelectValue placeholder={`Choisir un ${label} existant`} />
-                </SelectTrigger>
-                <SelectContent>
-                    {options.map((o) => (
-                        <SelectItem key={o.id} value={String(o.id)}>{o.nom}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-            {proposedName && (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 justify-start"
-                    onClick={() => createMutation.mutate(proposedName)}
-                    disabled={busy}
-                >
-                    {busy ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
-                    Créer « {proposedName} »
-                </Button>
-            )}
-        </div>
-    );
-}
-
 // "Parameter" dialog (mirrors the épreuves ResolveDialog): resolve the
 // structure/titre (pick existing OR create) and edit année/lieu on a pending
 // submission. Every change is persisted via PATCH /concours/submissions/:id.
@@ -345,26 +258,22 @@ function SubmissionRow({
         <TableRow>
             <TableCell className="align-top">
                 {submission.missing_structure ? (
-                    <ParentResolver
-                        kind="structure"
-                        submissionId={submission.id}
-                        proposedName={submission.proposed_structure}
-                        options={structures}
-                    />
+                    <Badge variant="destructive" className="font-normal gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        {submission.proposed_structure ? `à créer: ${submission.proposed_structure}` : 'Structure manquante'}
+                    </Badge>
                 ) : (
-                    <span>{submission.structure?.nom || '—'}</span>
+                    <Badge variant="outline" className="font-normal">{submission.structure?.nom || '—'}</Badge>
                 )}
             </TableCell>
             <TableCell className="align-top">
                 {submission.missing_titre ? (
-                    <ParentResolver
-                        kind="titre"
-                        submissionId={submission.id}
-                        proposedName={submission.proposed_titre}
-                        options={titres}
-                    />
+                    <Badge variant="destructive" className="font-normal gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        {submission.proposed_titre ? `à créer: ${submission.proposed_titre}` : 'Titre manquant'}
+                    </Badge>
                 ) : (
-                    <span>{submission.titre_ref?.nom || '—'}</span>
+                    <Badge variant="outline" className="font-normal">{submission.titre_ref?.nom || '—'}</Badge>
                 )}
             </TableCell>
             <TableCell className="align-top">{submission.annee ?? '—'}</TableCell>
