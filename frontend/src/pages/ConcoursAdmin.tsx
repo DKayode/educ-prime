@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
     Select,
     SelectContent,
@@ -18,7 +20,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Plus, Eye } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Plus, Eye, Wrench, Check, AlertTriangle } from "lucide-react";
 import { filesService } from "@/lib/services/files.service";
 import { concoursService, ConcoursSubmission } from "@/lib/services/concours.service";
 import { structureService } from "@/lib/services/structure.service";
@@ -112,6 +122,155 @@ function ParentResolver({
     );
 }
 
+// "Parameter" dialog (mirrors the épreuves ResolveDialog): resolve the
+// structure/titre (pick existing OR create) and edit année/lieu on a pending
+// submission. Every change is persisted via PATCH /concours/submissions/:id.
+function ConcoursResolveDialog({ submission, structures, titres, open, onOpenChange }: {
+    submission: ConcoursSubmission | null;
+    structures: { id: number; nom: string }[];
+    titres: { id: number; nom: string }[];
+    open: boolean;
+    onOpenChange: (o: boolean) => void;
+}) {
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+    const [annee, setAnnee] = useState('');
+    const [lieu, setLieu] = useState('');
+    const [newStructure, setNewStructure] = useState('');
+    const [newTitre, setNewTitre] = useState('');
+
+    const persist = useMutation({
+        mutationFn: (patch: Parameters<typeof concoursService.resolveSubmission>[1]) =>
+            concoursService.resolveSubmission(submission!.id, patch),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['concours-submissions'] }),
+        onError: (e: any) => toast({ title: 'Erreur', description: e.message || 'Échec', variant: 'destructive' }),
+    });
+
+    useEffect(() => {
+        if (submission) {
+            setAnnee(submission.annee != null ? String(submission.annee) : '');
+            setLieu(submission.lieu ?? '');
+            setNewStructure(submission.proposed_structure ?? '');
+            setNewTitre(submission.proposed_titre ?? '');
+        }
+    }, [submission?.id]);
+
+    if (!submission) return null;
+
+    const bind = async (field: 'structure_id' | 'titre_id', id: number) => {
+        await persist.mutateAsync({ [field]: id });
+        toast({ title: 'Rattaché', description: 'Entité existante rattachée à la soumission.' });
+    };
+
+    const createAndBind = async (kind: 'structure' | 'titre', name: string) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        try {
+            const options = kind === 'structure' ? structures : titres;
+            const existing = options.find(o => o.nom.trim().toLowerCase() === trimmed.toLowerCase());
+            const row = existing ?? (kind === 'structure'
+                ? await structureService.create({ nom: trimmed })
+                : await titreService.create({ nom: trimmed }));
+            await persist.mutateAsync({ [kind === 'structure' ? 'structure_id' : 'titre_id']: row.id });
+            queryClient.invalidateQueries({ queryKey: [kind === 'structure' ? 'structures' : 'titres'] });
+            toast({ title: existing ? 'Rattaché' : 'Créé et rattaché', description: existing ? 'Entité existante réutilisée.' : 'Entité créée et rattachée.' });
+        } catch (e: any) {
+            toast({ title: 'Erreur', description: e.message || 'Échec de la création', variant: 'destructive' });
+        }
+    };
+
+    const levels = [
+        { kind: 'structure' as const, label: 'Structure', field: 'structure_id' as const, resolvedName: submission.structure?.nom, resolvedId: submission.structure_id, options: structures, newVal: newStructure, setNew: setNewStructure },
+        { kind: 'titre' as const, label: 'Titre', field: 'titre_id' as const, resolvedName: submission.titre_ref?.nom, resolvedId: submission.titre_id, options: titres, newVal: newTitre, setNew: setNewTitre },
+    ];
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Modifier la soumission</DialogTitle>
+                    <DialogDescription>
+                        Résolvez la structure et le titre (entité existante ou création) et ajustez l'année et le lieu.
+                        Chaque changement est enregistré sur la soumission.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-2">
+                    {levels.map((lvl) => (
+                        <div key={lvl.kind} className="rounded-lg border p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label className="font-semibold">{lvl.label}</Label>
+                                {lvl.resolvedId != null ? (
+                                    <Badge variant="default" className="gap-1"><Check className="h-3 w-3" /> Résolu</Badge>
+                                ) : (
+                                    <Badge variant="destructive" className="gap-1">
+                                        <AlertTriangle className="h-3 w-3" />
+                                        {lvl.newVal ? `à créer: ${lvl.newVal}` : 'manquant'}
+                                    </Badge>
+                                )}
+                            </div>
+                            {lvl.resolvedId != null ? (
+                                <p className="text-sm text-muted-foreground">{lvl.resolvedName}</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    <Select onValueChange={(v) => bind(lvl.field, parseInt(v))}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={`Choisir un(e) ${lvl.label.toLowerCase()} existant(e)…`} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {lvl.options.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.nom}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            placeholder={`Nom de la ${lvl.label.toLowerCase()}…`}
+                                            value={lvl.newVal}
+                                            onChange={(e) => lvl.setNew(e.target.value)}
+                                        />
+                                        <Button
+                                            type="button"
+                                            className="shrink-0 gap-1"
+                                            disabled={!lvl.newVal.trim() || persist.isPending}
+                                            onClick={() => createAndBind(lvl.kind, lvl.newVal)}
+                                        >
+                                            <Plus className="h-4 w-4" /> Créer
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+
+                    <div className="rounded-lg border p-3 grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <Label>Année</Label>
+                            <Input type="number" value={annee} onChange={(e) => setAnnee(e.target.value)} placeholder="Année" />
+                        </div>
+                        <div className="space-y-1">
+                            <Label>Lieu</Label>
+                            <Input value={lieu} onChange={(e) => setLieu(e.target.value)} placeholder="Lieu" />
+                        </div>
+                    </div>
+                </div>
+
+                <DialogFooter className="gap-2">
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={persist.isPending}>Fermer</Button>
+                    <Button
+                        onClick={async () => {
+                            await persist.mutateAsync({ annee: annee.trim() ? parseInt(annee) : undefined, lieu });
+                            toast({ title: 'Enregistré', description: 'Année et lieu mis à jour.' });
+                        }}
+                        disabled={persist.isPending}
+                    >
+                        {persist.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Enregistrer année/lieu
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function SubmissionRow({
     submission,
     structures,
@@ -121,6 +280,7 @@ function SubmissionRow({
     structures: { id: number; nom: string }[];
     titres: { id: number; nom: string }[];
 }) {
+    const [resolveOpen, setResolveOpen] = useState(false);
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
@@ -181,6 +341,7 @@ function SubmissionRow({
         : (bothResolved ? "Approuver" : "Résolvez la structure et le titre d'abord");
 
     return (
+        <>
         <TableRow>
             <TableCell className="align-top">
                 {submission.missing_structure ? (
@@ -222,6 +383,15 @@ function SubmissionRow({
                     <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => setResolveOpen(true)}
+                        title="Modifier / résoudre la soumission"
+                        disabled={pending}
+                    >
+                        <Wrench className="h-4 w-4 text-orange-500" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => approveMutation.mutate()}
                         title={approveTitle}
                         disabled={pending || !canApprove}
@@ -240,6 +410,14 @@ function SubmissionRow({
                 </div>
             </TableCell>
         </TableRow>
+        <ConcoursResolveDialog
+            submission={resolveOpen ? submission : null}
+            structures={structures}
+            titres={titres}
+            open={resolveOpen}
+            onOpenChange={setResolveOpen}
+        />
+        </>
     );
 }
 
