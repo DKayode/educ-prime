@@ -65,10 +65,25 @@ export class ConcoursSubmissionsController {
         return this.submissionsService.findAll(pays, query.status, query);
     }
 
+    // Two paths do the same edit: bare `PATCH /:id` (symmetric with
+    // /epreuves/submissions/:id) and the legacy `/:id/resolve`.
+    @UseGuards(JwtAuthGuard, RoleGuard)
+    @Roles(RoleType.ADMIN)
+    @Patch(':id')
+    @ApiOperation({ summary: 'Modifier une soumission en attente (Admin) — structure/titre (id ou nom proposé), année, lieu' })
+    @ApiResponse({ status: 200, description: 'Soumission mise à jour, persistée' })
+    update(
+        @CurrentCountry() pays: string,
+        @Param('id') id: string,
+        @Body() body: UpdateConcoursSubmissionDto,
+    ) {
+        return this.submissionsService.resolveSubmission(pays, +id, body);
+    }
+
     @UseGuards(JwtAuthGuard, RoleGuard)
     @Roles(RoleType.ADMIN)
     @Patch(':id/resolve')
-    @ApiOperation({ summary: 'Modifier une soumission en attente (Admin) — structure/titre (id ou nom proposé), année, lieu' })
+    @ApiOperation({ summary: 'Alias de PATCH /:id — modifier une soumission en attente (Admin)' })
     @ApiResponse({ status: 200, description: 'Soumission mise à jour, persistée' })
     resolve(
         @CurrentCountry() pays: string,
