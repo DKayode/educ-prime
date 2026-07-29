@@ -3,6 +3,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ConcoursSubmissionsService } from './concours-submissions.service';
 import { CreateConcoursSubmissionDto } from './dto/create-concours-submission.dto';
 import { ApproveConcoursSubmissionDto } from './dto/approve-concours-submission.dto';
+import { UpdateConcoursSubmissionDto } from './dto/update-concours-submission.dto';
+import { DeclinerConcoursSubmissionDto } from './dto/decliner-concours-submission.dto';
 import { SubmissionsQueryDto } from './dto/submissions-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoleGuard } from '../auth/guards/role.guard';
@@ -66,12 +68,12 @@ export class ConcoursSubmissionsController {
     @UseGuards(JwtAuthGuard, RoleGuard)
     @Roles(RoleType.ADMIN)
     @Patch(':id/resolve')
-    @ApiOperation({ summary: 'Résoudre une soumission (Admin) — rattacher structure/titre existant, effacer le nom proposé' })
-    @ApiResponse({ status: 200, description: 'Soumission résolue (rattachée), persistée' })
+    @ApiOperation({ summary: 'Modifier une soumission en attente (Admin) — structure/titre (id ou nom proposé), année, lieu' })
+    @ApiResponse({ status: 200, description: 'Soumission mise à jour, persistée' })
     resolve(
         @CurrentCountry() pays: string,
         @Param('id') id: string,
-        @Body() body: ApproveConcoursSubmissionDto,
+        @Body() body: UpdateConcoursSubmissionDto,
     ) {
         return this.submissionsService.resolveSubmission(pays, +id, body);
     }
@@ -95,7 +97,7 @@ export class ConcoursSubmissionsController {
     @Patch(':id/decline')
     @ApiOperation({ summary: 'Refuser une soumission (Admin) + email à l\'uploader' })
     @ApiResponse({ status: 200, description: 'Soumission refusée' })
-    decline(@CurrentCountry() pays: string, @Param('id') id: string) {
-        return this.submissionsService.decline(pays, +id);
+    decline(@CurrentCountry() pays: string, @Param('id') id: string, @Body() body: DeclinerConcoursSubmissionDto) {
+        return this.submissionsService.decline(pays, +id, body?.reason);
     }
 }

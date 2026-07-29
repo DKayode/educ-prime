@@ -205,7 +205,7 @@ export class MailService {
         }
     }
 
-    async sendServiceStatusUpdateEmail(email: string, userName: string, serviceTitle: string, status: string, entityType: string = 'service') {
+    async sendServiceStatusUpdateEmail(email: string, userName: string, serviceTitle: string, status: string, entityType: string = 'service', reason?: string) {
         if (!this.transporter) {
             this.logger.warn(`SMTP configuration missing. Cannot send ${entityType} status email.`);
             return;
@@ -221,7 +221,10 @@ export class MailService {
             messageHtml = `<p>Excellente nouvelle ! Votre ${entityType} <strong>"${serviceTitle}"</strong> a été <strong>approuvé</strong> et est maintenant visible par tous les utilisateurs.</p>`;
         } else if (status === 'declined') {
             statusText = 'refusé';
-            messageHtml = `<p>Nous sommes au regret de vous informer que votre ${entityType} <strong>"${serviceTitle}"</strong> a été <strong>refusé</strong> car elle ne respectait pas nos conditions de publication.</p>`;
+            const reasonHtml = reason && reason.trim()
+                ? `<p><strong>Motif :</strong> ${reason.trim()}</p>`
+                : '';
+            messageHtml = `<p>Nous sommes au regret de vous informer que votre ${entityType} <strong>"${serviceTitle}"</strong> a été <strong>refusé</strong>.</p>${reasonHtml}`;
         } else {
             // Optional: don't send emails for other status changes
             return;

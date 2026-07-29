@@ -76,6 +76,10 @@ export class ConcoursSubmission {
     @Column({ type: 'varchar', length: 20, default: 'pending_approval' })
     status: string;
 
+    // Admin's explanation when the submission is declined (migration 066).
+    @Column({ type: 'text', nullable: true })
+    decline_reason?: string | null;
+
     @CreateDateColumn({ name: 'date_creation', type: 'timestamptz' })
     date_creation: Date;
 }
