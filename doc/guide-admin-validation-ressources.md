@@ -114,7 +114,7 @@ Toujours dans la même fenêtre, vous pouvez **modifier les champs libres** que
 l'utilisateur a saisis :
 
 - **Concours** — les champs **Année** et **Lieu**. Après modification, cliquez
-  sur **« Enregistrer année/lieu »** en bas de la fenêtre.
+  sur **« Enregistrer les modifications »** en bas de la fenêtre.
 - **Épreuve** — l'**Année** et la **Session** (section : *normale*,
   *rattrapage*…). L'**intitulé** de l'épreuve n'est **pas** à saisir : il est
   **recalculé automatiquement** à partir de la matière, de la session et de
@@ -124,8 +124,8 @@ l'utilisateur a saisis :
 
 - Chaque **résolution** (rattachement ou création) est **enregistrée
   immédiatement** : nul besoin de « sauvegarder » séparément. Les modifications
-  d'**année / lieu** se valident, elles, avec le bouton **« Enregistrer
-  année/lieu »**.
+  d'**année / lieu** se valident, elles, avec le bouton **« Enregistrer les
+  modifications »**.
 - Vous pouvez rouvrir la fenêtre autant de fois que nécessaire.
 - Fermez la fenêtre avec **« Fermer »** une fois la demande complète.
 

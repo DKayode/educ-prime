@@ -172,12 +172,12 @@ function ConcoursResolveDialog({ submission, structures, titres, open, onOpenCha
                     <Button
                         onClick={async () => {
                             await persist.mutateAsync({ annee: annee.trim() ? parseInt(annee) : undefined, lieu });
-                            toast({ title: 'Enregistré', description: 'Année et lieu mis à jour.' });
+                            toast({ title: 'Enregistré', description: 'Modifications enregistrées.' });
                         }}
                         disabled={persist.isPending}
                     >
                         {persist.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Enregistrer année/lieu
+                        Enregistrer les modifications
                     </Button>
                 </DialogFooter>
             </DialogContent>
