@@ -130,6 +130,7 @@ jobs:
             OTP_MAX_ATTEMPTS=3
             OTP_RESEND_COOLDOWN_SECONDS=60
             OTP_MAX_RESENDS=2
+            OTP_LOCK_DURATION_MINUTES=1440
             OTP_ANDROID_SMS_HASH=omRcRPVzgWL
             INFOBIP_SMS_ENDPOINT=/sms/2/text/advanced
             INFOBIP_TIMEOUT_MS=10000
