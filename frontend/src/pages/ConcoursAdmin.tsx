@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -11,6 +11,9 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
     Select,
     SelectContent,
@@ -18,97 +21,167 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Plus, Eye } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Plus, Eye, Wrench, Check, AlertTriangle } from "lucide-react";
 import { filesService } from "@/lib/services/files.service";
 import { concoursService, ConcoursSubmission } from "@/lib/services/concours.service";
 import { structureService } from "@/lib/services/structure.service";
 import { titreService } from "@/lib/services/titre.service";
 import { useToast } from "@/hooks/use-toast";
 
-// Inline resolver for a missing (proposed) parent: pick an existing
-// structure/titre OR create the proposed one. The resolution is PERSISTED on
-// the submission (PATCH /resolve) so the prompt disappears for everyone and the
-// same missing entity can't be re-created. Creating reuses an existing row of
-// the same name (case-insensitive) instead of minting a duplicate.
-function ParentResolver({
-    kind,
-    submissionId,
-    proposedName,
-    options,
-}: {
-    kind: 'structure' | 'titre';
-    submissionId: number;
-    proposedName?: string | null;
-    options: { id: number; nom: string }[];
+// "Parameter" dialog (mirrors the épreuves ResolveDialog): resolve the
+// structure/titre (pick existing OR create) and edit année/lieu on a pending
+// submission. Every change is persisted via PATCH /concours/submissions/:id.
+function ConcoursResolveDialog({ submission, structures, titres, open, onOpenChange }: {
+    submission: ConcoursSubmission | null;
+    structures: { id: number; nom: string }[];
+    titres: { id: number; nom: string }[];
+    open: boolean;
+    onOpenChange: (o: boolean) => void;
 }) {
     const { toast } = useToast();
     const queryClient = useQueryClient();
-    const label = kind === 'structure' ? 'structure' : 'titre';
-    const field = kind === 'structure' ? 'structure_id' : 'titre_id';
+    const [annee, setAnnee] = useState('');
+    const [lieu, setLieu] = useState('');
+    const [newStructure, setNewStructure] = useState('');
+    const [newTitre, setNewTitre] = useState('');
 
-    // Persist the binding onto the submission, then refresh the queue so the row
-    // reloads with proposed_* cleared (the resolver is replaced by the name).
-    const resolveMutation = useMutation({
-        mutationFn: (id: number) => concoursService.resolveSubmission(submissionId, { [field]: id }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["concours-submissions"] });
-        },
-        onError: (err: any) => {
-            toast({ title: "Erreur", description: err.message || "Échec du rattachement", variant: "destructive" });
-        },
+    const persist = useMutation({
+        mutationFn: (patch: Parameters<typeof concoursService.resolveSubmission>[1]) =>
+            concoursService.resolveSubmission(submission!.id, patch),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['concours-submissions'] }),
+        onError: (e: any) => toast({ title: 'Erreur', description: e.message || 'Échec', variant: 'destructive' }),
     });
 
-    // "+" create: reuse an existing row of the same name if present, else create,
-    // then bind the resolved id onto the submission.
-    const createMutation = useMutation({
-        mutationFn: async (nom: string) => {
-            const match = options.find((o) => o.nom.trim().toLowerCase() === nom.trim().toLowerCase());
-            if (match) return match;
-            const created = kind === 'structure'
-                ? await structureService.create({ nom })
-                : await titreService.create({ nom });
-            return created as { id: number; nom: string };
-        },
-        onSuccess: async (row: { id: number; nom: string }) => {
+    useEffect(() => {
+        if (submission) {
+            setAnnee(submission.annee != null ? String(submission.annee) : '');
+            setLieu(submission.lieu ?? '');
+            setNewStructure(submission.proposed_structure ?? '');
+            setNewTitre(submission.proposed_titre ?? '');
+        }
+    }, [submission?.id]);
+
+    if (!submission) return null;
+
+    const bind = async (field: 'structure_id' | 'titre_id', id: number) => {
+        await persist.mutateAsync({ [field]: id });
+        toast({ title: 'Rattaché', description: 'Entité existante rattachée à la soumission.' });
+    };
+
+    const createAndBind = async (kind: 'structure' | 'titre', name: string) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        try {
+            const options = kind === 'structure' ? structures : titres;
+            const existing = options.find(o => o.nom.trim().toLowerCase() === trimmed.toLowerCase());
+            const row = existing ?? (kind === 'structure'
+                ? await structureService.create({ nom: trimmed })
+                : await titreService.create({ nom: trimmed }));
+            await persist.mutateAsync({ [kind === 'structure' ? 'structure_id' : 'titre_id']: row.id });
             queryClient.invalidateQueries({ queryKey: [kind === 'structure' ? 'structures' : 'titres'] });
-            await resolveMutation.mutateAsync(row.id);
-            toast({ title: `${label.charAt(0).toUpperCase() + label.slice(1)} rattaché`, description: `« ${row.nom} » rattaché à la soumission.` });
-        },
-        onError: (err: any) => {
-            toast({ title: "Erreur", description: err.message || `Échec de la création du ${label}`, variant: "destructive" });
-        },
-    });
+            toast({ title: existing ? 'Rattaché' : 'Créé et rattaché', description: existing ? 'Entité existante réutilisée.' : 'Entité créée et rattachée.' });
+        } catch (e: any) {
+            toast({ title: 'Erreur', description: e.message || 'Échec de la création', variant: 'destructive' });
+        }
+    };
 
-    const busy = createMutation.isPending || resolveMutation.isPending;
+    const levels = [
+        { kind: 'structure' as const, label: 'Structure', field: 'structure_id' as const, resolvedName: submission.structure?.nom, resolvedId: submission.structure_id, options: structures, newVal: newStructure, setNew: setNewStructure },
+        { kind: 'titre' as const, label: 'Titre', field: 'titre_id' as const, resolvedName: submission.titre_ref?.nom, resolvedId: submission.titre_id, options: titres, newVal: newTitre, setNew: setNewTitre },
+    ];
 
     return (
-        <div className="flex flex-col gap-1.5 min-w-[200px]">
-            <span className="text-xs text-amber-600">
-                Proposé : « {proposedName || '—'} » — à résoudre
-            </span>
-            <Select disabled={busy} onValueChange={(v) => resolveMutation.mutate(Number(v))}>
-                <SelectTrigger className="h-8">
-                    <SelectValue placeholder={`Choisir un ${label} existant`} />
-                </SelectTrigger>
-                <SelectContent>
-                    {options.map((o) => (
-                        <SelectItem key={o.id} value={String(o.id)}>{o.nom}</SelectItem>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Modifier la soumission</DialogTitle>
+                    <DialogDescription>
+                        Résolvez la structure et le titre (entité existante ou création) et ajustez l'année et le lieu.
+                        Chaque changement est enregistré sur la soumission.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-2">
+                    {levels.map((lvl) => (
+                        <div key={lvl.kind} className="rounded-lg border p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label className="font-semibold">{lvl.label}</Label>
+                                {lvl.resolvedId != null ? (
+                                    <Badge variant="default" className="gap-1"><Check className="h-3 w-3" /> Résolu</Badge>
+                                ) : (
+                                    <Badge variant="destructive" className="gap-1">
+                                        <AlertTriangle className="h-3 w-3" />
+                                        {lvl.newVal ? `à créer: ${lvl.newVal}` : 'manquant'}
+                                    </Badge>
+                                )}
+                            </div>
+                            {lvl.resolvedId != null ? (
+                                <p className="text-sm text-muted-foreground">{lvl.resolvedName}</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    <Select onValueChange={(v) => bind(lvl.field, parseInt(v))}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={`Choisir un(e) ${lvl.label.toLowerCase()} existant(e)…`} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {lvl.options.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.nom}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            placeholder={`Nom de la ${lvl.label.toLowerCase()}…`}
+                                            value={lvl.newVal}
+                                            onChange={(e) => lvl.setNew(e.target.value)}
+                                        />
+                                        <Button
+                                            type="button"
+                                            className="shrink-0 gap-1"
+                                            disabled={!lvl.newVal.trim() || persist.isPending}
+                                            onClick={() => createAndBind(lvl.kind, lvl.newVal)}
+                                        >
+                                            <Plus className="h-4 w-4" /> Créer
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     ))}
-                </SelectContent>
-            </Select>
-            {proposedName && (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 justify-start"
-                    onClick={() => createMutation.mutate(proposedName)}
-                    disabled={busy}
-                >
-                    {busy ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
-                    Créer « {proposedName} »
-                </Button>
-            )}
-        </div>
+
+                    <div className="rounded-lg border p-3 grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <Label>Année</Label>
+                            <Input type="number" value={annee} onChange={(e) => setAnnee(e.target.value)} placeholder="Année" />
+                        </div>
+                        <div className="space-y-1">
+                            <Label>Lieu</Label>
+                            <Input value={lieu} onChange={(e) => setLieu(e.target.value)} placeholder="Lieu" />
+                        </div>
+                    </div>
+                </div>
+
+                <DialogFooter className="gap-2">
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={persist.isPending}>Fermer</Button>
+                    <Button
+                        onClick={async () => {
+                            await persist.mutateAsync({ annee: annee.trim() ? parseInt(annee) : undefined, lieu });
+                            toast({ title: 'Enregistré', description: 'Modifications enregistrées.' });
+                        }}
+                        disabled={persist.isPending}
+                    >
+                        {persist.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Enregistrer les modifications
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -121,6 +194,9 @@ function SubmissionRow({
     structures: { id: number; nom: string }[];
     titres: { id: number; nom: string }[];
 }) {
+    const [resolveOpen, setResolveOpen] = useState(false);
+    const [declineOpen, setDeclineOpen] = useState(false);
+    const [declineReason, setDeclineReason] = useState("");
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
@@ -140,9 +216,11 @@ function SubmissionRow({
     });
 
     const declineMutation = useMutation({
-        mutationFn: () => concoursService.declineSubmission(submission.id),
+        mutationFn: (reason?: string) => concoursService.declineSubmission(submission.id, reason),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["concours-submissions"] });
+            setDeclineOpen(false);
+            setDeclineReason("");
             toast({ title: "Soumission refusée", description: "L'auteur en sera informé." });
         },
         onError: (err: any) => {
@@ -181,29 +259,26 @@ function SubmissionRow({
         : (bothResolved ? "Approuver" : "Résolvez la structure et le titre d'abord");
 
     return (
+        <>
         <TableRow>
             <TableCell className="align-top">
                 {submission.missing_structure ? (
-                    <ParentResolver
-                        kind="structure"
-                        submissionId={submission.id}
-                        proposedName={submission.proposed_structure}
-                        options={structures}
-                    />
+                    <Badge variant="destructive" className="font-normal gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        {submission.proposed_structure ? `à créer: ${submission.proposed_structure}` : 'Structure manquante'}
+                    </Badge>
                 ) : (
-                    <span>{submission.structure?.nom || '—'}</span>
+                    <Badge variant="outline" className="font-normal">{submission.structure?.nom || '—'}</Badge>
                 )}
             </TableCell>
             <TableCell className="align-top">
                 {submission.missing_titre ? (
-                    <ParentResolver
-                        kind="titre"
-                        submissionId={submission.id}
-                        proposedName={submission.proposed_titre}
-                        options={titres}
-                    />
+                    <Badge variant="destructive" className="font-normal gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        {submission.proposed_titre ? `à créer: ${submission.proposed_titre}` : 'Titre manquant'}
+                    </Badge>
                 ) : (
-                    <span>{submission.titre_ref?.nom || '—'}</span>
+                    <Badge variant="outline" className="font-normal">{submission.titre_ref?.nom || '—'}</Badge>
                 )}
             </TableCell>
             <TableCell className="align-top">{submission.annee ?? '—'}</TableCell>
@@ -222,6 +297,15 @@ function SubmissionRow({
                     <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => setResolveOpen(true)}
+                        title="Modifier / résoudre la soumission"
+                        disabled={pending}
+                    >
+                        <Wrench className="h-4 w-4 text-orange-500" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => approveMutation.mutate()}
                         title={approveTitle}
                         disabled={pending || !canApprove}
@@ -231,7 +315,7 @@ function SubmissionRow({
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => declineMutation.mutate()}
+                        onClick={() => setDeclineOpen(true)}
                         title="Refuser"
                         disabled={pending}
                     >
@@ -240,6 +324,38 @@ function SubmissionRow({
                 </div>
             </TableCell>
         </TableRow>
+        <ConcoursResolveDialog
+            submission={resolveOpen ? submission : null}
+            structures={structures}
+            titres={titres}
+            open={resolveOpen}
+            onOpenChange={setResolveOpen}
+        />
+        <Dialog open={declineOpen} onOpenChange={(o) => { setDeclineOpen(o); if (!o) setDeclineReason(""); }}>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Refuser la soumission</DialogTitle>
+                    <DialogDescription>L'auteur sera notifié par email. Vous pouvez préciser un motif (optionnel).</DialogDescription>
+                </DialogHeader>
+                <Textarea
+                    placeholder="Motif du refus (optionnel)…"
+                    value={declineReason}
+                    onChange={(e) => setDeclineReason(e.target.value)}
+                />
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => { setDeclineOpen(false); setDeclineReason(""); }}>Annuler</Button>
+                    <Button
+                        variant="destructive"
+                        onClick={() => declineMutation.mutate(declineReason.trim() || undefined)}
+                        disabled={declineMutation.isPending}
+                    >
+                        {declineMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Refuser
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        </>
     );
 }
 

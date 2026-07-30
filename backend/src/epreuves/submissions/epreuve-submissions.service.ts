@@ -187,6 +187,7 @@ export class EpreuveSubmissionsService {
       annee: s.annee,
       section: s.section,
       status: s.status,
+      decline_reason: s.decline_reason ?? null,
       date_creation: s.date_creation,
       file_path: s.file_path,
       file_extension: s.file_extension,
@@ -314,8 +315,15 @@ export class EpreuveSubmissionsService {
 
   // Admin resolution: attach validated real parent ids (clearing the matching
   // proposed_* name), then re-derive pays from the deepest resolved parent.
+  // Admin edit of a PENDING submission: for each parent, either bind a real id
+  // (clears the proposed name) or overwrite the proposed name; année/section are
+  // editable too. The titre is re-derived (matière + section + année). Approved/
+  // declined submissions are frozen.
   async resolveParents(id: number, dto: ResoudreSubmissionDto) {
     const submission = await this.loadSubmissionOrThrow(id);
+    if (submission.status !== ServiceStatusEnum.PENDING_APPROVAL) {
+      throw new BadRequestException('Seule une soumission en attente peut être modifiée.');
+    }
 
     if (dto.etablissement_id != null) {
       const e = await this.etablissementsRepository.findOne({ where: { id: dto.etablissement_id } });
@@ -323,32 +331,59 @@ export class EpreuveSubmissionsService {
       submission.etablissement_id = dto.etablissement_id;
       submission.proposed_etablissement = null;
       submission.pays = e.pays;
+    } else if (dto.proposed_etablissement !== undefined) {
+      submission.proposed_etablissement = dto.proposed_etablissement?.trim() || null;
+      if (submission.proposed_etablissement) submission.etablissement_id = null;
     }
+
     if (dto.filiere_id != null) {
       const f = await this.filieresRepository.findOne({ where: { id: dto.filiere_id } });
       if (!f) throw new NotFoundException(`Filière #${dto.filiere_id} introuvable`);
       submission.filiere_id = dto.filiere_id;
       submission.proposed_filiere = null;
       submission.pays = f.pays;
+    } else if (dto.proposed_filiere !== undefined) {
+      submission.proposed_filiere = dto.proposed_filiere?.trim() || null;
+      if (submission.proposed_filiere) submission.filiere_id = null;
     }
+
     if (dto.niveau_etude_id != null) {
       const n = await this.niveauxRepository.findOne({ where: { id: dto.niveau_etude_id } });
       if (!n) throw new NotFoundException(`Niveau d'étude #${dto.niveau_etude_id} introuvable`);
       submission.niveau_etude_id = dto.niveau_etude_id;
       submission.proposed_niveau = null;
       submission.pays = n.pays;
+    } else if (dto.proposed_niveau !== undefined) {
+      submission.proposed_niveau = dto.proposed_niveau?.trim() || null;
+      if (submission.proposed_niveau) submission.niveau_etude_id = null;
     }
+
     if (dto.matiere_id != null) {
       const m = await this.matieresRepository.findOne({ where: { id: dto.matiere_id } });
       if (!m) throw new NotFoundException(`Matière #${dto.matiere_id} introuvable`);
       submission.matiere_id = dto.matiere_id;
       submission.proposed_matiere = null;
       submission.pays = m.pays;
+    } else if (dto.proposed_matiere !== undefined) {
+      submission.proposed_matiere = dto.proposed_matiere?.trim() || null;
+      if (submission.proposed_matiere) submission.matiere_id = null;
     }
+
+    if (dto.annee !== undefined) submission.annee = dto.annee ?? null;
+    if (dto.section !== undefined && dto.section != null) submission.section = dto.section;
 
     await this.submissionsRepository.save(submission);
     const reloaded = await this.loadSubmissionOrThrow(id);
-    this.logger.log(`Soumission #${id} résolue (parents mis à jour)`);
+
+    // Re-derive the auto-title from the edited (matière + section + année).
+    const matiereNom = reloaded.matiere?.nom ?? reloaded.proposed_matiere ?? null;
+    reloaded.titre = [matiereNom ?? 'Épreuve', reloaded.section, reloaded.annee != null ? String(reloaded.annee) : null]
+      .map((p) => (p == null ? '' : String(p).trim()))
+      .filter((p) => p !== '')
+      .join(' — ');
+    await this.submissionsRepository.save(reloaded);
+
+    this.logger.log(`Soumission #${id} modifiée (admin)`);
     return this.toSubmissionResponse(reloaded);
   }
 
@@ -467,14 +502,16 @@ export class EpreuveSubmissionsService {
     const submission = await this.loadSubmissionOrThrow(id);
 
     submission.status = ServiceStatusEnum.DECLINED;
+    submission.decline_reason = reason?.trim() || null;
     await this.submissionsRepository.save(submission);
-    if (reason) {
-      this.logger.log(`Soumission #${id} refusée. Motif: ${reason}`);
+    if (submission.decline_reason) {
+      this.logger.log(`Soumission #${id} refusée. Motif: ${submission.decline_reason}`);
     }
 
     if (submission.soumis_par?.email) {
       this.mailService.sendServiceStatusUpdateEmail(
         submission.soumis_par.email, this.uploaderName(submission), submission.titre, 'declined', 'épreuve',
+        submission.decline_reason ?? undefined,
       ).catch(err => this.logger.error(`Failed to send decline email for submission ${id}: ${err.message}`));
     }
 

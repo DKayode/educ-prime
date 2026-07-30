@@ -69,6 +69,10 @@ export class EpreuveSubmission {
   @Column({ type: 'varchar', length: 20, default: ServiceStatusEnum.PENDING_APPROVAL })
   status: ServiceStatusEnum;
 
+  // Admin's explanation when the submission is declined (migration 066).
+  @Column({ type: 'text', nullable: true })
+  decline_reason: string | null;
+
   @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
   date_creation: Date;
 
