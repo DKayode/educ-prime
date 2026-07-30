@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Between, DeepPartial, In, LessThanOrEqual, Repository } from 'typeorm';
 import { DataSourceResolver } from 'src/config/data-source-resolver.service';
 import { UtilisateursService } from 'src/utilisateurs/utilisateurs.service';
+import { Utilisateur } from 'src/utilisateurs/entities/utilisateur.entity';
 import {
   PaymentAuditLogPort,
   PaymentConfigurationModel,
@@ -184,8 +185,40 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
 
   async findForAdmin(status?: WithdrawalStatus, page = 1, limit = 20) {
     const where = status ? { status } : {};
-    const [data, total] = await this.repo.findAndCount({ where, order: { createdAt: 'DESC' }, skip: (page - 1) * limit, take: limit });
-    return { data: data.map((row) => this.map(row)), total };
+    const [rows, total] = await this.repo.findAndCount({ where, order: { createdAt: 'DESC' }, skip: (page - 1) * limit, take: limit });
+    if (rows.length === 0) return { data: [] as any[], total };
+
+    // Enrich each request with its author (wallet → utilisateur) and the
+    // Mobile Money account so the admin table can show who made the request.
+    // Batched (In(...)) to avoid N+1.
+    const walletRepo = this.resolver.getRepository(WalletEntity);
+    const userRepo = this.resolver.getRepository(Utilisateur);
+    const accountRepo = this.resolver.getRepository(UserPaymentAccountEntity);
+
+    const wallets = await walletRepo.find({ where: { id: In([...new Set(rows.map((r) => r.walletId))]) } });
+    const userIdByWallet = new Map(wallets.map((w) => [w.id, w.userId]));
+    const userIds = [...new Set(wallets.map((w) => w.userId).filter((v): v is number => v != null))];
+    const users = userIds.length
+      ? await userRepo.find({ where: { id: In(userIds) }, select: ['id', 'uuid', 'nom', 'prenom', 'email', 'profil_photo_path'] })
+      : [];
+    const userById = new Map(users.map((u) => [u.id, u]));
+
+    const accountIds = [...new Set(rows.map((r) => r.paymentAccountId).filter((v): v is string => !!v))];
+    const accounts = accountIds.length ? await accountRepo.find({ where: { id: In(accountIds) } }) : [];
+    const accountById = new Map(accounts.map((a) => [a.id, a]));
+
+    const data = rows.map((row) => {
+      const userId = userIdByWallet.get(row.walletId);
+      const u = userId != null ? userById.get(userId) : null;
+      const acc = row.paymentAccountId ? accountById.get(row.paymentAccountId) : null;
+      return {
+        ...this.map(row),
+        rejectedReason: row.rejectedReason ?? null,
+        user: u ? { id: u.id, uuid: u.uuid ?? null, nom: u.nom, prenom: u.prenom, email: u.email, profil: u.profil_photo_path || null } : null,
+        paymentAccount: acc ? { id: acc.id, operator: acc.operator, phoneNumber: acc.phoneNumber, accountName: acc.accountName, verified: acc.verified } : null,
+      };
+    });
+    return { data, total };
   }
 
   async findByWalletId(walletId: string, page = 1, limit = 50) {
