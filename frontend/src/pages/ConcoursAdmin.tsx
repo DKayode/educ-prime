@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
     Select,
@@ -194,6 +195,8 @@ function SubmissionRow({
     titres: { id: number; nom: string }[];
 }) {
     const [resolveOpen, setResolveOpen] = useState(false);
+    const [declineOpen, setDeclineOpen] = useState(false);
+    const [declineReason, setDeclineReason] = useState("");
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
@@ -213,9 +216,11 @@ function SubmissionRow({
     });
 
     const declineMutation = useMutation({
-        mutationFn: () => concoursService.declineSubmission(submission.id),
+        mutationFn: (reason?: string) => concoursService.declineSubmission(submission.id, reason),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["concours-submissions"] });
+            setDeclineOpen(false);
+            setDeclineReason("");
             toast({ title: "Soumission refusée", description: "L'auteur en sera informé." });
         },
         onError: (err: any) => {
@@ -310,7 +315,7 @@ function SubmissionRow({
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => declineMutation.mutate()}
+                        onClick={() => setDeclineOpen(true)}
                         title="Refuser"
                         disabled={pending}
                     >
@@ -326,6 +331,30 @@ function SubmissionRow({
             open={resolveOpen}
             onOpenChange={setResolveOpen}
         />
+        <Dialog open={declineOpen} onOpenChange={(o) => { setDeclineOpen(o); if (!o) setDeclineReason(""); }}>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Refuser la soumission</DialogTitle>
+                    <DialogDescription>L'auteur sera notifié par email. Vous pouvez préciser un motif (optionnel).</DialogDescription>
+                </DialogHeader>
+                <Textarea
+                    placeholder="Motif du refus (optionnel)…"
+                    value={declineReason}
+                    onChange={(e) => setDeclineReason(e.target.value)}
+                />
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => { setDeclineOpen(false); setDeclineReason(""); }}>Annuler</Button>
+                    <Button
+                        variant="destructive"
+                        onClick={() => declineMutation.mutate(declineReason.trim() || undefined)}
+                        disabled={declineMutation.isPending}
+                    >
+                        {declineMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Refuser
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
         </>
     );
 }
