@@ -60,6 +60,11 @@ Les champs sont affichés sous forme de **badges** :
 Un badge **« Fichier manquant »** signale qu'aucun fichier (PDF) n'a encore été
 téléversé pour cette demande.
 
+![Une ligne de demande : la structure « à créer » en rouge, le titre déjà existant, et à droite les boutons d'action (le bouton 🔧 encadré en orange)](images/01-ligne-demande.png)
+
+*Exemple : la 1re ligne a une **structure en rouge** (« à créer : Ministère de la
+Santé ») qu'il faut résoudre ; le bouton 🔧 (encadré) ouvre l'édition.*
+
 ---
 
 ## 4. Les actions disponibles
@@ -75,31 +80,57 @@ Sur chaque ligne, à droite (colonne **Actions**), quatre boutons :
 
 ---
 
-## 5. Modifier / résoudre une demande (bouton 🔧)
+## 5. Modifier les informations saisies par l'utilisateur (bouton 🔧)
 
-Cliquez sur le bouton **🔧 (Modifier / résoudre)** de la ligne : une fenêtre
-s'ouvre. Pour **chaque niveau affiché en rouge** (proposé ou manquant), vous
-avez deux possibilités :
+C'est l'étape centrale : **corriger et compléter les champs que l'utilisateur a
+renseignés** au moment de sa demande, avant de l'approuver. Cliquez sur le
+bouton **🔧 (Modifier / résoudre)** de la ligne — la fenêtre **« Modifier la
+soumission »** s'ouvre.
 
-1. **Rattacher un élément existant** — ouvrez la liste déroulante « Choisir… »
-   et sélectionnez l'élément déjà présent dans le catalogue.
+![Fenêtre « Modifier la soumission » : la structure à résoudre (liste « Choisir une structure existante… » ou bouton « + Créer »), le titre déjà résolu (badge vert), et les champs Année / Lieu modifiables](images/02-modifier-soumission.png)
+
+Dans cette fenêtre, chaque niveau est présenté avec son statut : **badge vert
+« ✓ Résolu »** s'il existe déjà, **badge rouge** s'il reste à résoudre.
+
+### 5.1 Résoudre un élément affiché en rouge
+
+Pour **chaque niveau en rouge** (structure, titre, ou — pour une épreuve —
+établissement / filière / niveau / matière), deux possibilités :
+
+1. **Rattacher un élément existant** — ouvrez la liste déroulante
+   **« Choisir… existant(e) »** et sélectionnez l'élément déjà présent dans le
+   catalogue. Le badge passe alors au **vert « ✓ Résolu »**.
 2. **Créer l'élément proposé** — le nom proposé par l'utilisateur est
-   pré-rempli ; ajustez-le si besoin puis cliquez sur **Créer**. Si un élément
-   du même nom existe déjà, il est **réutilisé** automatiquement (pas de
-   doublon).
+   **pré-rempli** dans le champ de texte ; ajustez-le si besoin (faute de
+   frappe, casse…) puis cliquez sur **« + Créer »**. L'élément est créé **et**
+   rattaché à la demande.
 
-Vous pouvez aussi **corriger les autres champs** dans cette même fenêtre :
+> **Anti-doublon :** si un élément du même nom existe déjà (à la casse près),
+> il est **réutilisé automatiquement** au lieu d'en créer un nouveau.
 
-- **Épreuve** : l'année et la session (section). L'intitulé (titre) est
+### 5.2 Corriger l'année, le lieu et la session
+
+Toujours dans la même fenêtre, vous pouvez **modifier les champs libres** que
+l'utilisateur a saisis :
+
+- **Concours** — les champs **Année** et **Lieu**. Après modification, cliquez
+  sur **« Enregistrer année/lieu »** en bas de la fenêtre.
+- **Épreuve** — l'**Année** et la **Session** (section : *normale*,
+  *rattrapage*…). L'**intitulé** de l'épreuve n'est **pas** à saisir : il est
   **recalculé automatiquement** à partir de la matière, de la session et de
   l'année.
-- **Concours** : l'année et le lieu (bouton **Enregistrer année/lieu**).
 
-> Chaque choix (rattachement ou création) est **enregistré immédiatement** sur
-> la demande : le badge rouge correspondant passe alors au **vert**.
+### 5.3 Points importants
 
-> **Note :** seules les demandes **en attente** peuvent être modifiées. Une
-> demande déjà approuvée ou refusée est **figée**.
+- Chaque **résolution** (rattachement ou création) est **enregistrée
+  immédiatement** : nul besoin de « sauvegarder » séparément. Les modifications
+  d'**année / lieu** se valident, elles, avec le bouton **« Enregistrer
+  année/lieu »**.
+- Vous pouvez rouvrir la fenêtre autant de fois que nécessaire.
+- Fermez la fenêtre avec **« Fermer »** une fois la demande complète.
+
+> **Note :** seules les demandes **en attente** sont modifiables. Une demande
+> déjà **approuvée** ou **refusée** est **figée** (lecture seule).
 
 ---
 
@@ -130,6 +161,8 @@ fichier »…).
 
 Cliquez sur le bouton **❌ (Refuser)** : une fenêtre **« Refuser la soumission »**
 s'ouvre.
+
+![Fenêtre « Refuser la soumission » : une zone de texte pour le motif du refus, et les boutons Annuler / Refuser](images/03-refuser-motif.png)
 
 - Saisissez un **motif du refus** (facultatif mais **recommandé**) dans la zone
   de texte — par exemple : « Fichier illisible », « Doublon avec une ressource
