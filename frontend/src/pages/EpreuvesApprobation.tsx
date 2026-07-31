@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -90,6 +90,16 @@ function ResolveDialog({ submission, open, onOpenChange }: {
     const queryClient = useQueryClient();
     const [chosen, setChosen] = useState<ResolveSubmissionData>({});
     const [newNames, setNewNames] = useState<Record<string, string>>({});
+    const [annee, setAnnee] = useState<string>('');
+    const [section, setSection] = useState<string>('');
+
+    // Pre-fill année/session from the submission each time the dialog opens.
+    useEffect(() => {
+        if (open && submission) {
+            setAnnee(submission.annee != null ? String(submission.annee) : '');
+            setSection(submission.section ?? '');
+        }
+    }, [open, submission?.id]);
 
     // Effective parent ids drive the cascade: each level's option list is scoped
     // to the resolved parent above it (locally chosen, else already on the
@@ -124,7 +134,18 @@ function ResolveDialog({ submission, open, onOpenChange }: {
         }),
     };
 
-    const reset = () => { setChosen({}); setNewNames({}); };
+    const reset = () => { setChosen({}); setNewNames({}); setAnnee(''); setSection(''); };
+
+    // Année/session are free fields (not auto-persisted like the parent levels);
+    // this saves them on the submission. The titre is re-derived server-side.
+    const saveAnneeSection = async () => {
+        const patch: ResolveSubmissionData = {};
+        if (annee.trim()) patch.annee = parseInt(annee);
+        if (section) patch.section = section as 'normal' | 'rattrapage';
+        if (Object.keys(patch).length === 0) return;
+        await persistMutation.mutateAsync(patch);
+        toast({ title: 'Enregistré', description: 'Année et session mises à jour.' });
+    };
 
     // Hooks must run before any early return — keep useMutation above the
     // `!submission` guard (this no-op-when-closed dialog toggles submission).
@@ -308,6 +329,44 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                             </div>
                         );
                     })}
+
+                    <div className="rounded-lg border p-3 space-y-3">
+                        <Label className="font-semibold">Année &amp; session</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Année</Label>
+                                <Input
+                                    type="number"
+                                    inputMode="numeric"
+                                    placeholder="ex. 2024"
+                                    value={annee}
+                                    onChange={(e) => setAnnee(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Session</Label>
+                                <Select value={section || undefined} onValueChange={(v) => setSection(v)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Choisir…" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="normal">Normale</SelectItem>
+                                        <SelectItem value="rattrapage">Rattrapage</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="gap-1"
+                            disabled={persistMutation.isPending || (!annee.trim() && !section)}
+                            onClick={saveAnneeSection}
+                        >
+                            {persistMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                            Enregistrer année &amp; session
+                        </Button>
+                    </div>
                 </div>
 
                 <DialogFooter>
