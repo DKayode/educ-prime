@@ -4,27 +4,27 @@ import { WithdrawalRequestRepositoryPort } from '../../shared/payment.ports';
 import { CreateWalletForUserUseCase } from './create-wallet-for-user.use-case';
 
 @Injectable()
-export class GetMyWalletTransactionsUseCase {
+export class GetMyWalletOverviewUseCase {
   constructor(
     private readonly createWalletForUser: CreateWalletForUserUseCase,
     @Inject(WITHDRAWAL_REQUEST_REPOSITORY)
     private readonly withdrawals: WithdrawalRequestRepositoryPort,
   ) {}
 
-  async execute(userId: number, page = 1, limit = 20) {
+  async execute(userId: number, limit = 5) {
     const wallet = await this.createWalletForUser.execute(userId);
-    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
-    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 20) : 5;
 
-    const result = await this.withdrawals.findWalletActivityHistory(wallet.id!, safePage, safeLimit);
+    const result = await this.withdrawals.findWalletActivityHistory(wallet.id!, 1, safeLimit);
 
     return {
-      data: result.data,
+      wallet,
+      latestActivity: result.data,
+      totalActivityItems: result.total,
       meta: {
-        page: safePage,
+        page: 1,
         limit: safeLimit,
-        total: result.total,
-        note: 'Historique complet : transactions financières + étapes du processus de retrait/OTP/paiement.',
+        note: 'Vue mobile : wallet + dernières étapes financières/retrait/OTP/paiement.',
       },
     };
   }

@@ -2,7 +2,6 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Between, DeepPartial, In, LessThanOrEqual, Repository } from 'typeorm';
 import { DataSourceResolver } from 'src/config/data-source-resolver.service';
 import { UtilisateursService } from 'src/utilisateurs/utilisateurs.service';
-import { Utilisateur } from 'src/utilisateurs/entities/utilisateur.entity';
 import {
   PaymentAuditLogPort,
   PaymentConfigurationModel,
@@ -12,6 +11,7 @@ import {
   UserPaymentAccountModel,
   UserPaymentAccountRepositoryPort,
   UserProfilePort,
+  WalletActivityHistoryItemModel,
   WalletModel,
   WalletRepositoryPort,
   WalletRestrictionModel,
@@ -40,7 +40,7 @@ import { WithdrawalOtpEntity } from '../otp/entities/withdrawal-otp.entity';
 
 @Injectable()
 export class TypeOrmWalletRepository implements WalletRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WalletEntity> { return this.resolver.getRepository(WalletEntity); }
 
   async findById(walletId: string): Promise<WalletModel | null> {
@@ -84,7 +84,7 @@ export class TypeOrmWalletRepository implements WalletRepositoryPort {
 
 @Injectable()
 export class TypeOrmWalletTransactionRepository implements WalletTransactionRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WalletTransactionEntity> { return this.resolver.getRepository(WalletTransactionEntity); }
 
   existsByReference(reference: string): Promise<boolean> {
@@ -136,7 +136,7 @@ export class TypeOrmWalletTransactionRepository implements WalletTransactionRepo
 
 @Injectable()
 export class TypeOrmWalletRestrictionRepository implements WalletRestrictionRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WalletRestrictionEntity> { return this.resolver.getRepository(WalletRestrictionEntity); }
 
   async findByUserId(userId: number): Promise<WalletRestrictionModel | null> {
@@ -152,7 +152,7 @@ export class TypeOrmWalletRestrictionRepository implements WalletRestrictionRepo
 
 @Injectable()
 export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WithdrawalRequestEntity> { return this.resolver.getRepository(WithdrawalRequestEntity); }
 
   async create(data: Parameters<WithdrawalRequestRepositoryPort['create']>[0]): Promise<WithdrawalRequestModel> {
@@ -185,45 +185,400 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
 
   async findForAdmin(status?: WithdrawalStatus, page = 1, limit = 20) {
     const where = status ? { status } : {};
-    const [rows, total] = await this.repo.findAndCount({ where, order: { createdAt: 'DESC' }, skip: (page - 1) * limit, take: limit });
-    if (rows.length === 0) return { data: [] as any[], total };
-
-    // Enrich each request with its author (wallet → utilisateur) and the
-    // Mobile Money account so the admin table can show who made the request.
-    // Batched (In(...)) to avoid N+1.
-    const walletRepo = this.resolver.getRepository(WalletEntity);
-    const userRepo = this.resolver.getRepository(Utilisateur);
-    const accountRepo = this.resolver.getRepository(UserPaymentAccountEntity);
-
-    const wallets = await walletRepo.find({ where: { id: In([...new Set(rows.map((r) => r.walletId))]) } });
-    const userIdByWallet = new Map(wallets.map((w) => [w.id, w.userId]));
-    const userIds = [...new Set(wallets.map((w) => w.userId).filter((v): v is number => v != null))];
-    const users = userIds.length
-      ? await userRepo.find({ where: { id: In(userIds) }, select: ['id', 'uuid', 'nom', 'prenom', 'email', 'profil_photo_path'] })
-      : [];
-    const userById = new Map(users.map((u) => [u.id, u]));
-
-    const accountIds = [...new Set(rows.map((r) => r.paymentAccountId).filter((v): v is string => !!v))];
-    const accounts = accountIds.length ? await accountRepo.find({ where: { id: In(accountIds) } }) : [];
-    const accountById = new Map(accounts.map((a) => [a.id, a]));
-
-    const data = rows.map((row) => {
-      const userId = userIdByWallet.get(row.walletId);
-      const u = userId != null ? userById.get(userId) : null;
-      const acc = row.paymentAccountId ? accountById.get(row.paymentAccountId) : null;
-      return {
-        ...this.map(row),
-        rejectedReason: row.rejectedReason ?? null,
-        user: u ? { id: u.id, uuid: u.uuid ?? null, nom: u.nom, prenom: u.prenom, email: u.email, profil: u.profil_photo_path || null } : null,
-        paymentAccount: acc ? { id: acc.id, operator: acc.operator, phoneNumber: acc.phoneNumber, accountName: acc.accountName, verified: acc.verified } : null,
-      };
-    });
-    return { data, total };
+    const [data, total] = await this.repo.findAndCount({ where, order: { createdAt: 'DESC' }, skip: (page - 1) * limit, take: limit });
+    return { data: data.map((row) => this.map(row)), total };
   }
 
   async findByWalletId(walletId: string, page = 1, limit = 50) {
     const [data, total] = await this.repo.findAndCount({ where: { walletId }, order: { createdAt: 'DESC' }, skip: (page - 1) * limit, take: limit });
     return { data: data.map((row) => this.map(row)), total };
+  }
+
+  /**
+   * Historique utilisateur complet du wallet.
+   *
+   * Ce flux ne se limite pas aux écritures financières de wallet_transactions.
+   * Il reconstruit aussi les étapes du processus de retrait : création de la
+   * demande, envoi OTP, livraison/non-livraison Infobip, vérification OTP,
+   * passage en attente admin, approbation, rejet, paiement manuel et débit final.
+   *
+   * Objectif mobile : permettre à l’utilisateur de suivre son retrait étape par
+   * étape depuis un seul endpoint : GET /wallet/me/transactions.
+   */
+  async findWalletActivityHistory(walletId: string, page = 1, limit = 20): Promise<{ data: WalletActivityHistoryItemModel[]; total: number }> {
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
+
+    const walletTransactionRepo = this.resolver.getRepository(WalletTransactionEntity);
+    const otpRepo = this.resolver.getRepository(WithdrawalOtpEntity);
+    const executionRepo = this.resolver.getRepository(PaymentExecutionEntity);
+
+    const [transactions, withdrawals] = await Promise.all([
+      walletTransactionRepo.find({ where: { walletId }, order: { createdAt: 'DESC' } }),
+      this.repo.find({ where: { walletId }, order: { createdAt: 'DESC' } }),
+    ]);
+
+    const withdrawalIds = withdrawals.map((withdrawal) => withdrawal.id);
+    const [otps, executions] = withdrawalIds.length
+      ? await Promise.all([
+        otpRepo.find({ where: { withdrawalRequestId: In(withdrawalIds) }, order: { createdAt: 'ASC' } }),
+        executionRepo.find({ where: { withdrawalRequestId: In(withdrawalIds) }, order: { createdAt: 'ASC' } }),
+      ])
+      : [[], []];
+
+    const events: WalletActivityHistoryItemModel[] = [];
+
+    const addEvent = (event: Omit<WalletActivityHistoryItemModel, 'id' | 'walletId' | 'occurredAt'> & {
+      id?: string;
+      occurredAt?: Date | string | null;
+    }) => {
+      const occurredAt = this.toDateOrNull(event.occurredAt);
+      if (!occurredAt) return;
+
+      events.push({
+        ...event,
+        id: event.id ?? `${event.source}:${event.eventType}:${event.withdrawalRequestId ?? event.walletTransactionId ?? event.otpId ?? event.paymentExecutionId ?? occurredAt.getTime()}`,
+        walletId,
+        occurredAt,
+      });
+    };
+
+    for (const transaction of transactions) {
+      const amount = Number(transaction.amount);
+      const isDebit = transaction.type === WalletTransactionType.WITHDRAW;
+      addEvent({
+        id: `wallet-transaction:${transaction.id}`,
+        source: 'WALLET_TRANSACTION',
+        category: 'FINANCIAL',
+        eventType: `WALLET_TRANSACTION_${transaction.type}`,
+        title: this.walletTransactionTitle(transaction.type),
+        description: transaction.description ?? null,
+        occurredAt: transaction.createdAt,
+        walletTransactionId: transaction.id,
+        amount: isDebit ? -Math.abs(amount) : amount,
+        balanceBefore: Number(transaction.balanceBefore),
+        balanceAfter: Number(transaction.balanceAfter),
+        reference: transaction.reference,
+        status: transaction.status,
+        metadata: {
+          type: transaction.type,
+          availableBalanceAfter: Number(transaction.availableBalanceAfter),
+          pendingBalanceAfter: Number(transaction.pendingBalanceAfter),
+          createdBy: transaction.createdBy ?? null,
+          transactionMetadata: transaction.metadata ?? null,
+        },
+      });
+    }
+
+    for (const withdrawal of withdrawals) {
+      const relatedOtps = otps.filter((otp) => otp.withdrawalRequestId === withdrawal.id);
+      const relatedExecutions = executions.filter((execution) => execution.withdrawalRequestId === withdrawal.id);
+
+      const withdrawalMetadata = {
+        withdrawalRequestId: withdrawal.id,
+        amount: Number(withdrawal.amount),
+        fees: Number(withdrawal.fees),
+        netAmount: Number(withdrawal.netAmount),
+        paymentMethod: withdrawal.paymentMethod,
+        paymentAccountId: withdrawal.paymentAccountId ?? null,
+        paymentDeadline: withdrawal.paymentDeadline ?? null,
+        currentStatus: withdrawal.status,
+        securityStatus: withdrawal.securityStatus,
+      };
+
+      addEvent({
+        id: `withdrawal-created:${withdrawal.id}`,
+        source: 'WITHDRAWAL_REQUEST',
+        category: 'WITHDRAWAL_PROCESS',
+        eventType: 'WITHDRAWAL_CREATED',
+        title: 'Demande de retrait créée',
+        description: 'La demande de retrait a été créée et attend la vérification OTP.',
+        occurredAt: withdrawal.createdAt,
+        withdrawalRequestId: withdrawal.id,
+        amount: Number(withdrawal.amount),
+        fees: Number(withdrawal.fees),
+        netAmount: Number(withdrawal.netAmount),
+        status: WithdrawalStatus.OTP_PENDING,
+        metadata: withdrawalMetadata,
+      });
+
+      if (withdrawal.otpLockedAt || withdrawal.status === WithdrawalStatus.SECURITY_REVIEW_REQUIRED) {
+        addEvent({
+          id: `withdrawal-security-review:${withdrawal.id}`,
+          source: 'WITHDRAWAL_REQUEST',
+          category: 'WITHDRAWAL_PROCESS',
+          eventType: 'WITHDRAWAL_SECURITY_REVIEW_REQUIRED',
+          title: 'Vérification de sécurité requise',
+          description: withdrawal.securityReviewReason ?? 'La demande nécessite une vérification par l’administration.',
+          occurredAt: withdrawal.otpLockedAt ?? withdrawal.updatedAt,
+          withdrawalRequestId: withdrawal.id,
+          amount: Number(withdrawal.amount),
+          fees: Number(withdrawal.fees),
+          netAmount: Number(withdrawal.netAmount),
+          status: WithdrawalStatus.SECURITY_REVIEW_REQUIRED,
+          metadata: withdrawalMetadata,
+        });
+      }
+
+      if (withdrawal.otpUnlockedAt) {
+        addEvent({
+          id: `withdrawal-otp-unlocked:${withdrawal.id}`,
+          source: 'WITHDRAWAL_REQUEST',
+          category: 'WITHDRAWAL_PROCESS',
+          eventType: 'WITHDRAWAL_OTP_UNLOCKED',
+          title: 'Demande débloquée par l’administration',
+          description: withdrawal.securityReviewReason ?? 'La demande a été débloquée après vérification administrative.',
+          occurredAt: withdrawal.otpUnlockedAt,
+          withdrawalRequestId: withdrawal.id,
+          amount: Number(withdrawal.amount),
+          fees: Number(withdrawal.fees),
+          netAmount: Number(withdrawal.netAmount),
+          status: WithdrawalStatus.OTP_PENDING,
+          metadata: withdrawalMetadata,
+        });
+      }
+
+      if (withdrawal.approvedAt) {
+        addEvent({
+          id: `withdrawal-approved:${withdrawal.id}`,
+          source: 'WITHDRAWAL_REQUEST',
+          category: 'WITHDRAWAL_PROCESS',
+          eventType: 'WITHDRAWAL_APPROVED',
+          title: 'Retrait approuvé',
+          description: 'La demande de retrait a été approuvée par l’administration.',
+          occurredAt: withdrawal.approvedAt,
+          withdrawalRequestId: withdrawal.id,
+          amount: Number(withdrawal.amount),
+          fees: Number(withdrawal.fees),
+          netAmount: Number(withdrawal.netAmount),
+          status: WithdrawalStatus.APPROVED,
+          metadata: { ...withdrawalMetadata, approvedBy: withdrawal.approvedBy ?? null },
+        });
+      }
+
+      if (withdrawal.rejectedAt) {
+        addEvent({
+          id: `withdrawal-rejected:${withdrawal.id}`,
+          source: 'WITHDRAWAL_REQUEST',
+          category: 'WITHDRAWAL_PROCESS',
+          eventType: 'WITHDRAWAL_REJECTED',
+          title: 'Retrait rejeté',
+          description: withdrawal.rejectedReason ?? 'La demande de retrait a été rejetée par l’administration.',
+          occurredAt: withdrawal.rejectedAt,
+          withdrawalRequestId: withdrawal.id,
+          amount: Number(withdrawal.amount),
+          fees: Number(withdrawal.fees),
+          netAmount: Number(withdrawal.netAmount),
+          status: WithdrawalStatus.REJECTED,
+          metadata: { ...withdrawalMetadata, rejectedBy: withdrawal.rejectedBy ?? null },
+        });
+      }
+
+      for (const otp of relatedOtps) {
+        addEvent({
+          id: `otp-sent:${otp.id}`,
+          source: 'WITHDRAWAL_OTP',
+          category: 'OTP',
+          eventType: otp.resendCount > 0 ? 'WITHDRAWAL_OTP_RESENT' : 'WITHDRAWAL_OTP_SENT',
+          title: otp.resendCount > 0 ? 'Code OTP renvoyé' : 'Code OTP envoyé',
+          description: 'Un code OTP a été envoyé au numéro Mobile Money associé à la demande.',
+          occurredAt: otp.lastSentAt ?? otp.createdAt,
+          withdrawalRequestId: withdrawal.id,
+          otpId: otp.id,
+          amount: Number(withdrawal.amount),
+          fees: Number(withdrawal.fees),
+          netAmount: Number(withdrawal.netAmount),
+          status: otp.status,
+          metadata: this.otpMetadata(otp),
+        });
+
+        if (otp.deliveryStatus && otp.deliveryStatus !== OtpDeliveryStatus.CREATED) {
+          const deliveryDate = otp.deliveredAt ?? otp.failedAt ?? otp.lastProviderCallbackAt ?? otp.updatedAt;
+          addEvent({
+            id: `otp-delivery:${otp.id}:${otp.deliveryStatus}`,
+            source: 'WITHDRAWAL_OTP',
+            category: 'OTP',
+            eventType: `WITHDRAWAL_OTP_DELIVERY_${otp.deliveryStatus}`,
+            title: this.otpDeliveryTitle(otp.deliveryStatus),
+            description: otp.providerStatusDescription ?? otp.deliveryErrorMessage ?? otp.failureReason ?? null,
+            occurredAt: deliveryDate,
+            withdrawalRequestId: withdrawal.id,
+            otpId: otp.id,
+            amount: Number(withdrawal.amount),
+            fees: Number(withdrawal.fees),
+            netAmount: Number(withdrawal.netAmount),
+            status: otp.deliveryStatus,
+            metadata: this.otpMetadata(otp),
+          });
+        }
+
+        if (otp.consumedAt) {
+          addEvent({
+            id: `otp-verified:${otp.id}`,
+            source: 'WITHDRAWAL_OTP',
+            category: 'OTP',
+            eventType: 'WITHDRAWAL_OTP_VERIFIED',
+            title: 'Code OTP vérifié',
+            description: 'Le code OTP a été correctement renseigné par l’utilisateur.',
+            occurredAt: otp.consumedAt,
+            withdrawalRequestId: withdrawal.id,
+            otpId: otp.id,
+            amount: Number(withdrawal.amount),
+            fees: Number(withdrawal.fees),
+            netAmount: Number(withdrawal.netAmount),
+            status: WithdrawalOtpStatus.VERIFIED,
+            metadata: this.otpMetadata(otp),
+          });
+
+          addEvent({
+            id: `withdrawal-pending-after-otp:${withdrawal.id}:${otp.id}`,
+            source: 'WITHDRAWAL_REQUEST',
+            category: 'WITHDRAWAL_PROCESS',
+            eventType: 'WITHDRAWAL_PENDING_AFTER_OTP',
+            title: 'Retrait soumis à l’administration',
+            description: 'Le code OTP a été validé. La demande est maintenant en attente de traitement administrateur.',
+            occurredAt: otp.consumedAt,
+            withdrawalRequestId: withdrawal.id,
+            amount: Number(withdrawal.amount),
+            fees: Number(withdrawal.fees),
+            netAmount: Number(withdrawal.netAmount),
+            status: WithdrawalStatus.PENDING,
+            metadata: withdrawalMetadata,
+          });
+        }
+
+        if (otp.status === WithdrawalOtpStatus.EXPIRED) {
+          addEvent({
+            id: `otp-expired:${otp.id}`,
+            source: 'WITHDRAWAL_OTP',
+            category: 'OTP',
+            eventType: 'WITHDRAWAL_OTP_EXPIRED',
+            title: 'Code OTP expiré',
+            description: 'Le code OTP n’est plus valide.',
+            occurredAt: otp.expiresAt ?? otp.updatedAt,
+            withdrawalRequestId: withdrawal.id,
+            otpId: otp.id,
+            amount: Number(withdrawal.amount),
+            fees: Number(withdrawal.fees),
+            netAmount: Number(withdrawal.netAmount),
+            status: WithdrawalOtpStatus.EXPIRED,
+            metadata: this.otpMetadata(otp),
+          });
+        }
+
+        if (otp.status === WithdrawalOtpStatus.LOCKED || otp.lockedAt) {
+          addEvent({
+            id: `otp-locked:${otp.id}`,
+            source: 'WITHDRAWAL_OTP',
+            category: 'OTP',
+            eventType: 'WITHDRAWAL_OTP_LOCKED',
+            title: 'OTP bloqué',
+            description: otp.lockedReason ?? 'Le nombre maximal de tentatives OTP a été atteint.',
+            occurredAt: otp.lockedAt ?? otp.updatedAt,
+            withdrawalRequestId: withdrawal.id,
+            otpId: otp.id,
+            amount: Number(withdrawal.amount),
+            fees: Number(withdrawal.fees),
+            netAmount: Number(withdrawal.netAmount),
+            status: WithdrawalOtpStatus.LOCKED,
+            metadata: this.otpMetadata(otp),
+          });
+        }
+
+        if (otp.unlockedAt) {
+          addEvent({
+            id: `otp-unlocked:${otp.id}`,
+            source: 'WITHDRAWAL_OTP',
+            category: 'OTP',
+            eventType: 'WITHDRAWAL_OTP_UNLOCKED',
+            title: 'OTP débloqué',
+            description: otp.unlockReason ?? 'L’OTP a été débloqué après vérification administrative.',
+            occurredAt: otp.unlockedAt,
+            withdrawalRequestId: withdrawal.id,
+            otpId: otp.id,
+            amount: Number(withdrawal.amount),
+            fees: Number(withdrawal.fees),
+            netAmount: Number(withdrawal.netAmount),
+            status: WithdrawalOtpStatus.SENT,
+            metadata: this.otpMetadata(otp),
+          });
+        }
+
+        if (otp.status === WithdrawalOtpStatus.FAILED || otp.failureReason) {
+          addEvent({
+            id: `otp-failed:${otp.id}`,
+            source: 'WITHDRAWAL_OTP',
+            category: 'OTP',
+            eventType: 'WITHDRAWAL_OTP_FAILED',
+            title: 'Échec OTP',
+            description: otp.failureReason ?? 'L’envoi ou la validation OTP a échoué.',
+            occurredAt: otp.failedAt ?? otp.updatedAt,
+            withdrawalRequestId: withdrawal.id,
+            otpId: otp.id,
+            amount: Number(withdrawal.amount),
+            fees: Number(withdrawal.fees),
+            netAmount: Number(withdrawal.netAmount),
+            status: WithdrawalOtpStatus.FAILED,
+            metadata: this.otpMetadata(otp),
+          });
+        }
+      }
+
+      for (const execution of relatedExecutions) {
+        addEvent({
+          id: `payment-execution:${execution.id}`,
+          source: 'PAYMENT_EXECUTION',
+          category: 'PAYMENT',
+          eventType: `PAYMENT_EXECUTION_${execution.status}`,
+          title: execution.status === 'COMPLETED' ? 'Paiement Mobile Money confirmé' : 'Paiement Mobile Money enregistré',
+          description: execution.comment ?? null,
+          occurredAt: execution.paidAt ?? execution.createdAt,
+          withdrawalRequestId: withdrawal.id,
+          paymentExecutionId: execution.id,
+          amount: Number(execution.paidAmount),
+          status: execution.status,
+          reference: execution.transactionReference,
+          metadata: {
+            provider: execution.provider,
+            phoneNumber: execution.phoneNumber,
+            paidAt: execution.paidAt,
+            batchId: execution.batchId ?? null,
+          },
+        });
+      }
+
+      if (withdrawal.status === WithdrawalStatus.PAID) {
+        addEvent({
+          id: `withdrawal-paid:${withdrawal.id}`,
+          source: 'WITHDRAWAL_REQUEST',
+          category: 'WITHDRAWAL_PROCESS',
+          eventType: 'WITHDRAWAL_PAID',
+          title: 'Retrait payé',
+          description: 'Le paiement manuel Mobile Money a été confirmé.',
+          occurredAt: relatedExecutions[0]?.paidAt ?? withdrawal.updatedAt,
+          withdrawalRequestId: withdrawal.id,
+          amount: Number(withdrawal.amount),
+          fees: Number(withdrawal.fees),
+          netAmount: Number(withdrawal.netAmount),
+          status: WithdrawalStatus.PAID,
+          metadata: withdrawalMetadata,
+        });
+      }
+    }
+
+    const deduplicated = Array.from(
+      new Map(events.map((event) => [event.id, event])).values(),
+    );
+
+    deduplicated.sort((a, b) => {
+      const diff = b.occurredAt.getTime() - a.occurredAt.getTime();
+      if (diff !== 0) return diff;
+      return this.eventPriority(b.eventType) - this.eventPriority(a.eventType);
+    });
+
+    const total = deduplicated.length;
+    const data = deduplicated.slice((safePage - 1) * safeLimit, safePage * safeLimit);
+    return { data, total };
   }
 
   async findWithPaymentDetailsByUserId(userId: number, page = 1, limit = 50) {
@@ -344,6 +699,82 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
     return this.map(await this.repo.save(row));
   }
 
+  private toDateOrNull(value?: Date | string | null): Date | null {
+    if (!value) return null;
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  private walletTransactionTitle(type: WalletTransactionType): string {
+    switch (type) {
+      case WalletTransactionType.REWARD:
+        return 'Wallet crédité';
+      case WalletTransactionType.RELEASE:
+        return 'Fonds libérés';
+      case WalletTransactionType.WITHDRAW:
+        return 'Wallet débité';
+      case WalletTransactionType.ADJUSTMENT:
+        return 'Ajustement wallet';
+      default:
+        return 'Transaction wallet';
+    }
+  }
+
+  private otpDeliveryTitle(status: OtpDeliveryStatus): string {
+    switch (status) {
+      case OtpDeliveryStatus.SENT_TO_PROVIDER:
+        return 'OTP transmis à Infobip';
+      case OtpDeliveryStatus.DELIVERED:
+        return 'OTP livré au téléphone';
+      case OtpDeliveryStatus.UNDELIVERED:
+        return 'OTP non livré';
+      case OtpDeliveryStatus.FAILED:
+        return 'Échec de livraison OTP';
+      case OtpDeliveryStatus.DELIVERY_UNKNOWN:
+        return 'Livraison OTP inconnue';
+      case OtpDeliveryStatus.DELIVERY_TIMEOUT:
+        return 'Délai de livraison OTP dépassé';
+      default:
+        return 'Statut de livraison OTP mis à jour';
+    }
+  }
+
+  private eventPriority(eventType: string): number {
+    const priority: Record<string, number> = {
+      WITHDRAWAL_CREATED: 10,
+      WITHDRAWAL_OTP_SENT: 20,
+      WITHDRAWAL_OTP_RESENT: 30,
+      WITHDRAWAL_OTP_VERIFIED: 40,
+      WITHDRAWAL_PENDING_AFTER_OTP: 50,
+      WITHDRAWAL_APPROVED: 60,
+      PAYMENT_EXECUTION_COMPLETED: 70,
+      WITHDRAWAL_PAID: 80,
+      WALLET_TRANSACTION_WITHDRAW: 90,
+    };
+    return priority[eventType] ?? 0;
+  }
+
+  private otpMetadata(otp: WithdrawalOtpEntity): Record<string, unknown> {
+    return {
+      provider: otp.provider,
+      phoneNumber: otp.phoneNumber,
+      attemptCount: otp.attemptCount,
+      maxAttempts: otp.maxAttempts,
+      resendCount: otp.resendCount,
+      expiresAt: otp.expiresAt,
+      consumedAt: otp.consumedAt ?? null,
+      deliveryStatus: otp.deliveryStatus ?? null,
+      providerMessageId: otp.providerMessageId ?? null,
+      providerBulkId: otp.providerBulkId ?? null,
+      providerStatusName: otp.providerStatusName ?? null,
+      providerStatusGroupName: otp.providerStatusGroupName ?? null,
+      providerStatusDescription: otp.providerStatusDescription ?? null,
+      deliveryErrorCode: otp.deliveryErrorCode ?? null,
+      deliveryErrorMessage: otp.deliveryErrorMessage ?? null,
+      failureReason: otp.failureReason ?? null,
+    };
+  }
+
   private map(row: WithdrawalRequestEntity): WithdrawalRequestModel {
     return {
       id: row.id,
@@ -418,7 +849,7 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
 
 @Injectable()
 export class TypeOrmWithdrawalOtpRepository implements WithdrawalOtpRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WithdrawalOtpEntity> { return this.resolver.getRepository(WithdrawalOtpEntity); }
 
   async create(data: Parameters<WithdrawalOtpRepositoryPort['create']>[0]): Promise<WithdrawalOtpModel> {
@@ -584,7 +1015,7 @@ export class TypeOrmWithdrawalOtpRepository implements WithdrawalOtpRepositoryPo
 
 @Injectable()
 export class TypeOrmUserPaymentAccountRepository implements UserPaymentAccountRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<UserPaymentAccountEntity> { return this.resolver.getRepository(UserPaymentAccountEntity); }
   private get historyRepo(): Repository<UserPaymentAccountHistoryEntity> { return this.resolver.getRepository(UserPaymentAccountHistoryEntity); }
 
@@ -643,7 +1074,7 @@ export class TypeOrmUserPaymentAccountRepository implements UserPaymentAccountRe
 
 @Injectable()
 export class TypeOrmPaymentExecutionRepository implements PaymentExecutionRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<PaymentExecutionEntity> { return this.resolver.getRepository(PaymentExecutionEntity); }
   private get proofRepo(): Repository<PaymentProofEntity> { return this.resolver.getRepository(PaymentProofEntity); }
 
@@ -675,7 +1106,7 @@ export class TypeOrmPaymentExecutionRepository implements PaymentExecutionReposi
 
 @Injectable()
 export class TypeOrmPaymentConfigurationRepository implements PaymentConfigurationRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<PaymentConfigurationEntity> { return this.resolver.getRepository(PaymentConfigurationEntity); }
 
   async getActive(): Promise<PaymentConfigurationModel> {
@@ -693,15 +1124,13 @@ export class TypeOrmPaymentConfigurationRepository implements PaymentConfigurati
 
 @Injectable()
 export class UtilisateursUserProfileAdapter implements UserProfilePort {
-  constructor(private readonly utilisateursService: UtilisateursService) {}
+  constructor(private readonly utilisateursService: UtilisateursService) { }
 
   async getPaymentProfile(userId: number) {
     const user: any = await this.utilisateursService.findOne(String(userId));
     const verification = await this.utilisateursService.isEmailVerified(userId);
     return {
       id: user.id,
-      uuid: user.uuid ?? null,
-      profil: user.profil_photo_path || null,
       email: user.email,
       telephone: user.telephone,
       isEmailVerified: verification.isVerified,
@@ -712,7 +1141,7 @@ export class UtilisateursUserProfileAdapter implements UserProfilePort {
 
 @Injectable()
 export class TypeOrmPaymentNotificationAdapter implements PaymentNotificationPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<PaymentNotificationEntity> { return this.resolver.getRepository(PaymentNotificationEntity); }
 
   async notifyUser(payload: Parameters<PaymentNotificationPort['notifyUser']>[0]) {
@@ -728,7 +1157,7 @@ export class TypeOrmPaymentNotificationAdapter implements PaymentNotificationPor
 
 @Injectable()
 export class TypeOrmPaymentAuditLogAdapter implements PaymentAuditLogPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<PaymentAuditLogEntity> { return this.resolver.getRepository(PaymentAuditLogEntity); }
 
   async log(payload: Parameters<PaymentAuditLogPort['log']>[0]) {

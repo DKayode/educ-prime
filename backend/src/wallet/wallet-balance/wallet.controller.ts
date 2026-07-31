@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestj
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { GetMyWalletUseCase } from './use-cases/get-my-wallet.use-case';
 import { GetMyWalletTransactionsUseCase } from './use-cases/get-my-wallet-transactions.use-case';
+import { GetMyWalletOverviewUseCase } from './use-cases/get-my-wallet-overview.use-case';
 import { RequestWithdrawalUseCase } from './use-cases/request-withdrawal.use-case';
 import { GetCurrentWithdrawalUseCase } from './use-cases/get-current-withdrawal.use-case';
 import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
@@ -19,6 +20,7 @@ export class WalletController {
   constructor(
     private readonly getMyWallet: GetMyWalletUseCase,
     private readonly getMyWalletTransactions: GetMyWalletTransactionsUseCase,
+    private readonly getMyWalletOverview: GetMyWalletOverviewUseCase,
     private readonly getCurrentWithdrawal: GetCurrentWithdrawalUseCase,
     private readonly requestWithdrawal: RequestWithdrawalUseCase,
     private readonly verifyWithdrawalOtp: VerifyWithdrawalOtpUseCase,
@@ -33,11 +35,18 @@ export class WalletController {
   }
 
   @Get('me/transactions')
-  @ApiOperation({ summary: 'Consulter l’historique paginé des transactions du wallet' })
+  @ApiOperation({ summary: 'Consulter l’historique complet du wallet : transactions, retrait, OTP et paiement' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   getMyTransactions(@Request() req, @Query('page') page?: string, @Query('limit') limit?: string) {
     return this.getMyWalletTransactions.execute(req.user.utilisateurId, Number(page ?? 1), Number(limit ?? 20));
+  }
+
+  @Get('me/overview')
+  @ApiOperation({ summary: 'Vue mobile du wallet avec les dernières transactions financières' })
+  @ApiQuery({ name: 'limit', required: false, example: 5 })
+  getMyOverview(@Request() req, @Query('limit') limit?: string) {
+    return this.getMyWalletOverview.execute(req.user.utilisateurId, Number(limit ?? 5));
   }
 
   @Get('withdrawals/current')
