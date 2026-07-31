@@ -20,8 +20,6 @@ export interface CreditWalletFromValidatedExamCommand {
   userId: number;
   examId: string;
   amount?: number;
-  /** Type de ressource validée — choisit la récompense par défaut (exam vs concours). */
-  resource?: 'exam' | 'concours';
   currency?: string;
   reference?: string;
   description?: string;
@@ -36,7 +34,7 @@ export class CreditWalletFromValidatedExamUseCase {
     @Inject(PAYMENT_CONFIGURATION_REPOSITORY) private readonly configurations: PaymentConfigurationRepositoryPort,
     @Inject(PAYMENT_NOTIFICATION_PORT) private readonly notifications: PaymentNotificationPort,
     @Inject(PAYMENT_AUDIT_LOG_PORT) private readonly audit: PaymentAuditLogPort,
-  ) {}
+  ) { }
 
   async execute(command: CreditWalletFromValidatedExamCommand) {
     const configuration = await this.configurations.getActive();
@@ -44,11 +42,7 @@ export class CreditWalletFromValidatedExamUseCase {
       throw new ConflictException('La récompense des épreuves est désactivée');
     }
 
-    // Récompense par défaut selon le type de ressource ; un `amount` explicite prime.
-    const defaultReward = command.resource === 'concours'
-      ? configuration.rewardPerConcours
-      : configuration.rewardPerExam;
-    const amount = Number(command.amount ?? defaultReward);
+    const amount = Number(command.amount ?? configuration.rewardPerExam);
     if (!amount || amount <= 0) throw new BadRequestException('Le montant à créditer doit être supérieur à zéro');
 
     const reference = command.reference ?? `EXAM_REWARD:${command.examId}`;
