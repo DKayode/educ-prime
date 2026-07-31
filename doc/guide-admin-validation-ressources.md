@@ -105,7 +105,10 @@ Pour **chaque niveau en rouge** (structure, titre, ou — pour une épreuve —
 
 1. **Rattacher un élément existant** — ouvrez la liste déroulante
    **« Choisir… existant(e) »** et sélectionnez l'élément déjà présent dans le
-   catalogue. Le badge passe alors au **vert « ✓ Résolu »**.
+   catalogue. Le badge passe alors au **vert « ✓ Résolu »**. La liste comporte
+   une **barre de recherche** en haut : commencez à taper pour la **filtrer**
+   par nom (pratique quand les établissements, structures ou titres sont
+   nombreux). L'élément actuellement rattaché est **coché**.
 2. **Créer l'élément proposé** — le nom proposé par l'utilisateur est
    **pré-rempli** dans le champ de texte ; ajustez-le si besoin (faute de
    frappe, casse…) puis cliquez sur **« + Créer »**. L'élément est créé **et**
