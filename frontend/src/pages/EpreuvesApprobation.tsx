@@ -212,6 +212,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
         proposed?: string | null;
         options: { id: number; nom: string }[];
         canCreate: boolean;
+        loading: boolean;
         create: (nom: string) => Promise<{ id: number }>;
     };
 
@@ -221,6 +222,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             resolvedName: submission.etablissement?.nom, proposed: submission.proposed_etablissement,
             options: lists.etablissement.data?.data ?? [],
             canCreate: true,
+            loading: lists.etablissement.isFetching,
             create: (nom) => etablissementsService.create({ nom }),
         },
         {
@@ -228,6 +230,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             resolvedName: submission.filiere?.nom, proposed: submission.proposed_filiere,
             options: lists.filiere.data?.data ?? [],
             canCreate: !!eff.etablissement_id,
+            loading: lists.filiere.isFetching,
             create: (nom) => filieresService.create({ nom, etablissement_id: eff.etablissement_id! }),
         },
         {
@@ -235,6 +238,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             resolvedName: submission.niveau_etude?.nom, proposed: submission.proposed_niveau,
             options: lists.niveau_etude.data?.data ?? [],
             canCreate: !!eff.filiere_id,
+            loading: lists.niveau_etude.isFetching,
             create: (nom) => niveauxService.create({ nom, filiere_id: eff.filiere_id! }),
         },
         {
@@ -242,6 +246,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             resolvedName: submission.matiere?.nom, proposed: submission.proposed_matiere,
             options: lists.matiere.data?.data ?? [],
             canCreate: !!eff.niveau_etude_id,
+            loading: lists.matiere.isFetching,
             create: (nom) => matieresService.create({
                 nom,
                 niveau_etude_id: eff.niveau_etude_id!,
@@ -297,9 +302,19 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                                                 <SelectValue placeholder="Choisir une entité existante…" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {lvl.options.map((o) => (
-                                                    <SelectItem key={o.id} value={String(o.id)}>{o.nom}</SelectItem>
-                                                ))}
+                                                {lvl.options.length > 0 ? (
+                                                    lvl.options.map((o) => (
+                                                        <SelectItem key={o.id} value={String(o.id)}>{o.nom}</SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <div className="px-2 py-2 text-center text-sm text-muted-foreground">
+                                                        {lvl.loading
+                                                            ? 'Chargement…'
+                                                            : !lvl.canCreate
+                                                                ? 'Résolvez d\'abord le niveau parent'
+                                                                : `Aucune ${lvl.label.toLowerCase()} pour cette sélection — créez-en une ci-dessous`}
+                                                    </div>
+                                                )}
                                             </SelectContent>
                                         </Select>
 
