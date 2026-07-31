@@ -144,7 +144,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
         if (section) patch.section = section as 'normal' | 'rattrapage';
         if (Object.keys(patch).length === 0) return;
         await persistMutation.mutateAsync(patch);
-        toast({ title: 'Enregistré', description: 'Année et session mises à jour.' });
+        toast({ title: 'Enregistré', description: 'Modifications enregistrées.' });
     };
 
     // Hooks must run before any early return — keep useMutation above the
@@ -356,23 +356,16 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                                 </Select>
                             </div>
                         </div>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            className="gap-1"
-                            disabled={persistMutation.isPending || (!annee.trim() && !section)}
-                            onClick={saveAnneeSection}
-                        >
-                            {persistMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                            Enregistrer année &amp; session
-                        </Button>
                     </div>
                 </div>
 
                 <DialogFooter>
-                    <Button onClick={() => { reset(); onOpenChange(false); }} disabled={persistMutation.isPending}>
+                    <Button
+                        onClick={async () => { await saveAnneeSection(); reset(); onOpenChange(false); }}
+                        disabled={persistMutation.isPending}
+                    >
                         {persistMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Fermer
+                        Enregistrer les modifications
                     </Button>
                 </DialogFooter>
             </DialogContent>
