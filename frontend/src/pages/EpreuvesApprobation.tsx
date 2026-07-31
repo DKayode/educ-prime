@@ -91,11 +91,37 @@ function ResolveDialog({ submission, open, onOpenChange }: {
     const [chosen, setChosen] = useState<ResolveSubmissionData>({});
     const [newNames, setNewNames] = useState<Record<string, string>>({});
 
+    // Effective parent ids drive the cascade: each level's option list is scoped
+    // to the resolved parent above it (locally chosen, else already on the
+    // submission). When a parent is unresolved — e.g. a brand-new établissement —
+    // the child query is disabled, so its list is empty and the admin is forced
+    // to create the child instead of picking an unrelated one.
+    const eff = {
+        etablissement_id: chosen.etablissement_id ?? submission?.etablissement?.id,
+        filiere_id: chosen.filiere_id ?? submission?.filiere?.id,
+        niveau_etude_id: chosen.niveau_etude_id ?? submission?.niveau_etude?.id,
+        matiere_id: chosen.matiere_id ?? submission?.matiere?.id,
+    };
+
     const lists = {
         etablissement: useQuery({ queryKey: ['etabs-all'], queryFn: () => etablissementsService.getAll({ limit: 200 }), enabled: open }),
-        filiere: useQuery({ queryKey: ['filieres-all'], queryFn: () => filieresService.getAll({ limit: 200 }), enabled: open }),
-        niveau_etude: useQuery({ queryKey: ['niveaux-all'], queryFn: () => niveauxService.getAll({ limit: 200 }), enabled: open }),
-        matiere: useQuery({ queryKey: ['matieres-all'], queryFn: () => matieresService.getAll({ limit: 200 }), enabled: open }),
+        // all: true → don't hide filières/niveaux that have no épreuve yet; the
+        // admin is attaching what may be the first épreuve under them.
+        filiere: useQuery({
+            queryKey: ['etab-filieres', eff.etablissement_id],
+            queryFn: () => etablissementsService.getFilieres(String(eff.etablissement_id), { limit: 200, all: true }),
+            enabled: open && !!eff.etablissement_id,
+        }),
+        niveau_etude: useQuery({
+            queryKey: ['filiere-niveaux', eff.etablissement_id, eff.filiere_id],
+            queryFn: () => etablissementsService.getNiveaux(String(eff.etablissement_id), String(eff.filiere_id), { limit: 200, all: true }),
+            enabled: open && !!eff.etablissement_id && !!eff.filiere_id,
+        }),
+        matiere: useQuery({
+            queryKey: ['niveau-matieres', eff.etablissement_id, eff.filiere_id, eff.niveau_etude_id],
+            queryFn: () => etablissementsService.getMatieres(String(eff.etablissement_id), String(eff.filiere_id), String(eff.niveau_etude_id), { limit: 200, all: true }),
+            enabled: open && !!eff.etablissement_id && !!eff.filiere_id && !!eff.niveau_etude_id,
+        }),
     };
 
     const reset = () => { setChosen({}); setNewNames({}); };
@@ -114,20 +140,26 @@ function ResolveDialog({ submission, open, onOpenChange }: {
 
     // Bind one level onto the submission immediately (local state drives the
     // in-dialog hierarchy; the PATCH persists it).
+    // Descendants to clear locally when a level changes — picking a different
+    // établissement invalidates any filière/niveau/matière chosen underneath it.
+    const DESCENDANTS: Record<string, (keyof ResolveSubmissionData)[]> = {
+        etablissement_id: ['filiere_id', 'niveau_etude_id', 'matiere_id'],
+        filiere_id: ['niveau_etude_id', 'matiere_id'],
+        niveau_etude_id: ['matiere_id'],
+        matiere_id: [],
+    };
+
     const resolveField = async (level: keyof ResolveSubmissionData, id: number) => {
-        setChosen(c => ({ ...c, [level]: id }));
+        setChosen(c => {
+            const next = { ...c, [level]: id };
+            for (const child of DESCENDANTS[level]) delete next[child];
+            return next;
+        });
         await persistMutation.mutateAsync({ [level]: id });
     };
 
     if (!submission) return null;
 
-    // Effective ids = locally chosen, falling back to what's already on the submission.
-    const eff = {
-        etablissement_id: chosen.etablissement_id ?? submission.etablissement?.id,
-        filiere_id: chosen.filiere_id ?? submission.filiere?.id,
-        niveau_etude_id: chosen.niveau_etude_id ?? submission.niveau_etude?.id,
-        matiere_id: chosen.matiere_id ?? submission.matiere?.id,
-    };
     const allResolved = !!(eff.etablissement_id && eff.filiere_id && eff.niveau_etude_id && eff.matiere_id);
 
     const createAndChoose = async (

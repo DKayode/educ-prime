@@ -18,17 +18,17 @@ export const etablissementsService = {
     return api.get<Etablissement>(`/etablissements/${id}`);
   },
 
-  async getFilieres(etablissementId: string, params?: PaginationParams & { search?: string }): Promise<PaginationResponse<Filiere>> {
+  async getFilieres(etablissementId: string, params?: PaginationParams & { search?: string; all?: boolean }): Promise<PaginationResponse<Filiere>> {
     const query = buildPaginationQuery(params);
     return api.get<PaginationResponse<Filiere>>(`/etablissements/${etablissementId}/filieres${query}`);
   },
 
-  async getNiveaux(etablissementId: string, filiereId: string, params?: PaginationParams & { search?: string }): Promise<PaginationResponse<NiveauEtude>> {
+  async getNiveaux(etablissementId: string, filiereId: string, params?: PaginationParams & { search?: string; all?: boolean }): Promise<PaginationResponse<NiveauEtude>> {
     const query = buildPaginationQuery(params);
     return api.get<PaginationResponse<NiveauEtude>>(`/etablissements/${etablissementId}/filieres/${filiereId}/niveau-etude${query}`);
   },
 
-  async getMatieres(etablissementId: string, filiereId: string, niveauId: string, params?: PaginationParams & { search?: string }): Promise<PaginationResponse<Matiere>> {
+  async getMatieres(etablissementId: string, filiereId: string, niveauId: string, params?: PaginationParams & { search?: string; all?: boolean }): Promise<PaginationResponse<Matiere>> {
     const query = buildPaginationQuery(params);
     return api.get<PaginationResponse<Matiere>>(`/etablissements/${etablissementId}/filieres/${filiereId}/niveau-etude/${niveauId}/matieres${query}`);
   },
