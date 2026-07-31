@@ -32,6 +32,8 @@ import { CreateWalletForUserUseCase } from './wallet-balance/use-cases/create-wa
 import { CreditWalletFromValidatedExamUseCase } from './wallet-balance/use-cases/credit-wallet-from-validated-exam.use-case';
 import { GetMyWalletUseCase } from './wallet-balance/use-cases/get-my-wallet.use-case';
 import { GetMyWalletTransactionsUseCase } from './wallet-balance/use-cases/get-my-wallet-transactions.use-case';
+import { GetMyWalletOverviewUseCase } from './wallet-balance/use-cases/get-my-wallet-overview.use-case';
+import { GetCurrentWithdrawalUseCase } from './wallet-balance/use-cases/get-current-withdrawal.use-case';
 import { RequestWithdrawalUseCase } from './wallet-balance/use-cases/request-withdrawal.use-case';
 import { VerifyWithdrawalOtpUseCase } from './otp/use-cases/verify-withdrawal-otp.use-case';
 import { ResendWithdrawalOtpUseCase } from './otp/use-cases/resend-withdrawal-otp.use-case';
@@ -94,6 +96,8 @@ import { InfobipOtpSmsAdapter } from './otp/infobip-otp-sms.adapter';
     CreditWalletFromValidatedExamUseCase,
     GetMyWalletUseCase,
     GetMyWalletTransactionsUseCase,
+    GetMyWalletOverviewUseCase,
+    GetCurrentWithdrawalUseCase,
     RequestWithdrawalUseCase,
     VerifyWithdrawalOtpUseCase,
     ResendWithdrawalOtpUseCase,
