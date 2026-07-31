@@ -123,35 +123,40 @@ function ConcoursResolveDialog({ submission, structures, titres, open, onOpenCha
                                     </Badge>
                                 )}
                             </div>
-                            {lvl.resolvedId != null ? (
-                                <p className="text-sm text-muted-foreground">{lvl.resolvedName}</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    <Select onValueChange={(v) => bind(lvl.field, parseInt(v))}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={`Choisir un(e) ${lvl.label.toLowerCase()} existant(e)…`} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {lvl.options.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.nom}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            placeholder={`Nom de la ${lvl.label.toLowerCase()}…`}
-                                            value={lvl.newVal}
-                                            onChange={(e) => lvl.setNew(e.target.value)}
-                                        />
-                                        <Button
-                                            type="button"
-                                            className="shrink-0 gap-1"
-                                            disabled={!lvl.newVal.trim() || persist.isPending}
-                                            onClick={() => createAndBind(lvl.kind, lvl.newVal)}
-                                        >
-                                            <Plus className="h-4 w-4" /> Créer
-                                        </Button>
-                                    </div>
+                            <div className="space-y-2">
+                                <Select
+                                    value={lvl.resolvedId != null ? String(lvl.resolvedId) : undefined}
+                                    onValueChange={(v) => bind(lvl.field, parseInt(v))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={`Choisir un(e) ${lvl.label.toLowerCase()} existant(e)…`} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {lvl.options.length > 0 ? (
+                                            lvl.options.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.nom}</SelectItem>)
+                                        ) : (
+                                            <div className="px-2 py-2 text-center text-sm text-muted-foreground">
+                                                Aucune {lvl.label.toLowerCase()} disponible — créez-en une ci-dessous
+                                            </div>
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        placeholder={`Nom de la ${lvl.label.toLowerCase()}…`}
+                                        value={lvl.newVal}
+                                        onChange={(e) => lvl.setNew(e.target.value)}
+                                    />
+                                    <Button
+                                        type="button"
+                                        className="shrink-0 gap-1"
+                                        disabled={!lvl.newVal.trim() || persist.isPending}
+                                        onClick={() => createAndBind(lvl.kind, lvl.newVal)}
+                                    >
+                                        <Plus className="h-4 w-4" /> Créer
+                                    </Button>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     ))}
 
