@@ -183,6 +183,18 @@ function ResolveDialog({ submission, open, onOpenChange }: {
 
     const allResolved = !!(eff.etablissement_id && eff.filiere_id && eff.niveau_etude_id && eff.matiere_id);
 
+    // Base query key of each level's own option list — invalidated after a
+    // create so the freshly-made entity shows up in that dropdown (its key is
+    // unchanged, unlike child lists which refetch when their parent id changes).
+    const LIST_KEY: Record<keyof ResolveSubmissionData, string> = {
+        etablissement_id: 'etabs-all',
+        filiere_id: 'etab-filieres',
+        niveau_etude_id: 'filiere-niveaux',
+        matiere_id: 'niveau-matieres',
+        annee: '',
+        section: '',
+    };
+
     const createAndChoose = async (
         level: keyof ResolveSubmissionData,
         name: string,
@@ -195,6 +207,8 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             const trimmed = name.trim();
             const existing = options.find(o => o.nom.trim().toLowerCase() === trimmed.toLowerCase());
             const row = existing ?? await creator();
+            // Refetch this level's list so the new entity appears in its dropdown.
+            if (!existing && LIST_KEY[level]) await queryClient.invalidateQueries({ queryKey: [LIST_KEY[level]] });
             await resolveField(level, row.id);
             toast({
                 title: existing ? "Rattaché" : "Créé et rattaché",
