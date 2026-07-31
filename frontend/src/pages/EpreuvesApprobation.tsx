@@ -273,22 +273,21 @@ function ResolveDialog({ submission, open, onOpenChange }: {
         <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Résoudre les parents — {submission.titre}</DialogTitle>
+                    <DialogTitle>Modifier la soumission — {submission.titre}</DialogTitle>
                     <DialogDescription>
-                        Pour chaque niveau manquant, sélectionnez une entité existante ou créez-la —
-                        chaque choix est enregistré automatiquement sur la soumission.
-                        L'approbation sera possible une fois les quatre niveaux résolus.
+                        Pour chaque niveau, sélectionnez une entité existante ou créez-la — y compris
+                        pour changer un niveau déjà résolu. Chaque choix est enregistré automatiquement
+                        sur la soumission. L'approbation sera possible une fois les quatre niveaux résolus.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-2">
                     {levels.map((lvl) => {
-                        const effId = chosen[lvl.key] ?? (lvl.resolvedName ? -1 : undefined);
-                        const isResolved = lvl.key === 'etablissement_id' ? !!eff.etablissement_id
-                            : lvl.key === 'filiere_id' ? !!eff.filiere_id
-                                : lvl.key === 'niveau_etude_id' ? !!eff.niveau_etude_id
-                                    : !!eff.matiere_id;
-                        const alreadyOnSubmission = !!lvl.resolvedName;
+                        // Effective current id for this level (locally chosen, else
+                        // what's already on the submission). Even a resolved level
+                        // stays editable — the dropdown is pre-selected to it.
+                        const currentId = (eff as Record<string, number | undefined>)[lvl.key];
+                        const isResolved = !!currentId;
 
                         return (
                             <div key={lvl.key} className="rounded-lg border p-3 space-y-2">
@@ -304,12 +303,9 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                                     )}
                                 </div>
 
-                                {alreadyOnSubmission ? (
-                                    <p className="text-sm text-muted-foreground">{lvl.resolvedName}</p>
-                                ) : (
-                                    <div className="space-y-2">
+                                <div className="space-y-2">
                                         <Select
-                                            value={chosen[lvl.key] ? String(chosen[lvl.key]) : undefined}
+                                            value={currentId ? String(currentId) : undefined}
                                             onValueChange={(v) => resolveField(lvl.key, parseInt(v))}
                                         >
                                             <SelectTrigger>
@@ -354,7 +350,6 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                                             </Button>
                                         </div>
                                     </div>
-                                )}
                             </div>
                         );
                     })}
@@ -559,11 +554,9 @@ export default function EpreuvesApprobation() {
                                                         )}
                                                         {isPending && (
                                                             <>
-                                                                {hasMissing && (
-                                                                    <Button variant="ghost" size="icon" onClick={() => setResolveTarget(sub)} title="Résoudre les parents manquants">
-                                                                        <Wrench className="h-4 w-4 text-orange-500" />
-                                                                    </Button>
-                                                                )}
+                                                                <Button variant="ghost" size="icon" onClick={() => setResolveTarget(sub)} title={hasMissing ? "Résoudre les parents manquants" : "Modifier la soumission"}>
+                                                                    <Wrench className={`h-4 w-4 ${hasMissing ? 'text-orange-500' : 'text-muted-foreground'}`} />
+                                                                </Button>
                                                                 <Button
                                                                     variant="ghost" size="icon"
                                                                     onClick={() => approveMutation.mutate(sub.id)}
