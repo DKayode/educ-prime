@@ -37,6 +37,7 @@ import { etablissementsService } from "@/lib/services/etablissements.service";
 import { filieresService } from "@/lib/services/filieres.service";
 import { niveauxService } from "@/lib/services/niveaux.service";
 import { matieresService } from "@/lib/services/matieres.service";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 const getStatusBadgeVariant = (status?: string) => {
     switch (status) {
@@ -306,29 +307,18 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                                 </div>
 
                                 <div className="space-y-2">
-                                        <Select
-                                            value={currentId ? String(currentId) : undefined}
-                                            onValueChange={(v) => resolveField(lvl.key, parseInt(v))}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Choisir une entité existante…" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {lvl.options.length > 0 ? (
-                                                    lvl.options.map((o) => (
-                                                        <SelectItem key={o.id} value={String(o.id)}>{o.nom}</SelectItem>
-                                                    ))
-                                                ) : (
-                                                    <div className="px-2 py-2 text-center text-sm text-muted-foreground">
-                                                        {lvl.loading
-                                                            ? 'Chargement…'
-                                                            : !lvl.canCreate
-                                                                ? 'Résolvez d\'abord le niveau parent'
-                                                                : `Aucune ${lvl.label.toLowerCase()} pour cette sélection — créez-en une ci-dessous`}
-                                                    </div>
-                                                )}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            value={currentId}
+                                            options={lvl.options}
+                                            onSelect={(id) => resolveField(lvl.key, id)}
+                                            placeholder="Choisir une entité existante…"
+                                            searchPlaceholder={`Rechercher une ${lvl.label.toLowerCase()}…`}
+                                            emptyText={lvl.loading
+                                                ? 'Chargement…'
+                                                : !lvl.canCreate
+                                                    ? 'Résolvez d\'abord le niveau parent'
+                                                    : `Aucune ${lvl.label.toLowerCase()} pour cette sélection — créez-en une ci-dessous`}
+                                        />
 
                                         <div className="flex items-center gap-2">
                                             <Input
