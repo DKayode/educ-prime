@@ -13,6 +13,82 @@ import {
 } from './payment.enums';
 import { WithdrawalOtpStatus } from '../otp/entities/withdrawal-otp.entity';
 
+
+export type WalletActivityHistorySource =
+  | 'WALLET_TRANSACTION'
+  | 'WITHDRAWAL_REQUEST'
+  | 'WITHDRAWAL_OTP'
+  | 'PAYMENT_EXECUTION';
+
+export type WalletActivityHistoryCategory =
+  | 'FINANCIAL'
+  | 'WITHDRAWAL_PROCESS'
+  | 'OTP'
+  | 'PAYMENT';
+
+export type WalletTimelineSeverity = 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
+
+export type WalletTimelineNextAction =
+  | 'NONE'
+  | 'ENTER_OTP'
+  | 'RESEND_OTP'
+  | 'WAIT_ADMIN_REVIEW'
+  | 'WAIT_ADMIN_APPROVAL'
+  | 'WAIT_PAYMENT'
+  | 'CONTACT_SUPPORT'
+  | 'VIEW_PAYMENT_PROOF';
+
+export interface WalletActivityHistoryItemModel {
+  id: string;
+  walletId: string;
+  source: WalletActivityHistorySource;
+  category: WalletActivityHistoryCategory;
+  eventType: string;
+  title: string;
+  description?: string | null;
+
+  /**
+   * Libellé court prêt à afficher côté mobile.
+   * Exemple : "Code OTP vérifié".
+   */
+  label?: string;
+
+  /**
+   * Message métier prêt à afficher côté mobile.
+   * Le mobile peut l'utiliser directement au lieu de reconstruire les messages à partir de status/eventType.
+   */
+  mobileMessage?: string;
+
+  /**
+   * Niveau visuel recommandé pour le mobile.
+   */
+  severity?: WalletTimelineSeverity;
+
+  /**
+   * Action UI recommandée pour guider l'utilisateur.
+   */
+  nextAction?: WalletTimelineNextAction;
+
+  /**
+   * true si cette étape clôture le processus concerné.
+   */
+  isTerminal?: boolean;
+
+  occurredAt: Date;
+  withdrawalRequestId?: string | null;
+  walletTransactionId?: string | null;
+  otpId?: string | null;
+  paymentExecutionId?: string | null;
+  amount?: number | null;
+  fees?: number | null;
+  netAmount?: number | null;
+  balanceBefore?: number | null;
+  balanceAfter?: number | null;
+  reference?: string | null;
+  status?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
 export interface PaymentConfigurationModel {
   id?: string;
   minimumWithdrawal: number;
@@ -20,7 +96,6 @@ export interface PaymentConfigurationModel {
   withdrawFee: number;
   withdrawFeeType: FeeType;
   rewardPerExam: number;
-  rewardPerConcours: number;
   currency: string;
   walletEnabled: boolean;
   withdrawEnabled: boolean;
@@ -149,6 +224,7 @@ export interface WithdrawalRequestRepositoryPort {
   findOpenByWalletId(walletId: string): Promise<WithdrawalRequestModel | null>;
   findForAdmin(status?: WithdrawalStatus, page?: number, limit?: number): Promise<{ data: WithdrawalRequestModel[]; total: number }>;
   findByWalletId(walletId: string, page?: number, limit?: number): Promise<{ data: WithdrawalRequestModel[]; total: number }>;
+  findWalletActivityHistory(walletId: string, page?: number, limit?: number): Promise<{ data: WalletActivityHistoryItemModel[]; total: number }>;
   findWithPaymentDetailsByUserId(userId: number, page?: number, limit?: number): Promise<{ data: any[]; total: number }>;
   approve(id: string, adminId: number, deadline?: Date | null): Promise<WithdrawalRequestModel>;
   reject(id: string, adminId: number, reason: string): Promise<WithdrawalRequestModel>;
