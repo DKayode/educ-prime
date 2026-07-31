@@ -298,10 +298,10 @@ function SubmissionRow({
                         variant="ghost"
                         size="icon"
                         onClick={() => setResolveOpen(true)}
-                        title="Modifier / résoudre la soumission"
+                        title={bothResolved ? "Modifier la soumission" : "Résoudre la structure / le titre"}
                         disabled={pending}
                     >
-                        <Wrench className="h-4 w-4 text-orange-500" />
+                        <Wrench className={`h-4 w-4 ${bothResolved ? 'text-muted-foreground' : 'text-orange-500'}`} />
                     </Button>
                     <Button
                         variant="ghost"
