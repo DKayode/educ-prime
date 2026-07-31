@@ -127,9 +127,11 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             queryFn: () => etablissementsService.getNiveaux(String(eff.etablissement_id), String(eff.filiere_id), { limit: 200, all: true }),
             enabled: open && !!eff.etablissement_id && !!eff.filiere_id,
         }),
+        // No all=true here: the matières endpoint has no épreuve-exists filter
+        // and its DTO rejects the `all` prop (forbidNonWhitelisted → 400).
         matiere: useQuery({
             queryKey: ['niveau-matieres', eff.etablissement_id, eff.filiere_id, eff.niveau_etude_id],
-            queryFn: () => etablissementsService.getMatieres(String(eff.etablissement_id), String(eff.filiere_id), String(eff.niveau_etude_id), { limit: 200, all: true }),
+            queryFn: () => etablissementsService.getMatieres(String(eff.etablissement_id), String(eff.filiere_id), String(eff.niveau_etude_id), { limit: 200 }),
             enabled: open && !!eff.etablissement_id && !!eff.filiere_id && !!eff.niveau_etude_id,
         }),
     };
