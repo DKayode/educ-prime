@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -37,6 +37,7 @@ import { etablissementsService } from "@/lib/services/etablissements.service";
 import { filieresService } from "@/lib/services/filieres.service";
 import { niveauxService } from "@/lib/services/niveaux.service";
 import { matieresService } from "@/lib/services/matieres.service";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 const getStatusBadgeVariant = (status?: string) => {
     switch (status) {
@@ -90,15 +91,64 @@ function ResolveDialog({ submission, open, onOpenChange }: {
     const queryClient = useQueryClient();
     const [chosen, setChosen] = useState<ResolveSubmissionData>({});
     const [newNames, setNewNames] = useState<Record<string, string>>({});
+    const [annee, setAnnee] = useState<string>('');
+    const [section, setSection] = useState<string>('');
+
+    // Pre-fill année/session from the submission each time the dialog opens.
+    useEffect(() => {
+        if (open && submission) {
+            setAnnee(submission.annee != null ? String(submission.annee) : '');
+            setSection(submission.section ?? '');
+        }
+    }, [open, submission?.id]);
+
+    // Effective parent ids drive the cascade: each level's option list is scoped
+    // to the resolved parent above it (locally chosen, else already on the
+    // submission). When a parent is unresolved — e.g. a brand-new établissement —
+    // the child query is disabled, so its list is empty and the admin is forced
+    // to create the child instead of picking an unrelated one.
+    const eff = {
+        etablissement_id: chosen.etablissement_id ?? submission?.etablissement?.id,
+        filiere_id: chosen.filiere_id ?? submission?.filiere?.id,
+        niveau_etude_id: chosen.niveau_etude_id ?? submission?.niveau_etude?.id,
+        matiere_id: chosen.matiere_id ?? submission?.matiere?.id,
+    };
 
     const lists = {
         etablissement: useQuery({ queryKey: ['etabs-all'], queryFn: () => etablissementsService.getAll({ limit: 200 }), enabled: open }),
-        filiere: useQuery({ queryKey: ['filieres-all'], queryFn: () => filieresService.getAll({ limit: 200 }), enabled: open }),
-        niveau_etude: useQuery({ queryKey: ['niveaux-all'], queryFn: () => niveauxService.getAll({ limit: 200 }), enabled: open }),
-        matiere: useQuery({ queryKey: ['matieres-all'], queryFn: () => matieresService.getAll({ limit: 200 }), enabled: open }),
+        // all: true → don't hide filières/niveaux that have no épreuve yet; the
+        // admin is attaching what may be the first épreuve under them.
+        filiere: useQuery({
+            queryKey: ['etab-filieres', eff.etablissement_id],
+            queryFn: () => etablissementsService.getFilieres(String(eff.etablissement_id), { limit: 200, all: true }),
+            enabled: open && !!eff.etablissement_id,
+        }),
+        niveau_etude: useQuery({
+            queryKey: ['filiere-niveaux', eff.etablissement_id, eff.filiere_id],
+            queryFn: () => etablissementsService.getNiveaux(String(eff.etablissement_id), String(eff.filiere_id), { limit: 200, all: true }),
+            enabled: open && !!eff.etablissement_id && !!eff.filiere_id,
+        }),
+        // No all=true here: the matières endpoint has no épreuve-exists filter
+        // and its DTO rejects the `all` prop (forbidNonWhitelisted → 400).
+        matiere: useQuery({
+            queryKey: ['niveau-matieres', eff.etablissement_id, eff.filiere_id, eff.niveau_etude_id],
+            queryFn: () => etablissementsService.getMatieres(String(eff.etablissement_id), String(eff.filiere_id), String(eff.niveau_etude_id), { limit: 200 }),
+            enabled: open && !!eff.etablissement_id && !!eff.filiere_id && !!eff.niveau_etude_id,
+        }),
     };
 
-    const reset = () => { setChosen({}); setNewNames({}); };
+    const reset = () => { setChosen({}); setNewNames({}); setAnnee(''); setSection(''); };
+
+    // Année/session are free fields (not auto-persisted like the parent levels);
+    // this saves them on the submission. The titre is re-derived server-side.
+    const saveAnneeSection = async () => {
+        const patch: ResolveSubmissionData = {};
+        if (annee.trim()) patch.annee = parseInt(annee);
+        if (section) patch.section = section as 'normal' | 'rattrapage';
+        if (Object.keys(patch).length === 0) return;
+        await persistMutation.mutateAsync(patch);
+        toast({ title: 'Enregistré', description: 'Modifications enregistrées.' });
+    };
 
     // Hooks must run before any early return — keep useMutation above the
     // `!submission` guard (this no-op-when-closed dialog toggles submission).
@@ -114,21 +164,39 @@ function ResolveDialog({ submission, open, onOpenChange }: {
 
     // Bind one level onto the submission immediately (local state drives the
     // in-dialog hierarchy; the PATCH persists it).
+    // Descendants to clear locally when a level changes — picking a different
+    // établissement invalidates any filière/niveau/matière chosen underneath it.
+    const DESCENDANTS: Record<string, (keyof ResolveSubmissionData)[]> = {
+        etablissement_id: ['filiere_id', 'niveau_etude_id', 'matiere_id'],
+        filiere_id: ['niveau_etude_id', 'matiere_id'],
+        niveau_etude_id: ['matiere_id'],
+        matiere_id: [],
+    };
+
     const resolveField = async (level: keyof ResolveSubmissionData, id: number) => {
-        setChosen(c => ({ ...c, [level]: id }));
+        setChosen(c => {
+            const next = { ...c, [level]: id };
+            for (const child of DESCENDANTS[level]) delete next[child];
+            return next;
+        });
         await persistMutation.mutateAsync({ [level]: id });
     };
 
     if (!submission) return null;
 
-    // Effective ids = locally chosen, falling back to what's already on the submission.
-    const eff = {
-        etablissement_id: chosen.etablissement_id ?? submission.etablissement?.id,
-        filiere_id: chosen.filiere_id ?? submission.filiere?.id,
-        niveau_etude_id: chosen.niveau_etude_id ?? submission.niveau_etude?.id,
-        matiere_id: chosen.matiere_id ?? submission.matiere?.id,
-    };
     const allResolved = !!(eff.etablissement_id && eff.filiere_id && eff.niveau_etude_id && eff.matiere_id);
+
+    // Base query key of each level's own option list — invalidated after a
+    // create so the freshly-made entity shows up in that dropdown (its key is
+    // unchanged, unlike child lists which refetch when their parent id changes).
+    const LIST_KEY: Record<keyof ResolveSubmissionData, string> = {
+        etablissement_id: 'etabs-all',
+        filiere_id: 'etab-filieres',
+        niveau_etude_id: 'filiere-niveaux',
+        matiere_id: 'niveau-matieres',
+        annee: '',
+        section: '',
+    };
 
     const createAndChoose = async (
         level: keyof ResolveSubmissionData,
@@ -142,6 +210,8 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             const trimmed = name.trim();
             const existing = options.find(o => o.nom.trim().toLowerCase() === trimmed.toLowerCase());
             const row = existing ?? await creator();
+            // Refetch this level's list so the new entity appears in its dropdown.
+            if (!existing && LIST_KEY[level]) await queryClient.invalidateQueries({ queryKey: [LIST_KEY[level]] });
             await resolveField(level, row.id);
             toast({
                 title: existing ? "Rattaché" : "Créé et rattaché",
@@ -159,6 +229,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
         proposed?: string | null;
         options: { id: number; nom: string }[];
         canCreate: boolean;
+        loading: boolean;
         create: (nom: string) => Promise<{ id: number }>;
     };
 
@@ -168,6 +239,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             resolvedName: submission.etablissement?.nom, proposed: submission.proposed_etablissement,
             options: lists.etablissement.data?.data ?? [],
             canCreate: true,
+            loading: lists.etablissement.isFetching,
             create: (nom) => etablissementsService.create({ nom }),
         },
         {
@@ -175,6 +247,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             resolvedName: submission.filiere?.nom, proposed: submission.proposed_filiere,
             options: lists.filiere.data?.data ?? [],
             canCreate: !!eff.etablissement_id,
+            loading: lists.filiere.isFetching,
             create: (nom) => filieresService.create({ nom, etablissement_id: eff.etablissement_id! }),
         },
         {
@@ -182,6 +255,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             resolvedName: submission.niveau_etude?.nom, proposed: submission.proposed_niveau,
             options: lists.niveau_etude.data?.data ?? [],
             canCreate: !!eff.filiere_id,
+            loading: lists.niveau_etude.isFetching,
             create: (nom) => niveauxService.create({ nom, filiere_id: eff.filiere_id! }),
         },
         {
@@ -189,6 +263,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
             resolvedName: submission.matiere?.nom, proposed: submission.proposed_matiere,
             options: lists.matiere.data?.data ?? [],
             canCreate: !!eff.niveau_etude_id,
+            loading: lists.matiere.isFetching,
             create: (nom) => matieresService.create({
                 nom,
                 niveau_etude_id: eff.niveau_etude_id!,
@@ -201,22 +276,21 @@ function ResolveDialog({ submission, open, onOpenChange }: {
         <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Résoudre les parents — {submission.titre}</DialogTitle>
+                    <DialogTitle>Modifier la soumission — {submission.titre}</DialogTitle>
                     <DialogDescription>
-                        Pour chaque niveau manquant, sélectionnez une entité existante ou créez-la —
-                        chaque choix est enregistré automatiquement sur la soumission.
-                        L'approbation sera possible une fois les quatre niveaux résolus.
+                        Pour chaque niveau, sélectionnez une entité existante ou créez-la — y compris
+                        pour changer un niveau déjà résolu. Chaque choix est enregistré automatiquement
+                        sur la soumission. L'approbation sera possible une fois les quatre niveaux résolus.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-2">
                     {levels.map((lvl) => {
-                        const effId = chosen[lvl.key] ?? (lvl.resolvedName ? -1 : undefined);
-                        const isResolved = lvl.key === 'etablissement_id' ? !!eff.etablissement_id
-                            : lvl.key === 'filiere_id' ? !!eff.filiere_id
-                                : lvl.key === 'niveau_etude_id' ? !!eff.niveau_etude_id
-                                    : !!eff.matiere_id;
-                        const alreadyOnSubmission = !!lvl.resolvedName;
+                        // Effective current id for this level (locally chosen, else
+                        // what's already on the submission). Even a resolved level
+                        // stays editable — the dropdown is pre-selected to it.
+                        const currentId = (eff as Record<string, number | undefined>)[lvl.key];
+                        const isResolved = !!currentId;
 
                         return (
                             <div key={lvl.key} className="rounded-lg border p-3 space-y-2">
@@ -232,23 +306,19 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                                     )}
                                 </div>
 
-                                {alreadyOnSubmission ? (
-                                    <p className="text-sm text-muted-foreground">{lvl.resolvedName}</p>
-                                ) : (
-                                    <div className="space-y-2">
-                                        <Select
-                                            value={chosen[lvl.key] ? String(chosen[lvl.key]) : undefined}
-                                            onValueChange={(v) => resolveField(lvl.key, parseInt(v))}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Choisir une entité existante…" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {lvl.options.map((o) => (
-                                                    <SelectItem key={o.id} value={String(o.id)}>{o.nom}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                <div className="space-y-2">
+                                        <SearchableSelect
+                                            value={currentId}
+                                            options={lvl.options}
+                                            onSelect={(id) => resolveField(lvl.key, id)}
+                                            placeholder="Choisir une entité existante…"
+                                            searchPlaceholder={`Rechercher une ${lvl.label.toLowerCase()}…`}
+                                            emptyText={lvl.loading
+                                                ? 'Chargement…'
+                                                : !lvl.canCreate
+                                                    ? 'Résolvez d\'abord le niveau parent'
+                                                    : `Aucune ${lvl.label.toLowerCase()} pour cette sélection — créez-en une ci-dessous`}
+                                        />
 
                                         <div className="flex items-center gap-2">
                                             <Input
@@ -272,16 +342,46 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                                             </Button>
                                         </div>
                                     </div>
-                                )}
                             </div>
                         );
                     })}
+
+                    <div className="rounded-lg border p-3 space-y-3">
+                        <Label className="font-semibold">Année &amp; session</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Année</Label>
+                                <Input
+                                    type="number"
+                                    inputMode="numeric"
+                                    placeholder="ex. 2024"
+                                    value={annee}
+                                    onChange={(e) => setAnnee(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Session</Label>
+                                <Select value={section || undefined} onValueChange={(v) => setSection(v)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Choisir…" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="normal">Normale</SelectItem>
+                                        <SelectItem value="rattrapage">Rattrapage</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <DialogFooter>
-                    <Button onClick={() => { reset(); onOpenChange(false); }} disabled={persistMutation.isPending}>
+                    <Button
+                        onClick={async () => { await saveAnneeSection(); reset(); onOpenChange(false); }}
+                        disabled={persistMutation.isPending}
+                    >
                         {persistMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Fermer
+                        Enregistrer les modifications
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -446,11 +546,9 @@ export default function EpreuvesApprobation() {
                                                         )}
                                                         {isPending && (
                                                             <>
-                                                                {hasMissing && (
-                                                                    <Button variant="ghost" size="icon" onClick={() => setResolveTarget(sub)} title="Résoudre les parents manquants">
-                                                                        <Wrench className="h-4 w-4 text-orange-500" />
-                                                                    </Button>
-                                                                )}
+                                                                <Button variant="ghost" size="icon" onClick={() => setResolveTarget(sub)} title={hasMissing ? "Résoudre les parents manquants" : "Modifier la soumission"}>
+                                                                    <Wrench className={`h-4 w-4 ${hasMissing ? 'text-orange-500' : 'text-muted-foreground'}`} />
+                                                                </Button>
                                                                 <Button
                                                                     variant="ghost" size="icon"
                                                                     onClick={() => approveMutation.mutate(sub.id)}

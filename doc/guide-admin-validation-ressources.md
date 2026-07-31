@@ -74,7 +74,7 @@ Sur chaque ligne, à droite (colonne **Actions**), quatre boutons :
 | Icône | Bouton | Rôle |
 |---|---|---|
 | 👁 (bleu) | **Voir le fichier soumis** | Ouvre le fichier (PDF) téléversé dans un nouvel onglet. |
-| 🔧 (orange) | **Modifier / résoudre** | Ouvre la fenêtre d'édition de la demande. |
+| 🔧 | **Modifier / résoudre** | Ouvre la fenêtre d'édition. **Toujours disponible** sur une demande en attente. Sa couleur indique l'état : **orange** s'il reste un élément à résoudre, **gris** si tout est déjà résolu (vous pouvez tout de même l'ouvrir pour **corriger** un champ déjà renseigné). |
 | ✅ (vert) | **Approuver** | Valide la demande et crée la vraie ressource. |
 | ❌ (rouge) | **Refuser** | Rejette la demande (avec un motif). |
 
@@ -86,6 +86,12 @@ C'est l'étape centrale : **corriger et compléter les champs que l'utilisateur 
 renseignés** au moment de sa demande, avant de l'approuver. Cliquez sur le
 bouton **🔧 (Modifier / résoudre)** de la ligne — la fenêtre **« Modifier la
 soumission »** s'ouvre.
+
+> Le bouton 🔧 reste disponible **même lorsque tous les niveaux sont déjà
+> résolus** (il apparaît alors en **gris**) : vous pouvez rouvrir la fenêtre à
+> tout moment pour **changer un élément déjà rattaché** (p. ex. corriger une
+> matière rattachée par erreur). Chaque champ affiche sa valeur actuelle
+> **pré-sélectionnée** dans la liste ; il suffit d'en choisir une autre.
 
 ![Fenêtre « Modifier la soumission » : la structure à résoudre (liste « Choisir une structure existante… » ou bouton « + Créer »), le titre déjà résolu (badge vert), et les champs Année / Lieu modifiables](images/02-modifier-soumission.png)
 
@@ -99,7 +105,10 @@ Pour **chaque niveau en rouge** (structure, titre, ou — pour une épreuve —
 
 1. **Rattacher un élément existant** — ouvrez la liste déroulante
    **« Choisir… existant(e) »** et sélectionnez l'élément déjà présent dans le
-   catalogue. Le badge passe alors au **vert « ✓ Résolu »**.
+   catalogue. Le badge passe alors au **vert « ✓ Résolu »**. La liste comporte
+   une **barre de recherche** en haut : commencez à taper pour la **filtrer**
+   par nom (pratique quand les établissements, structures ou titres sont
+   nombreux). L'élément actuellement rattaché est **coché**.
 2. **Créer l'élément proposé** — le nom proposé par l'utilisateur est
    **pré-rempli** dans le champ de texte ; ajustez-le si besoin (faute de
    frappe, casse…) puis cliquez sur **« + Créer »**. L'élément est créé **et**
@@ -108,26 +117,53 @@ Pour **chaque niveau en rouge** (structure, titre, ou — pour une épreuve —
 > **Anti-doublon :** si un élément du même nom existe déjà (à la casse près),
 > il est **réutilisé automatiquement** au lieu d'en créer un nouveau.
 
+**Listes en cascade (épreuves).** Les listes déroulantes d'une épreuve sont
+**filtrées par le parent choisi juste au-dessus** :
+
+- la liste **Filière** ne montre que les filières de l'**établissement**
+  sélectionné ;
+- la liste **Niveau d'étude** ne montre que les niveaux de la **filière**
+  sélectionnée ;
+- la liste **Matière** ne montre que les matières du **niveau** sélectionné.
+
+Vous ne pouvez donc plus rattacher par erreur une filière qui appartient à un
+autre établissement. **Conséquence importante :** si l'établissement est
+**nouveau** (proposé, pas encore créé), les listes filles sont **vides** — vous
+devez d'abord **créer** l'établissement, puis créer la filière, le niveau et la
+matière au fur et à mesure.
+
+> Quand une liste est vide, elle l'indique clairement (« *Aucune filière pour
+> cette sélection — créez-en une ci-dessous* », « *Résolvez d'abord le niveau
+> parent* », ou « *Chargement…* ») au lieu d'afficher une liste vide déroutante.
+> Après avoir **créé** un élément, il apparaît aussitôt dans sa liste,
+> sélectionné.
+
 ### 5.2 Corriger l'année, le lieu et la session
 
 Toujours dans la même fenêtre, vous pouvez **modifier les champs libres** que
 l'utilisateur a saisis :
 
-- **Concours** — les champs **Année** et **Lieu**. Après modification, cliquez
-  sur **« Enregistrer les modifications »** en bas de la fenêtre.
-- **Épreuve** — l'**Année** et la **Session** (section : *normale*,
-  *rattrapage*…). L'**intitulé** de l'épreuve n'est **pas** à saisir : il est
-  **recalculé automatiquement** à partir de la matière, de la session et de
-  l'année.
+- **Concours** — les champs **Année** et **Lieu**.
+- **Épreuve** — l'**Année** et la **Session** (*Normale* / *Rattrapage*).
+  L'**intitulé** de l'épreuve n'est **pas** à saisir : il est **recalculé
+  automatiquement** à partir de la matière, de la session et de l'année.
+
+Ces champs sont **pré-remplis** avec les valeurs actuelles. Contrairement aux
+niveaux (enregistrés dès qu'ils sont résolus), ils ne sont enregistrés que
+lorsque vous cliquez sur **« Enregistrer les modifications »** en bas de la
+fenêtre — ce bouton **enregistre et ferme** la fenêtre.
 
 ### 5.3 Points importants
 
-- Chaque **résolution** (rattachement ou création) est **enregistrée
-  immédiatement** : nul besoin de « sauvegarder » séparément. Les modifications
-  d'**année / lieu** se valident, elles, avec le bouton **« Enregistrer les
-  modifications »**.
+- Chaque **résolution** d'un niveau (rattachement ou création) est **enregistrée
+  immédiatement** : nul besoin de « sauvegarder » séparément.
+- Les champs libres (**année / lieu** pour un concours, **année / session** pour
+  une épreuve) se valident, eux, avec le bouton **« Enregistrer les
+  modifications »**, qui **enregistre puis ferme** la fenêtre.
+- Pour fermer **sans enregistrer** ces champs libres, utilisez la croix **×**
+  (ou le bouton **« Fermer »** pour un concours) — les niveaux déjà résolus
+  restent, eux, enregistrés.
 - Vous pouvez rouvrir la fenêtre autant de fois que nécessaire.
-- Fermez la fenêtre avec **« Fermer »** une fois la demande complète.
 
 > **Note :** seules les demandes **en attente** sont modifiables. Une demande
 > déjà **approuvée** ou **refusée** est **figée** (lecture seule).

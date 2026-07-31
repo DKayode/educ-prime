@@ -48,6 +48,8 @@ export interface ResolveSubmissionData {
   filiere_id?: number;
   niveau_etude_id?: number;
   matiere_id?: number;
+  annee?: number;
+  section?: 'normal' | 'rattrapage';
 }
 
 export const epreuveSubmissionsService = {

@@ -30,6 +30,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Plus, Eye, Wrench, Check, AlertTriangle } from "lucide-react";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { filesService } from "@/lib/services/files.service";
 import { concoursService, ConcoursSubmission } from "@/lib/services/concours.service";
 import { structureService } from "@/lib/services/structure.service";
@@ -123,35 +124,31 @@ function ConcoursResolveDialog({ submission, structures, titres, open, onOpenCha
                                     </Badge>
                                 )}
                             </div>
-                            {lvl.resolvedId != null ? (
-                                <p className="text-sm text-muted-foreground">{lvl.resolvedName}</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    <Select onValueChange={(v) => bind(lvl.field, parseInt(v))}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={`Choisir un(e) ${lvl.label.toLowerCase()} existant(e)…`} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {lvl.options.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.nom}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            placeholder={`Nom de la ${lvl.label.toLowerCase()}…`}
-                                            value={lvl.newVal}
-                                            onChange={(e) => lvl.setNew(e.target.value)}
-                                        />
-                                        <Button
-                                            type="button"
-                                            className="shrink-0 gap-1"
-                                            disabled={!lvl.newVal.trim() || persist.isPending}
-                                            onClick={() => createAndBind(lvl.kind, lvl.newVal)}
-                                        >
-                                            <Plus className="h-4 w-4" /> Créer
-                                        </Button>
-                                    </div>
+                            <div className="space-y-2">
+                                <SearchableSelect
+                                    value={lvl.resolvedId}
+                                    options={lvl.options}
+                                    onSelect={(id) => bind(lvl.field, id)}
+                                    placeholder={`Choisir un(e) ${lvl.label.toLowerCase()} existant(e)…`}
+                                    searchPlaceholder={`Rechercher un(e) ${lvl.label.toLowerCase()}…`}
+                                    emptyText={`Aucune ${lvl.label.toLowerCase()} disponible — créez-en une ci-dessous`}
+                                />
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        placeholder={`Nom de la ${lvl.label.toLowerCase()}…`}
+                                        value={lvl.newVal}
+                                        onChange={(e) => lvl.setNew(e.target.value)}
+                                    />
+                                    <Button
+                                        type="button"
+                                        className="shrink-0 gap-1"
+                                        disabled={!lvl.newVal.trim() || persist.isPending}
+                                        onClick={() => createAndBind(lvl.kind, lvl.newVal)}
+                                    >
+                                        <Plus className="h-4 w-4" /> Créer
+                                    </Button>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     ))}
 
@@ -298,10 +295,10 @@ function SubmissionRow({
                         variant="ghost"
                         size="icon"
                         onClick={() => setResolveOpen(true)}
-                        title="Modifier / résoudre la soumission"
+                        title={bothResolved ? "Modifier la soumission" : "Résoudre la structure / le titre"}
                         disabled={pending}
                     >
-                        <Wrench className="h-4 w-4 text-orange-500" />
+                        <Wrench className={`h-4 w-4 ${bothResolved ? 'text-muted-foreground' : 'text-orange-500'}`} />
                     </Button>
                     <Button
                         variant="ghost"
