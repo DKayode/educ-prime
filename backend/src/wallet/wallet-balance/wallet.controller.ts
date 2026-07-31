@@ -10,7 +10,6 @@ import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
 import { VerifyWithdrawalOtpDto } from '../otp/dto/verify-withdrawal-otp.dto';
 import { VerifyWithdrawalOtpUseCase } from '../otp/use-cases/verify-withdrawal-otp.use-case';
 import { ResendWithdrawalOtpUseCase } from '../otp/use-cases/resend-withdrawal-otp.use-case';
-import { ResendWithdrawalOtpUseCase } from '../otp/use-cases/resend-withdrawal-otp.use-case';
 import { GetWithdrawalOtpDebugCodeUseCase } from '../otp/use-cases/get-withdrawal-otp-debug-code.use-case';
 
 @ApiTags('wallet')
@@ -21,6 +20,8 @@ export class WalletController {
   constructor(
     private readonly getMyWallet: GetMyWalletUseCase,
     private readonly getMyWalletTransactions: GetMyWalletTransactionsUseCase,
+    private readonly getMyWalletOverview: GetMyWalletOverviewUseCase,
+    private readonly getCurrentWithdrawal: GetCurrentWithdrawalUseCase,
     private readonly requestWithdrawal: RequestWithdrawalUseCase,
     private readonly verifyWithdrawalOtp: VerifyWithdrawalOtpUseCase,
     private readonly resendWithdrawalOtp: ResendWithdrawalOtpUseCase,
@@ -34,11 +35,24 @@ export class WalletController {
   }
 
   @Get('me/transactions')
-  @ApiOperation({ summary: "Historique paginé des transactions du wallet de l'utilisateur connecté" })
+  @ApiOperation({ summary: 'Consulter l’historique complet du wallet : transactions, retrait, OTP et paiement' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   getMyTransactions(@Request() req, @Query('page') page?: string, @Query('limit') limit?: string) {
     return this.getMyWalletTransactions.execute(req.user.utilisateurId, Number(page ?? 1), Number(limit ?? 20));
+  }
+
+  @Get('me/overview')
+  @ApiOperation({ summary: 'Vue mobile du wallet avec les dernières transactions financières' })
+  @ApiQuery({ name: 'limit', required: false, example: 5 })
+  getMyOverview(@Request() req, @Query('limit') limit?: string) {
+    return this.getMyWalletOverview.execute(req.user.utilisateurId, Number(limit ?? 5));
+  }
+
+  @Get('withdrawals/current')
+  @ApiOperation({ summary: 'Consulter la demande de retrait courante et son statut' })
+  getCurrentWithdrawalStatus(@Request() req) {
+    return this.getCurrentWithdrawal.execute(req.user.utilisateurId);
   }
 
   @Post('withdrawals')

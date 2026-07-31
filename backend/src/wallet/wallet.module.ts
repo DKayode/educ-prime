@@ -11,7 +11,6 @@ import { WalletController } from './wallet-balance/wallet.controller';
 import { UserPaymentController } from './user-payment/user-payment.controller';
 import { ExamRewardInternalController, InternalApiKeyGuard } from './internal/exam-reward-internal.controller';
 import { InfobipDeliveryReportController, InfobipWebhookGuard } from './otp/infobip-delivery-report.controller';
-import { InfobipDeliveryReportController, InfobipWebhookGuard } from './otp/infobip-delivery-report.controller';
 
 import { RuleEngineService } from './shared/rules-engine.service';
 import {
@@ -105,7 +104,6 @@ import { InfobipOtpSmsAdapter } from './otp/infobip-otp-sms.adapter';
     UpsertPaymentAccountUseCase,
     GetPaymentAccountsUseCase,
     ListAdminWithdrawalsUseCase,
-    GetWithdrawalOtpDeliveryStatusUseCase,
     ApproveWithdrawalUseCase,
     RejectWithdrawalUseCase,
     UnlockWithdrawalOtpUseCase,
