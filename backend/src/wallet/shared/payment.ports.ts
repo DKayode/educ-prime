@@ -397,6 +397,8 @@ export interface PaymentConfigurationRepositoryPort {
 
 export interface PaymentUserProfile {
   id: number;
+  uuid?: string | null;
+  profil?: string | null;
   email: string;
   telephone?: string | null;
   isEmailVerified: boolean;

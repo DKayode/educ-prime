@@ -111,15 +111,18 @@ export const concoursService = {
         return api.patch(`/concours/submissions/${id}/approve`, resolve ?? {});
     },
 
-    /** Admin: persistently bind a resolved structure/titre id onto a pending
-     *  submission (clears the proposed name). Removes the "à résoudre" prompt. */
-    async resolveSubmission(id: number, resolve: { structure_id?: number; titre_id?: number }): Promise<ConcoursSubmission> {
-        return api.patch(`/concours/submissions/${id}/resolve`, resolve);
+    /** Admin: edit a PENDING submission — bind structure/titre id (clears the
+     *  proposed name) OR overwrite the proposed name, and set année/lieu. */
+    async resolveSubmission(
+        id: number,
+        resolve: { structure_id?: number; titre_id?: number; proposed_structure?: string; proposed_titre?: string; annee?: number; lieu?: string },
+    ): Promise<ConcoursSubmission> {
+        return api.patch(`/concours/submissions/${id}`, resolve);
     },
 
-    /** Admin: decline a submission (+ emails the uploader). */
-    async declineSubmission(id: number): Promise<{ message: string; submission: ConcoursSubmission }> {
-        return api.patch(`/concours/submissions/${id}/decline`, {});
+    /** Admin: decline a submission (+ emails the uploader). Optional reason is persisted. */
+    async declineSubmission(id: number, reason?: string): Promise<{ message: string; submission: ConcoursSubmission }> {
+        return api.patch(`/concours/submissions/${id}/decline`, reason ? { reason } : {});
     },
 
     async getById(id: string): Promise<Concours> {

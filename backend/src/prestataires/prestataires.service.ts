@@ -27,7 +27,8 @@ export class PrestatairesService {
             uuid: user.uuid,
             nom: user.nom,
             prenom: user.prenom,
-            email: user.email
+            email: user.email,
+            profil: user.profil_photo_path || null
         };
     }
 

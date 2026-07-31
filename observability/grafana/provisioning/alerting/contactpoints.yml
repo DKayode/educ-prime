@@ -1,0 +1,18 @@
+# Slack contact point. The webhook URL is injected from the SLACK_WEBHOOK_URL
+# env var (set in the Grafana container from the PRD secret) — never hard-coded.
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: slack
+    receivers:
+      - uid: slack-webhook
+        type: slack
+        settings:
+          url: $__env{SLACK_WEBHOOK_URL}
+          title: |
+            {{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}
+          text: |
+            {{ range .Alerts }}*{{ .Labels.alertname }}* ({{ .Labels.severity }})
+            {{ .Annotations.summary }}
+            {{ end }}
+        disableResolveMessage: false

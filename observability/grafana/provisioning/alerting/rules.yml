@@ -1,0 +1,108 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: edukia-logs
+    folder: Edukia Alerts
+    interval: 1m
+    rules:
+      # Backend logged more than 5 ERROR lines in the last 5 minutes.
+      - uid: edukia-backend-errors
+        title: Backend error surge
+        condition: C
+        for: 0m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $values.A.Value }} backend ERROR log lines in the last 5m (threshold 5)'
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              datasource: { type: loki, uid: loki }
+              editorMode: code
+              queryType: instant
+              expr: 'sum(count_over_time({service="edukia_backend"} | json | __error__="" | level="error" [5m]))'
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - type: query
+                  evaluator: { type: gt, params: [5] }
+
+      # nginx served more than 10 5xx responses in the last 5 minutes.
+      - uid: edukia-nginx-5xx
+        title: nginx 5xx spike
+        condition: C
+        for: 0m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ $values.A.Value }} nginx 5xx responses in the last 5m (threshold 10)'
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              datasource: { type: loki, uid: loki }
+              editorMode: code
+              queryType: instant
+              expr: 'sum(count_over_time({service="edukia_nginx"} | json | __error__="" | status>=500 [5m]))'
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - type: query
+                  evaluator: { type: gt, params: [10] }
+
+      # Backend produced no logs for 10 minutes (silent / down). noData -> Alerting.
+      - uid: edukia-backend-silent
+        title: Backend has gone silent
+        condition: C
+        for: 5m
+        noDataState: Alerting
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: 'No backend logs for ~10m — the backend may be down'
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              datasource: { type: loki, uid: loki }
+              editorMode: code
+              queryType: instant
+              expr: 'sum(count_over_time({service="edukia_backend"} [10m]))'
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - type: query
+                  evaluator: { type: lt, params: [1] }

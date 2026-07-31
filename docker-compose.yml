@@ -51,11 +51,32 @@ services:
       # Wallet / payments. PAYMENT_INTERNAL_API_KEY guards the internal
       # exam-reward credit endpoint — MUST be set: an empty value makes the
       # InternalApiKeyGuard fail open (see nginx: /internal/ is also blocked at
-      # the edge as defense-in-depth). TWILIO_* powers withdrawal OTP SMS.
+      # the edge as defense-in-depth).
       PAYMENT_INTERNAL_API_KEY: ${PAYMENT_INTERNAL_API_KEY}
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
-      TWILIO_FROM: ${TWILIO_FROM}
+      # Withdrawal OTP SMS via Infobip (replaced Twilio). INFOBIP_BASE_URL +
+      # INFOBIP_API_KEY are REQUIRED — an empty value makes every OTP send throw
+      # "Configuration Infobip incomplète". INFOBIP_WEBHOOK_SECRET secures the
+      # delivery-report webhook (empty → the guard 403s all callbacks). The OTP_*
+      # vars tune code generation/resend/hash; set OTP_DEBUG_ENABLED=false in prod.
+      OTP_SMS_PROVIDER: ${OTP_SMS_PROVIDER}
+      OTP_DEBUG_ENABLED: ${OTP_DEBUG_ENABLED}
+      OTP_TTL_MINUTES: ${OTP_TTL_MINUTES}
+      OTP_LENGTH: ${OTP_LENGTH}
+      OTP_MAX_ATTEMPTS: ${OTP_MAX_ATTEMPTS}
+      OTP_HASH_SECRET: ${OTP_HASH_SECRET}
+      OTP_RESEND_COOLDOWN_SECONDS: ${OTP_RESEND_COOLDOWN_SECONDS}
+      OTP_MAX_RESENDS: ${OTP_MAX_RESENDS}
+      OTP_ANDROID_SMS_HASH: ${OTP_ANDROID_SMS_HASH}
+      INFOBIP_BASE_URL: ${INFOBIP_BASE_URL}
+      INFOBIP_API_KEY: ${INFOBIP_API_KEY}
+      INFOBIP_FROM: ${INFOBIP_FROM}
+      INFOBIP_SMS_ENDPOINT: ${INFOBIP_SMS_ENDPOINT}
+      INFOBIP_TIMEOUT_MS: ${INFOBIP_TIMEOUT_MS}
+      INFOBIP_REPORTS_ENDPOINT: ${INFOBIP_REPORTS_ENDPOINT}
+      INFOBIP_REMOVE_PLUS_FROM_TO: ${INFOBIP_REMOVE_PLUS_FROM_TO}
+      INFOBIP_WEBHOOK_SECRET: ${INFOBIP_WEBHOOK_SECRET}
+      INFOBIP_DELIVERY_REPORT_NOTIFY_URL: ${INFOBIP_DELIVERY_REPORT_NOTIFY_URL}
+      INFOBIP_NOTIFY_CONTENT_TYPE: ${INFOBIP_NOTIFY_CONTENT_TYPE}
     networks:
       - edukia_network
     depends_on:
@@ -114,11 +135,72 @@ services:
       - ./certbot/www:/var/www/certbot
     entrypoint: >
       /bin/sh -c ' if [ ! -f /etc/letsencrypt/live/educ-prime.com/fullchain.pem ]; then
-        certbot certonly --webroot --webroot-path=/var/www/certbot --email support@educ-prime.cloud --agree-tos --no-eff-email -d educ-prime.com -d api.educ-prime.com;
+        certbot certonly --webroot --webroot-path=/var/www/certbot --email support@educ-prime.cloud --agree-tos --no-eff-email --reuse-key -d educ-prime.com -d api.educ-prime.com;
+      fi; if [ ! -f /etc/letsencrypt/live/grafana.educ-prime.com/fullchain.pem ]; then
+        certbot certonly --webroot --webroot-path=/var/www/certbot --email support@educ-prime.cloud --agree-tos --no-eff-email --reuse-key --cert-name grafana.educ-prime.com -d grafana.educ-prime.com;
       fi; trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done; '
+    networks:
+      - edukia_network
+
+  # --- Observability: Vector -> Loki (R2 backend) -> Grafana ---
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: edukia_loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yaml -config.expand-env=true
+    environment:
+      # Reuse the app's account-wide R2 credentials (they can reach edukia-logs).
+      LOKI_R2_ENDPOINT: ${R2_ENDPOINT}
+      LOKI_R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      LOKI_R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+    volumes:
+      - ./observability/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - edukia_network
+
+  vector:
+    image: timberio/vector:0.44.0-debian
+    container_name: edukia_vector
+    restart: unless-stopped
+    # --watch-config so edits to vector.yaml auto-reload on deploy (compose does
+    # not recreate a container when only a bind-mounted file's contents change).
+    command: --watch-config --config-yaml /etc/vector/vector.yaml
+    volumes:
+      - ./observability/vector.yaml:/etc/vector/vector.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - vector_data:/var/lib/vector
+    depends_on:
+      - loki
+    networks:
+      - edukia_network
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: edukia_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_SERVER_ROOT_URL: https://grafana.educ-prime.com
+      GF_SERVER_DOMAIN: grafana.educ-prime.com
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      # Referenced by the Slack contact point provisioning ($__env{SLACK_WEBHOOK_URL}).
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/etc/grafana/dashboards:ro
+    depends_on:
+      - loki
     networks:
       - edukia_network
 
 networks:
   edukia_network:
     driver: bridge
+
+volumes:
+  loki_data:
+  vector_data:
+  grafana_data:

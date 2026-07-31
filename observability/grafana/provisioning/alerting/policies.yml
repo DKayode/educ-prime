@@ -1,0 +1,9 @@
+# Route all alerts to Slack. Provisioning the root policy replaces the default.
+apiVersion: 1
+policies:
+  - orgId: 1
+    receiver: slack
+    group_by: ['alertname']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h

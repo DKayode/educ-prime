@@ -1,0 +1,62 @@
+# Vector: tails every edukia_* container's stdout/stderr via the Docker API and
+# ships to Loki. Backend (pino) and nginx access logs are already JSON — we ship
+# the raw line as-is (codec: text) and label by service, so Grafana can `| json`
+# them. A defense-in-depth redaction pass runs on top of pino's source redaction.
+data_dir: /var/lib/vector
+
+api:
+  enabled: false
+
+sources:
+  containers:
+    type: docker_logs
+    # Allowlist — only the services we care about right now. Add container
+    # names here (e.g. edukia_redis) to start shipping more. An explicit list
+    # also naturally excludes the logging stack itself (loki/vector/grafana).
+    include_containers:
+      - edukia_backend
+      - edukia_nginx
+
+transforms:
+  process:
+    type: remap
+    inputs:
+      - containers
+    source: |
+      # Service label = container name without a leading slash.
+      .service = replace(string!(.container_name), r'^/', "")
+      # Defense-in-depth secret redaction on the raw line (the backend already
+      # redacts sensitive headers at the pino source; nginx access-log URIs can
+      # still carry a `?secret=` query param, e.g. the Infobip webhook). Literal
+      # replacements only — no `$`-backreferences, which Vector's config
+      # interpolation would mistake for env vars.
+      msg = string!(.message)
+      # 1) Bearer tokens.
+      msg = replace(msg, r'(?i)bearer\s+[A-Za-z0-9._\-]+', "Bearer [REDACTED]")
+      # 2) Query-string secrets, e.g. nginx URI `?secret=...` (Infobip webhook).
+      msg = replace(msg, r'(?i)(?:secret|token|password|passwd|api[_-]?key|authorization)=[^&"\s]+', "[REDACTED-PARAM]")
+      # 3) JSON-style "key":"value" secrets, e.g. pino's structured req.query.
+      #    Replacements are VRL raw strings (s'...') so the inner quotes are literal.
+      msg = replace(msg, r'(?i)"secret"\s*:\s*"[^"]*"', s'"secret":"[REDACTED]"')
+      msg = replace(msg, r'(?i)"token"\s*:\s*"[^"]*"', s'"token":"[REDACTED]"')
+      msg = replace(msg, r'(?i)"password"\s*:\s*"[^"]*"', s'"password":"[REDACTED]"')
+      msg = replace(msg, r'(?i)"passwd"\s*:\s*"[^"]*"', s'"passwd":"[REDACTED]"')
+      msg = replace(msg, r'(?i)"api_?key"\s*:\s*"[^"]*"', s'"api_key":"[REDACTED]"')
+      msg = replace(msg, r'(?i)"authorization"\s*:\s*"[^"]*"', s'"authorization":"[REDACTED]"')
+      .message = msg
+
+sinks:
+  loki:
+    type: loki
+    inputs:
+      - process
+    endpoint: http://loki:3100
+    # Ship the raw pino/nginx JSON string as the Loki log line; parse with
+    # `| json` in Grafana. Keeps label cardinality low (service only).
+    encoding:
+      codec: text
+    labels:
+      service: "{{ service }}"
+      source: vector
+    out_of_order_action: accept
+    remove_label_fields: true

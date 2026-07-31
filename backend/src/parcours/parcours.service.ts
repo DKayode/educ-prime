@@ -21,13 +21,21 @@ export class ParcoursService {
   private get likeRepository(): Repository<Like> { return this.resolver.getRepository(Like); }
   private get favoriRepository(): Repository<Favori> { return this.resolver.getRepository(Favori); }
 
-  // Expose each nested comment's author profile photo URL as `profil` (public
-  // R2 path), and drop the full utilisateur relation so no sensitive user
-  // fields (e.g. password) leak into the parcours payload.
+  // Expose each nested comment's author as a minimal `utilisateur` sub-object
+  // ({ id, uuid, profil }) and keep the flat `profil` (public R2 path) for
+  // backward-compat. The full utilisateur relation is dropped so no sensitive
+  // user fields (e.g. password) leak into the parcours payload.
   private withCommentProfils(parcours: any): any[] {
     return (parcours.commentaires || []).map((cm: any) => {
       const { utilisateur, ...rest } = cm;
-      return { ...rest, profil: utilisateur?.profil_photo_path || null };
+      const profil = utilisateur?.profil_photo_path || null;
+      return {
+        ...rest,
+        profil,
+        utilisateur: utilisateur
+          ? { id: utilisateur.id, uuid: utilisateur.uuid, profil }
+          : null,
+      };
     });
   }
 

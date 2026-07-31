@@ -209,10 +209,16 @@ export class ConcoursSubmissionsService {
     // Admin: bind a resolved structure/titre id onto a PENDING submission and
     // clear the matching proposed name — PERSISTED, so the "à résoudre" prompt
     // disappears for everyone and the same missing entity can't be re-created.
-    async resolveSubmission(pays: string, id: number, resolve: { structure_id?: number; titre_id?: number }) {
+    // Admin edit of a PENDING submission: bind a real structure/titre id (clears
+    // the proposed name) or overwrite the proposed name; année/lieu editable too.
+    async resolveSubmission(
+        pays: string,
+        id: number,
+        resolve: { structure_id?: number; titre_id?: number; proposed_structure?: string; proposed_titre?: string; annee?: number; lieu?: string },
+    ) {
         const submission = await this.loadOrThrow(pays, id);
         if (submission.status !== ServiceStatusEnum.PENDING_APPROVAL) {
-            throw new BadRequestException('Seule une soumission en attente peut être résolue.');
+            throw new BadRequestException('Seule une soumission en attente peut être modifiée.');
         }
         // Build a column-level patch. Use .update() (not save on the loaded
         // entity) — the entity carries `structure`/`titre_ref` relations, and
@@ -223,18 +229,26 @@ export class ConcoursSubmissionsService {
             if (!structure) throw new NotFoundException(`Structure avec l'ID ${resolve.structure_id} non trouvée`);
             patch.structure_id = resolve.structure_id;
             patch.proposed_structure = null;
+        } else if (resolve.proposed_structure !== undefined) {
+            patch.proposed_structure = resolve.proposed_structure?.trim() || null;
+            if (patch.proposed_structure) patch.structure_id = null;
         }
         if (resolve.titre_id != null) {
             const titre = await this.titreRepository.findOne({ where: { id: resolve.titre_id } });
             if (!titre) throw new NotFoundException(`Titre avec l'ID ${resolve.titre_id} non trouvé`);
             patch.titre_id = resolve.titre_id;
             patch.proposed_titre = null;
+        } else if (resolve.proposed_titre !== undefined) {
+            patch.proposed_titre = resolve.proposed_titre?.trim() || null;
+            if (patch.proposed_titre) patch.titre_id = null;
         }
+        if (resolve.annee !== undefined) patch.annee = resolve.annee;
+        if (resolve.lieu !== undefined) patch.lieu = resolve.lieu?.trim() || null;
         if (Object.keys(patch).length > 0) {
             await this.submissionRepository.update({ id, pays }, patch);
         }
         const reloaded = await this.loadOrThrow(pays, id);
-        this.logger.log(`Soumission ${id} résolue (structure_id=${reloaded.structure_id}, titre_id=${reloaded.titre_id})`);
+        this.logger.log(`Soumission ${id} modifiée (structure_id=${reloaded.structure_id}, titre_id=${reloaded.titre_id})`);
         return this.withMissingFlags(reloaded);
     }
 
@@ -250,7 +264,7 @@ export class ConcoursSubmissionsService {
     }
 
     // Best-effort decision email to the uploader — never fails the request.
-    private notifyUploader(submission: ConcoursSubmission, status: string, concoursTitle: string) {
+    private notifyUploader(submission: ConcoursSubmission, status: string, concoursTitle: string, reason?: string) {
         const u = submission.soumis_par;
         if (!u?.email) {
             this.logger.log(`Soumission ${submission.id} sans email uploader — aucun email envoyé`);
@@ -260,7 +274,7 @@ export class ConcoursSubmissionsService {
             ? `${u.prenom} ${u.nom}`
             : (u.prenom || u.nom || 'Utilisateur');
         this.mailService
-            .sendServiceStatusUpdateEmail(u.email, userName, concoursTitle, status, 'concours')
+            .sendServiceStatusUpdateEmail(u.email, userName, concoursTitle, status, 'concours', reason)
             .catch(err => this.logger.error(`Échec envoi email soumission ${submission.id}: ${err.message}`));
     }
 
@@ -366,17 +380,18 @@ export class ConcoursSubmissionsService {
     }
 
     // Admin: decline a submission + email the uploader. No real concours created.
-    async decline(pays: string, id: number) {
+    async decline(pays: string, id: number, reason?: string) {
         const submission = await this.loadOrThrow(pays, id);
 
         submission.status = ServiceStatusEnum.DECLINED;
+        submission.decline_reason = reason?.trim() || null;
         await this.submissionRepository.save(submission);
 
         const title = submission.structure?.nom && submission.titre_ref?.nom
             ? `${submission.structure.nom} - ${submission.titre_ref.nom}`
             : (submission.proposed_structure || submission.proposed_titre || 'Concours soumis');
-        this.logger.log(`Soumission ${id} refusée`);
-        this.notifyUploader(submission, ServiceStatusEnum.DECLINED, title);
+        this.logger.log(`Soumission ${id} refusée${submission.decline_reason ? ` (motif: ${submission.decline_reason})` : ''}`);
+        this.notifyUploader(submission, ServiceStatusEnum.DECLINED, title, submission.decline_reason ?? undefined);
 
         return { message: 'Soumission refusée', submission: this.withMissingFlags(submission) };
     }

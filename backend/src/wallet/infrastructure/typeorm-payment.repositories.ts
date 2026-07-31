@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Between, DeepPartial, In, LessThanOrEqual, Repository } from 'typeorm';
+import { Between, DeepPartial, In, LessThanOrEqual, Repository } from 'typeorm';
 import { DataSourceResolver } from 'src/config/data-source-resolver.service';
 import { UtilisateursService } from 'src/utilisateurs/utilisateurs.service';
 import {
@@ -40,7 +41,7 @@ import { WithdrawalOtpEntity } from '../otp/entities/withdrawal-otp.entity';
 
 @Injectable()
 export class TypeOrmWalletRepository implements WalletRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WalletEntity> { return this.resolver.getRepository(WalletEntity); }
 
   async findById(walletId: string): Promise<WalletModel | null> {
@@ -84,7 +85,7 @@ export class TypeOrmWalletRepository implements WalletRepositoryPort {
 
 @Injectable()
 export class TypeOrmWalletTransactionRepository implements WalletTransactionRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WalletTransactionEntity> { return this.resolver.getRepository(WalletTransactionEntity); }
 
   existsByReference(reference: string): Promise<boolean> {
@@ -136,7 +137,7 @@ export class TypeOrmWalletTransactionRepository implements WalletTransactionRepo
 
 @Injectable()
 export class TypeOrmWalletRestrictionRepository implements WalletRestrictionRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WalletRestrictionEntity> { return this.resolver.getRepository(WalletRestrictionEntity); }
 
   async findByUserId(userId: number): Promise<WalletRestrictionModel | null> {
@@ -152,7 +153,7 @@ export class TypeOrmWalletRestrictionRepository implements WalletRestrictionRepo
 
 @Injectable()
 export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WithdrawalRequestEntity> { return this.resolver.getRepository(WithdrawalRequestEntity); }
 
   async create(data: Parameters<WithdrawalRequestRepositoryPort['create']>[0]): Promise<WithdrawalRequestModel> {
@@ -221,9 +222,9 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
     const withdrawalIds = withdrawals.map((withdrawal) => withdrawal.id);
     const [otps, executions] = withdrawalIds.length
       ? await Promise.all([
-          otpRepo.find({ where: { withdrawalRequestId: In(withdrawalIds) }, order: { createdAt: 'ASC' } }),
-          executionRepo.find({ where: { withdrawalRequestId: In(withdrawalIds) }, order: { createdAt: 'ASC' } }),
-        ])
+        otpRepo.find({ where: { withdrawalRequestId: In(withdrawalIds) }, order: { createdAt: 'ASC' } }),
+        executionRepo.find({ where: { withdrawalRequestId: In(withdrawalIds) }, order: { createdAt: 'ASC' } }),
+      ])
       : [[], []];
 
     const events: WalletActivityHistoryItemModel[] = [];
@@ -235,18 +236,11 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
       const occurredAt = this.toDateOrNull(event.occurredAt);
       if (!occurredAt) return;
 
-      const display = this.timelineDisplay(event.source, event.eventType, event.status ?? null);
-
       events.push({
         ...event,
         id: event.id ?? `${event.source}:${event.eventType}:${event.withdrawalRequestId ?? event.walletTransactionId ?? event.otpId ?? event.paymentExecutionId ?? occurredAt.getTime()}`,
         walletId,
         occurredAt,
-        label: event.label ?? display.label,
-        mobileMessage: event.mobileMessage ?? display.mobileMessage,
-        severity: event.severity ?? display.severity,
-        nextAction: event.nextAction ?? display.nextAction,
-        isTerminal: event.isTerminal ?? display.isTerminal,
       });
     };
 
@@ -588,270 +582,6 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
     return { data, total };
   }
 
-  /**
-   * Messages métier prêts pour le mobile.
-   *
-   * Important : le mobile doit afficher en priorité ces champs quand ils sont présents.
-   * Cela évite de dupliquer la logique métier d'affichage côté Flutter/React Native.
-   */
-  private timelineDisplay(source: string, eventType: string, status?: string | null): {
-    label: string;
-    mobileMessage: string;
-    severity: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
-    nextAction: 'NONE' | 'ENTER_OTP' | 'RESEND_OTP' | 'WAIT_ADMIN_REVIEW' | 'WAIT_ADMIN_APPROVAL' | 'WAIT_PAYMENT' | 'CONTACT_SUPPORT' | 'VIEW_PAYMENT_PROOF';
-    isTerminal: boolean;
-  } {
-    const displays: Record<string, {
-      label: string;
-      mobileMessage: string;
-      severity: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
-      nextAction: 'NONE' | 'ENTER_OTP' | 'RESEND_OTP' | 'WAIT_ADMIN_REVIEW' | 'WAIT_ADMIN_APPROVAL' | 'WAIT_PAYMENT' | 'CONTACT_SUPPORT' | 'VIEW_PAYMENT_PROOF';
-      isTerminal: boolean;
-    }> = {
-      WALLET_TRANSACTION_REWARD: {
-        label: 'Récompense créditée',
-        mobileMessage: 'Votre wallet a été crédité après validation de votre épreuve.',
-        severity: 'SUCCESS',
-        nextAction: 'NONE',
-        isTerminal: true,
-      },
-      WALLET_TRANSACTION_RELEASE: {
-        label: 'Fonds disponibles',
-        mobileMessage: 'Les fonds en attente sont maintenant disponibles dans votre wallet.',
-        severity: 'SUCCESS',
-        nextAction: 'NONE',
-        isTerminal: true,
-      },
-      WALLET_TRANSACTION_WITHDRAW: {
-        label: 'Montant débité',
-        mobileMessage: 'Le montant du retrait a été débité de votre wallet.',
-        severity: 'SUCCESS',
-        nextAction: 'NONE',
-        isTerminal: true,
-      },
-      WALLET_TRANSACTION_ADJUSTMENT: {
-        label: 'Ajustement wallet',
-        mobileMessage: 'Un ajustement a été effectué sur votre wallet.',
-        severity: 'INFO',
-        nextAction: 'NONE',
-        isTerminal: true,
-      },
-
-      WITHDRAWAL_CREATED: {
-        label: 'Demande de retrait créée',
-        mobileMessage: 'Votre demande de retrait a été créée. Veuillez saisir le code OTP envoyé sur votre numéro Mobile Money.',
-        severity: 'INFO',
-        nextAction: 'ENTER_OTP',
-        isTerminal: false,
-      },
-      WITHDRAWAL_PENDING_AFTER_OTP: {
-        label: 'Demande transmise',
-        mobileMessage: 'Votre code OTP a été vérifié. Votre demande est maintenant en attente de traitement par l’administration.',
-        severity: 'SUCCESS',
-        nextAction: 'WAIT_ADMIN_APPROVAL',
-        isTerminal: false,
-      },
-      WITHDRAWAL_SECURITY_REVIEW_REQUIRED: {
-        label: 'Vérification requise',
-        mobileMessage: 'Votre demande nécessite une vérification de sécurité par l’équipe EDUKIA.',
-        severity: 'WARNING',
-        nextAction: 'WAIT_ADMIN_REVIEW',
-        isTerminal: false,
-      },
-      WITHDRAWAL_OTP_UNLOCKED: {
-        label: 'Demande débloquée',
-        mobileMessage: 'Votre demande a été débloquée après vérification. Vous pouvez poursuivre la validation OTP.',
-        severity: 'SUCCESS',
-        nextAction: 'ENTER_OTP',
-        isTerminal: false,
-      },
-      WITHDRAWAL_APPROVED: {
-        label: 'Retrait approuvé',
-        mobileMessage: 'Votre demande de retrait a été approuvée. Le paiement Mobile Money sera traité par l’équipe EDUKIA.',
-        severity: 'SUCCESS',
-        nextAction: 'WAIT_PAYMENT',
-        isTerminal: false,
-      },
-      WITHDRAWAL_REJECTED: {
-        label: 'Retrait rejeté',
-        mobileMessage: 'Votre demande de retrait a été rejetée. Consultez le motif ou contactez le support si nécessaire.',
-        severity: 'ERROR',
-        nextAction: 'CONTACT_SUPPORT',
-        isTerminal: true,
-      },
-      WITHDRAWAL_PAID: {
-        label: 'Retrait payé',
-        mobileMessage: 'Votre retrait a été payé avec succès.',
-        severity: 'SUCCESS',
-        nextAction: 'VIEW_PAYMENT_PROOF',
-        isTerminal: true,
-      },
-
-      WITHDRAWAL_OTP_SENT: {
-        label: 'Code OTP envoyé',
-        mobileMessage: 'Un code OTP vous a été envoyé sur votre numéro Mobile Money.',
-        severity: 'INFO',
-        nextAction: 'ENTER_OTP',
-        isTerminal: false,
-      },
-      WITHDRAWAL_OTP_RESENT: {
-        label: 'Code OTP renvoyé',
-        mobileMessage: 'Un nouveau code OTP vous a été envoyé. Veuillez utiliser le dernier code reçu.',
-        severity: 'INFO',
-        nextAction: 'ENTER_OTP',
-        isTerminal: false,
-      },
-      WITHDRAWAL_OTP_VERIFIED: {
-        label: 'Code OTP vérifié',
-        mobileMessage: 'Votre code OTP a été vérifié avec succès.',
-        severity: 'SUCCESS',
-        nextAction: 'WAIT_ADMIN_APPROVAL',
-        isTerminal: false,
-      },
-      WITHDRAWAL_OTP_EXPIRED: {
-        label: 'Code OTP expiré',
-        mobileMessage: 'Votre code OTP a expiré. Vous pouvez demander un nouveau code.',
-        severity: 'WARNING',
-        nextAction: 'RESEND_OTP',
-        isTerminal: false,
-      },
-      WITHDRAWAL_OTP_FAILED: {
-        label: 'Échec OTP',
-        mobileMessage: 'Le code OTP saisi est incorrect ou l’envoi OTP a échoué. Veuillez réessayer.',
-        severity: 'WARNING',
-        nextAction: 'ENTER_OTP',
-        isTerminal: false,
-      },
-      WITHDRAWAL_OTP_LOCKED: {
-        label: 'OTP bloqué',
-        mobileMessage: 'Votre demande est bloquée après plusieurs tentatives incorrectes. L’équipe EDUKIA doit effectuer une vérification.',
-        severity: 'ERROR',
-        nextAction: 'WAIT_ADMIN_REVIEW',
-        isTerminal: false,
-      },
-
-      WITHDRAWAL_OTP_DELIVERY_SENT_TO_PROVIDER: {
-        label: 'OTP en cours d’envoi',
-        mobileMessage: 'Votre code OTP est en cours d’envoi par SMS.',
-        severity: 'INFO',
-        nextAction: 'ENTER_OTP',
-        isTerminal: false,
-      },
-      WITHDRAWAL_OTP_DELIVERY_DELIVERED: {
-        label: 'OTP livré',
-        mobileMessage: 'Le code OTP a été livré sur votre téléphone.',
-        severity: 'SUCCESS',
-        nextAction: 'ENTER_OTP',
-        isTerminal: false,
-      },
-      WITHDRAWAL_OTP_DELIVERY_UNDELIVERED: {
-        label: 'OTP non livré',
-        mobileMessage: 'Le code OTP n’a pas pu être livré. Vous pouvez demander un nouveau code ou vérifier votre numéro.',
-        severity: 'WARNING',
-        nextAction: 'RESEND_OTP',
-        isTerminal: false,
-      },
-      WITHDRAWAL_OTP_DELIVERY_FAILED: {
-        label: 'Livraison OTP échouée',
-        mobileMessage: 'L’envoi du code OTP a échoué. Veuillez demander un nouveau code.',
-        severity: 'ERROR',
-        nextAction: 'RESEND_OTP',
-        isTerminal: false,
-      },
-      WITHDRAWAL_OTP_DELIVERY_DELIVERY_UNKNOWN: {
-        label: 'Livraison OTP inconnue',
-        mobileMessage: 'Nous vérifions encore la livraison de votre code OTP. Vous pourrez demander un nouveau code si vous ne le recevez pas.',
-        severity: 'INFO',
-        nextAction: 'RESEND_OTP',
-        isTerminal: false,
-      },
-      WITHDRAWAL_OTP_DELIVERY_DELIVERY_TIMEOUT: {
-        label: 'Délai de livraison dépassé',
-        mobileMessage: 'Le délai de livraison du code OTP est dépassé. Vous pouvez demander un nouveau code.',
-        severity: 'WARNING',
-        nextAction: 'RESEND_OTP',
-        isTerminal: false,
-      },
-      WITHDRAWAL_OTP_DELIVERY_NOT_REQUIRED: {
-        label: 'Livraison SMS non requise',
-        mobileMessage: 'Aucune livraison SMS n’est requise pour cette opération.',
-        severity: 'INFO',
-        nextAction: 'NONE',
-        isTerminal: false,
-      },
-
-      PAYMENT_EXECUTION_PENDING: {
-        label: 'Paiement en attente',
-        mobileMessage: 'Votre paiement est en attente de confirmation.',
-        severity: 'INFO',
-        nextAction: 'WAIT_PAYMENT',
-        isTerminal: false,
-      },
-      PAYMENT_EXECUTION_COMPLETED: {
-        label: 'Paiement confirmé',
-        mobileMessage: 'Votre paiement Mobile Money a été confirmé.',
-        severity: 'SUCCESS',
-        nextAction: 'VIEW_PAYMENT_PROOF',
-        isTerminal: true,
-      },
-      PAYMENT_EXECUTION_FAILED: {
-        label: 'Paiement échoué',
-        mobileMessage: 'Le paiement Mobile Money a échoué. Contactez le support EDUKIA.',
-        severity: 'ERROR',
-        nextAction: 'CONTACT_SUPPORT',
-        isTerminal: true,
-      },
-      PAYMENT_EXECUTION_CANCELLED: {
-        label: 'Paiement annulé',
-        mobileMessage: 'Le paiement Mobile Money a été annulé.',
-        severity: 'WARNING',
-        nextAction: 'CONTACT_SUPPORT',
-        isTerminal: true,
-      },
-    };
-
-    const display = displays[eventType];
-    if (display) return display;
-
-    if (status === 'FAILED') {
-      return {
-        label: 'Opération échouée',
-        mobileMessage: 'Cette opération a échoué. Veuillez réessayer ou contacter le support EDUKIA.',
-        severity: 'ERROR',
-        nextAction: 'CONTACT_SUPPORT',
-        isTerminal: false,
-      };
-    }
-
-    if (status === 'COMPLETED' || status === 'PAID' || status === 'VERIFIED' || status === 'DELIVERED') {
-      return {
-        label: 'Opération réussie',
-        mobileMessage: 'Cette étape a été réalisée avec succès.',
-        severity: 'SUCCESS',
-        nextAction: 'NONE',
-        isTerminal: false,
-      };
-    }
-
-    if (status === 'REJECTED' || status === 'CANCELLED' || status === 'LOCKED') {
-      return {
-        label: 'Action requise',
-        mobileMessage: 'Cette opération nécessite une attention particulière. Consultez les détails ou contactez le support EDUKIA.',
-        severity: 'WARNING',
-        nextAction: 'CONTACT_SUPPORT',
-        isTerminal: false,
-      };
-    }
-
-    return {
-      label: 'Mise à jour du processus',
-      mobileMessage: 'Votre processus de retrait a été mis à jour.',
-      severity: 'INFO',
-      nextAction: 'NONE',
-      isTerminal: false,
-    };
-  }
-
   async findWithPaymentDetailsByUserId(userId: number, page = 1, limit = 50) {
     const safePage = Number.isFinite(page) && page > 0 ? page : 1;
     const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 50;
@@ -1120,7 +850,7 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
 
 @Injectable()
 export class TypeOrmWithdrawalOtpRepository implements WithdrawalOtpRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<WithdrawalOtpEntity> { return this.resolver.getRepository(WithdrawalOtpEntity); }
 
   async create(data: Parameters<WithdrawalOtpRepositoryPort['create']>[0]): Promise<WithdrawalOtpModel> {
@@ -1286,7 +1016,7 @@ export class TypeOrmWithdrawalOtpRepository implements WithdrawalOtpRepositoryPo
 
 @Injectable()
 export class TypeOrmUserPaymentAccountRepository implements UserPaymentAccountRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<UserPaymentAccountEntity> { return this.resolver.getRepository(UserPaymentAccountEntity); }
   private get historyRepo(): Repository<UserPaymentAccountHistoryEntity> { return this.resolver.getRepository(UserPaymentAccountHistoryEntity); }
 
@@ -1345,7 +1075,7 @@ export class TypeOrmUserPaymentAccountRepository implements UserPaymentAccountRe
 
 @Injectable()
 export class TypeOrmPaymentExecutionRepository implements PaymentExecutionRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<PaymentExecutionEntity> { return this.resolver.getRepository(PaymentExecutionEntity); }
   private get proofRepo(): Repository<PaymentProofEntity> { return this.resolver.getRepository(PaymentProofEntity); }
 
@@ -1377,7 +1107,7 @@ export class TypeOrmPaymentExecutionRepository implements PaymentExecutionReposi
 
 @Injectable()
 export class TypeOrmPaymentConfigurationRepository implements PaymentConfigurationRepositoryPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<PaymentConfigurationEntity> { return this.resolver.getRepository(PaymentConfigurationEntity); }
 
   async getActive(): Promise<PaymentConfigurationModel> {
@@ -1395,7 +1125,7 @@ export class TypeOrmPaymentConfigurationRepository implements PaymentConfigurati
 
 @Injectable()
 export class UtilisateursUserProfileAdapter implements UserProfilePort {
-  constructor(private readonly utilisateursService: UtilisateursService) {}
+  constructor(private readonly utilisateursService: UtilisateursService) { }
 
   async getPaymentProfile(userId: number) {
     const user: any = await this.utilisateursService.findOne(String(userId));
@@ -1412,7 +1142,7 @@ export class UtilisateursUserProfileAdapter implements UserProfilePort {
 
 @Injectable()
 export class TypeOrmPaymentNotificationAdapter implements PaymentNotificationPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<PaymentNotificationEntity> { return this.resolver.getRepository(PaymentNotificationEntity); }
 
   async notifyUser(payload: Parameters<PaymentNotificationPort['notifyUser']>[0]) {
@@ -1428,7 +1158,7 @@ export class TypeOrmPaymentNotificationAdapter implements PaymentNotificationPor
 
 @Injectable()
 export class TypeOrmPaymentAuditLogAdapter implements PaymentAuditLogPort {
-  constructor(private readonly resolver: DataSourceResolver) {}
+  constructor(private readonly resolver: DataSourceResolver) { }
   private get repo(): Repository<PaymentAuditLogEntity> { return this.resolver.getRepository(PaymentAuditLogEntity); }
 
   async log(payload: Parameters<PaymentAuditLogPort['log']>[0]) {

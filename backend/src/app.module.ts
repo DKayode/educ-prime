@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { LoggerModule } from 'nestjs-pino';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UtilisateursModule } from './utilisateurs/utilisateurs.module';
@@ -72,8 +73,56 @@ import { BullModule } from '@nestjs/bullmq';
 import { CountryConfigModule } from './config/country-config.module';
 import { CountryMiddleware } from './config/country.middleware';
 
+// pino-pretty is a devDependency, so it's absent from the prod-only Docker
+// runtime image (`npm install --only=production`). Only use the pretty
+// transport when it's actually resolvable — otherwise a docker dev stack
+// (NODE_ENV=development on that image) would crash with
+// "unable to determine transport target for pino-pretty". Falls back to JSON.
+const prettyLogsAvailable = (() => {
+  try {
+    require.resolve('pino-pretty');
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
 @Module({
   imports: [
+    // Structured JSON logging (pino). In prod every log line is one JSON
+    // object (shipped by Vector -> Loki -> R2 in the log pipeline); in dev it
+    // renders human-readable via pino-pretty. Setting app.useLogger() in
+    // main.ts routes every existing `new Logger(context)` call through this,
+    // so no call sites change. Sensitive request/response headers are redacted
+    // at the source; app-level scrubbing is layered again in Vector.
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: process.env.LOG_LEVEL || 'info',
+        // Pretty single-line in dev when pino-pretty is installed; JSON otherwise.
+        transport:
+          process.env.NODE_ENV !== 'production' && prettyLogsAvailable
+            ? { target: 'pino-pretty', options: { singleLine: true } }
+            : undefined,
+        // Emit level as a string ("info") instead of a number — friendlier in Loki.
+        formatters: { level: (label) => ({ level: label }) },
+        // Stable label so the pipeline can key logs by service.
+        base: { service: 'edukia-backend' },
+        redact: {
+          paths: [
+            'req.headers.authorization',
+            'req.headers.cookie',
+            'req.headers["x-infobip-webhook-secret"]',
+            'req.headers["x-api-key"]',
+            'res.headers["set-cookie"]',
+          ],
+          censor: '[REDACTED]',
+        },
+        // Drop health/root pings from the auto HTTP access logs.
+        autoLogging: {
+          ignore: (req) => req.url === '/' || req.url === '/health',
+        },
+      },
+    }),
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
