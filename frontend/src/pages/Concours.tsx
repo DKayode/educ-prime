@@ -348,7 +348,7 @@ export default function Concours() {
                                             <PopoverContent align="start" className="w-[--radix-popover-trigger-width] min-w-[16rem] p-0">
                                                 <Command shouldFilter={false}>
                                                     <CommandInput placeholder="Rechercher une structure..." value={structureSearch} onValueChange={setStructureSearch} />
-                                                    <CommandList>
+                                                    <CommandList style={{ maxHeight: "min(18rem, calc(var(--radix-popover-content-available-height) - 3.5rem))" }}>
                                                         <CommandEmpty>Aucune structure trouvée.</CommandEmpty>
                                                         <CommandGroup>
                                                             {structuresList.map((s) => (
@@ -379,7 +379,7 @@ export default function Concours() {
                                             <PopoverContent align="start" className="w-[--radix-popover-trigger-width] min-w-[16rem] p-0">
                                                 <Command shouldFilter={false}>
                                                     <CommandInput placeholder="Rechercher un titre..." value={titreSearch} onValueChange={setTitreSearch} />
-                                                    <CommandList>
+                                                    <CommandList style={{ maxHeight: "min(18rem, calc(var(--radix-popover-content-available-height) - 3.5rem))" }}>
                                                         <CommandEmpty>Aucun titre trouvé.</CommandEmpty>
                                                         <CommandGroup>
                                                             {titresList.map((t) => (
@@ -569,7 +569,7 @@ export default function Concours() {
                                         <PopoverContent align="start" className="w-[--radix-popover-trigger-width] min-w-[16rem] p-0">
                                             <Command shouldFilter={false}>
                                                 <CommandInput placeholder="Rechercher une structure..." value={structureSearch} onValueChange={setStructureSearch} />
-                                                <CommandList>
+                                                <CommandList style={{ maxHeight: "min(18rem, calc(var(--radix-popover-content-available-height) - 3.5rem))" }}>
                                                     <CommandEmpty>Aucune structure trouvée.</CommandEmpty>
                                                     <CommandGroup>
                                                         {structuresList.map((s) => (
@@ -599,7 +599,7 @@ export default function Concours() {
                                         <PopoverContent align="start" className="w-[--radix-popover-trigger-width] min-w-[16rem] p-0">
                                             <Command shouldFilter={false}>
                                                 <CommandInput placeholder="Rechercher un titre..." value={titreSearch} onValueChange={setTitreSearch} />
-                                                <CommandList>
+                                                <CommandList style={{ maxHeight: "min(18rem, calc(var(--radix-popover-content-available-height) - 3.5rem))" }}>
                                                     <CommandEmpty>Aucun titre trouvé.</CommandEmpty>
                                                     <CommandGroup>
                                                         {titresList.map((t) => (
