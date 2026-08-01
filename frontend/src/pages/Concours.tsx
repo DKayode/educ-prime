@@ -311,7 +311,7 @@ export default function Concours() {
                                 <DialogTitle>Créer un concours</DialogTitle>
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
+                                <div className="grid gap-2 min-w-0">
                                     <Label htmlFor="titre">Titre (généré automatiquement)</Label>
                                     <Input
                                         id="titre"
@@ -322,25 +322,25 @@ export default function Concours() {
                                     />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="grid gap-2">
+                                    <div className="grid gap-2 min-w-0">
                                         <Label htmlFor="annee">Année</Label>
                                         <Input id="annee" type="number" placeholder="YYYY" value={formData.annee} onChange={(e) => setFormData({ ...formData, annee: e.target.value })} />
                                     </div>
-                                    <div className="grid gap-2">
+                                    <div className="grid gap-2 min-w-0">
                                         <Label htmlFor="lieu">Lieu</Label>
                                         <Input id="lieu" value={formData.lieu} onChange={(e) => setFormData({ ...formData, lieu: e.target.value })} />
                                     </div>
                                 </div>
-                                <div className="grid gap-2">
+                                <div className="grid gap-2 min-w-0">
                                     <Label htmlFor="nombre_page">Nombre de pages</Label>
                                     <Input id="nombre_page" type="number" value={formData.nombre_page} onChange={(e) => setFormData({ ...formData, nombre_page: parseInt(e.target.value) || 0 })} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="grid gap-2">
+                                    <div className="grid gap-2 min-w-0">
                                         <Label>Structure *</Label>
                                         <Popover open={openStructureCombobox} onOpenChange={setOpenStructureCombobox}>
                                             <PopoverTrigger asChild>
-                                                <Button type="button" variant="outline" role="combobox" aria-expanded={openStructureCombobox} className="w-full justify-between font-normal">
+                                                <Button type="button" variant="outline" role="combobox" aria-expanded={openStructureCombobox} className="w-full justify-between font-normal min-w-0">
                                                     <span className="truncate min-w-0 text-left">{selectedStructure ? selectedStructure.nom : "Sélectionner une structure"}</span>
                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                 </Button>
@@ -367,11 +367,11 @@ export default function Concours() {
                                             </PopoverContent>
                                         </Popover>
                                     </div>
-                                    <div className="grid gap-2">
+                                    <div className="grid gap-2 min-w-0">
                                         <Label>Titre (poste) *</Label>
                                         <Popover open={openTitreCombobox} onOpenChange={setOpenTitreCombobox}>
                                             <PopoverTrigger asChild>
-                                                <Button type="button" variant="outline" role="combobox" aria-expanded={openTitreCombobox} className="w-full justify-between font-normal">
+                                                <Button type="button" variant="outline" role="combobox" aria-expanded={openTitreCombobox} className="w-full justify-between font-normal min-w-0">
                                                     <span className="truncate min-w-0 text-left">{selectedTitre ? selectedTitre.nom : "Sélectionner un titre"}</span>
                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                 </Button>
@@ -399,7 +399,7 @@ export default function Concours() {
                                         </Popover>
                                     </div>
                                 </div>
-                                <div className="grid gap-2">
+                                <div className="grid gap-2 min-w-0">
                                     <Label htmlFor="url">Fichier (URL ou Upload)</Label>
                                     <div className="flex gap-2">
                                         <Input
@@ -535,7 +535,7 @@ export default function Concours() {
                     <form onSubmit={handleEditSubmit}>
                         <DialogHeader><DialogTitle>Modifier</DialogTitle></DialogHeader>
                         <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
+                            <div className="grid gap-2 min-w-0">
                                 <Label>Titre (généré automatiquement)</Label>
                                 <Input
                                     readOnly
@@ -544,24 +544,24 @@ export default function Concours() {
                                     className="bg-muted text-muted-foreground"
                                 />
                             </div>
-                            <div className="grid gap-2">
+                            <div className="grid gap-2 min-w-0">
                                 <Label>Lieu</Label>
                                 <Input value={editingItem?.lieu || ""} onChange={(e) => setEditingItem(editingItem ? { ...editingItem, lieu: e.target.value } : null)} />
                             </div>
-                            <div className="grid gap-2">
+                            <div className="grid gap-2 min-w-0">
                                 <Label>Année</Label>
                                 <Input type="number" value={editingItem?.annee || ""} onChange={(e) => setEditingItem(editingItem ? { ...editingItem, annee: parseInt(e.target.value) || undefined } : null)} />
                             </div>
-                            <div className="grid gap-2">
+                            <div className="grid gap-2 min-w-0">
                                 <Label>Nombre de pages</Label>
                                 <Input type="number" value={editingItem?.nombre_page || 0} onChange={(e) => setEditingItem(editingItem ? { ...editingItem, nombre_page: parseInt(e.target.value) || 0 } : null)} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="grid gap-2">
+                                <div className="grid gap-2 min-w-0">
                                     <Label>Structure *</Label>
                                     <Popover open={openStructureCombobox} onOpenChange={setOpenStructureCombobox}>
                                         <PopoverTrigger asChild>
-                                            <Button type="button" variant="outline" role="combobox" aria-expanded={openStructureCombobox} className="w-full justify-between font-normal">
+                                            <Button type="button" variant="outline" role="combobox" aria-expanded={openStructureCombobox} className="w-full justify-between font-normal min-w-0">
                                                 <span className="truncate min-w-0 text-left">{editingItem?.structure ? editingItem.structure.nom : "Sélectionner une structure"}</span>
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
@@ -587,11 +587,11 @@ export default function Concours() {
                                         </PopoverContent>
                                     </Popover>
                                 </div>
-                                <div className="grid gap-2">
+                                <div className="grid gap-2 min-w-0">
                                     <Label>Titre (poste) *</Label>
                                     <Popover open={openTitreCombobox} onOpenChange={setOpenTitreCombobox}>
                                         <PopoverTrigger asChild>
-                                            <Button type="button" variant="outline" role="combobox" aria-expanded={openTitreCombobox} className="w-full justify-between font-normal">
+                                            <Button type="button" variant="outline" role="combobox" aria-expanded={openTitreCombobox} className="w-full justify-between font-normal min-w-0">
                                                 <span className="truncate min-w-0 text-left">{editingItem?.titre_ref ? editingItem.titre_ref.nom : "Sélectionner un titre"}</span>
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
@@ -618,7 +618,7 @@ export default function Concours() {
                                     </Popover>
                                 </div>
                             </div>
-                            <div className="grid gap-2">
+                            <div className="grid gap-2 min-w-0">
                                 <Label>Fichier (Laisser vide pour conserver l'actuel)</Label>
                                 <div className="flex gap-2">
                                     <Input
