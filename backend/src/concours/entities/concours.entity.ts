@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { Structure } from '../../structure/entities/structure.entity';
 import { Titre } from '../../titre/entities/titre.entity';
@@ -61,4 +61,8 @@ export class Concours {
     @ManyToOne(() => Titre, { nullable: true })
     @JoinColumn({ name: 'titre_id' })
     titre_ref?: Titre;
+
+    @ApiProperty({ description: 'Date de création de la ressource' })
+    @CreateDateColumn({ name: 'date_creation', type: 'timestamptz' })
+    date_creation: Date;
 }
