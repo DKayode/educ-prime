@@ -91,7 +91,9 @@ class ApiClient {
 
     const data = await response.json();
     this.setToken(data.access_token);
-    localStorage.setItem('refresh_token', data.refresh_token);
+    // /auth/refresh returns only access_token — guard so we don't overwrite the
+    // valid stored refresh token with `undefined` (which corrupts the session).
+    if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
     console.log('[Auth] ✓ Token rafraîchi');
     return data.access_token;
   }
@@ -134,8 +136,13 @@ class ApiClient {
       });
 
       if (!response.ok) {
-        // Handle 401 Unauthorized - token expired
-        if (response.status === 401 && !isRetry && endpoint !== '/auth/refresh') {
+        // Handle 401 Unauthorized - token expired.
+        // Public auth endpoints return 401 for bad credentials / invalid input,
+        // NOT for an expired access token — skip the refresh flow for them, else
+        // it masks the real error (e.g. "Identifiants invalides") with
+        // "No refresh token available" on a fresh login.
+        const skipRefreshOn401 = ['/auth/connexion', '/auth/register', '/auth/refresh', '/auth/forgot-password', '/auth/reset-password'];
+        if (response.status === 401 && !isRetry && !skipRefreshOn401.includes(endpoint)) {
           if (this.isRefreshing) {
             // Wait for token refresh to complete
             return new Promise((resolve, reject) => {

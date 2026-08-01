@@ -19,6 +19,8 @@ export interface Concours {
     lieu?: string;
     nombre_page: number;
     nombre_telechargements: number;
+    /** Row creation timestamp (ISO). */
+    date_creation?: string;
     /** Optional reference to the organizing structure (lookup entity). */
     structure_id?: number;
     structure?: Structure;

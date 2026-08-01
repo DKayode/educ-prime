@@ -341,24 +341,24 @@ export default function Concours() {
                                         <Popover open={openStructureCombobox} onOpenChange={setOpenStructureCombobox}>
                                             <PopoverTrigger asChild>
                                                 <Button type="button" variant="outline" role="combobox" aria-expanded={openStructureCombobox} className="w-full justify-between font-normal">
-                                                    <span className="truncate">{selectedStructure ? selectedStructure.nom : "Sélectionner une structure"}</span>
+                                                    <span className="truncate min-w-0 text-left">{selectedStructure ? selectedStructure.nom : "Sélectionner une structure"}</span>
                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-[300px] p-0">
+                                            <PopoverContent align="start" className="w-[--radix-popover-trigger-width] min-w-[16rem] p-0">
                                                 <Command shouldFilter={false}>
                                                     <CommandInput placeholder="Rechercher une structure..." value={structureSearch} onValueChange={setStructureSearch} />
-                                                    <CommandList>
+                                                    <CommandList style={{ maxHeight: "min(18rem, calc(var(--radix-popover-content-available-height) - 3.5rem))" }}>
                                                         <CommandEmpty>Aucune structure trouvée.</CommandEmpty>
                                                         <CommandGroup>
                                                             {structuresList.map((s) => (
-                                                                <CommandItem key={s.id} value={s.nom} onSelect={() => {
+                                                                <CommandItem key={s.id} value={s.nom} className="items-start" onSelect={() => {
                                                                     setFormData({ ...formData, structure_id: s.id });
                                                                     setSelectedStructure({ id: s.id, nom: s.nom });
                                                                     setOpenStructureCombobox(false);
                                                                 }}>
-                                                                    <Check className={cn("mr-2 h-4 w-4", formData.structure_id === s.id ? "opacity-100" : "opacity-0")} />
-                                                                    {s.nom}
+                                                                    <Check className={cn("mr-2 mt-0.5 h-4 w-4 shrink-0", formData.structure_id === s.id ? "opacity-100" : "opacity-0")} />
+                                                                    <span className="whitespace-normal break-words">{s.nom}</span>
                                                                 </CommandItem>
                                                             ))}
                                                         </CommandGroup>
@@ -372,24 +372,24 @@ export default function Concours() {
                                         <Popover open={openTitreCombobox} onOpenChange={setOpenTitreCombobox}>
                                             <PopoverTrigger asChild>
                                                 <Button type="button" variant="outline" role="combobox" aria-expanded={openTitreCombobox} className="w-full justify-between font-normal">
-                                                    <span className="truncate">{selectedTitre ? selectedTitre.nom : "Sélectionner un titre"}</span>
+                                                    <span className="truncate min-w-0 text-left">{selectedTitre ? selectedTitre.nom : "Sélectionner un titre"}</span>
                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-[300px] p-0">
+                                            <PopoverContent align="start" className="w-[--radix-popover-trigger-width] min-w-[16rem] p-0">
                                                 <Command shouldFilter={false}>
                                                     <CommandInput placeholder="Rechercher un titre..." value={titreSearch} onValueChange={setTitreSearch} />
-                                                    <CommandList>
+                                                    <CommandList style={{ maxHeight: "min(18rem, calc(var(--radix-popover-content-available-height) - 3.5rem))" }}>
                                                         <CommandEmpty>Aucun titre trouvé.</CommandEmpty>
                                                         <CommandGroup>
                                                             {titresList.map((t) => (
-                                                                <CommandItem key={t.id} value={t.nom} onSelect={() => {
+                                                                <CommandItem key={t.id} value={t.nom} className="items-start" onSelect={() => {
                                                                     setFormData({ ...formData, titre_id: t.id });
                                                                     setSelectedTitre({ id: t.id, nom: t.nom });
                                                                     setOpenTitreCombobox(false);
                                                                 }}>
-                                                                    <Check className={cn("mr-2 h-4 w-4", formData.titre_id === t.id ? "opacity-100" : "opacity-0")} />
-                                                                    {t.nom}
+                                                                    <Check className={cn("mr-2 mt-0.5 h-4 w-4 shrink-0", formData.titre_id === t.id ? "opacity-100" : "opacity-0")} />
+                                                                    <span className="whitespace-normal break-words">{t.nom}</span>
                                                                 </CommandItem>
                                                             ))}
                                                         </CommandGroup>
@@ -562,23 +562,23 @@ export default function Concours() {
                                     <Popover open={openStructureCombobox} onOpenChange={setOpenStructureCombobox}>
                                         <PopoverTrigger asChild>
                                             <Button type="button" variant="outline" role="combobox" aria-expanded={openStructureCombobox} className="w-full justify-between font-normal">
-                                                <span className="truncate">{editingItem?.structure ? editingItem.structure.nom : "Sélectionner une structure"}</span>
+                                                <span className="truncate min-w-0 text-left">{editingItem?.structure ? editingItem.structure.nom : "Sélectionner une structure"}</span>
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-[300px] p-0">
+                                        <PopoverContent align="start" className="w-[--radix-popover-trigger-width] min-w-[16rem] p-0">
                                             <Command shouldFilter={false}>
                                                 <CommandInput placeholder="Rechercher une structure..." value={structureSearch} onValueChange={setStructureSearch} />
-                                                <CommandList>
+                                                <CommandList style={{ maxHeight: "min(18rem, calc(var(--radix-popover-content-available-height) - 3.5rem))" }}>
                                                     <CommandEmpty>Aucune structure trouvée.</CommandEmpty>
                                                     <CommandGroup>
                                                         {structuresList.map((s) => (
-                                                            <CommandItem key={s.id} value={s.nom} onSelect={() => {
+                                                            <CommandItem key={s.id} value={s.nom} className="items-start" onSelect={() => {
                                                                 setEditingItem(editingItem ? { ...editingItem, structure_id: s.id, structure: { id: s.id, nom: s.nom } } : null);
                                                                 setOpenStructureCombobox(false);
                                                             }}>
-                                                                <Check className={cn("mr-2 h-4 w-4", editingItem?.structure_id === s.id ? "opacity-100" : "opacity-0")} />
-                                                                {s.nom}
+                                                                <Check className={cn("mr-2 mt-0.5 h-4 w-4 shrink-0", editingItem?.structure_id === s.id ? "opacity-100" : "opacity-0")} />
+                                                                <span className="whitespace-normal break-words">{s.nom}</span>
                                                             </CommandItem>
                                                         ))}
                                                     </CommandGroup>
@@ -592,23 +592,23 @@ export default function Concours() {
                                     <Popover open={openTitreCombobox} onOpenChange={setOpenTitreCombobox}>
                                         <PopoverTrigger asChild>
                                             <Button type="button" variant="outline" role="combobox" aria-expanded={openTitreCombobox} className="w-full justify-between font-normal">
-                                                <span className="truncate">{editingItem?.titre_ref ? editingItem.titre_ref.nom : "Sélectionner un titre"}</span>
+                                                <span className="truncate min-w-0 text-left">{editingItem?.titre_ref ? editingItem.titre_ref.nom : "Sélectionner un titre"}</span>
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-[300px] p-0">
+                                        <PopoverContent align="start" className="w-[--radix-popover-trigger-width] min-w-[16rem] p-0">
                                             <Command shouldFilter={false}>
                                                 <CommandInput placeholder="Rechercher un titre..." value={titreSearch} onValueChange={setTitreSearch} />
-                                                <CommandList>
+                                                <CommandList style={{ maxHeight: "min(18rem, calc(var(--radix-popover-content-available-height) - 3.5rem))" }}>
                                                     <CommandEmpty>Aucun titre trouvé.</CommandEmpty>
                                                     <CommandGroup>
                                                         {titresList.map((t) => (
-                                                            <CommandItem key={t.id} value={t.nom} onSelect={() => {
+                                                            <CommandItem key={t.id} value={t.nom} className="items-start" onSelect={() => {
                                                                 setEditingItem(editingItem ? { ...editingItem, titre_id: t.id, titre_ref: { id: t.id, nom: t.nom } } : null);
                                                                 setOpenTitreCombobox(false);
                                                             }}>
-                                                                <Check className={cn("mr-2 h-4 w-4", editingItem?.titre_id === t.id ? "opacity-100" : "opacity-0")} />
-                                                                {t.nom}
+                                                                <Check className={cn("mr-2 mt-0.5 h-4 w-4 shrink-0", editingItem?.titre_id === t.id ? "opacity-100" : "opacity-0")} />
+                                                                <span className="whitespace-normal break-words">{t.nom}</span>
                                                             </CommandItem>
                                                         ))}
                                                     </CommandGroup>

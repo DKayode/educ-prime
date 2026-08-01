@@ -26,8 +26,8 @@ export class ConcoursController {
   @UseGuards(JwtAuthGuard, RoleGuard)
   @Roles(RoleType.ADMIN)
   @Post()
-  create(@Body() createConcoursDto: CreateConcoursDto) {
-    return this.concoursService.create(createConcoursDto);
+  create(@CurrentCountry() pays: string, @Body() createConcoursDto: CreateConcoursDto) {
+    return this.concoursService.create(pays, createConcoursDto);
   }
 
   @UseGuards(JwtAuthGuard)

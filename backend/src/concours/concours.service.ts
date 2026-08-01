@@ -58,14 +58,14 @@ export class ConcoursService {
     return `${structure.nom} - ${titreRef.nom}`;
   }
 
-  async create(createConcoursDto: CreateConcoursDto) {
-    this.logger.log(`Création d'un concours (structure ${createConcoursDto.structure_id}, titre ${createConcoursDto.titre_id})`);
-    const newConcours = this.concoursRepository.create(createConcoursDto);
+  async create(pays: string, createConcoursDto: CreateConcoursDto) {
+    this.logger.log(`Création d'un concours (pays=${pays}, structure ${createConcoursDto.structure_id}, titre ${createConcoursDto.titre_id})`);
+    const newConcours = this.concoursRepository.create({ ...createConcoursDto, pays });
     // structure_id + titre_id are required at create; the legacy titre column
     // is always server-composed (never the manually-typed value).
     newConcours.titre = await this.composeTitre(createConcoursDto.structure_id, createConcoursDto.titre_id);
     const saved = await this.concoursRepository.save(newConcours);
-    this.logger.log(`Concours créé: ${saved.titre} (ID: ${saved.id})`);
+    this.logger.log(`Concours créé: ${saved.titre} (ID: ${saved.id}, pays: ${saved.pays})`);
     return saved;
   }
 
