@@ -96,6 +96,14 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
         // epreuves.file; mirrors bytes to the submission's legacy `url` (Firebase).
         file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', uploadTtlSeconds: 3600, downloadTtlSeconds: 3600 },
     },
+    examens_nationaux: {
+        // Private national-exam PDFs (BAC/CAP/BEPC…). Same profile as concours.file.
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', uploadTtlSeconds: 3600, downloadTtlSeconds: 3600 },
+    },
+    examens_nationaux_submissions: {
+        // Pending user-submitted national-exam PDFs; promoted into examens_nationaux.file at approval.
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', uploadTtlSeconds: 3600, downloadTtlSeconds: 3600 },
+    },
     etablissements: {
         logo: { pathColumn: 'logo_path', extColumn: 'logo_extension', authorized: IMAGE_EXTS_WITH_SVG, public: true, legacyColumn: 'logo' },
     },

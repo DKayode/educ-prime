@@ -44,6 +44,10 @@ import { TypeProfilsModule } from './type-profils/type-profils.module';
 import { StructureModule } from './structure/structure.module';
 import { Structure } from './structure/entities/structure.entity';
 import { TitreModule } from './titre/titre.module';
+import { TypesExamenModule } from './types-examen/types-examen.module';
+import { SeriesModule } from './series/series.module';
+import { MatieresFilieresExamenModule } from './matieres-filieres-examen/matieres-filieres-examen.module';
+import { ExamensNationauxModule } from './examens-nationaux/examens-nationaux.module';
 import { Titre } from './titre/entities/titre.entity';
 import { DepartementModule } from './departements/departement.module';
 import { VilleModule } from './villes/ville.module';
@@ -189,6 +193,10 @@ const prettyLogsAvailable = (() => {
     TypeProfilsModule,
     StructureModule,
     TitreModule,
+    TypesExamenModule,
+    SeriesModule,
+    MatieresFilieresExamenModule,
+    ExamensNationauxModule,
     DepartementModule,
     VilleModule,
     FormsModule,

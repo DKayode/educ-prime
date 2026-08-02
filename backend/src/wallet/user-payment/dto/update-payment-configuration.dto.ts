@@ -9,6 +9,7 @@ export class UpdatePaymentConfigurationDto {
   @ApiPropertyOptional({ enum: FeeType }) @IsOptional() @IsEnum(FeeType) withdrawFeeType?: FeeType;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) rewardPerExam?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) rewardPerConcours?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) rewardPerExamenNational?: number;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() walletEnabled?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() withdrawEnabled?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() rewardEnabled?: boolean;

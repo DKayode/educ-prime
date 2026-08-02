@@ -90,6 +90,16 @@ const navTree: NavItem[] = [
       { title: "Matières", icon: BookMarked, url: "/matieres" },
       { title: "Épreuves", icon: FileText, url: "/epreuves" },
       {
+        title: "Examens Nat.",
+        icon: GraduationCap,
+        children: [
+          { title: "Examens Nat.", icon: FileText, url: "/examens-nationaux" },
+          { title: "Types d'examen", icon: List, url: "/types-examen" },
+          { title: "Séries", icon: Layers, url: "/series-examen" },
+          { title: "Matières / Filières", icon: BookMarked, url: "/matieres-filieres-examen" },
+        ],
+      },
+      {
         title: "Concours",
         icon: GraduationCap,
         children: [
@@ -107,6 +117,7 @@ const navTree: NavItem[] = [
     children: [
       { title: "Épreuves en attente", icon: FileText, url: "/approbations/epreuves" },
       { title: "Concours en attente", icon: FileText, url: "/approbations/concours" },
+      { title: "Examens Nat. en attente", icon: FileText, url: "/approbations/examens-nationaux" },
       { title: "Statistiques", icon: BarChart3, url: "/statistiques-approbations" },
       {
         title: "Wallet",

@@ -96,6 +96,8 @@ export interface PaymentConfigurationModel {
   withdrawFee: number;
   withdrawFeeType: FeeType;
   rewardPerExam: number;
+  rewardPerConcours: number;
+  rewardPerExamenNational: number;
   currency: string;
   walletEnabled: boolean;
   withdrawEnabled: boolean;
