@@ -325,54 +325,63 @@ export class EpreuveSubmissionsService {
       throw new BadRequestException('Seule une soumission en attente peut être modifiée.');
     }
 
+    // Build a COLUMN-LEVEL patch and use .update() — the loaded `submission`
+    // carries its parent relation OBJECTS (matiere, niveau_etude, …). Saving the
+    // entity would re-derive each FK from those objects, silently reverting a
+    // *changed* _id back to the already-resolved value (that's why changing an
+    // already-resolved level had no effect). .update() writes the exact columns.
+    const patch: Partial<EpreuveSubmission> = {};
+
     if (dto.etablissement_id != null) {
       const e = await this.etablissementsRepository.findOne({ where: { id: dto.etablissement_id } });
       if (!e) throw new NotFoundException(`Établissement #${dto.etablissement_id} introuvable`);
-      submission.etablissement_id = dto.etablissement_id;
-      submission.proposed_etablissement = null;
-      submission.pays = e.pays;
+      patch.etablissement_id = dto.etablissement_id;
+      patch.proposed_etablissement = null;
+      patch.pays = e.pays;
     } else if (dto.proposed_etablissement !== undefined) {
-      submission.proposed_etablissement = dto.proposed_etablissement?.trim() || null;
-      if (submission.proposed_etablissement) submission.etablissement_id = null;
+      patch.proposed_etablissement = dto.proposed_etablissement?.trim() || null;
+      if (patch.proposed_etablissement) patch.etablissement_id = null;
     }
 
     if (dto.filiere_id != null) {
       const f = await this.filieresRepository.findOne({ where: { id: dto.filiere_id } });
       if (!f) throw new NotFoundException(`Filière #${dto.filiere_id} introuvable`);
-      submission.filiere_id = dto.filiere_id;
-      submission.proposed_filiere = null;
-      submission.pays = f.pays;
+      patch.filiere_id = dto.filiere_id;
+      patch.proposed_filiere = null;
+      patch.pays = f.pays;
     } else if (dto.proposed_filiere !== undefined) {
-      submission.proposed_filiere = dto.proposed_filiere?.trim() || null;
-      if (submission.proposed_filiere) submission.filiere_id = null;
+      patch.proposed_filiere = dto.proposed_filiere?.trim() || null;
+      if (patch.proposed_filiere) patch.filiere_id = null;
     }
 
     if (dto.niveau_etude_id != null) {
       const n = await this.niveauxRepository.findOne({ where: { id: dto.niveau_etude_id } });
       if (!n) throw new NotFoundException(`Niveau d'étude #${dto.niveau_etude_id} introuvable`);
-      submission.niveau_etude_id = dto.niveau_etude_id;
-      submission.proposed_niveau = null;
-      submission.pays = n.pays;
+      patch.niveau_etude_id = dto.niveau_etude_id;
+      patch.proposed_niveau = null;
+      patch.pays = n.pays;
     } else if (dto.proposed_niveau !== undefined) {
-      submission.proposed_niveau = dto.proposed_niveau?.trim() || null;
-      if (submission.proposed_niveau) submission.niveau_etude_id = null;
+      patch.proposed_niveau = dto.proposed_niveau?.trim() || null;
+      if (patch.proposed_niveau) patch.niveau_etude_id = null;
     }
 
     if (dto.matiere_id != null) {
       const m = await this.matieresRepository.findOne({ where: { id: dto.matiere_id } });
       if (!m) throw new NotFoundException(`Matière #${dto.matiere_id} introuvable`);
-      submission.matiere_id = dto.matiere_id;
-      submission.proposed_matiere = null;
-      submission.pays = m.pays;
+      patch.matiere_id = dto.matiere_id;
+      patch.proposed_matiere = null;
+      patch.pays = m.pays;
     } else if (dto.proposed_matiere !== undefined) {
-      submission.proposed_matiere = dto.proposed_matiere?.trim() || null;
-      if (submission.proposed_matiere) submission.matiere_id = null;
+      patch.proposed_matiere = dto.proposed_matiere?.trim() || null;
+      if (patch.proposed_matiere) patch.matiere_id = null;
     }
 
-    if (dto.annee !== undefined) submission.annee = dto.annee ?? null;
-    if (dto.section !== undefined && dto.section != null) submission.section = dto.section;
+    if (dto.annee !== undefined) patch.annee = dto.annee ?? null;
+    if (dto.section !== undefined && dto.section != null) patch.section = dto.section;
 
-    await this.submissionsRepository.save(submission);
+    if (Object.keys(patch).length > 0) {
+      await this.submissionsRepository.update({ id }, patch);
+    }
     const reloaded = await this.loadSubmissionOrThrow(id);
 
     // Re-derive the auto-title from the edited (matière + section + année).
@@ -381,7 +390,7 @@ export class EpreuveSubmissionsService {
       .map((p) => (p == null ? '' : String(p).trim()))
       .filter((p) => p !== '')
       .join(' — ');
-    await this.submissionsRepository.save(reloaded);
+    await this.submissionsRepository.update({ id }, { titre: reloaded.titre });
 
     this.logger.log(`Soumission #${id} modifiée (admin)`);
     return this.toSubmissionResponse(reloaded);
