@@ -239,10 +239,14 @@ export class EpreuveSubmissionsService {
   // soumissions à type NULL (présentées comme Examens), pour rester cohérent avec
   // le défaut d'affichage.
   private applyTypeFilter(qb: import('typeorm').SelectQueryBuilder<EpreuveSubmission>, type?: string) {
+    if (type == null || type === '') return; // absent → aucun filtre
     if (type === EpreuveType.EXAMEN_NATIONAL) {
       qb.andWhere('submission.type = :ftype', { ftype: EpreuveType.EXAMEN_NATIONAL });
     } else if (type === EpreuveType.EXAMENS) {
       qb.andWhere('(submission.type = :ftype OR submission.type IS NULL)', { ftype: EpreuveType.EXAMENS });
+    } else {
+      // Valeur explicite invalide → 400 (ne pas la traiter comme Examens).
+      throw new BadRequestException("Le paramètre 'type' doit être « Examens » ou « Examens Nationaux ».");
     }
   }
 

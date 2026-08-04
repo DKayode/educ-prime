@@ -15,10 +15,15 @@ export enum EpreuveSection {
   RATTRAPAGE = 'rattrapage',
 }
 
-// Les épreuves n'acceptent plus que EXAMENS ou EXAMENS NATIONAUX. Toute autre
-// valeur — un ancien type (Interrogation/Devoirs/Concours), une valeur vide ou
-// invalide — est ramenée à EXAMENS. Point unique de vérité, appliqué à chaque
-// écriture (création dashboard, mise à jour, soumission, approbation).
+// Seules ces deux valeurs sont acceptées en écriture / filtre pour une épreuve.
+// Utilisé par les DTO (@IsIn) et le filtre de liste : une valeur explicite hors
+// de cette liste est REJETÉE (400), pas silencieusement convertie.
+export const WRITABLE_EPREUVE_TYPES = [EpreuveType.EXAMENS, EpreuveType.EXAMEN_NATIONAL] as const;
+
+// Défaut EXAMENS uniquement quand le type est ABSENT (undefined/null/vide) —
+// p. ex. une soumission mobile qui n'envoie pas le champ, ou une ancienne ligne.
+// Les valeurs explicites invalides sont rejetées en amont par la validation DTO,
+// donc n'atteignent jamais cette fonction.
 export function normalizeEpreuveType(type?: EpreuveType | string | null): EpreuveType {
   return type === EpreuveType.EXAMEN_NATIONAL ? EpreuveType.EXAMEN_NATIONAL : EpreuveType.EXAMENS;
 }
