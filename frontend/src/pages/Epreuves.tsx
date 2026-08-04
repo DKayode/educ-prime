@@ -264,8 +264,8 @@ export default function Epreuves() {
 
     setFormData({
       titre: epreuve.titre,
-      type: "Examens", // toujours forcé à Examens
-
+      // Seuls Examens / Examens Nationaux sont sélectionnables — tout ancien type retombe sur Examens.
+      type: epreuve.type === "Examens Nationaux" ? "Examens Nationaux" : "Examens",
       duree_minutes: epreuve.duree_minutes?.toString() || "",
       nombre_pages: epreuve.nombre_pages?.toString() || "",
       matiere_id: (epreuve.matiere_id || epreuve.matiere?.id)?.toString() || "",
@@ -390,13 +390,19 @@ export default function Epreuves() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="type">Type d'épreuve</Label>
-                  <Input
-                    id="type"
-                    value="Examens"
-                    readOnly
-                    className="bg-muted text-muted-foreground"
-                  />
+                  <Label htmlFor="type">Type d'épreuve *</Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value) => setFormData({ ...formData, type: value as EpreuveType })}
+                  >
+                    <SelectTrigger id="type">
+                      <SelectValue placeholder="Choisir le type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Examens">Examens</SelectItem>
+                      <SelectItem value="Examens Nationaux">Examens Nationaux</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {!editData && (
@@ -615,6 +621,7 @@ export default function Epreuves() {
                   <SelectItem value="Devoirs">Devoirs</SelectItem>
                   <SelectItem value="Concours">Concours</SelectItem>
                   <SelectItem value="Examens">Examens</SelectItem>
+                  <SelectItem value="Examens Nationaux">Examens Nationaux</SelectItem>
                 </SelectContent>
               </Select>
             </div>

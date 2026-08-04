@@ -93,12 +93,15 @@ function ResolveDialog({ submission, open, onOpenChange }: {
     const [newNames, setNewNames] = useState<Record<string, string>>({});
     const [annee, setAnnee] = useState<string>('');
     const [section, setSection] = useState<string>('');
+    const [type, setType] = useState<string>('');
 
-    // Pre-fill année/session from the submission each time the dialog opens.
+    // Pre-fill type/année/session from the submission each time the dialog opens.
     useEffect(() => {
         if (open && submission) {
             setAnnee(submission.annee != null ? String(submission.annee) : '');
             setSection(submission.section ?? '');
+            // Seuls Examens / Examens Nationaux — tout autre (ou null) retombe sur Examens.
+            setType(submission.type === 'Examens Nationaux' ? 'Examens Nationaux' : 'Examens');
         }
     }, [open, submission?.id]);
 
@@ -137,14 +140,15 @@ function ResolveDialog({ submission, open, onOpenChange }: {
         }),
     };
 
-    const reset = () => { setChosen({}); setNewNames({}); setAnnee(''); setSection(''); };
+    const reset = () => { setChosen({}); setNewNames({}); setAnnee(''); setSection(''); setType(''); };
 
-    // Année/session are free fields (not auto-persisted like the parent levels);
-    // this saves them on the submission. The titre is re-derived server-side.
+    // Type/année/session are free fields (not auto-persisted like the parent
+    // levels); this saves them on the submission. The titre is re-derived server-side.
     const saveAnneeSection = async () => {
         const patch: ResolveSubmissionData = {};
         if (annee.trim()) patch.annee = parseInt(annee);
         if (section) patch.section = section as 'normal' | 'rattrapage';
+        if (type) patch.type = type as ResolveSubmissionData['type'];
         if (Object.keys(patch).length === 0) return;
         await persistMutation.mutateAsync(patch);
         toast({ title: 'Enregistré', description: 'Modifications enregistrées.' });
@@ -196,6 +200,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
         matiere_id: 'niveau-matieres',
         annee: '',
         section: '',
+        type: '',
     };
 
     const createAndChoose = async (
@@ -347,7 +352,19 @@ function ResolveDialog({ submission, open, onOpenChange }: {
                     })}
 
                     <div className="rounded-lg border p-3 space-y-3">
-                        <Label className="font-semibold">Année &amp; session</Label>
+                        <Label className="font-semibold">Type, année &amp; session</Label>
+                        <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Type d'épreuve</Label>
+                            <Select value={type || undefined} onValueChange={(v) => setType(v)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Choisir le type…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Examens">Examens</SelectItem>
+                                    <SelectItem value="Examens Nationaux">Examens Nationaux</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
                                 <Label className="text-xs text-muted-foreground">Année</Label>
@@ -500,6 +517,7 @@ export default function EpreuvesApprobation() {
                                     <TableRow>
                                         <TableHead>Titre</TableHead>
                                         <TableHead>Chaîne (Étab. › Filière › Niveau › Matière)</TableHead>
+                                        <TableHead>Type</TableHead>
                                         <TableHead>Année</TableHead>
                                         <TableHead>Section</TableHead>
                                         <TableHead>Auteur</TableHead>
@@ -510,7 +528,7 @@ export default function EpreuvesApprobation() {
                                 <TableBody>
                                     {submissions.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="text-center text-muted-foreground">Aucune soumission trouvée.</TableCell>
+                                            <TableCell colSpan={8} className="text-center text-muted-foreground">Aucune soumission trouvée.</TableCell>
                                         </TableRow>
                                     ) : submissions.map((sub) => {
                                         const hasMissing = sub.missing.etablissement || sub.missing.filiere || sub.missing.niveau_etude || sub.missing.matiere;
@@ -523,6 +541,7 @@ export default function EpreuvesApprobation() {
                                             <TableRow key={sub.id}>
                                                 <TableCell className="font-medium max-w-[180px] truncate" title={sub.titre}>{sub.titre}</TableCell>
                                                 <TableCell><ChainCell submission={sub} /></TableCell>
+                                                <TableCell>{sub.type ? <Badge variant="secondary" className="font-normal">{sub.type}</Badge> : '-'}</TableCell>
                                                 <TableCell>{sub.annee || '-'}</TableCell>
                                                 <TableCell className="capitalize">{sub.section || '-'}</TableCell>
                                                 <TableCell>{sub.soumis_par ? `${sub.soumis_par.prenom} ${sub.soumis_par.nom}` : '-'}</TableCell>

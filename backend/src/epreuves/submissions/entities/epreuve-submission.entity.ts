@@ -5,6 +5,7 @@ import { Filiere } from '../../../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../../../niveau-etude/entities/niveau-etude.entity';
 import { Matiere } from '../../../matieres/entities/matiere.entity';
 import { Utilisateur } from '../../../utilisateurs/entities/utilisateur.entity';
+import { EpreuveType } from '../../entities/epreuve.entity';
 
 // Staging row for a user-submitted épreuve (migration 011). Each parent level is
 // EITHER an existing id (FK, ON DELETE SET NULL) OR a proposed_* name the admin
@@ -47,6 +48,11 @@ export class EpreuveSubmission {
 
   @Column({ type: 'text' })
   titre: string;
+
+  // Épreuve type carried from the submission (migration 071). Copied onto the
+  // real épreuve at approval; null for legacy/untyped submissions.
+  @Column({ type: 'enum', enum: EpreuveType, nullable: true })
+  type: EpreuveType | null;
 
   @Column({ type: 'int', nullable: true })
   annee: number | null;
