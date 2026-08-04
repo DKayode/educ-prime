@@ -57,9 +57,10 @@ export interface ResolveSubmissionData {
 
 export const epreuveSubmissionsService = {
   // Admin list. country is appended by the api GET layer.
-  async list(params?: { status?: string; page?: number; limit?: number }): Promise<PaginationResponse<EpreuveSubmission>> {
+  async list(params?: { status?: string; type?: EpreuveType; page?: number; limit?: number }): Promise<PaginationResponse<EpreuveSubmission>> {
     const qp = new URLSearchParams();
     if (params?.status) qp.append('status', params.status);
+    if (params?.type) qp.append('type', params.type);
     if (params?.page) qp.append('page', params.page.toString());
     if (params?.limit) qp.append('limit', params.limit.toString());
     const qs = qp.toString() ? `?${qp.toString()}` : '';

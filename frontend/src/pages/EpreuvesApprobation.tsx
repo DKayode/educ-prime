@@ -408,6 +408,7 @@ function ResolveDialog({ submission, open, onOpenChange }: {
 
 export default function EpreuvesApprobation() {
     const [selectedStatus, setSelectedStatus] = useState<string>("pending_approval");
+    const [selectedType, setSelectedType] = useState<string>("ALL");
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [resolveTarget, setResolveTarget] = useState<EpreuveSubmission | null>(null);
@@ -418,9 +419,10 @@ export default function EpreuvesApprobation() {
     const queryClient = useQueryClient();
 
     const { data: response, isLoading, error } = useQuery({
-        queryKey: ['admin-submissions', selectedStatus, page, limit],
+        queryKey: ['admin-submissions', selectedStatus, selectedType, page, limit],
         queryFn: () => epreuveSubmissionsService.list({
             status: selectedStatus === "ALL" ? undefined : selectedStatus,
+            type: selectedType === "ALL" ? undefined : (selectedType as EpreuveSubmission['type']),
             page,
             limit,
         }),
@@ -480,7 +482,7 @@ export default function EpreuvesApprobation() {
                     <CardDescription>
                         <div className="flex flex-col md:flex-row gap-4 mt-4 items-center">
                             <Select value={selectedStatus} onValueChange={(v) => { setSelectedStatus(v); setPage(1); }}>
-                                <SelectTrigger className="w-full md:w-[250px]">
+                                <SelectTrigger className="w-full md:w-[220px]">
                                     <SelectValue placeholder="Filtrer par statut" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -488,6 +490,16 @@ export default function EpreuvesApprobation() {
                                     <SelectItem value="approved">Approuvées</SelectItem>
                                     <SelectItem value="declined">Refusées</SelectItem>
                                     <SelectItem value="ALL">Tous les statuts</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Select value={selectedType} onValueChange={(v) => { setSelectedType(v); setPage(1); }}>
+                                <SelectTrigger className="w-full md:w-[200px]">
+                                    <SelectValue placeholder="Filtrer par type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">Tous les types</SelectItem>
+                                    <SelectItem value="Examens">Examens</SelectItem>
+                                    <SelectItem value="Examens Nationaux">Examens Nationaux</SelectItem>
                                 </SelectContent>
                             </Select>
                             <div className="flex items-center gap-2 ml-auto">

@@ -4,7 +4,7 @@ import { DataSourceResolver } from '../../config/data-source-resolver.service';
 import { MailService } from '../../mail/mail.service';
 import { FilesService } from '../../files/files.service';
 import { EpreuveSubmission } from './entities/epreuve-submission.entity';
-import { Epreuve, EpreuveSection, normalizeEpreuveType } from '../entities/epreuve.entity';
+import { Epreuve, EpreuveSection, EpreuveType, normalizeEpreuveType } from '../entities/epreuve.entity';
 import { Etablissement } from '../../etablissements/entities/etablissement.entity';
 import { Filiere } from '../../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../../niveau-etude/entities/niveau-etude.entity';
@@ -186,7 +186,9 @@ export class EpreuveSubmissionsService {
       uuid: s.uuid,
       pays: s.pays,
       titre: s.titre,
-      type: s.type ?? null,
+      // Défaut EXAMENS à l'affichage : les anciennes soumissions (type NULL en
+      // base, avant migration 071) sont présentées comme « Examens ».
+      type: normalizeEpreuveType(s.type),
       annee: s.annee,
       section: s.section,
       status: s.status,
@@ -232,13 +234,25 @@ export class EpreuveSubmissionsService {
       .leftJoinAndSelect('m_filiere.etablissement', 'm_etab');
   }
 
-  // Admin queue: list submissions (optional status filter), with parents resolved
-  // and missing ones flagged.
+  // Type filter (Examens / Examens Nationaux). Only these two values are
+  // meaningful; anything else is ignored. « Examens » inclut aussi les anciennes
+  // soumissions à type NULL (présentées comme Examens), pour rester cohérent avec
+  // le défaut d'affichage.
+  private applyTypeFilter(qb: import('typeorm').SelectQueryBuilder<EpreuveSubmission>, type?: string) {
+    if (type === EpreuveType.EXAMEN_NATIONAL) {
+      qb.andWhere('submission.type = :ftype', { ftype: EpreuveType.EXAMEN_NATIONAL });
+    } else if (type === EpreuveType.EXAMENS) {
+      qb.andWhere('(submission.type = :ftype OR submission.type IS NULL)', { ftype: EpreuveType.EXAMENS });
+    }
+  }
+
+  // Admin queue: list submissions (optional status + type filters), with parents
+  // resolved and missing ones flagged.
   async findAllForAdmin(
     pays: string,
-    opts: { status?: ServiceStatusEnum; page?: number; limit?: number },
+    opts: { status?: ServiceStatusEnum; type?: string; page?: number; limit?: number },
   ): Promise<PaginationResponse<ReturnType<EpreuveSubmissionsService['toSubmissionResponse']>>> {
-    const { status, page = 1, limit = 10 } = opts;
+    const { status, type, page = 1, limit = 10 } = opts;
     const qb = this.baseSubmissionQuery()
       .leftJoinAndSelect('submission.soumis_par', 'soumis_par')
       .where('submission.pays = :pays', { pays })
@@ -249,6 +263,7 @@ export class EpreuveSubmissionsService {
     if (status) {
       qb.andWhere('submission.status = :status', { status });
     }
+    this.applyTypeFilter(qb, type);
 
     const [rows, total] = await qb.getManyAndCount();
     return {
@@ -269,9 +284,9 @@ export class EpreuveSubmissionsService {
   async findMine(
     pays: string,
     soumisParId: number,
-    opts: { status?: ServiceStatusEnum; page?: number; limit?: number },
+    opts: { status?: ServiceStatusEnum; type?: string; page?: number; limit?: number },
   ): Promise<PaginationResponse<ReturnType<EpreuveSubmissionsService['toSubmissionResponse']>>> {
-    const { status, page = 1, limit = 10 } = opts;
+    const { status, type, page = 1, limit = 10 } = opts;
     const qb = this.baseSubmissionQuery()
       .where('submission.pays = :pays', { pays })
       .andWhere('submission.soumis_par_id = :soumisParId', { soumisParId })
@@ -282,6 +297,7 @@ export class EpreuveSubmissionsService {
     if (status) {
       qb.andWhere('submission.status = :status', { status });
     }
+    this.applyTypeFilter(qb, type);
 
     const [rows, total] = await qb.getManyAndCount();
     return {
