@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, Logger, BadRequestException } from '@nestjs/common';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { Repository, Like, FindOptionsWhere, Brackets } from 'typeorm';
-import { Epreuve } from './entities/epreuve.entity';
+import { Epreuve, EpreuveType, normalizeEpreuveType } from './entities/epreuve.entity';
 import { Matiere } from '../matieres/entities/matiere.entity';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { CreerEpreuveDto } from './dto/creer-epreuve.dto';
@@ -92,7 +92,8 @@ export class EpreuvesService {
     newEpreuve.professeur_id = professeurId;
     newEpreuve.date_publication = creerEpreuveDto.date_publication;
     newEpreuve.nombre_pages = creerEpreuveDto.nombre_pages;
-    newEpreuve.type = creerEpreuveDto.type;
+    // Seuls EXAMENS / EXAMENS NATIONAUX sont valides — tout le reste → EXAMENS.
+    newEpreuve.type = normalizeEpreuveType(creerEpreuveDto.type);
     newEpreuve.annee = creerEpreuveDto.annee;
     if (creerEpreuveDto.section !== undefined) {
       newEpreuve.section = creerEpreuveDto.section;
@@ -207,6 +208,8 @@ export class EpreuvesService {
     }
 
     Object.assign(epreuve, majEpreuveDto);
+    // Contrainte type: seuls EXAMENS / EXAMENS NATIONAUX — coercition si fourni.
+    if (majEpreuveDto.type !== undefined) epreuve.type = normalizeEpreuveType(majEpreuveDto.type);
 
     // Parent changed → re-derive pays from the new Matiere.
     if (majEpreuveDto.matiere_id) {

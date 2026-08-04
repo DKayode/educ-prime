@@ -4,7 +4,7 @@ import { DataSourceResolver } from '../../config/data-source-resolver.service';
 import { MailService } from '../../mail/mail.service';
 import { FilesService } from '../../files/files.service';
 import { EpreuveSubmission } from './entities/epreuve-submission.entity';
-import { Epreuve, EpreuveSection } from '../entities/epreuve.entity';
+import { Epreuve, EpreuveSection, normalizeEpreuveType } from '../entities/epreuve.entity';
 import { Etablissement } from '../../etablissements/entities/etablissement.entity';
 import { Filiere } from '../../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../../niveau-etude/entities/niveau-etude.entity';
@@ -155,6 +155,8 @@ export class EpreuveSubmissionsService {
     submission.matiere_id = dto.matiere_id ?? null;
     submission.proposed_matiere = dto.proposed_matiere ?? null;
     submission.titre = titre;
+    // Seuls EXAMENS / EXAMENS NATIONAUX — tout le reste (ou vide) → EXAMENS.
+    submission.type = normalizeEpreuveType(dto.type);
     submission.annee = dto.annee ?? null;
     submission.section = section;
     submission.pays = submissionPays;
@@ -184,6 +186,7 @@ export class EpreuveSubmissionsService {
       uuid: s.uuid,
       pays: s.pays,
       titre: s.titre,
+      type: s.type ?? null,
       annee: s.annee,
       section: s.section,
       status: s.status,
@@ -378,6 +381,7 @@ export class EpreuveSubmissionsService {
 
     if (dto.annee !== undefined) patch.annee = dto.annee ?? null;
     if (dto.section !== undefined && dto.section != null) patch.section = dto.section;
+    if (dto.type !== undefined) patch.type = normalizeEpreuveType(dto.type);
 
     if (Object.keys(patch).length > 0) {
       await this.submissionsRepository.update({ id }, patch);
@@ -456,6 +460,8 @@ export class EpreuveSubmissionsService {
     epreuve.professeur_id = submission.soumis_par_id;
     epreuve.annee = submission.annee ?? undefined;
     epreuve.section = section;
+    // Seuls EXAMENS / EXAMENS NATIONAUX ; tout autre type (ou absent) → EXAMENS.
+    epreuve.type = normalizeEpreuveType(submission.type);
     epreuve.duree_minutes = 0;
     // Seed empty; promoteFile (below) fills these once we have the épreuve uuid.
     epreuve.file_path = '';

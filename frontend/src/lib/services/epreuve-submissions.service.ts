@@ -1,5 +1,6 @@
 import { api } from '../api';
 import type { PaginationResponse } from '../types/pagination';
+import type { EpreuveType } from '../types';
 
 export interface SubmissionParentRef {
   id: number;
@@ -19,6 +20,7 @@ export interface EpreuveSubmission {
   uuid: string;
   pays: string;
   titre: string;
+  type?: EpreuveType | null;
   annee?: number | null;
   section: string;
   status: string;
@@ -50,6 +52,7 @@ export interface ResolveSubmissionData {
   matiere_id?: number;
   annee?: number;
   section?: 'normal' | 'rattrapage';
+  type?: EpreuveType;
 }
 
 export const epreuveSubmissionsService = {

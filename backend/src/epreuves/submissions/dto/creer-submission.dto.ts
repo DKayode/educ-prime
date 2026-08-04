@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsInt, IsOptional, IsEnum } from 'class-validator';
-import { EpreuveSection } from '../../entities/epreuve.entity';
+import { EpreuveSection, EpreuveType } from '../../entities/epreuve.entity';
 
 // STEP 1 body. Per parent level, the client sends EITHER an existing id OR a
 // proposed name (when that parent doesn't exist yet); a level may be omitted
@@ -62,4 +62,9 @@ export class CreerSubmissionDto {
   @IsOptional()
   @IsEnum(EpreuveSection, { message: 'La section doit être une valeur valide' })
   section?: EpreuveSection;
+
+  @ApiProperty({ enum: EpreuveType, required: false, description: "Type d'épreuve (Examens Nationaux, Examens, Concours, …)" })
+  @IsOptional()
+  @IsEnum(EpreuveType, { message: 'Le type doit être une valeur valide' })
+  type?: EpreuveType;
 }
