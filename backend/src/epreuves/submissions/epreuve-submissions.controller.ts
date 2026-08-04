@@ -9,6 +9,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { RoleType } from '../../utilisateurs/entities/utilisateur.entity';
 import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
+import { EpreuveType } from '../entities/epreuve.entity';
 import { CurrentCountry } from '../../common/decorators/current-country.decorator';
 
 // Mounted at 'epreuves/submissions'; registered BEFORE EpreuvesController so
@@ -34,17 +35,20 @@ export class EpreuveSubmissionsController {
   @Get('mine')
   @ApiOperation({ summary: 'Mes soumissions d\'épreuves — les soumissions de l\'utilisateur connecté, infos associées résolues/proposées' })
   @ApiQuery({ name: 'status', required: false, enum: ServiceStatusEnum, description: 'Filtrer par statut (défaut: tous)' })
+  @ApiQuery({ name: 'type', required: false, enum: [EpreuveType.EXAMENS, EpreuveType.EXAMEN_NATIONAL], description: "Filtrer par type d'épreuve (Examens ou Examens Nationaux)" })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   async findMine(
     @CurrentCountry() pays: string,
     @Request() req,
     @Query('status') status?: ServiceStatusEnum,
+    @Query('type') type?: EpreuveType,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     return this.submissionsService.findMine(pays, req.user.utilisateurId, {
       status,
+      type,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 10,
     });
@@ -55,16 +59,19 @@ export class EpreuveSubmissionsController {
   @Get()
   @ApiOperation({ summary: 'Lister les soumissions (Admin) — parents manquants signalés' })
   @ApiQuery({ name: 'status', required: false, enum: ServiceStatusEnum, description: 'Filtrer par statut (ex: pending_approval)' })
+  @ApiQuery({ name: 'type', required: false, enum: [EpreuveType.EXAMENS, EpreuveType.EXAMEN_NATIONAL], description: "Filtrer par type d'épreuve (Examens ou Examens Nationaux)" })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   async findAll(
     @CurrentCountry() pays: string,
     @Query('status') status?: ServiceStatusEnum,
+    @Query('type') type?: EpreuveType,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     return this.submissionsService.findAllForAdmin(pays, {
       status,
+      type,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 10,
     });
