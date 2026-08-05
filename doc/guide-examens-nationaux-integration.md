@@ -77,7 +77,8 @@ Query : `page`, `limit`, `search`, `sort_by` (`nom` | `date_creation`),
 ```
 > `matieres-examen` et `filieres-examen` ont **exactement la même forme** —
 > ce sont deux lookups parallèles. `GET /series?type_examen=5` aussi.
-> Query commun : `page`, `limit`, `search`, `type_examen`.
+> Query commun : `page`, `limit`, `search`, `type_examen`, `sort_order`
+> (`ASC` | `DESC`, défaut `ASC` — trie sur `nom`).
 
 ### Créer un lookup (admin)
 
@@ -136,6 +137,10 @@ renvoyé — voir §5 (même mécanisme que pour une soumission, entité
 | **`filiere_examen`** | id de filière |
 | `annee` | année exacte |
 | `page`, `limit` | pagination |
+
+> Le tri est **fixe** : `annee DESC`, puis `titre ASC`. `sort_order` est accepté
+> par le DTO (hérité de la pagination commune) mais **ignoré** — ne comptez pas
+> dessus.
 
 ```bash
 GET /examens-nationaux?country=benin&type_examen=5&filiere_examen=1
@@ -202,7 +207,11 @@ Drapeaux (calculés côté serveur, utiles pour l'UI) :
 > Conservez l'**`uuid`** : il sert à téléverser le fichier (§5).
 
 `GET /examens-nationaux/submissions/mine?country=benin&status=…` liste les
-soumissions de l'utilisateur (mêmes lignes + drapeaux).
+soumissions de l'utilisateur (mêmes lignes + drapeaux). Accepte aussi `page`,
+`limit` et les mêmes filtres id-based que la file admin — `type_examen`,
+`matiere_examen`, `filiere_examen`. Tri fixe : `date_creation DESC` (la plus
+récente d'abord, contrairement à la file admin) ; `search` / `sort_order` y sont
+également ignorés.
 
 ---
 
@@ -243,6 +252,11 @@ défaut `pending_approval`), `page`, `limit`, et les **filtres** :
 > Les filtres matière/filière/type sont **id-based** : ils ne remontent que les
 > soumissions **déjà résolues** à un lookup réel — une soumission encore en
 > *nom proposé* (id absent) n'apparaît sous aucun de ces filtres.
+
+> `search` et `sort_order` sont acceptés par le DTO (hérités de la pagination
+> commune) mais **ignorés** par cet endpoint : il n'y a ni recherche plein texte
+> ni tri configurable sur la file. Tri fixe : `date_creation ASC` — la plus
+> ancienne soumission d'abord (file d'attente FIFO).
 
 ### Résoudre — `PATCH /examens-nationaux/submissions/:id`
 
@@ -299,7 +313,7 @@ aux examens nationaux). Le crédit est :
 | GET | `/examens-nationaux/annees` | années distinctes |
 | POST | `/examens-nationaux/submissions` | soumettre (user) |
 | GET | `/examens-nationaux/submissions` | file admin (+ filtres) |
-| GET | `/examens-nationaux/submissions/mine` | mes soumissions |
+| GET | `/examens-nationaux/submissions/mine` | mes soumissions (+ mêmes filtres) |
 | PATCH | `/…/submissions/:id` | résoudre |
 | PATCH | `/…/submissions/:id/approve` \| `/decline` | approuver / refuser |
 | POST | `/files/examens_nationaux(_submissions)/:uuid/file/upload-url` | URL présignée PDF |
