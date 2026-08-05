@@ -26,7 +26,9 @@ export class ExamensNationauxSubmissionsController {
     @Get('mine')
     @ApiOperation({ summary: 'Mes soumissions d\'examens nationaux' })
     findMine(@CurrentCountry() pays: string, @Request() req, @Query() query: ExamenNationalSubmissionsQueryDto) {
-        return this.service.findMine(pays, req.user.utilisateurId, query.status, query);
+        return this.service.findMine(pays, req.user.utilisateurId, query.status, query, {
+            type_examen: query.type_examen, matiere_examen: query.matiere_examen, filiere_examen: query.filiere_examen,
+        });
     }
 
     @UseGuards(JwtAuthGuard, RoleGuard)
@@ -34,7 +36,9 @@ export class ExamensNationauxSubmissionsController {
     @Get()
     @ApiOperation({ summary: 'Lister les soumissions (Admin)' })
     findAll(@CurrentCountry() pays: string, @Query() query: ExamenNationalSubmissionsQueryDto) {
-        return this.service.findAll(pays, query.status, query);
+        return this.service.findAll(pays, query.status, query, {
+            type_examen: query.type_examen, matiere_examen: query.matiere_examen, filiere_examen: query.filiere_examen,
+        });
     }
 
     @UseGuards(JwtAuthGuard, RoleGuard)

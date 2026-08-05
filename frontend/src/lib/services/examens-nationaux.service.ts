@@ -122,9 +122,9 @@ export interface ResolveExamenSubmissionData {
 }
 
 export const examensNationauxSubmissionsService = {
-    list: (params?: PaginationParams & { status?: string }) =>
+    list: (params?: PaginationParams & { status?: string; type_examen?: number; matiere_examen?: number; filiere_examen?: number }) =>
         api.get<PaginationResponse<ExamenNationalSubmission>>(`/examens-nationaux/submissions${buildPaginationQuery({ status: 'pending_approval', ...params } as PaginationParams)}`),
-    listMine: (params?: PaginationParams & { status?: string }) =>
+    listMine: (params?: PaginationParams & { status?: string; type_examen?: number; matiere_examen?: number; filiere_examen?: number }) =>
         api.get<PaginationResponse<ExamenNationalSubmission>>(`/examens-nationaux/submissions/mine${buildPaginationQuery(params)}`),
     createSubmission: (data: {
         type_examen_id?: number; proposed_type?: string;

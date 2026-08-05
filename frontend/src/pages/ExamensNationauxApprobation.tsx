@@ -592,10 +592,19 @@ export default function ExamensNationauxApprobation() {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [status, setStatus] = useState<string>('pending_approval');
+    const [filterType, setFilterType] = useState<string>('ALL');
+    const [filterMatiere, setFilterMatiere] = useState<string>('ALL');
+    const [filterFiliere, setFilterFiliere] = useState<string>('ALL');
+    const filterTypeId = filterType !== 'ALL' ? Number(filterType) : undefined;
 
     const { data: response, isLoading, error } = useQuery({
-        queryKey: ['examens-nationaux-submissions', status, page, limit],
-        queryFn: () => examensNationauxSubmissionsService.list({ status, page, limit }),
+        queryKey: ['examens-nationaux-submissions', status, filterType, filterMatiere, filterFiliere, page, limit],
+        queryFn: () => examensNationauxSubmissionsService.list({
+            status, page, limit,
+            type_examen: filterTypeId,
+            matiere_examen: filterMatiere !== 'ALL' ? Number(filterMatiere) : undefined,
+            filiere_examen: filterFiliere !== 'ALL' ? Number(filterFiliere) : undefined,
+        }),
     });
 
     // Options for resolving the type (fetched once, generous page size). Série
@@ -604,10 +613,23 @@ export default function ExamensNationauxApprobation() {
         queryKey: ['types-examen'],
         queryFn: () => typesExamenService.getAll({ limit: 1000 }),
     });
+    // Matière/filière filter options, scoped to the selected type filter.
+    const { data: filterMatieresResp } = useQuery({
+        queryKey: ['matieres-examen-filter', filterTypeId],
+        queryFn: () => matieresExamenService.getAll({ type_examen: filterTypeId!, limit: 200 }),
+        enabled: filterTypeId != null,
+    });
+    const { data: filterFilieresResp } = useQuery({
+        queryKey: ['filieres-examen-filter', filterTypeId],
+        queryFn: () => filieresExamenService.getAll({ type_examen: filterTypeId!, limit: 200 }),
+        enabled: filterTypeId != null,
+    });
 
     const submissions = response?.data || [];
     const totalPages = response?.totalPages || 1;
     const types = (typesResp?.data || []).map(t => ({ id: t.id, nom: t.nom }));
+    const filterMatieres = filterMatieresResp?.data || [];
+    const filterFilieres = filterFilieresResp?.data || [];
 
     const handleLimitChange = (val: string) => {
         setLimit(parseInt(val));
@@ -617,6 +639,10 @@ export default function ExamensNationauxApprobation() {
     const handleStatusChange = (val: string) => {
         setStatus(val);
         setPage(1);
+    };
+
+    const onFilterTypeChange = (val: string) => {
+        setFilterType(val); setFilterMatiere('ALL'); setFilterFiliere('ALL'); setPage(1);
     };
 
     return (
@@ -635,16 +661,37 @@ export default function ExamensNationauxApprobation() {
                     <CardTitle>Soumissions d'examens nationaux</CardTitle>
                     <CardDescription>
                         <div className="flex flex-col md:flex-row gap-4 mt-4 items-center">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-sm text-muted-foreground whitespace-nowrap">Statut:</span>
                                 <Select value={status} onValueChange={handleStatusChange}>
-                                    <SelectTrigger className="w-40">
+                                    <SelectTrigger className="w-36">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {STATUS_OPTIONS.map(o => (
                                             <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                                         ))}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={filterType} onValueChange={onFilterTypeChange}>
+                                    <SelectTrigger className="w-40"><SelectValue placeholder="Type" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">Tous les types</SelectItem>
+                                        {types.map(t => <SelectItem key={t.id} value={String(t.id)}>{t.nom}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={filterMatiere} onValueChange={(v) => { setFilterMatiere(v); setPage(1); }} disabled={filterTypeId == null}>
+                                    <SelectTrigger className="w-40"><SelectValue placeholder={filterTypeId == null ? "Matière (type ?)" : "Matière"} /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">Toutes les matières</SelectItem>
+                                        {filterMatieres.map(m => <SelectItem key={m.id} value={String(m.id)}>{m.nom}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={filterFiliere} onValueChange={(v) => { setFilterFiliere(v); setPage(1); }} disabled={filterTypeId == null}>
+                                    <SelectTrigger className="w-40"><SelectValue placeholder={filterTypeId == null ? "Filière (type ?)" : "Filière"} /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">Toutes les filières</SelectItem>
+                                        {filterFilieres.map(f => <SelectItem key={f.id} value={String(f.id)}>{f.nom}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </div>

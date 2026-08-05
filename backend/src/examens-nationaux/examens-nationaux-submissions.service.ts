@@ -50,6 +50,19 @@ export class ExamensNationauxSubmissionsService {
         };
     }
 
+    // Optional classifier filters (id-based). Only matches submissions already
+    // resolved to a real type/matière/filière — proposed-but-unresolved rows are
+    // excluded when a specific id filter is applied.
+    private applyClassifierFilters(
+        qb: import('typeorm').SelectQueryBuilder<ExamenNationalSubmission>,
+        filters?: { type_examen?: number; matiere_examen?: number; filiere_examen?: number },
+    ) {
+        if (!filters) return;
+        if (filters.type_examen != null) qb.andWhere('s.type_examen_id = :ftype', { ftype: filters.type_examen });
+        if (filters.matiere_examen != null) qb.andWhere('s.matiere_examen_id = :fmat', { fmat: filters.matiere_examen });
+        if (filters.filiere_examen != null) qb.andWhere('s.filiere_examen_id = :ffil', { ffil: filters.filiere_examen });
+    }
+
     private async loadOrThrow(pays: string, id: number): Promise<ExamenNationalSubmission> {
         const s = await this.subRepo.findOne({
             where: { id, pays },
@@ -104,7 +117,10 @@ export class ExamensNationauxSubmissionsService {
         return this.withMissingFlags(saved);
     }
 
-    async findAll(pays: string, status: string | undefined, paginationDto: PaginationDto): Promise<PaginationResponse<any>> {
+    async findAll(
+        pays: string, status: string | undefined, paginationDto: PaginationDto,
+        filters?: { type_examen?: number; matiere_examen?: number; filiere_examen?: number },
+    ): Promise<PaginationResponse<any>> {
         const { page = 1, limit = 10 } = paginationDto;
         // 'all' → no status filter; undefined → default to pending_approval.
         const effectiveStatus = status === 'all' ? null : (status || ServiceStatusEnum.PENDING_APPROVAL);
@@ -119,11 +135,15 @@ export class ExamensNationauxSubmissionsService {
             .orderBy('s.date_creation', 'ASC')
             .skip((page - 1) * limit).take(limit);
         if (effectiveStatus) qb.andWhere('s.status = :status', { status: effectiveStatus });
+        this.applyClassifierFilters(qb, filters);
         const [rows, total] = await qb.getManyAndCount();
         return { data: rows.map(r => this.withMissingFlags(r)), total, page, limit, totalPages: Math.ceil(total / limit) };
     }
 
-    async findMine(pays: string, soumisParId: number, status: string | undefined, paginationDto: PaginationDto): Promise<PaginationResponse<any>> {
+    async findMine(
+        pays: string, soumisParId: number, status: string | undefined, paginationDto: PaginationDto,
+        filters?: { type_examen?: number; matiere_examen?: number; filiere_examen?: number },
+    ): Promise<PaginationResponse<any>> {
         const { page = 1, limit = 10 } = paginationDto;
         const qb = this.subRepo.createQueryBuilder('s')
             .leftJoinAndSelect('s.type_examen', 'type_examen')
@@ -135,6 +155,7 @@ export class ExamensNationauxSubmissionsService {
             .orderBy('s.date_creation', 'DESC')
             .skip((page - 1) * limit).take(limit);
         if (status) qb.andWhere('s.status = :status', { status });
+        this.applyClassifierFilters(qb, filters);
         const [rows, total] = await qb.getManyAndCount();
         return { data: rows.map(r => this.withMissingFlags(r)), total, page, limit, totalPages: Math.ceil(total / limit) };
     }

@@ -122,6 +122,12 @@ export default function ExamensNationaux() {
     const [page, setPage] = useState(1);
     const [limit] = useState(10);
 
+    // ---- List filters (Type / Matière / Filière) ------------------------
+    const [filterType, setFilterType] = useState<string>("ALL");
+    const [filterMatiere, setFilterMatiere] = useState<string>("ALL");
+    const [filterFiliere, setFilterFiliere] = useState<string>("ALL");
+    const filterTypeId = filterType !== "ALL" ? Number(filterType) : undefined;
+
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
 
@@ -211,11 +217,37 @@ export default function ExamensNationaux() {
     });
     const eFilieres = eFilieresResp?.data || [];
 
+    // ---- Filter-dropdown options -----------------------------------------
+    const { data: filterTypesResp } = useQuery({
+        queryKey: ["types-examen-filter"],
+        queryFn: () => typesExamenService.getAll({ limit: 200 }),
+    });
+    const filterTypes = filterTypesResp?.data || [];
+    // Matière/filière options are scoped to the selected type filter.
+    const { data: filterMatieresResp } = useQuery({
+        queryKey: ["matieres-examen-filter", filterTypeId],
+        queryFn: () => matieresExamenService.getAll({ type_examen: filterTypeId!, limit: 200 }),
+        enabled: filterTypeId != null,
+    });
+    const filterMatieres = filterMatieresResp?.data || [];
+    const { data: filterFilieresResp } = useQuery({
+        queryKey: ["filieres-examen-filter", filterTypeId],
+        queryFn: () => filieresExamenService.getAll({ type_examen: filterTypeId!, limit: 200 }),
+        enabled: filterTypeId != null,
+    });
+    const filterFilieres = filterFilieresResp?.data || [];
+
+    // Changing the type filter invalidates matière/filière selections.
+    const onFilterTypeChange = (v: string) => { setFilterType(v); setFilterMatiere("ALL"); setFilterFiliere("ALL"); setPage(1); };
+
     // ---- List query ------------------------------------------------------
     const { data: itemsResponse, isLoading, isPlaceholderData } = useQuery({
-        queryKey: ["examens-nationaux", debouncedSearch, page, limit],
+        queryKey: ["examens-nationaux", debouncedSearch, filterType, filterMatiere, filterFiliere, page, limit],
         queryFn: () => examensNationauxService.getAll({
             search: debouncedSearch || undefined,
+            type_examen: filterTypeId,
+            matiere_examen: filterMatiere !== "ALL" ? Number(filterMatiere) : undefined,
+            filiere_examen: filterFiliere !== "ALL" ? Number(filterFiliere) : undefined,
             page,
             limit,
         }),
@@ -594,7 +626,7 @@ export default function ExamensNationaux() {
                     <CardTitle>Liste des examens nationaux</CardTitle>
                     <CardDescription>
                         {items.length} élément{items.length > 1 ? "s" : ""}
-                        <div className="grid grid-cols-1 gap-4 mt-4">
+                        <div className="grid grid-cols-1 gap-3 mt-4">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
@@ -603,6 +635,29 @@ export default function ExamensNationaux() {
                                     onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                                     className="pl-10"
                                 />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <Select value={filterType} onValueChange={onFilterTypeChange}>
+                                    <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">Tous les types</SelectItem>
+                                        {filterTypes.map((t) => <SelectItem key={t.id} value={String(t.id)}>{t.nom}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={filterMatiere} onValueChange={(v) => { setFilterMatiere(v); setPage(1); }} disabled={filterTypeId == null}>
+                                    <SelectTrigger><SelectValue placeholder={filterTypeId == null ? "Matière (choisir un type)" : "Matière"} /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">Toutes les matières</SelectItem>
+                                        {filterMatieres.map((m) => <SelectItem key={m.id} value={String(m.id)}>{m.nom}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={filterFiliere} onValueChange={(v) => { setFilterFiliere(v); setPage(1); }} disabled={filterTypeId == null}>
+                                    <SelectTrigger><SelectValue placeholder={filterTypeId == null ? "Filière (choisir un type)" : "Filière"} /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">Toutes les filières</SelectItem>
+                                        {filterFilieres.map((f) => <SelectItem key={f.id} value={String(f.id)}>{f.nom}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                     </CardDescription>

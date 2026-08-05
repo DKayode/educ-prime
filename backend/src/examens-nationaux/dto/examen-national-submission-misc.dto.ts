@@ -23,4 +23,16 @@ export class DeclinerExamenNationalSubmissionDto {
 export class ExamenNationalSubmissionsQueryDto extends PaginationDto {
     @ApiProperty({ required: false }) @IsOptional() @IsString()
     status?: string;
+
+    @ApiProperty({ required: false, description: "Filtrer par type d'examen (id)" })
+    @IsOptional() @Type(() => Number) @IsInt()
+    type_examen?: number;
+
+    @ApiProperty({ required: false, description: 'Filtrer par matière (id) — soumissions résolues uniquement' })
+    @IsOptional() @Type(() => Number) @IsInt()
+    matiere_examen?: number;
+
+    @ApiProperty({ required: false, description: 'Filtrer par filière (id) — soumissions résolues uniquement' })
+    @IsOptional() @Type(() => Number) @IsInt()
+    filiere_examen?: number;
 }
