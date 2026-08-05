@@ -7,11 +7,20 @@ export enum EpreuveType {
   DEVOIRS = 'Devoirs',
   CONCOURS = 'Concours',
   EXAMENS = 'Examens',
+  EXAMEN_NATIONAL = 'Examens Nationaux',
 }
 
 export enum EpreuveSection {
   NORMAL = 'normal',
   RATTRAPAGE = 'rattrapage',
+}
+
+// Les épreuves n'acceptent plus que EXAMENS ou EXAMENS NATIONAUX. Toute autre
+// valeur — un ancien type (Interrogation/Devoirs/Concours), une valeur vide ou
+// invalide — est ramenée à EXAMENS. Point unique de vérité, appliqué à chaque
+// écriture (création dashboard, mise à jour, soumission, approbation).
+export function normalizeEpreuveType(type?: EpreuveType | string | null): EpreuveType {
+  return type === EpreuveType.EXAMEN_NATIONAL ? EpreuveType.EXAMEN_NATIONAL : EpreuveType.EXAMENS;
 }
 
 @Entity('epreuves')

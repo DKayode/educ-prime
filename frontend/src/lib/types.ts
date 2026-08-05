@@ -95,7 +95,7 @@ export interface Utilisateur {
   filleulsCount?: number;
 }
 
-export type EpreuveType = 'Interrogation' | 'Devoirs' | 'Concours' | 'Examens';
+export type EpreuveType = 'Interrogation' | 'Devoirs' | 'Concours' | 'Examens' | 'Examens Nationaux';
 
 export type EpreuveSection = 'normal' | 'rattrapage';
 
