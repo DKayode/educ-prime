@@ -16,8 +16,8 @@ qui n'est **pas** rattachée à la hiérarchie scolaire. Il est classé par des
 |---|---|---|
 | **Type d'examen** | `types-examen` (BAC, BEPC, BTS, CAP, Licence…) | **oui** |
 | **Série** | `series` (A, C, D, G2…) | non |
-| **Matière** | `matieres-examen` (Mathématiques, Droit Civil…) | *optionnelle* |
-| **Filière** | `filieres-examen` (Droit, Économie…) | *optionnelle* |
+| **Matière** | `matieres-examen` (Mathématiques, Droit Civil…) | optionnelle |
+| **Filière** | `filieres-examen` (Droit, Économie…) | optionnelle |
 | **Section** | champ texte (`Normal`, `Remplacement`) | non |
 | **Année** | entier | **oui** |
 
@@ -33,8 +33,7 @@ qui n'est **pas** rattachée à la hiérarchie scolaire. Il est classé par des
 
 Comme les épreuves / concours, la ressource expose **deux voies** :
 - **Admin** : CRUD direct (`/examens-nationaux`).
-- **Utilisateur** : soumission → file d'attente → approbation admin
-  (`/examens-nationaux/submissions`).
+- **Utilisateur** : soumission → file d'attente → approbation admin (`/examens-nationaux/submissions`).
 
 ### Authentification & pays
 
@@ -118,7 +117,7 @@ Réponse `201` (réelle) :
 ```
 
 > `matiere_examen_id` **ni** `filiere_examen_id` fourni ⇒ `400`
-> « *Au moins une matière ou une filière est requise.* »
+> « Au moins une matière ou une filière est requise. »
 
 ### Fichier (PDF)
 
@@ -181,7 +180,7 @@ curl -X POST "https://<api>/examens-nationaux/submissions" \
         "annee": 2027, "section": "Normal", "pays": "benin" }'
 ```
 
-Réponse `201` (réelle) — noter les **drapeaux `missing_*`** :
+Réponse `201` (réelle) — noter les **drapeaux** `missing_*` :
 
 ```json
 {
@@ -199,10 +198,8 @@ Réponse `201` (réelle) — noter les **drapeaux `missing_*`** :
 
 Drapeaux (calculés côté serveur, utiles pour l'UI) :
 - `missing_type` — type non résolu (id absent).
-- `missing_serie` / `missing_matiere` / `missing_filiere` — un **nom proposé**
-  n'a pas encore été résolu en id réel.
-- `missing_classifier` — **ni** matière **ni** filière résolue (bloque
-  l'approbation).
+- `missing_serie` / `missing_matiere` / `missing_filiere` — un **nom proposé** n'a pas encore été résolu en id réel.
+- `missing_classifier` — **ni** matière **ni** filière résolue (bloque l'approbation).
 
 > Conservez l'**`uuid`** : il sert à téléverser le fichier (§5).
 
@@ -251,7 +248,7 @@ défaut `pending_approval`), `page`, `limit`, et les **filtres** :
 
 > Les filtres matière/filière/type sont **id-based** : ils ne remontent que les
 > soumissions **déjà résolues** à un lookup réel — une soumission encore en
-> *nom proposé* (id absent) n'apparaît sous aucun de ces filtres.
+> **nom proposé** (id absent) n'apparaît sous aucun de ces filtres.
 
 > `search` et `sort_order` sont acceptés par le DTO (hérités de la pagination
 > commune) mais **ignorés** par cet endpoint : il n'y a ni recherche plein texte
@@ -294,8 +291,7 @@ l'**auteur** est crédité du **`rewardPerExam`** standard — **le même montan
 pour une épreuve ou un concours validé** (il n'y a pas de récompense spécifique
 aux examens nationaux). Le crédit est :
 - **conditionné** à `walletEnabled` + `rewardEnabled` ;
-- **idempotent** (référence `EXAM_REWARD:<uuid de l'examen>`) — ré-approuver ne
-  crédite jamais deux fois ;
+- **idempotent** (référence `EXAM_REWARD:<uuid de l'examen>`) — ré-approuver ne crédite jamais deux fois ;
 - **best-effort** : un échec wallet n'annule jamais l'approbation ;
 - **en attente** (`pending`) si `reviewDelayHours > 0`, sinon **disponible**.
 
