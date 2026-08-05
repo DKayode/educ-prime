@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { Injectable, NotFoundException, Logger, BadRequestException, ConflictException } from '@nestjs/common';
+import { IsNull, Repository } from 'typeorm';
 import { DataSourceResolver } from '../config/data-source-resolver.service';
 import { ExamenNationalSubmission } from './entities/examen-national-submission.entity';
 import { ExamenNational } from './entities/examen-national.entity';
@@ -33,6 +33,98 @@ export class ExamensNationauxSubmissionsService {
     private get serieRepo(): Repository<Serie> { return this.resolver.getRepository(Serie); }
     private get matiereRepo(): Repository<MatiereExamen> { return this.resolver.getRepository(MatiereExamen); }
     private get filiereRepo(): Repository<FiliereExamen> { return this.resolver.getRepository(FiliereExamen); }
+
+    // --- Anti-doublon -------------------------------------------------------
+    // Un examen national est identifié par (type, série, matière, filière,
+    // année, section). Un niveau peut arriver soit en id, soit en nom proposé :
+    // on ramène les deux à la même clé pour qu'une soumission « Mathématiques »
+    // en texte libre entre en collision avec `matiere_examen_id` équivalent.
+
+    private norm(s?: string | null): string | null {
+        if (!s) return null;
+        const n = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+        return n || null;
+    }
+
+    private async loadLookups(pays: string) {
+        const [types, series, matieres, filieres] = await Promise.all([
+            this.typeRepo.find({ where: { pays } }),
+            this.serieRepo.find({ where: { pays } }),
+            this.matiereRepo.find({ where: { pays } }),
+            this.filiereRepo.find({ where: { pays } }),
+        ]);
+        return { types, series, matieres, filieres };
+    }
+
+    /** `#<id>` si le niveau est (ou correspond à) un lookup existant, `~<nom>` sinon, `-` si absent. */
+    private levelKey(
+        id: number | null | undefined, proposed: string | null | undefined,
+        pool: Array<{ id: number; nom: string; type_examen_id?: number }>, typeId?: number | null,
+    ): string {
+        if (id != null) return `#${id}`;
+        const n = this.norm(proposed);
+        if (!n) return '-';
+        const hit = pool.find((p) => this.norm(p.nom) === n
+            && (p.type_examen_id == null || typeId == null || p.type_examen_id === typeId));
+        return hit ? `#${hit.id}` : `~${n}`;
+    }
+
+    private signature(
+        row: {
+            type_examen_id?: number | null; proposed_type?: string | null;
+            serie_id?: number | null; proposed_serie?: string | null;
+            matiere_examen_id?: number | null; proposed_matiere?: string | null;
+            filiere_examen_id?: number | null; proposed_filiere?: string | null;
+            annee?: number | null; section?: string | null;
+        },
+        lookups: Awaited<ReturnType<ExamensNationauxSubmissionsService['loadLookups']>>,
+    ): string {
+        const type = this.levelKey(row.type_examen_id, row.proposed_type, lookups.types);
+        const typeId = type.startsWith('#') ? Number(type.slice(1)) : null;
+        return [
+            type,
+            this.levelKey(row.serie_id, row.proposed_serie, lookups.series, typeId),
+            this.levelKey(row.matiere_examen_id, row.proposed_matiere, lookups.matieres, typeId),
+            this.levelKey(row.filiere_examen_id, row.proposed_filiere, lookups.filieres, typeId),
+            `y${row.annee ?? '-'}`,
+            `s${this.norm(row.section) ?? '-'}`,
+        ].join('|');
+    }
+
+    /**
+     * Refuse un doublon : même examen déjà publié, ou même soumission déjà en
+     * file d'attente. Les soumissions refusées ne bloquent pas (renvoi permis).
+     */
+    private async assertNoDuplicate(
+        pays: string,
+        candidate: Parameters<ExamensNationauxSubmissionsService['signature']>[0],
+        opts: { ignoreSubmissionId?: number; checkPending?: boolean } = {},
+    ) {
+        const { ignoreSubmissionId, checkPending = true } = opts;
+        const lookups = await this.loadLookups(pays);
+        const sig = this.signature(candidate, lookups);
+
+        const annee = candidate.annee ?? null;
+        const publies = await this.examRepo.find({ where: { pays, annee: annee ?? IsNull() } as any });
+        const dejaPublie = publies.find((e) => this.signature(e, lookups) === sig);
+        if (dejaPublie) {
+            throw new ConflictException(
+                `Cet examen national existe déjà : « ${dejaPublie.titre} » (id ${dejaPublie.id}).`,
+            );
+        }
+
+        if (!checkPending) return;
+
+        const enAttente = await this.subRepo.find({
+            where: { pays, status: ServiceStatusEnum.PENDING_APPROVAL, annee: annee ?? IsNull() } as any,
+        });
+        const doublon = enAttente.find((s) => s.id !== ignoreSubmissionId && this.signature(s, lookups) === sig);
+        if (doublon) {
+            throw new ConflictException(
+                `Une soumission identique est déjà en attente de validation (soumission ${doublon.id}).`,
+            );
+        }
+    }
 
     private withMissingFlags(s: ExamenNationalSubmission) {
         const u = s.soumis_par;
@@ -96,6 +188,14 @@ export class ExamensNationauxSubmissionsService {
         if (dto.filiere_examen_id != null && !(await this.filiereRepo.findOne({ where: { id: dto.filiere_examen_id } }))) {
             throw new NotFoundException(`Filière ${dto.filiere_examen_id} introuvable`);
         }
+
+        await this.assertNoDuplicate(pays, {
+            type_examen_id: dto.type_examen_id ?? null, proposed_type: proposedType,
+            serie_id: dto.serie_id ?? null, proposed_serie: proposedSerie,
+            matiere_examen_id: dto.matiere_examen_id ?? null, proposed_matiere: proposedMatiere,
+            filiere_examen_id: dto.filiere_examen_id ?? null, proposed_filiere: proposedFiliere,
+            annee: dto.annee ?? null, section: dto.section?.trim() || null,
+        });
 
         const submission = this.subRepo.create({
             pays,
@@ -242,6 +342,14 @@ export class ExamensNationauxSubmissionsService {
         const serie = submission.serie_id != null ? await this.serieRepo.findOne({ where: { id: submission.serie_id } }) : null;
         const matiere = submission.matiere_examen_id != null ? await this.matiereRepo.findOne({ where: { id: submission.matiere_examen_id } }) : null;
         const filiere = submission.filiere_examen_id != null ? await this.filiereRepo.findOne({ where: { id: submission.filiere_examen_id } }) : null;
+
+        // Dernier rempart : deux soumissions identiques peuvent coexister en file
+        // (créées avant ce garde-fou, ou résolues vers le même tuple par l'admin).
+        await this.assertNoDuplicate(pays, {
+            type_examen_id: submission.type_examen_id, serie_id: submission.serie_id,
+            matiere_examen_id: submission.matiere_examen_id, filiere_examen_id: submission.filiere_examen_id,
+            annee: submission.annee, section: submission.section,
+        }, { ignoreSubmissionId: submission.id, checkPending: false });
 
         const titre = [type.nom, serie?.nom, filiere?.nom, matiere?.nom, String(submission.annee)].filter(Boolean).join(' - ');
         const examen = this.examRepo.create({

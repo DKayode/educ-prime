@@ -172,6 +172,24 @@ filière** (id ou proposée).
 | `matiere_examen_id` | ou `proposed_matiere` | `filiere_examen_id` | ou `proposed_filiere` |
 | `section?` | | `annee?` | |
 
+### Anti-doublon (`409`)
+
+Un examen national est identifié par **(type, série, matière, filière, année,
+section)**. La soumission est refusée avec un **`409 Conflict`** si ce tuple :
+
+- correspond à un **examen déjà publié** → `Cet examen national existe déjà : « BAC - C - Mathématiques - 2021 » (id 30).`
+- correspond à une **soumission déjà en attente**, peu importe l'auteur → `Une soumission identique est déjà en attente de validation (soumission 18).`
+
+Les **noms proposés comptent** : `proposed_matiere: "mathematiques"` entre en
+collision avec la matière `Mathématiques` existante (comparaison insensible à la
+casse, aux accents et aux espaces). Restent **autorisés** : une année, une
+section (`Normal` / `Remplacement`) ou une série différente, et le **renvoi
+après un refus** (une soumission `declined` ne bloque jamais).
+
+> Côté mobile : traitez `409` comme un cas normal, pas comme une erreur
+> technique — affichez le message renvoyé, il nomme l'examen ou la soumission
+> en cause.
+
 ```bash
 curl -X POST "https://<api>/examens-nationaux/submissions" \
   -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
@@ -270,9 +288,15 @@ curl -X PATCH "https://<api>/examens-nationaux/submissions/6" \
 ### Approuver — `PATCH /examens-nationaux/submissions/:id/approve`
 
 Pré-requis : **type résolu**, **au moins une matière OU filière résolue**,
-**année** présente, **fichier** attaché. Crée le vrai examen national
+**année** présente, **fichier** attaché (sinon `400`). Crée le vrai examen national
 (intitulé composé, fichier promu dans son propre dossier R2), passe la
 soumission à `approved`, **notifie l'auteur** et **crédite son wallet**.
+
+> **`409`** si un examen identique a été publié entre-temps (deux doublons
+> peuvent coexister en file s'ils y étaient avant le garde-fou, ou si l'admin
+> les a résolus vers le même tuple). Le premier passe, le second est refusé —
+> déclinez-le comme doublon. La file d'attente, elle, n'est pas consultée à
+> l'approbation : seuls les examens publiés bloquent.
 
 Corps optionnel de dernière minute : `{ type_examen_id?, serie_id?,
 matiere_examen_id?, filiere_examen_id? }`. Réponse : `{ message,
