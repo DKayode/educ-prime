@@ -11,7 +11,6 @@ export class PaymentConfigurationEntity {
   @Column({ name: 'withdraw_fee_type', type: 'enum', enum: FeeType, default: FeeType.FIXED }) withdrawFeeType: FeeType;
   @Column({ name: 'reward_per_exam', type: 'numeric', precision: 14, scale: 2, default: 100, transformer: DecimalColumnTransformer }) rewardPerExam: number;
   @Column({ name: 'reward_per_concours', type: 'numeric', precision: 14, scale: 2, default: 200, transformer: DecimalColumnTransformer }) rewardPerConcours: number;
-  @Column({ name: 'reward_per_examen_national', type: 'numeric', precision: 14, scale: 2, default: 100, transformer: DecimalColumnTransformer }) rewardPerExamenNational: number;
   @Column({ type: 'varchar', length: 10, default: 'XOF' }) currency: string;
   @Column({ name: 'wallet_enabled', default: true }) walletEnabled: boolean;
   @Column({ name: 'withdraw_enabled', default: true }) withdrawEnabled: boolean;

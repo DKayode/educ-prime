@@ -30,9 +30,6 @@ const REWARD_EXAM_FIELDS: NumField[] = [
 const REWARD_CONCOURS_FIELDS: NumField[] = [
   { key: "rewardPerConcours", label: "Montant (XOF)", hint: "Crédité à l'auteur quand un concours est approuvé." },
 ];
-const REWARD_EXAMEN_NAT_FIELDS: NumField[] = [
-  { key: "rewardPerExamenNational", label: "Montant (XOF)", hint: "Crédité à l'auteur quand un examen national est approuvé." },
-];
 const WITHDRAW_FIELDS: NumField[] = [
   { key: "minimumWithdrawal", label: "Retrait minimum (XOF)" },
   { key: "maximumWithdrawal", label: "Retrait maximum (XOF)" },
@@ -57,7 +54,7 @@ const TOGGLES: { key: NumKey; label: string; hint?: string }[] = [
 ];
 
 const NUM_KEYS: NumKey[] = [
-  "rewardPerExam", "rewardPerConcours", "rewardPerExamenNational", "minimumWithdrawal", "maximumWithdrawal", "withdrawFee",
+  "rewardPerExam", "rewardPerConcours", "minimumWithdrawal", "maximumWithdrawal", "withdrawFee",
   "dailyWithdrawalLimit", "monthlyWithdrawalLimit", "minimumWalletBalance",
   "reviewDelayHours", "maxWithdrawPerDay", "maxWithdrawPerWeek", "maxWithdrawPerMonth",
 ];
@@ -155,10 +152,6 @@ export default function ConfigurationWallet() {
             <Card className="shadow-sm">
               <CardHeader><CardTitle className="text-base">Récompense concours</CardTitle><CardDescription>Crédit versé à l'auteur d'un concours approuvé · {currency}</CardDescription></CardHeader>
               <CardContent>{renderNumFields(REWARD_CONCOURS_FIELDS)}</CardContent>
-            </Card>
-            <Card className="shadow-sm">
-              <CardHeader><CardTitle className="text-base">Récompense examens nationaux</CardTitle><CardDescription>Crédit versé à l'auteur d'un examen national approuvé · {currency}</CardDescription></CardHeader>
-              <CardContent>{renderNumFields(REWARD_EXAMEN_NAT_FIELDS)}</CardContent>
             </Card>
           </div>
 

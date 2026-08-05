@@ -252,7 +252,7 @@ export class ExamensNationauxSubmissionsService {
         // Idempotent via reference EXAM_REWARD:<uuid> (re-approving never double-credits).
         if (submission.soumis_par_id != null) {
             this.creditWalletFromExam
-                .execute({ userId: submission.soumis_par_id, examId: saved.uuid, description: 'Examen national validé', resource: 'examen_national' })
+                .execute({ userId: submission.soumis_par_id, examId: saved.uuid, description: 'Examen national validé' })
                 .then((res: any) => this.logger.log(`Wallet crédité (examen national ${saved.uuid}) pour user ${submission.soumis_par_id}${res?.duplicated ? ' [déjà crédité]' : ''}`))
                 .catch(err => this.logger.error(`Crédit wallet échoué (soumission ${id}): ${err.message}`));
         }

@@ -16,15 +16,10 @@ import {
 import { PaymentNotificationType, WalletTransactionStatus, WalletTransactionType } from '../../shared/payment.enums';
 import { WalletAggregate } from '../domain/wallet.aggregate';
 
-export type RewardableResource = 'epreuve' | 'concours' | 'examen_national';
-
 export interface CreditWalletFromValidatedExamCommand {
   userId: number;
   examId: string;
   amount?: number;
-  // Selects the per-entity reward amount from the active configuration when no
-  // explicit `amount` is given. Defaults to the épreuve reward.
-  resource?: RewardableResource;
   currency?: string;
   reference?: string;
   description?: string;
@@ -47,13 +42,7 @@ export class CreditWalletFromValidatedExamUseCase {
       throw new ConflictException('La récompense des épreuves est désactivée');
     }
 
-    const rewardByResource: Record<RewardableResource, number> = {
-      epreuve: configuration.rewardPerExam,
-      concours: configuration.rewardPerConcours,
-      examen_national: configuration.rewardPerExamenNational,
-    };
-    const configured = command.resource ? rewardByResource[command.resource] : configuration.rewardPerExam;
-    const amount = Number(command.amount ?? configured ?? configuration.rewardPerExam);
+    const amount = Number(command.amount ?? configuration.rewardPerExam);
     if (!amount || amount <= 0) throw new BadRequestException('Le montant à créditer doit être supérieur à zéro');
 
     const reference = command.reference ?? `EXAM_REWARD:${command.examId}`;

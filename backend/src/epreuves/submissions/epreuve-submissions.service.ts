@@ -513,7 +513,7 @@ export class EpreuveSubmissionsService {
     // reference EXAM_REWARD:<uuid>, so re-approving never double-credits.
     if (submission.soumis_par_id != null) {
       this.creditWalletFromExam
-        .execute({ userId: submission.soumis_par_id, examId: savedEpreuve.uuid, description: 'Épreuve validée', resource: 'epreuve' })
+        .execute({ userId: submission.soumis_par_id, examId: savedEpreuve.uuid, description: 'Épreuve validée' })
         .then((res: any) => this.logger.log(`Wallet crédité (épreuve ${savedEpreuve.uuid}) pour user ${submission.soumis_par_id}${res?.duplicated ? ' [déjà crédité]' : ''}`))
         .catch(err => this.logger.error(`Crédit wallet échoué (soumission ${id}): ${err.message}`));
     }

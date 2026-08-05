@@ -52,7 +52,6 @@ export interface PaymentConfiguration {
   id: string;
   rewardPerExam: number;
   rewardPerConcours: number;
-  rewardPerExamenNational: number;
   rewardEnabled: boolean;
   minimumWithdrawal: number;
   maximumWithdrawal: number;
