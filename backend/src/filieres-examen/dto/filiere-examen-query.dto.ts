@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
-export class MatiereFiliereExamenQueryDto {
+export class FiliereExamenQueryDto {
     @ApiProperty({ required: false, default: 1 })
     @IsOptional()
     @Type(() => Number)

@@ -16,7 +16,12 @@ export class FilterExamenNationalDto extends PaginationDto {
     @IsOptional()
     @Type(() => Number)
     @IsInt()
-    matiere_filiere_examen?: number;
+    matiere_examen?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    filiere_examen?: number;
 
     @IsOptional()
     @Type(() => Number)

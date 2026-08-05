@@ -4,7 +4,8 @@ import { ExamenNational } from './entities/examen-national.entity';
 import { ExamenNationalSubmission } from './entities/examen-national-submission.entity';
 import { TypeExamen } from '../types-examen/entities/type-examen.entity';
 import { Serie } from '../series/entities/serie.entity';
-import { MatiereFiliereExamen } from '../matieres-filieres-examen/entities/matiere-filiere-examen.entity';
+import { MatiereExamen } from '../matieres-examen/entities/matiere-examen.entity';
+import { FiliereExamen } from '../filieres-examen/entities/filiere-examen.entity';
 import { ExamensNationauxController } from './examens-nationaux.controller';
 import { ExamensNationauxService } from './examens-nationaux.service';
 import { ExamensNationauxSubmissionsController } from './examens-nationaux-submissions.controller';
@@ -15,7 +16,7 @@ import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([ExamenNational, ExamenNationalSubmission, TypeExamen, Serie, MatiereFiliereExamen]),
+        TypeOrmModule.forFeature([ExamenNational, ExamenNationalSubmission, TypeExamen, Serie, MatiereExamen, FiliereExamen]),
         MailModule,
         FilesModule,
         WalletModule,

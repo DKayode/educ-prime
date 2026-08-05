@@ -31,7 +31,8 @@ export class ExamensNationauxController {
     @ApiQuery({ name: 'search', required: false, type: String })
     @ApiQuery({ name: 'type_examen', required: false, type: Number, description: "Filtrer par type d'examen (id)" })
     @ApiQuery({ name: 'serie', required: false, type: Number, description: 'Filtrer par série (id)' })
-    @ApiQuery({ name: 'matiere_filiere_examen', required: false, type: Number, description: 'Filtrer par matière/filière (id)' })
+    @ApiQuery({ name: 'matiere_examen', required: false, type: Number, description: 'Filtrer par matière (id)' })
+    @ApiQuery({ name: 'filiere_examen', required: false, type: Number, description: 'Filtrer par filière (id)' })
     @ApiQuery({ name: 'annee', required: false, type: Number })
     findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterExamenNationalDto) {
         return this.service.findAll(pays, filterDto);

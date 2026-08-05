@@ -96,7 +96,8 @@ const navTree: NavItem[] = [
           { title: "Examens Nat.", icon: FileText, url: "/examens-nationaux" },
           { title: "Types d'examen", icon: List, url: "/types-examen" },
           { title: "Séries", icon: Layers, url: "/series-examen" },
-          { title: "Matières / Filières", icon: BookMarked, url: "/matieres-filieres-examen" },
+          { title: "Matières", icon: BookMarked, url: "/matieres-examen" },
+          { title: "Filières", icon: BookMarked, url: "/filieres-examen" },
         ],
       },
       {

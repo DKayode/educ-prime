@@ -36,7 +36,8 @@ import {
     examensNationauxSubmissionsService,
     typesExamenService,
     seriesService,
-    matieresFilieresExamenService,
+    matieresExamenService,
+    filieresExamenService,
     ExamenNationalSubmission,
 } from "@/lib/services/examens-nationaux.service";
 import { useToast } from "@/hooks/use-toast";
@@ -66,6 +67,7 @@ function ExamenResolveDialog({ submission, types, open, onOpenChange }: {
     const [newType, setNewType] = useState('');
     const [newSerie, setNewSerie] = useState('');
     const [newMatiere, setNewMatiere] = useState('');
+    const [newFiliere, setNewFiliere] = useState('');
 
     // Type resolved on the submission scopes the série / matière lookups.
     const currentTypeId = submission?.type_examen_id ?? null;
@@ -77,11 +79,17 @@ function ExamenResolveDialog({ submission, types, open, onOpenChange }: {
     });
     const { data: matieresResp } = useQuery({
         queryKey: ['exam-matieres', currentTypeId],
-        queryFn: () => matieresFilieresExamenService.getAll({ type_examen: currentTypeId!, limit: 1000 }),
+        queryFn: () => matieresExamenService.getAll({ type_examen: currentTypeId!, limit: 1000 }),
+        enabled: open && currentTypeId != null,
+    });
+    const { data: filieresResp } = useQuery({
+        queryKey: ['exam-filieres', currentTypeId],
+        queryFn: () => filieresExamenService.getAll({ type_examen: currentTypeId!, limit: 1000 }),
         enabled: open && currentTypeId != null,
     });
     const series = (seriesResp?.data || []).map(s => ({ id: s.id, nom: s.nom }));
     const matieres = (matieresResp?.data || []).map(m => ({ id: m.id, nom: m.nom }));
+    const filieres = (filieresResp?.data || []).map(f => ({ id: f.id, nom: f.nom }));
 
     const persist = useMutation({
         mutationFn: (patch: Parameters<typeof examensNationauxSubmissionsService.resolve>[1]) =>
@@ -96,18 +104,19 @@ function ExamenResolveDialog({ submission, types, open, onOpenChange }: {
             setAnnee(submission.annee != null ? String(submission.annee) : '');
             setNewType(submission.proposed_type ?? '');
             setNewSerie(submission.proposed_serie ?? '');
-            setNewMatiere(submission.proposed_matiere_filiere ?? '');
+            setNewMatiere(submission.proposed_matiere ?? '');
+            setNewFiliere(submission.proposed_filiere ?? '');
         }
     }, [submission?.id]);
 
     if (!submission) return null;
 
-    const bind = async (field: 'type_examen_id' | 'serie_id' | 'matiere_filiere_examen_id', id: number) => {
+    const bind = async (field: 'type_examen_id' | 'serie_id' | 'matiere_examen_id' | 'filiere_examen_id', id: number) => {
         await persist.mutateAsync({ [field]: id });
         toast({ title: 'Rattaché', description: 'Entité existante rattachée à la soumission.' });
     };
 
-    const createAndBind = async (kind: 'type' | 'serie' | 'matiere', name: string) => {
+    const createAndBind = async (kind: 'type' | 'serie' | 'matiere' | 'filiere', name: string) => {
         const trimmed = name.trim();
         if (!trimmed) return;
         try {
@@ -126,13 +135,20 @@ function ExamenResolveDialog({ submission, types, open, onOpenChange }: {
                 else { rowId = (await seriesService.create({ nom: trimmed, type_examen_id: currentTypeId })).id; }
                 await persist.mutateAsync({ serie_id: rowId });
                 queryClient.invalidateQueries({ queryKey: ['exam-series', currentTypeId] });
-            } else {
+            } else if (kind === 'matiere') {
                 if (currentTypeId == null) return;
                 const existing = matieres.find(o => o.nom.trim().toLowerCase() === trimmed.toLowerCase());
                 if (existing) { rowId = existing.id; existed = true; }
-                else { rowId = (await matieresFilieresExamenService.create({ nom: trimmed, type_examen_id: currentTypeId })).id; }
-                await persist.mutateAsync({ matiere_filiere_examen_id: rowId });
+                else { rowId = (await matieresExamenService.create({ nom: trimmed, type_examen_id: currentTypeId })).id; }
+                await persist.mutateAsync({ matiere_examen_id: rowId });
                 queryClient.invalidateQueries({ queryKey: ['exam-matieres', currentTypeId] });
+            } else {
+                if (currentTypeId == null) return;
+                const existing = filieres.find(o => o.nom.trim().toLowerCase() === trimmed.toLowerCase());
+                if (existing) { rowId = existing.id; existed = true; }
+                else { rowId = (await filieresExamenService.create({ nom: trimmed, type_examen_id: currentTypeId })).id; }
+                await persist.mutateAsync({ filiere_examen_id: rowId });
+                queryClient.invalidateQueries({ queryKey: ['exam-filieres', currentTypeId] });
             }
             toast({ title: existed ? 'Rattaché' : 'Créé et rattaché', description: existed ? 'Entité existante réutilisée.' : 'Entité créée et rattachée.' });
         } catch (e: any) {
@@ -235,32 +251,33 @@ function ExamenResolveDialog({ submission, types, open, onOpenChange }: {
                         </div>
                     </div>
 
-                    {/* Matière / Filière — required, scoped to the resolved type */}
+                    <p className="text-xs text-muted-foreground">Renseignez au moins une matière <b>ou</b> une filière.</p>
+
+                    {/* Matière — optional, scoped to the resolved type */}
                     <div className="rounded-lg border p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                            <Label className="font-semibold">Matière / Filière</Label>
-                            {submission.matiere_filiere_examen_id != null ? (
+                            <Label className="font-semibold">Matière <span className="text-muted-foreground font-normal">(optionnelle)</span></Label>
+                            {submission.matiere_examen_id != null ? (
                                 <Badge variant="default" className="gap-1"><Check className="h-3 w-3" /> Résolue</Badge>
-                            ) : (
+                            ) : newMatiere ? (
                                 <Badge variant="destructive" className="gap-1">
-                                    <AlertTriangle className="h-3 w-3" />
-                                    {newMatiere ? `à créer: ${newMatiere}` : 'manquant'}
+                                    <AlertTriangle className="h-3 w-3" /> à créer: {newMatiere}
                                 </Badge>
-                            )}
+                            ) : null}
                         </div>
                         <div className="space-y-2">
                             <SearchableSelect
-                                value={submission.matiere_filiere_examen_id}
+                                value={submission.matiere_examen_id}
                                 options={matieres}
-                                onSelect={(id) => bind('matiere_filiere_examen_id', id)}
+                                onSelect={(id) => bind('matiere_examen_id', id)}
                                 disabled={!typeResolved}
-                                placeholder={typeResolved ? "Choisir une matière / filière existante…" : "Résolvez d'abord le type"}
-                                searchPlaceholder="Rechercher une matière / filière…"
-                                emptyText="Aucune matière / filière — créez-en une ci-dessous"
+                                placeholder={typeResolved ? "Choisir une matière existante…" : "Résolvez d'abord le type"}
+                                searchPlaceholder="Rechercher une matière…"
+                                emptyText="Aucune matière — créez-en une ci-dessous"
                             />
                             <div className="flex items-center gap-2">
                                 <Input
-                                    placeholder="Nom de la matière / filière…"
+                                    placeholder="Nom de la matière…"
                                     value={newMatiere}
                                     disabled={!typeResolved}
                                     onChange={(e) => setNewMatiere(e.target.value)}
@@ -270,6 +287,47 @@ function ExamenResolveDialog({ submission, types, open, onOpenChange }: {
                                     className="shrink-0 gap-1"
                                     disabled={!typeResolved || !newMatiere.trim() || persist.isPending}
                                     onClick={() => createAndBind('matiere', newMatiere)}
+                                >
+                                    <Plus className="h-4 w-4" /> Créer
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Filière — optional, scoped to the resolved type */}
+                    <div className="rounded-lg border p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label className="font-semibold">Filière <span className="text-muted-foreground font-normal">(optionnelle)</span></Label>
+                            {submission.filiere_examen_id != null ? (
+                                <Badge variant="default" className="gap-1"><Check className="h-3 w-3" /> Résolue</Badge>
+                            ) : newFiliere ? (
+                                <Badge variant="destructive" className="gap-1">
+                                    <AlertTriangle className="h-3 w-3" /> à créer: {newFiliere}
+                                </Badge>
+                            ) : null}
+                        </div>
+                        <div className="space-y-2">
+                            <SearchableSelect
+                                value={submission.filiere_examen_id}
+                                options={filieres}
+                                onSelect={(id) => bind('filiere_examen_id', id)}
+                                disabled={!typeResolved}
+                                placeholder={typeResolved ? "Choisir une filière existante…" : "Résolvez d'abord le type"}
+                                searchPlaceholder="Rechercher une filière…"
+                                emptyText="Aucune filière — créez-en une ci-dessous"
+                            />
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    placeholder="Nom de la filière…"
+                                    value={newFiliere}
+                                    disabled={!typeResolved}
+                                    onChange={(e) => setNewFiliere(e.target.value)}
+                                />
+                                <Button
+                                    type="button"
+                                    className="shrink-0 gap-1"
+                                    disabled={!typeResolved || !newFiliere.trim() || persist.isPending}
+                                    onClick={() => createAndBind('filiere', newFiliere)}
                                 >
                                     <Plus className="h-4 w-4" /> Créer
                                 </Button>
@@ -333,7 +391,8 @@ function SubmissionRow({
 
     // Resolution is persisted on the submission (PATCH /resolve), so the bound
     // ids / missing flags live on the row itself — no local state to drift.
-    const anyMissing = submission.missing_type || submission.missing_matiere || submission.missing_serie;
+    const anyMissing = submission.missing_type || submission.missing_serie
+        || submission.missing_matiere || submission.missing_filiere || submission.missing_classifier;
 
     const approveMutation = useMutation({
         mutationFn: () => examensNationauxSubmissionsService.approve(submission.id),
@@ -384,12 +443,14 @@ function SubmissionRow({
         }
     };
 
-    // Type + matière required (série is optional) AND a file must be present.
-    const canApprove = !submission.missing_type && !submission.missing_matiere && hasFile;
+    // Type + at least one classifier (matière OR filière) required, no proposed
+    // name left unresolved, AND a file must be present.
+    const classifierReady = !submission.missing_classifier && !submission.missing_matiere && !submission.missing_filiere;
+    const canApprove = !submission.missing_type && classifierReady && hasFile;
     const isPendingStatus = submission.status === 'pending_approval';
     const approveTitle = !hasFile
         ? "En attente du fichier"
-        : (!submission.missing_type && !submission.missing_matiere ? "Approuver" : "Résolvez le type et la matière d'abord");
+        : (!submission.missing_type && classifierReady ? "Approuver" : "Résolvez le type et au moins une matière ou filière d'abord");
 
     return (
         <>
@@ -416,13 +477,25 @@ function SubmissionRow({
                 )}
             </TableCell>
             <TableCell className="align-top">
-                {submission.missing_matiere ? (
+                {submission.matiere_examen_id != null ? (
+                    <Badge variant="outline" className="font-normal">{submission.matiere_examen?.nom || '—'}</Badge>
+                ) : submission.proposed_matiere ? (
                     <Badge variant="destructive" className="font-normal gap-1">
-                        <AlertTriangle className="h-3 w-3" />
-                        {submission.proposed_matiere_filiere ? `à créer: ${submission.proposed_matiere_filiere}` : 'Matière manquante'}
+                        <AlertTriangle className="h-3 w-3" /> à créer: {submission.proposed_matiere}
                     </Badge>
                 ) : (
-                    <Badge variant="outline" className="font-normal">{submission.matiere_filiere_examen?.nom || '—'}</Badge>
+                    <span className="text-muted-foreground">—</span>
+                )}
+            </TableCell>
+            <TableCell className="align-top">
+                {submission.filiere_examen_id != null ? (
+                    <Badge variant="outline" className="font-normal">{submission.filiere_examen?.nom || '—'}</Badge>
+                ) : submission.proposed_filiere ? (
+                    <Badge variant="destructive" className="font-normal gap-1">
+                        <AlertTriangle className="h-3 w-3" /> à créer: {submission.proposed_filiere}
+                    </Badge>
+                ) : (
+                    <span className="text-muted-foreground">—</span>
                 )}
             </TableCell>
             <TableCell className="align-top">{submission.section || '—'}</TableCell>
@@ -608,7 +681,8 @@ export default function ExamensNationauxApprobation() {
                                     <TableRow>
                                         <TableHead>Type</TableHead>
                                         <TableHead>Série</TableHead>
-                                        <TableHead>Matière / Filière</TableHead>
+                                        <TableHead>Matière</TableHead>
+                                        <TableHead>Filière</TableHead>
                                         <TableHead>Section</TableHead>
                                         <TableHead>Année</TableHead>
                                         <TableHead>Auteur</TableHead>
@@ -619,7 +693,7 @@ export default function ExamensNationauxApprobation() {
                                 <TableBody>
                                     {submissions.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} className="text-center text-muted-foreground">
+                                            <TableCell colSpan={9} className="text-center text-muted-foreground">
                                                 Aucune soumission.
                                             </TableCell>
                                         </TableRow>

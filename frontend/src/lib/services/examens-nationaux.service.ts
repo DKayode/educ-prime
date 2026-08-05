@@ -5,7 +5,8 @@ import { buildPaginationQuery } from '../types/pagination';
 // ---- Lookups -------------------------------------------------------------
 export interface TypeExamen { id: number; uuid?: string; nom: string; description?: string | null; }
 export interface Serie { id: number; uuid?: string; nom: string; type_examen_id: number; type_examen?: TypeExamen; description?: string | null; }
-export interface MatiereFiliereExamen { id: number; uuid?: string; nom: string; type_examen_id: number; type_examen?: TypeExamen; description?: string | null; }
+export interface MatiereExamen { id: number; uuid?: string; nom: string; type_examen_id: number; type_examen?: TypeExamen; description?: string | null; }
+export interface FiliereExamen { id: number; uuid?: string; nom: string; type_examen_id: number; type_examen?: TypeExamen; description?: string | null; }
 
 export interface ExamenNational {
     id: number;
@@ -15,8 +16,11 @@ export interface ExamenNational {
     type_examen?: TypeExamen;
     serie_id?: number | null;
     serie?: Serie | null;
-    matiere_filiere_examen_id: number;
-    matiere_filiere_examen?: MatiereFiliereExamen;
+    // Matière et filière indépendantes et optionnelles (au moins l'une des deux).
+    matiere_examen_id?: number | null;
+    matiere_examen?: MatiereExamen | null;
+    filiere_examen_id?: number | null;
+    filiere_examen?: FiliereExamen | null;
     section?: string | null;
     annee: number;
     file_path?: string;
@@ -38,9 +42,12 @@ export interface ExamenNationalSubmission {
     serie_id?: number | null;
     serie?: Serie | null;
     proposed_serie?: string | null;
-    matiere_filiere_examen_id?: number | null;
-    matiere_filiere_examen?: MatiereFiliereExamen | null;
-    proposed_matiere_filiere?: string | null;
+    matiere_examen_id?: number | null;
+    matiere_examen?: MatiereExamen | null;
+    proposed_matiere?: string | null;
+    filiere_examen_id?: number | null;
+    filiere_examen?: FiliereExamen | null;
+    proposed_filiere?: string | null;
     section?: string | null;
     annee?: number | null;
     titre?: string;
@@ -53,8 +60,10 @@ export interface ExamenNationalSubmission {
     soumis_par_id?: number | null;
     soumis_par?: { id: number; uuid?: string; nom?: string; prenom?: string; email?: string } | null;
     missing_type: boolean;
-    missing_matiere: boolean;
     missing_serie: boolean;
+    missing_matiere: boolean;
+    missing_filiere: boolean;
+    missing_classifier: boolean;
 }
 
 // ---- Lookup services -----------------------------------------------------
@@ -74,23 +83,31 @@ export const seriesService = {
     delete: (id: number) => api.delete(`/series/${id}`),
 };
 
-export const matieresFilieresExamenService = {
+export const matieresExamenService = {
     getAll: (params?: PaginationParams & { search?: string; type_examen?: number }) =>
-        api.get<PaginationResponse<MatiereFiliereExamen>>(`/matieres-filieres-examen${buildPaginationQuery(params)}`),
-    create: (data: { nom: string; type_examen_id: number; description?: string }) => api.post<MatiereFiliereExamen>('/matieres-filieres-examen', data),
-    update: (id: number, data: Partial<{ nom: string; type_examen_id: number; description: string }>) => api.patch<MatiereFiliereExamen>(`/matieres-filieres-examen/${id}`, data),
-    delete: (id: number) => api.delete(`/matieres-filieres-examen/${id}`),
+        api.get<PaginationResponse<MatiereExamen>>(`/matieres-examen${buildPaginationQuery(params)}`),
+    create: (data: { nom: string; type_examen_id: number; description?: string }) => api.post<MatiereExamen>('/matieres-examen', data),
+    update: (id: number, data: Partial<{ nom: string; type_examen_id: number; description: string }>) => api.patch<MatiereExamen>(`/matieres-examen/${id}`, data),
+    delete: (id: number) => api.delete(`/matieres-examen/${id}`),
+};
+
+export const filieresExamenService = {
+    getAll: (params?: PaginationParams & { search?: string; type_examen?: number }) =>
+        api.get<PaginationResponse<FiliereExamen>>(`/filieres-examen${buildPaginationQuery(params)}`),
+    create: (data: { nom: string; type_examen_id: number; description?: string }) => api.post<FiliereExamen>('/filieres-examen', data),
+    update: (id: number, data: Partial<{ nom: string; type_examen_id: number; description: string }>) => api.patch<FiliereExamen>(`/filieres-examen/${id}`, data),
+    delete: (id: number) => api.delete(`/filieres-examen/${id}`),
 };
 
 // ---- Main resource -------------------------------------------------------
 export const examensNationauxService = {
-    getAll: (params?: PaginationParams & { search?: string; type_examen?: number; serie?: number; matiere_filiere_examen?: number; annee?: number }) =>
+    getAll: (params?: PaginationParams & { search?: string; type_examen?: number; serie?: number; matiere_examen?: number; filiere_examen?: number; annee?: number }) =>
         api.get<PaginationResponse<ExamenNational>>(`/examens-nationaux${buildPaginationQuery(params)}`),
     getAnnees: () => api.get<number[]>('/examens-nationaux/annees'),
     getById: (id: number) => api.get<ExamenNational>(`/examens-nationaux/${id}`),
-    create: (data: { type_examen_id: number; serie_id?: number; matiere_filiere_examen_id: number; section?: string; annee: number; nombre_pages?: number }) =>
+    create: (data: { type_examen_id: number; serie_id?: number; matiere_examen_id?: number; filiere_examen_id?: number; section?: string; annee: number; nombre_pages?: number }) =>
         api.post<ExamenNational>('/examens-nationaux', data),
-    update: (id: number, data: Partial<{ type_examen_id: number; serie_id: number; matiere_filiere_examen_id: number; section: string; annee: number; nombre_pages: number }>) =>
+    update: (id: number, data: Partial<{ type_examen_id: number; serie_id: number; matiere_examen_id: number; filiere_examen_id: number; section: string; annee: number; nombre_pages: number }>) =>
         api.put<ExamenNational>(`/examens-nationaux/${id}`, data),
     delete: (id: number) => api.delete(`/examens-nationaux/${id}`),
 };
@@ -99,7 +116,8 @@ export const examensNationauxService = {
 export interface ResolveExamenSubmissionData {
     type_examen_id?: number; proposed_type?: string;
     serie_id?: number; proposed_serie?: string;
-    matiere_filiere_examen_id?: number; proposed_matiere_filiere?: string;
+    matiere_examen_id?: number; proposed_matiere?: string;
+    filiere_examen_id?: number; proposed_filiere?: string;
     section?: string; annee?: number;
 }
 
@@ -111,11 +129,12 @@ export const examensNationauxSubmissionsService = {
     createSubmission: (data: {
         type_examen_id?: number; proposed_type?: string;
         serie_id?: number; proposed_serie?: string;
-        matiere_filiere_examen_id?: number; proposed_matiere_filiere?: string;
+        matiere_examen_id?: number; proposed_matiere?: string;
+        filiere_examen_id?: number; proposed_filiere?: string;
         section?: string; annee?: number;
     }) => api.post<ExamenNationalSubmission>('/examens-nationaux/submissions', data),
     resolve: (id: number, data: ResolveExamenSubmissionData) => api.patch<ExamenNationalSubmission>(`/examens-nationaux/submissions/${id}`, data),
-    approve: (id: number, resolve?: { type_examen_id?: number; serie_id?: number; matiere_filiere_examen_id?: number }) =>
+    approve: (id: number, resolve?: { type_examen_id?: number; serie_id?: number; matiere_examen_id?: number; filiere_examen_id?: number }) =>
         api.patch(`/examens-nationaux/submissions/${id}/approve`, resolve ?? {}),
     decline: (id: number, reason?: string) => api.patch(`/examens-nationaux/submissions/${id}/decline`, reason ? { reason } : {}),
 };

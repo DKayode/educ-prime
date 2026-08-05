@@ -3,7 +3,7 @@ import { IsInt, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateExamenNationalDto {
-    @ApiProperty({ description: "ID du type d'examen (BAC, CAP…)", required: true })
+    @ApiProperty({ description: "ID du type d'examen (BAC, CAP, Licence…)", required: true })
     @Type(() => Number)
     @IsInt()
     type_examen_id: number;
@@ -14,10 +14,19 @@ export class CreateExamenNationalDto {
     @IsInt()
     serie_id?: number;
 
-    @ApiProperty({ description: 'ID de la matière/filière', required: true })
+    // Matière et filière indépendantes et optionnelles — le service exige qu'au
+    // moins l'une des deux soit fournie.
+    @ApiProperty({ description: 'ID de la matière (optionnelle ; au moins matière OU filière)', required: false })
+    @IsOptional()
     @Type(() => Number)
     @IsInt()
-    matiere_filiere_examen_id: number;
+    matiere_examen_id?: number;
+
+    @ApiProperty({ description: 'ID de la filière (optionnelle ; au moins matière OU filière)', required: false })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    filiere_examen_id?: number;
 
     @ApiProperty({ description: 'Section (Normal, Remplacement…)', required: false })
     @IsOptional()

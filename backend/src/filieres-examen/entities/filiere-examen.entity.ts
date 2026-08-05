@@ -2,9 +2,9 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { TypeExamen } from '../../types-examen/entities/type-examen.entity';
 
-@Entity('matieres_filieres_examen')
-export class MatiereFiliereExamen {
-    @ApiProperty({ description: 'ID unique de la matière/filière' })
+@Entity('filieres_examen')
+export class FiliereExamen {
+    @ApiProperty({ description: 'ID unique de la filière' })
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -24,7 +24,7 @@ export class MatiereFiliereExamen {
     @JoinColumn({ name: 'type_examen_id' })
     type_examen: TypeExamen;
 
-    @ApiProperty({ description: 'Nom de la matière/filière (Anglais, Mathématiques, Électricité…)' })
+    @ApiProperty({ description: 'Nom de la filière (Droit, Économie, Génie Civil…)' })
     @Column()
     nom: string;
 

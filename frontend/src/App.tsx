@@ -35,7 +35,8 @@ import ExamensNationaux from "./pages/ExamensNationaux";
 import ExamensNationauxApprobation from "./pages/ExamensNationauxApprobation";
 import TypesExamen from "./pages/TypesExamen";
 import SeriesExamen from "./pages/SeriesExamen";
-import MatieresFilieresExamen from "./pages/MatieresFilieresExamen";
+import MatieresExamen from "./pages/MatieresExamen";
+import FilieresExamen from "./pages/FilieresExamen";
 import OffresAdmin from "./pages/OffresAdmin";
 import ServiceTypesAdmin from "./pages/ServiceTypesAdmin";
 import RecruteursAdmin from "./pages/RecruteursAdmin";
@@ -96,7 +97,8 @@ const App = () => (
                       <Route path="/approbations/examens-nationaux" element={<ExamensNationauxApprobation />} />
                       <Route path="/types-examen" element={<TypesExamen />} />
                       <Route path="/series-examen" element={<SeriesExamen />} />
-                      <Route path="/matieres-filieres-examen" element={<MatieresFilieresExamen />} />
+                      <Route path="/matieres-examen" element={<MatieresExamen />} />
+                      <Route path="/filieres-examen" element={<FilieresExamen />} />
                       <Route path="/forums" element={<Forums />} />
                       <Route path="/parcours" element={<Parcours />} />
                       <Route path="/categories" element={<Categories />} />

@@ -9,7 +9,9 @@ export class ApproveExamenNationalSubmissionDto {
     @ApiProperty({ required: false }) @IsOptional() @Type(() => Number) @IsInt()
     serie_id?: number;
     @ApiProperty({ required: false }) @IsOptional() @Type(() => Number) @IsInt()
-    matiere_filiere_examen_id?: number;
+    matiere_examen_id?: number;
+    @ApiProperty({ required: false }) @IsOptional() @Type(() => Number) @IsInt()
+    filiere_examen_id?: number;
 }
 
 export class DeclinerExamenNationalSubmissionDto {

@@ -2,7 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { TypeExamen } from '../../types-examen/entities/type-examen.entity';
 import { Serie } from '../../series/entities/serie.entity';
-import { MatiereFiliereExamen } from '../../matieres-filieres-examen/entities/matiere-filiere-examen.entity';
+import { MatiereExamen } from '../../matieres-examen/entities/matiere-examen.entity';
+import { FiliereExamen } from '../../filieres-examen/entities/filiere-examen.entity';
 import { Utilisateur } from '../../utilisateurs/entities/utilisateur.entity';
 
 // User-submission queue for national exams. Each classifying level may be an
@@ -41,15 +42,25 @@ export class ExamenNationalSubmission {
     @Column({ name: 'proposed_serie', type: 'text', nullable: true })
     proposed_serie?: string | null;
 
-    @Column({ name: 'matiere_filiere_examen_id', type: 'int', nullable: true })
-    matiere_filiere_examen_id?: number | null;
+    @Column({ name: 'matiere_examen_id', type: 'int', nullable: true })
+    matiere_examen_id?: number | null;
 
-    @ManyToOne(() => MatiereFiliereExamen, { nullable: true })
-    @JoinColumn({ name: 'matiere_filiere_examen_id' })
-    matiere_filiere_examen?: MatiereFiliereExamen | null;
+    @ManyToOne(() => MatiereExamen, { nullable: true })
+    @JoinColumn({ name: 'matiere_examen_id' })
+    matiere_examen?: MatiereExamen | null;
 
-    @Column({ name: 'proposed_matiere_filiere', type: 'text', nullable: true })
-    proposed_matiere_filiere?: string | null;
+    @Column({ name: 'proposed_matiere', type: 'text', nullable: true })
+    proposed_matiere?: string | null;
+
+    @Column({ name: 'filiere_examen_id', type: 'int', nullable: true })
+    filiere_examen_id?: number | null;
+
+    @ManyToOne(() => FiliereExamen, { nullable: true })
+    @JoinColumn({ name: 'filiere_examen_id' })
+    filiere_examen?: FiliereExamen | null;
+
+    @Column({ name: 'proposed_filiere', type: 'text', nullable: true })
+    proposed_filiere?: string | null;
 
     @Column({ type: 'varchar', length: 30, nullable: true })
     section?: string | null;

@@ -2,7 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { TypeExamen } from '../../types-examen/entities/type-examen.entity';
 import { Serie } from '../../series/entities/serie.entity';
-import { MatiereFiliereExamen } from '../../matieres-filieres-examen/entities/matiere-filiere-examen.entity';
+import { MatiereExamen } from '../../matieres-examen/entities/matiere-examen.entity';
+import { FiliereExamen } from '../../filieres-examen/entities/filiere-examen.entity';
 
 @Entity('examens_nationaux')
 export class ExamenNational {
@@ -17,7 +18,7 @@ export class ExamenNational {
     @Column({ type: 'varchar', length: 50, default: 'benin' })
     pays: string;
 
-    @ApiProperty({ description: "Type d'examen (BAC, CAP…)" })
+    @ApiProperty({ description: "Type d'examen (BAC, CAP, Licence…)" })
     @Column({ name: 'type_examen_id' })
     type_examen_id: number;
 
@@ -35,14 +36,25 @@ export class ExamenNational {
     @JoinColumn({ name: 'serie_id' })
     serie?: Serie;
 
-    @ApiProperty({ description: 'Matière/filière' })
-    @Column({ name: 'matiere_filiere_examen_id' })
-    matiere_filiere_examen_id: number;
+    // Matière et filière sont INDÉPENDANTES et OPTIONNELLES, mais au moins l'une
+    // des deux doit être renseignée (BAC → matière ; Licence → filière + matière).
+    @ApiProperty({ description: 'Matière (optionnelle)', required: false })
+    @Column({ name: 'matiere_examen_id', nullable: true })
+    matiere_examen_id?: number;
 
-    @ApiProperty({ type: () => MatiereFiliereExamen })
-    @ManyToOne(() => MatiereFiliereExamen, { nullable: false })
-    @JoinColumn({ name: 'matiere_filiere_examen_id' })
-    matiere_filiere_examen: MatiereFiliereExamen;
+    @ApiProperty({ type: () => MatiereExamen, required: false })
+    @ManyToOne(() => MatiereExamen, { nullable: true })
+    @JoinColumn({ name: 'matiere_examen_id' })
+    matiere_examen?: MatiereExamen;
+
+    @ApiProperty({ description: 'Filière (optionnelle)', required: false })
+    @Column({ name: 'filiere_examen_id', nullable: true })
+    filiere_examen_id?: number;
+
+    @ApiProperty({ type: () => FiliereExamen, required: false })
+    @ManyToOne(() => FiliereExamen, { nullable: true })
+    @JoinColumn({ name: 'filiere_examen_id' })
+    filiere_examen?: FiliereExamen;
 
     @ApiProperty({ description: 'Section (Normal, Remplacement…)', required: false })
     @Column({ type: 'varchar', length: 30, nullable: true })

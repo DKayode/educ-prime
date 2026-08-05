@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { BookMarked, Plus, Pencil, Trash2, Loader2, Search, ChevronLeft, ChevronRight } from "lucide-react";
-import { matieresFilieresExamenService, typesExamenService, type MatiereFiliereExamen } from "@/lib/services/examens-nationaux.service";
+import { filieresExamenService, typesExamenService, type FiliereExamen } from "@/lib/services/examens-nationaux.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,11 +14,11 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useDebounce } from "@/hooks/use-debounce";
 
-export default function MatieresFilieresExamen() {
+export default function FilieresExamen() {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
-    const [editing, setEditing] = useState<MatiereFiliereExamen | null>(null);
+    const [editing, setEditing] = useState<FiliereExamen | null>(null);
     const [formData, setFormData] = useState<{ nom: string; description: string; type_examen_id: string }>({ nom: "", description: "", type_examen_id: "" });
     const [search, setSearch] = useState("");
     const debouncedSearch = useDebounce(search, 500);
@@ -33,26 +33,26 @@ export default function MatieresFilieresExamen() {
     const types = typesResp?.data || [];
 
     const { data: resp, isLoading } = useQuery({
-        queryKey: ["matieres-filieres-examen", debouncedSearch, filterType, page],
-        queryFn: () => matieresFilieresExamenService.getAll({ search: debouncedSearch, type_examen: filterType === "ALL" ? undefined : Number(filterType), page, limit }),
+        queryKey: ["filieres-examen", debouncedSearch, filterType, page],
+        queryFn: () => filieresExamenService.getAll({ search: debouncedSearch, type_examen: filterType === "ALL" ? undefined : Number(filterType), page, limit }),
     });
     const rows = resp?.data || [];
     const totalPages = resp?.totalPages || 1;
-    const invalidate = () => queryClient.invalidateQueries({ queryKey: ["matieres-filieres-examen"] });
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ["filieres-examen"] });
 
     const createMutation = useMutation({
-        mutationFn: (data: { nom: string; type_examen_id: number; description?: string }) => matieresFilieresExamenService.create(data),
-        onSuccess: () => { invalidate(); setIsCreateOpen(false); setFormData({ nom: "", description: "", type_examen_id: "" }); toast({ title: "Succès", description: "Matière/filière créée" }); },
+        mutationFn: (data: { nom: string; type_examen_id: number; description?: string }) => filieresExamenService.create(data),
+        onSuccess: () => { invalidate(); setIsCreateOpen(false); setFormData({ nom: "", description: "", type_examen_id: "" }); toast({ title: "Succès", description: "Filière créée" }); },
         onError: (e: any) => toast({ title: "Erreur", description: e.message || "Échec de la création", variant: "destructive" }),
     });
     const updateMutation = useMutation({
-        mutationFn: ({ id, data }: { id: number; data: any }) => matieresFilieresExamenService.update(id, data),
-        onSuccess: () => { invalidate(); setIsEditOpen(false); setEditing(null); toast({ title: "Succès", description: "Matière/filière mise à jour" }); },
+        mutationFn: ({ id, data }: { id: number; data: any }) => filieresExamenService.update(id, data),
+        onSuccess: () => { invalidate(); setIsEditOpen(false); setEditing(null); toast({ title: "Succès", description: "Filière mise à jour" }); },
         onError: (e: any) => toast({ title: "Erreur", description: e.message || "Échec de la mise à jour", variant: "destructive" }),
     });
     const deleteMutation = useMutation({
-        mutationFn: (id: number) => matieresFilieresExamenService.delete(id),
-        onSuccess: () => { invalidate(); setDeleteId(null); toast({ title: "Succès", description: "Matière/filière supprimée" }); },
+        mutationFn: (id: number) => filieresExamenService.delete(id),
+        onSuccess: () => { invalidate(); setDeleteId(null); toast({ title: "Succès", description: "Filière supprimée" }); },
         onError: (e: any) => toast({ title: "Erreur", description: e.message || "Échec de la suppression", variant: "destructive" }),
     });
 
@@ -62,8 +62,8 @@ export default function MatieresFilieresExamen() {
         <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0">
-                    <h1 className="text-3xl font-bold text-foreground flex items-center gap-2"><BookMarked className="h-8 w-8" /> Matières / Filières</h1>
-                    <p className="text-muted-foreground">Matières/filières rattachées à un type d'examen</p>
+                    <h1 className="text-3xl font-bold text-foreground flex items-center gap-2"><BookMarked className="h-8 w-8" /> Filières</h1>
+                    <p className="text-muted-foreground">Filières rattachées à un type d'examen</p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                     <Select value={filterType} onValueChange={(v) => { setFilterType(v); setPage(1); }}>
@@ -81,7 +81,7 @@ export default function MatieresFilieresExamen() {
                         <DialogTrigger asChild><Button className="gap-2" onClick={() => setFormData({ nom: "", description: "", type_examen_id: filterType !== "ALL" ? filterType : "" })}><Plus className="h-4 w-4" /> Ajouter</Button></DialogTrigger>
                         <DialogContent className="max-w-[500px]">
                             <form onSubmit={(e) => { e.preventDefault(); if (!formData.type_examen_id) return; createMutation.mutate({ nom: formData.nom, type_examen_id: Number(formData.type_examen_id), description: formData.description || undefined }); }}>
-                                <DialogHeader><DialogTitle>Créer une matière/filière</DialogTitle><DialogDescription>Rattachée à un type d'examen</DialogDescription></DialogHeader>
+                                <DialogHeader><DialogTitle>Créer une filière</DialogTitle><DialogDescription>Rattachée à un type d'examen</DialogDescription></DialogHeader>
                                 <div className="grid gap-4 py-4">
                                     <div className="grid gap-2">
                                         <Label>Type d'examen *</Label>
@@ -101,9 +101,9 @@ export default function MatieresFilieresExamen() {
             </div>
 
             <Card>
-                <CardHeader><CardTitle>Liste des matières/filières</CardTitle><CardDescription>{rows.length} entrée{rows.length > 1 ? "s" : ""}</CardDescription></CardHeader>
+                <CardHeader><CardTitle>Liste des filières</CardTitle><CardDescription>{rows.length} entrée{rows.length > 1 ? "s" : ""}</CardDescription></CardHeader>
                 <CardContent>
-                    {rows.length === 0 ? <div className="text-center py-8 text-muted-foreground">Aucune matière/filière trouvée.</div> :
+                    {rows.length === 0 ? <div className="text-center py-8 text-muted-foreground">Aucune filière trouvée.</div> :
                         <Table>
                             <TableHeader><TableRow><TableHead>Type</TableHead><TableHead>Nom</TableHead><TableHead>Description</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                             <TableBody>
@@ -133,7 +133,7 @@ export default function MatieresFilieresExamen() {
             <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
                 <DialogContent className="max-w-[500px]">
                     <form onSubmit={(e) => { e.preventDefault(); if (editing) updateMutation.mutate({ id: editing.id, data: { nom: editing.nom, description: editing.description || "", type_examen_id: editing.type_examen_id } }); }}>
-                        <DialogHeader><DialogTitle>Modifier la matière/filière</DialogTitle></DialogHeader>
+                        <DialogHeader><DialogTitle>Modifier la filière</DialogTitle></DialogHeader>
                         {editing && (
                             <div className="grid gap-4 py-4">
                                 <div className="grid gap-2">
@@ -154,7 +154,7 @@ export default function MatieresFilieresExamen() {
 
             <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
                 <AlertDialogContent>
-                    <AlertDialogHeader><AlertDialogTitle>Confirmer la suppression</AlertDialogTitle><AlertDialogDescription>Supprimer cette matière/filière ? Cette action est irréversible.</AlertDialogDescription></AlertDialogHeader>
+                    <AlertDialogHeader><AlertDialogTitle>Confirmer la suppression</AlertDialogTitle><AlertDialogDescription>Supprimer cette filière ? Cette action est irréversible.</AlertDialogDescription></AlertDialogHeader>
                     <AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={() => deleteId && deleteMutation.mutate(deleteId)} className="bg-destructive text-destructive-foreground">Supprimer</AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

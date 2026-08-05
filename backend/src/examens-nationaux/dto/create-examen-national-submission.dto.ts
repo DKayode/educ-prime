@@ -4,6 +4,7 @@ import { Type } from 'class-transformer';
 
 // Any authenticated user submits a national exam. For each classifying level
 // supply an existing id OR a proposed free-text name (admin resolves it).
+// Matière and filière are independent and optional, but at least one is required.
 export class CreateExamenNationalSubmissionDto {
     @ApiProperty({ required: false })
     @IsOptional() @Type(() => Number) @IsInt()
@@ -23,11 +24,19 @@ export class CreateExamenNationalSubmissionDto {
 
     @ApiProperty({ required: false })
     @IsOptional() @Type(() => Number) @IsInt()
-    matiere_filiere_examen_id?: number;
+    matiere_examen_id?: number;
 
-    @ApiProperty({ required: false, description: 'Nom de matière/filière proposé (si pas d\'id)' })
+    @ApiProperty({ required: false, description: 'Nom de matière proposé (si pas d\'id)' })
     @IsOptional() @IsString()
-    proposed_matiere_filiere?: string;
+    proposed_matiere?: string;
+
+    @ApiProperty({ required: false })
+    @IsOptional() @Type(() => Number) @IsInt()
+    filiere_examen_id?: number;
+
+    @ApiProperty({ required: false, description: 'Nom de filière proposé (si pas d\'id)' })
+    @IsOptional() @IsString()
+    proposed_filiere?: string;
 
     @ApiProperty({ required: false })
     @IsOptional() @IsString()

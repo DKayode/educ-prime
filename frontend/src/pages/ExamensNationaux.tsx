@@ -5,7 +5,8 @@ import { FileText, Plus, Pencil, Trash2, Loader2, Search, Eye, ChevronLeft, Chev
 import {
     typesExamenService,
     seriesService,
-    matieresFilieresExamenService,
+    matieresExamenService,
+    filieresExamenService,
     examensNationauxService,
     type ExamenNational,
 } from "@/lib/services/examens-nationaux.service";
@@ -28,17 +29,10 @@ type Ref = { id: number; nom: string };
 
 const SECTION_NONE = "NONE";
 
-// Best-effort mirror of the server-side titre composition, for a live
-// read-only preview in the dialogs (the real titre is composed server-side).
-function composeTitre(type: Ref | null, serie: Ref | null, matiere: Ref | null, section: string, annee: string) {
-    const parts = [
-        type?.nom,
-        serie?.nom,
-        matiere?.nom,
-        section && section !== SECTION_NONE ? section : undefined,
-        annee || undefined,
-    ].filter(Boolean);
-    return parts.join(" - ");
+// Best-effort mirror of the server-side titre composition, for a live read-only
+// preview: "<type> - <série?> - <filière?> - <matière?> - <année>".
+function composeTitre(type: Ref | null, serie: Ref | null, filiere: Ref | null, matiere: Ref | null, annee: string) {
+    return [type?.nom, serie?.nom, filiere?.nom, matiere?.nom, annee || undefined].filter(Boolean).join(" - ");
 }
 
 // Searchable single-select with an inline "+ Créer". `search` is lifted so the
@@ -135,23 +129,28 @@ export default function ExamensNationaux() {
     const [cType, setCType] = useState<Ref | null>(null);
     const [cSerie, setCSerie] = useState<Ref | null>(null);
     const [cMatiere, setCMatiere] = useState<Ref | null>(null);
+    const [cFiliere, setCFiliere] = useState<Ref | null>(null);
     const [cSection, setCSection] = useState<string>(SECTION_NONE);
     const [cAnnee, setCAnnee] = useState<string>("");
 
     const [cTypeSearch, setCTypeSearch] = useState("");
     const [cSerieSearch, setCSerieSearch] = useState("");
     const [cMatiereSearch, setCMatiereSearch] = useState("");
+    const [cFiliereSearch, setCFiliereSearch] = useState("");
     const dCTypeSearch = useDebounce(cTypeSearch, 300);
     const dCSerieSearch = useDebounce(cSerieSearch, 300);
     const dCMatiereSearch = useDebounce(cMatiereSearch, 300);
+    const dCFiliereSearch = useDebounce(cFiliereSearch, 300);
 
     // ---- Edit-dialog cascade state --------------------------------------
     const [eTypeSearch, setETypeSearch] = useState("");
     const [eSerieSearch, setESerieSearch] = useState("");
     const [eMatiereSearch, setEMatiereSearch] = useState("");
+    const [eFiliereSearch, setEFiliereSearch] = useState("");
     const dETypeSearch = useDebounce(eTypeSearch, 300);
     const dESerieSearch = useDebounce(eSerieSearch, 300);
     const dEMatiereSearch = useDebounce(eMatiereSearch, 300);
+    const dEFiliereSearch = useDebounce(eFiliereSearch, 300);
 
     // ---- Lookup queries: create -----------------------------------------
     const { data: cTypesResp } = useQuery({
@@ -169,11 +168,18 @@ export default function ExamensNationaux() {
     const cSeries = cSeriesResp?.data || [];
 
     const { data: cMatieresResp } = useQuery({
-        queryKey: ["matieres-filieres-examen-lookup", cType?.id, dCMatiereSearch],
-        queryFn: () => matieresFilieresExamenService.getAll({ search: dCMatiereSearch || undefined, type_examen: cType!.id, limit: 50 }),
+        queryKey: ["matieres-examen-lookup", cType?.id, dCMatiereSearch],
+        queryFn: () => matieresExamenService.getAll({ search: dCMatiereSearch || undefined, type_examen: cType!.id, limit: 50 }),
         enabled: isCreateDialogOpen && !!cType,
     });
     const cMatieres = cMatieresResp?.data || [];
+
+    const { data: cFilieresResp } = useQuery({
+        queryKey: ["filieres-examen-lookup", cType?.id, dCFiliereSearch],
+        queryFn: () => filieresExamenService.getAll({ search: dCFiliereSearch || undefined, type_examen: cType!.id, limit: 50 }),
+        enabled: isCreateDialogOpen && !!cType,
+    });
+    const cFilieres = cFilieresResp?.data || [];
 
     // ---- Lookup queries: edit -------------------------------------------
     const { data: eTypesResp } = useQuery({
@@ -192,11 +198,18 @@ export default function ExamensNationaux() {
     const eSeries = eSeriesResp?.data || [];
 
     const { data: eMatieresResp } = useQuery({
-        queryKey: ["matieres-filieres-examen-lookup", eTypeId, dEMatiereSearch],
-        queryFn: () => matieresFilieresExamenService.getAll({ search: dEMatiereSearch || undefined, type_examen: eTypeId!, limit: 50 }),
+        queryKey: ["matieres-examen-lookup", eTypeId, dEMatiereSearch],
+        queryFn: () => matieresExamenService.getAll({ search: dEMatiereSearch || undefined, type_examen: eTypeId!, limit: 50 }),
         enabled: isEditDialogOpen && !!eTypeId,
     });
     const eMatieres = eMatieresResp?.data || [];
+
+    const { data: eFilieresResp } = useQuery({
+        queryKey: ["filieres-examen-lookup", eTypeId, dEFiliereSearch],
+        queryFn: () => filieresExamenService.getAll({ search: dEFiliereSearch || undefined, type_examen: eTypeId!, limit: 50 }),
+        enabled: isEditDialogOpen && !!eTypeId,
+    });
+    const eFilieres = eFilieresResp?.data || [];
 
     // ---- List query ------------------------------------------------------
     const { data: itemsResponse, isLoading, isPlaceholderData } = useQuery({
@@ -219,7 +232,10 @@ export default function ExamensNationaux() {
         mutationFn: ({ nom, type_examen_id }: { nom: string; type_examen_id: number }) => seriesService.create({ nom, type_examen_id }),
     });
     const createMatiereMutation = useMutation({
-        mutationFn: ({ nom, type_examen_id }: { nom: string; type_examen_id: number }) => matieresFilieresExamenService.create({ nom, type_examen_id }),
+        mutationFn: ({ nom, type_examen_id }: { nom: string; type_examen_id: number }) => matieresExamenService.create({ nom, type_examen_id }),
+    });
+    const createFiliereMutation = useMutation({
+        mutationFn: ({ nom, type_examen_id }: { nom: string; type_examen_id: number }) => filieresExamenService.create({ nom, type_examen_id }),
     });
 
     const deleteMutation = useMutation({
@@ -235,24 +251,21 @@ export default function ExamensNationaux() {
         },
     });
 
-    // ---- Create-dialog inline-create handlers ---------------------------
+    // ---- Inline-create handlers -----------------------------------------
     const handleCreateType = async (nom: string, mode: "create" | "edit") => {
         try {
             const created = await createTypeMutation.mutateAsync(nom);
             queryClient.invalidateQueries({ queryKey: ["types-examen-lookup"] });
             if (mode === "create") {
                 setCType({ id: created.id, nom: created.nom });
-                setCSerie(null);
-                setCMatiere(null);
+                setCSerie(null); setCMatiere(null); setCFiliere(null);
             } else if (editingItem) {
                 setEditingItem({
                     ...editingItem,
-                    type_examen_id: created.id,
-                    type_examen: created,
-                    serie_id: null,
-                    serie: null,
-                    matiere_filiere_examen_id: undefined as any,
-                    matiere_filiere_examen: undefined,
+                    type_examen_id: created.id, type_examen: created,
+                    serie_id: null, serie: null,
+                    matiere_examen_id: null, matiere_examen: null,
+                    filiere_examen_id: null, filiere_examen: null,
                 });
             }
             toast({ title: "Succès", description: "Type d'examen créé" });
@@ -267,11 +280,8 @@ export default function ExamensNationaux() {
         try {
             const created = await createSerieMutation.mutateAsync({ nom, type_examen_id: typeId });
             queryClient.invalidateQueries({ queryKey: ["series-lookup"] });
-            if (mode === "create") {
-                setCSerie({ id: created.id, nom: created.nom });
-            } else if (editingItem) {
-                setEditingItem({ ...editingItem, serie_id: created.id, serie: created });
-            }
+            if (mode === "create") setCSerie({ id: created.id, nom: created.nom });
+            else if (editingItem) setEditingItem({ ...editingItem, serie_id: created.id, serie: created });
             toast({ title: "Succès", description: "Série créée" });
         } catch (error: any) {
             toast({ title: "Erreur", description: error.message || "Échec de la création de la série", variant: "destructive" });
@@ -283,42 +293,50 @@ export default function ExamensNationaux() {
         if (!typeId) return;
         try {
             const created = await createMatiereMutation.mutateAsync({ nom, type_examen_id: typeId });
-            queryClient.invalidateQueries({ queryKey: ["matieres-filieres-examen-lookup"] });
-            if (mode === "create") {
-                setCMatiere({ id: created.id, nom: created.nom });
-            } else if (editingItem) {
-                setEditingItem({ ...editingItem, matiere_filiere_examen_id: created.id, matiere_filiere_examen: created });
-            }
-            toast({ title: "Succès", description: "Matière/Filière créée" });
+            queryClient.invalidateQueries({ queryKey: ["matieres-examen-lookup"] });
+            if (mode === "create") setCMatiere({ id: created.id, nom: created.nom });
+            else if (editingItem) setEditingItem({ ...editingItem, matiere_examen_id: created.id, matiere_examen: created });
+            toast({ title: "Succès", description: "Matière créée" });
         } catch (error: any) {
-            toast({ title: "Erreur", description: error.message || "Échec de la création de la matière/filière", variant: "destructive" });
+            toast({ title: "Erreur", description: error.message || "Échec de la création de la matière", variant: "destructive" });
+        }
+    };
+
+    const handleCreateFiliere = async (nom: string, mode: "create" | "edit") => {
+        const typeId = mode === "create" ? cType?.id : editingItem?.type_examen_id;
+        if (!typeId) return;
+        try {
+            const created = await createFiliereMutation.mutateAsync({ nom, type_examen_id: typeId });
+            queryClient.invalidateQueries({ queryKey: ["filieres-examen-lookup"] });
+            if (mode === "create") setCFiliere({ id: created.id, nom: created.nom });
+            else if (editingItem) setEditingItem({ ...editingItem, filiere_examen_id: created.id, filiere_examen: created });
+            toast({ title: "Succès", description: "Filière créée" });
+        } catch (error: any) {
+            toast({ title: "Erreur", description: error.message || "Échec de la création de la filière", variant: "destructive" });
         }
     };
 
     // ---- File input ------------------------------------------------------
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setSelectedFile(e.target.files[0]);
-        }
+        if (e.target.files && e.target.files[0]) setSelectedFile(e.target.files[0]);
     };
 
     const resetCreateForm = () => {
-        setCType(null);
-        setCSerie(null);
-        setCMatiere(null);
-        setCSection(SECTION_NONE);
-        setCAnnee("");
-        setCTypeSearch("");
-        setCSerieSearch("");
-        setCMatiereSearch("");
+        setCType(null); setCSerie(null); setCMatiere(null); setCFiliere(null);
+        setCSection(SECTION_NONE); setCAnnee("");
+        setCTypeSearch(""); setCSerieSearch(""); setCMatiereSearch(""); setCFiliereSearch("");
         setSelectedFile(null);
     };
 
     // ---- Create submit ---------------------------------------------------
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!cType || !cMatiere || !cAnnee) {
-            toast({ title: "Erreur", description: "Le type, la matière/filière et l'année sont requis", variant: "destructive" });
+        if (!cType || !cAnnee) {
+            toast({ title: "Erreur", description: "Le type et l'année sont requis", variant: "destructive" });
+            return;
+        }
+        if (!cMatiere && !cFiliere) {
+            toast({ title: "Erreur", description: "Au moins une matière ou une filière est requise", variant: "destructive" });
             return;
         }
         setIsUploading(true);
@@ -327,7 +345,8 @@ export default function ExamensNationaux() {
             const created = await examensNationauxService.create({
                 type_examen_id: cType.id,
                 serie_id: cSerie?.id,
-                matiere_filiere_examen_id: cMatiere.id,
+                matiere_examen_id: cMatiere?.id,
+                filiere_examen_id: cFiliere?.id,
                 section: cSection !== SECTION_NONE ? cSection : undefined,
                 annee: parseInt(cAnnee),
             });
@@ -358,8 +377,12 @@ export default function ExamensNationaux() {
     const handleEditSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingItem) return;
-        if (!editingItem.type_examen_id || !editingItem.matiere_filiere_examen_id || !editingItem.annee) {
-            toast({ title: "Erreur", description: "Le type, la matière/filière et l'année sont requis", variant: "destructive" });
+        if (!editingItem.type_examen_id || !editingItem.annee) {
+            toast({ title: "Erreur", description: "Le type et l'année sont requis", variant: "destructive" });
+            return;
+        }
+        if (!editingItem.matiere_examen_id && !editingItem.filiere_examen_id) {
+            toast({ title: "Erreur", description: "Au moins une matière ou une filière est requise", variant: "destructive" });
             return;
         }
         setIsUploading(true);
@@ -367,7 +390,8 @@ export default function ExamensNationaux() {
             await examensNationauxService.update(editingItem.id, {
                 type_examen_id: editingItem.type_examen_id,
                 serie_id: editingItem.serie_id ?? undefined,
-                matiere_filiere_examen_id: editingItem.matiere_filiere_examen_id,
+                matiere_examen_id: editingItem.matiere_examen_id ?? undefined,
+                filiere_examen_id: editingItem.filiere_examen_id ?? undefined,
                 section: editingItem.section ?? undefined,
                 annee: editingItem.annee,
             });
@@ -391,9 +415,7 @@ export default function ExamensNationaux() {
     const openEdit = (item: ExamenNational) => {
         setEditingItem(item);
         setSelectedFile(null);
-        setETypeSearch("");
-        setESerieSearch("");
-        setEMatiereSearch("");
+        setETypeSearch(""); setESerieSearch(""); setEMatiereSearch(""); setEFiliereSearch("");
         setIsEditDialogOpen(true);
     };
 
@@ -403,29 +425,23 @@ export default function ExamensNationaux() {
         try {
             if (item.uuid) {
                 const dl = await filesService.getDownloadUrl("examens_nationaux", item.uuid, "file");
-                if (dl?.url) {
-                    window.open(dl.url, "_blank", "noopener");
-                    return;
-                }
+                if (dl?.url) { window.open(dl.url, "_blank", "noopener"); return; }
             }
             const fallback = item.file_path || item.url;
-            if (fallback) {
-                window.open(fallback, "_blank", "noopener");
-                return;
-            }
+            if (fallback) { window.open(fallback, "_blank", "noopener"); return; }
             toast({ title: "Aucun fichier", description: "Aucun fichier n'est associé à cet examen", variant: "destructive" });
         } catch (error: any) {
             toast({ title: "Erreur", description: error.message || "Impossible d'ouvrir le fichier", variant: "destructive" });
         }
     };
 
-    const composedCreateTitre = composeTitre(cType, cSerie, cMatiere, cSection, cAnnee);
+    const composedCreateTitre = composeTitre(cType, cSerie, cFiliere, cMatiere, cAnnee);
     const composedEditTitre = editingItem
         ? composeTitre(
             editingItem.type_examen ? { id: editingItem.type_examen.id, nom: editingItem.type_examen.nom } : null,
             editingItem.serie ? { id: editingItem.serie.id, nom: editingItem.serie.nom } : null,
-            editingItem.matiere_filiere_examen ? { id: editingItem.matiere_filiere_examen.id, nom: editingItem.matiere_filiere_examen.nom } : null,
-            editingItem.section || SECTION_NONE,
+            editingItem.filiere_examen ? { id: editingItem.filiere_examen.id, nom: editingItem.filiere_examen.nom } : null,
+            editingItem.matiere_examen ? { id: editingItem.matiere_examen.id, nom: editingItem.matiere_examen.nom } : null,
             editingItem.annee ? editingItem.annee.toString() : "",
         )
         : "";
@@ -466,7 +482,7 @@ export default function ExamensNationaux() {
                                     <Input
                                         readOnly
                                         value={composedCreateTitre}
-                                        placeholder="Sélectionnez un type, une matière et une année"
+                                        placeholder="Sélectionnez un type, une matière ou une filière, et une année"
                                         className="bg-muted text-muted-foreground"
                                     />
                                 </div>
@@ -479,7 +495,7 @@ export default function ExamensNationaux() {
                                         createPlaceholder="Nouveau type"
                                         options={cTypes.map((t) => ({ id: t.id, nom: t.nom }))}
                                         selected={cType}
-                                        onSelect={(opt) => { setCType(opt); setCSerie(null); setCMatiere(null); }}
+                                        onSelect={(opt) => { setCType(opt); setCSerie(null); setCMatiere(null); setCFiliere(null); }}
                                         search={cTypeSearch}
                                         onSearchChange={setCTypeSearch}
                                         onCreate={(nom) => handleCreateType(nom, "create")}
@@ -501,13 +517,14 @@ export default function ExamensNationaux() {
                                         isCreating={createSerieMutation.isPending}
                                     />
                                 </div>
+                                <p className="text-xs text-muted-foreground -mb-2">Renseignez au moins une matière <b>ou</b> une filière.</p>
                                 <div className="grid grid-cols-2 gap-4">
                                     <CascadeCombobox
-                                        label="Matière / Filière *"
-                                        placeholder={cType ? "Sélectionner une matière/filière" : "Choisir un type d'abord"}
-                                        searchPlaceholder="Rechercher une matière/filière..."
-                                        emptyText="Aucune matière/filière trouvée."
-                                        createPlaceholder="Nouvelle matière/filière"
+                                        label="Matière (optionnel)"
+                                        placeholder={cType ? "Sélectionner une matière" : "Choisir un type d'abord"}
+                                        searchPlaceholder="Rechercher une matière..."
+                                        emptyText="Aucune matière trouvée."
+                                        createPlaceholder="Nouvelle matière"
                                         disabled={!cType}
                                         options={cMatieres.map((m) => ({ id: m.id, nom: m.nom }))}
                                         selected={cMatiere}
@@ -517,6 +534,23 @@ export default function ExamensNationaux() {
                                         onCreate={(nom) => handleCreateMatiere(nom, "create")}
                                         isCreating={createMatiereMutation.isPending}
                                     />
+                                    <CascadeCombobox
+                                        label="Filière (optionnel)"
+                                        placeholder={cType ? "Sélectionner une filière" : "Choisir un type d'abord"}
+                                        searchPlaceholder="Rechercher une filière..."
+                                        emptyText="Aucune filière trouvée."
+                                        createPlaceholder="Nouvelle filière"
+                                        disabled={!cType}
+                                        options={cFilieres.map((f) => ({ id: f.id, nom: f.nom }))}
+                                        selected={cFiliere}
+                                        onSelect={(opt) => setCFiliere(opt)}
+                                        search={cFiliereSearch}
+                                        onSearchChange={setCFiliereSearch}
+                                        onCreate={(nom) => handleCreateFiliere(nom, "create")}
+                                        isCreating={createFiliereMutation.isPending}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="grid gap-2 min-w-0">
                                         <Label>Section</Label>
                                         <Select value={cSection} onValueChange={setCSection}>
@@ -530,10 +564,10 @@ export default function ExamensNationaux() {
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                </div>
-                                <div className="grid gap-2 min-w-0">
-                                    <Label htmlFor="annee">Année *</Label>
-                                    <Input id="annee" type="number" placeholder="YYYY" value={cAnnee} onChange={(e) => setCAnnee(e.target.value)} />
+                                    <div className="grid gap-2 min-w-0">
+                                        <Label htmlFor="annee">Année *</Label>
+                                        <Input id="annee" type="number" placeholder="YYYY" value={cAnnee} onChange={(e) => setCAnnee(e.target.value)} />
+                                    </div>
                                 </div>
                                 <div className="grid gap-2 min-w-0">
                                     <Label htmlFor="file">Fichier (PDF)</Label>
@@ -546,7 +580,7 @@ export default function ExamensNationaux() {
                                 </div>
                             </div>
                             <DialogFooter>
-                                <Button type="submit" disabled={isUploading || !cType || !cMatiere || !cAnnee}>
+                                <Button type="submit" disabled={isUploading || !cType || (!cMatiere && !cFiliere) || !cAnnee}>
                                     {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enregistrement...</> : "Créer"}
                                 </Button>
                             </DialogFooter>
@@ -564,7 +598,7 @@ export default function ExamensNationaux() {
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
-                                    placeholder="Rechercher (Titre, Matière, Type)..."
+                                    placeholder="Rechercher (Titre, Matière, Filière, Type)..."
                                     value={search}
                                     onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                                     className="pl-10"
@@ -583,7 +617,8 @@ export default function ExamensNationaux() {
                                     <TableHead>Titre</TableHead>
                                     <TableHead>Type</TableHead>
                                     <TableHead>Série</TableHead>
-                                    <TableHead>Matière/Filière</TableHead>
+                                    <TableHead>Matière</TableHead>
+                                    <TableHead>Filière</TableHead>
                                     <TableHead>Section</TableHead>
                                     <TableHead>Année</TableHead>
                                     <TableHead>Date de création</TableHead>
@@ -599,11 +634,14 @@ export default function ExamensNationaux() {
                                         <TableCell className="max-w-[10rem]">
                                             <span className="block truncate min-w-0">{item.type_examen?.nom || "—"}</span>
                                         </TableCell>
-                                        <TableCell className="max-w-[10rem]">
+                                        <TableCell className="max-w-[8rem]">
                                             <span className="block truncate min-w-0">{item.serie?.nom || "—"}</span>
                                         </TableCell>
-                                        <TableCell className="max-w-[12rem]">
-                                            <span className="block truncate min-w-0">{item.matiere_filiere_examen?.nom || "—"}</span>
+                                        <TableCell className="max-w-[10rem]">
+                                            <span className="block truncate min-w-0">{item.matiere_examen?.nom || "—"}</span>
+                                        </TableCell>
+                                        <TableCell className="max-w-[10rem]">
+                                            <span className="block truncate min-w-0">{item.filiere_examen?.nom || "—"}</span>
                                         </TableCell>
                                         <TableCell>{item.section || "—"}</TableCell>
                                         <TableCell>{item.annee || "—"}</TableCell>
@@ -655,7 +693,7 @@ export default function ExamensNationaux() {
                                 <Input
                                     readOnly
                                     value={composedEditTitre}
-                                    placeholder="Sélectionnez un type, une matière et une année"
+                                    placeholder="Sélectionnez un type, une matière ou une filière, et une année"
                                     className="bg-muted text-muted-foreground"
                                 />
                             </div>
@@ -672,10 +710,9 @@ export default function ExamensNationaux() {
                                         ...editingItem,
                                         type_examen_id: opt.id,
                                         type_examen: { id: opt.id, nom: opt.nom },
-                                        serie_id: null,
-                                        serie: null,
-                                        matiere_filiere_examen_id: undefined as any,
-                                        matiere_filiere_examen: undefined,
+                                        serie_id: null, serie: null,
+                                        matiere_examen_id: null, matiere_examen: null,
+                                        filiere_examen_id: null, filiere_examen: null,
                                     } : null)}
                                     search={eTypeSearch}
                                     onSearchChange={setETypeSearch}
@@ -698,22 +735,40 @@ export default function ExamensNationaux() {
                                     isCreating={createSerieMutation.isPending}
                                 />
                             </div>
+                            <p className="text-xs text-muted-foreground -mb-2">Renseignez au moins une matière <b>ou</b> une filière.</p>
                             <div className="grid grid-cols-2 gap-4">
                                 <CascadeCombobox
-                                    label="Matière / Filière *"
-                                    placeholder={editingItem?.type_examen_id ? "Sélectionner une matière/filière" : "Choisir un type d'abord"}
-                                    searchPlaceholder="Rechercher une matière/filière..."
-                                    emptyText="Aucune matière/filière trouvée."
-                                    createPlaceholder="Nouvelle matière/filière"
+                                    label="Matière (optionnel)"
+                                    placeholder={editingItem?.type_examen_id ? "Sélectionner une matière" : "Choisir un type d'abord"}
+                                    searchPlaceholder="Rechercher une matière..."
+                                    emptyText="Aucune matière trouvée."
+                                    createPlaceholder="Nouvelle matière"
                                     disabled={!editingItem?.type_examen_id}
                                     options={eMatieres.map((m) => ({ id: m.id, nom: m.nom }))}
-                                    selected={editingItem?.matiere_filiere_examen ? { id: editingItem.matiere_filiere_examen.id, nom: editingItem.matiere_filiere_examen.nom } : null}
-                                    onSelect={(opt) => setEditingItem(editingItem ? { ...editingItem, matiere_filiere_examen_id: opt.id, matiere_filiere_examen: { id: opt.id, nom: opt.nom, type_examen_id: editingItem.type_examen_id } } : null)}
+                                    selected={editingItem?.matiere_examen ? { id: editingItem.matiere_examen.id, nom: editingItem.matiere_examen.nom } : null}
+                                    onSelect={(opt) => setEditingItem(editingItem ? { ...editingItem, matiere_examen_id: opt.id, matiere_examen: { id: opt.id, nom: opt.nom, type_examen_id: editingItem.type_examen_id } } : null)}
                                     search={eMatiereSearch}
                                     onSearchChange={setEMatiereSearch}
                                     onCreate={(nom) => handleCreateMatiere(nom, "edit")}
                                     isCreating={createMatiereMutation.isPending}
                                 />
+                                <CascadeCombobox
+                                    label="Filière (optionnel)"
+                                    placeholder={editingItem?.type_examen_id ? "Sélectionner une filière" : "Choisir un type d'abord"}
+                                    searchPlaceholder="Rechercher une filière..."
+                                    emptyText="Aucune filière trouvée."
+                                    createPlaceholder="Nouvelle filière"
+                                    disabled={!editingItem?.type_examen_id}
+                                    options={eFilieres.map((f) => ({ id: f.id, nom: f.nom }))}
+                                    selected={editingItem?.filiere_examen ? { id: editingItem.filiere_examen.id, nom: editingItem.filiere_examen.nom } : null}
+                                    onSelect={(opt) => setEditingItem(editingItem ? { ...editingItem, filiere_examen_id: opt.id, filiere_examen: { id: opt.id, nom: opt.nom, type_examen_id: editingItem.type_examen_id } } : null)}
+                                    search={eFiliereSearch}
+                                    onSearchChange={setEFiliereSearch}
+                                    onCreate={(nom) => handleCreateFiliere(nom, "edit")}
+                                    isCreating={createFiliereMutation.isPending}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="grid gap-2 min-w-0">
                                     <Label>Section</Label>
                                     <Select
@@ -730,10 +785,10 @@ export default function ExamensNationaux() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            </div>
-                            <div className="grid gap-2 min-w-0">
-                                <Label>Année *</Label>
-                                <Input type="number" value={editingItem?.annee || ""} onChange={(e) => setEditingItem(editingItem ? { ...editingItem, annee: parseInt(e.target.value) || (undefined as any) } : null)} />
+                                <div className="grid gap-2 min-w-0">
+                                    <Label>Année *</Label>
+                                    <Input type="number" value={editingItem?.annee || ""} onChange={(e) => setEditingItem(editingItem ? { ...editingItem, annee: parseInt(e.target.value) || (undefined as any) } : null)} />
+                                </div>
                             </div>
                             <div className="grid gap-2 min-w-0">
                                 <Label>Fichier (Laisser vide pour conserver l'actuel)</Label>
@@ -746,7 +801,7 @@ export default function ExamensNationaux() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button type="submit" disabled={isUploading || !editingItem?.type_examen_id || !editingItem?.matiere_filiere_examen_id || !editingItem?.annee}>
+                            <Button type="submit" disabled={isUploading || !editingItem?.type_examen_id || (!editingItem?.matiere_examen_id && !editingItem?.filiere_examen_id) || !editingItem?.annee}>
                                 {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Mise à jour...</> : "Mettre à jour"}
                             </Button>
                         </DialogFooter>
