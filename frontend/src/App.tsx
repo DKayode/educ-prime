@@ -49,6 +49,7 @@ import Indicateurs from "./pages/Indicateurs";
 import StatistiquesApprobations from "./pages/StatistiquesApprobations";
 import RetraitsWallet from "./pages/RetraitsWallet";
 import ConfigurationWallet from "./pages/ConfigurationWallet";
+import RecompensesWallet from "./pages/RecompensesWallet";
 import EnquetesCampagnes from "./pages/EnquetesCampagnes";
 import EnquetesBuilder from "./pages/EnquetesBuilder";
 import EnquetesResultats from "./pages/EnquetesResultats";
@@ -123,6 +124,7 @@ const App = () => (
                       <Route path="/statistiques-approbations" element={<StatistiquesApprobations />} />
                       <Route path="/admin/retraits" element={<RetraitsWallet />} />
                       <Route path="/admin/wallet-configuration" element={<ConfigurationWallet />} />
+                      <Route path="/admin/wallet-recompenses" element={<RecompensesWallet />} />
                       <Route path="/enquetes" element={<EnquetesCampagnes />} />
                       <Route path="/enquetes/nouveau" element={<EnquetesBuilder />} />
                       <Route path="/enquetes/:uuid/edition" element={<EnquetesBuilder />} />

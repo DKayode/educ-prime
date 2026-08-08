@@ -24,12 +24,6 @@ import {
 type NumKey = keyof PaymentConfigurationUpdate;
 type NumField = { key: NumKey; label: string; hint?: string };
 
-const REWARD_EXAM_FIELDS: NumField[] = [
-  { key: "rewardPerExam", label: "Montant (XOF)", hint: "Crédité à l'auteur quand une épreuve est approuvée." },
-];
-const REWARD_CONCOURS_FIELDS: NumField[] = [
-  { key: "rewardPerConcours", label: "Montant (XOF)", hint: "Crédité à l'auteur quand un concours est approuvé." },
-];
 const WITHDRAW_FIELDS: NumField[] = [
   { key: "minimumWithdrawal", label: "Retrait minimum (XOF)" },
   { key: "maximumWithdrawal", label: "Retrait maximum (XOF)" },
@@ -53,8 +47,12 @@ const TOGGLES: { key: NumKey; label: string; hint?: string }[] = [
   { key: "maintenanceMode", label: "Mode maintenance" },
 ];
 
+// rewardPerExam / rewardPerConcours ne sont plus ici : les montants sont
+// désormais configurés PAR SOURCE (épreuve / examen / concours) sur la page
+// Récompenses. `rewardPerConcours` n'existe même plus côté API — l'envoyer
+// ferait échouer tout l'enregistrement (forbidNonWhitelisted → 400).
 const NUM_KEYS: NumKey[] = [
-  "rewardPerExam", "rewardPerConcours", "minimumWithdrawal", "maximumWithdrawal", "withdrawFee",
+  "minimumWithdrawal", "maximumWithdrawal", "withdrawFee",
   "dailyWithdrawalLimit", "monthlyWithdrawalLimit", "minimumWalletBalance",
   "reviewDelayHours", "maxWithdrawPerDay", "maxWithdrawPerWeek", "maxWithdrawPerMonth",
 ];
@@ -144,17 +142,6 @@ export default function ConfigurationWallet() {
         <p className="py-8 text-center text-sm text-destructive">Impossible de charger la configuration.</p>
       ) : (
         <div className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="shadow-sm">
-              <CardHeader><CardTitle className="text-base">Récompense épreuves</CardTitle><CardDescription>Crédit versé à l'auteur d'une épreuve approuvée · {currency}</CardDescription></CardHeader>
-              <CardContent>{renderNumFields(REWARD_EXAM_FIELDS)}</CardContent>
-            </Card>
-            <Card className="shadow-sm">
-              <CardHeader><CardTitle className="text-base">Récompense concours</CardTitle><CardDescription>Crédit versé à l'auteur d'un concours approuvé · {currency}</CardDescription></CardHeader>
-              <CardContent>{renderNumFields(REWARD_CONCOURS_FIELDS)}</CardContent>
-            </Card>
-          </div>
-
           <Card className="shadow-sm">
             <CardHeader><CardTitle className="text-base">Retraits</CardTitle><CardDescription>Bornes et frais des demandes de retrait</CardDescription></CardHeader>
             <CardContent className="space-y-4">
