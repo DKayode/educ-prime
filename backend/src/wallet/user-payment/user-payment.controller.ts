@@ -20,19 +20,26 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RoleGuard } from 'src/auth/guards/role.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { RoleType } from 'src/utilisateurs/entities/utilisateur.entity';
-import { WithdrawalStatus } from '../shared/payment.enums';
+import { RewardSourceTypeCode, WithdrawalStatus } from '../shared/payment.enums';
 import { UpsertPaymentAccountDto } from './dto/upsert-payment-account.dto';
 import { ConfirmManualPaymentDto } from './dto/confirm-manual-payment.dto';
 import { UpdatePaymentConfigurationDto } from './dto/update-payment-configuration.dto';
 import { RejectWithdrawalDto } from './dto/reject-withdrawal.dto';
 import { UnlockWithdrawalOtpDto } from './dto/unlock-withdrawal-otp.dto';
+import { UpdateRewardConfigurationDto } from './dto/update-reward-configuration.dto';
 import { UpsertPaymentAccountUseCase } from './use-cases/upsert-payment-account.use-case';
 import { GetPaymentAccountsUseCase } from './use-cases/get-payment-accounts.use-case';
 import { GetUserPaymentActivityUseCase } from './use-cases/get-user-payment-activity.use-case';
 import {
+  GetRewardConfigurationUseCase,
+  ListRewardConfigurationsUseCase,
+  UpdateRewardConfigurationUseCase,
+} from './use-cases/admin-reward-configuration.use-cases';
+import {
   ApproveWithdrawalUseCase,
   ConfirmManualPaymentUseCase,
   GetPaymentConfigurationUseCase,
+  GetWithdrawalOtpDeliveryStatusUseCase,
   ListAdminWithdrawalsUseCase,
   RejectWithdrawalUseCase,
   UnlockWithdrawalOtpUseCase,
@@ -48,6 +55,7 @@ export class UserPaymentController {
     private readonly upsertPaymentAccount: UpsertPaymentAccountUseCase,
     private readonly getPaymentAccounts: GetPaymentAccountsUseCase,
     private readonly listAdminWithdrawals: ListAdminWithdrawalsUseCase,
+    private readonly getWithdrawalOtpDeliveryStatus: GetWithdrawalOtpDeliveryStatusUseCase,
     private readonly approveWithdrawal: ApproveWithdrawalUseCase,
     private readonly rejectWithdrawal: RejectWithdrawalUseCase,
     private readonly unlockWithdrawalOtp: UnlockWithdrawalOtpUseCase,
@@ -55,6 +63,9 @@ export class UserPaymentController {
     private readonly getConfiguration: GetPaymentConfigurationUseCase,
     private readonly updateConfiguration: UpdatePaymentConfigurationUseCase,
     private readonly getUserPaymentActivity: GetUserPaymentActivityUseCase,
+    private readonly listRewardConfigurations: ListRewardConfigurationsUseCase,
+    private readonly getRewardConfiguration: GetRewardConfigurationUseCase,
+    private readonly updateRewardConfiguration: UpdateRewardConfigurationUseCase,
   ) { }
 
   @Post('accounts')
@@ -96,6 +107,18 @@ export class UserPaymentController {
       Number(page ?? 1),
       Number(limit ?? 20),
     );
+  }
+
+
+  @UseGuards(RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @Get('admin/withdrawals/:id/otp-delivery-status')
+  @ApiOperation({
+    summary: 'Diagnostiquer le statut de livraison OTP Infobip d’une demande de retrait',
+  })
+  @ApiParam({ name: 'id', description: 'Identifiant de la demande de retrait' })
+  getWithdrawalOtpDeliveryStatusDetails(@Param('id') id: string) {
+    return this.getWithdrawalOtpDeliveryStatus.execute(id);
   }
 
   @UseGuards(RoleGuard)
@@ -203,6 +226,43 @@ export class UserPaymentController {
       Number(page ?? 1),
       Number(limit ?? 50),
     );
+  }
+
+
+  @UseGuards(RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @Get('admin/reward-configurations')
+  @ApiOperation({
+    summary: 'Lister les configurations de récompense par type de contenu : EPREUVE, EXAMEN, CONCOURS',
+  })
+  listRewardConfigurationDetails() {
+    return this.listRewardConfigurations.execute();
+  }
+
+  @UseGuards(RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @Get('admin/reward-configurations/:sourceType')
+  @ApiOperation({
+    summary: 'Consulter la configuration de récompense d’un type de contenu',
+  })
+  @ApiParam({ name: 'sourceType', enum: RewardSourceTypeCode, example: RewardSourceTypeCode.EPREUVE })
+  getRewardConfigurationDetails(@Param('sourceType') sourceType: string) {
+    return this.getRewardConfiguration.execute(sourceType);
+  }
+
+  @UseGuards(RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @Patch('admin/reward-configurations/:sourceType')
+  @ApiOperation({
+    summary: 'Mettre à jour la configuration de récompense d’un type de contenu',
+  })
+  @ApiParam({ name: 'sourceType', enum: RewardSourceTypeCode, example: RewardSourceTypeCode.CONCOURS })
+  updateRewardConfigurationDetails(
+    @Request() req,
+    @Param('sourceType') sourceType: string,
+    @Body() dto: UpdateRewardConfigurationDto,
+  ) {
+    return this.updateRewardConfiguration.execute(sourceType, req.user.utilisateurId, dto);
   }
 
   @UseGuards(RoleGuard)

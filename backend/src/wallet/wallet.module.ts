@@ -1,3 +1,4 @@
+clear
 import { Module, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
@@ -10,12 +11,14 @@ import * as paymentEntities from './payment.entities';
 import { WalletController } from './wallet-balance/wallet.controller';
 import { UserPaymentController } from './user-payment/user-payment.controller';
 import { ExamRewardInternalController, InternalApiKeyGuard } from './internal/exam-reward-internal.controller';
+import { RewardInternalController } from './internal/reward-internal.controller';
 import { InfobipDeliveryReportController, InfobipWebhookGuard } from './otp/infobip-delivery-report.controller';
 
 import { RuleEngineService } from './shared/rules-engine.service';
 import {
   PAYMENT_AUDIT_LOG_PORT,
   PAYMENT_CONFIGURATION_REPOSITORY,
+  PAYMENT_REWARD_CONFIGURATION_REPOSITORY,
   PAYMENT_EXECUTION_REPOSITORY,
   PAYMENT_NOTIFICATION_PORT,
   USER_PAYMENT_ACCOUNT_REPOSITORY,
@@ -30,6 +33,7 @@ import {
 
 import { CreateWalletForUserUseCase } from './wallet-balance/use-cases/create-wallet-for-user.use-case';
 import { CreditWalletFromValidatedExamUseCase } from './wallet-balance/use-cases/credit-wallet-from-validated-exam.use-case';
+import { CreditRewardSourceUseCase } from './user-payment/use-cases/credit-reward-source.use-case';
 import { GetMyWalletUseCase } from './wallet-balance/use-cases/get-my-wallet.use-case';
 import { GetMyWalletTransactionsUseCase } from './wallet-balance/use-cases/get-my-wallet-transactions.use-case';
 import { GetMyWalletOverviewUseCase } from './wallet-balance/use-cases/get-my-wallet-overview.use-case';
@@ -47,16 +51,23 @@ import {
   ApproveWithdrawalUseCase,
   ConfirmManualPaymentUseCase,
   GetPaymentConfigurationUseCase,
+  GetWithdrawalOtpDeliveryStatusUseCase,
   ListAdminWithdrawalsUseCase,
   RejectWithdrawalUseCase,
   UnlockWithdrawalOtpUseCase,
   UpdatePaymentConfigurationUseCase,
 } from './user-payment/use-cases/admin-withdrawal.use-cases';
 import { GetUserPaymentActivityUseCase } from './user-payment/use-cases/get-user-payment-activity.use-case';
+import {
+  GetRewardConfigurationUseCase,
+  ListRewardConfigurationsUseCase,
+  UpdateRewardConfigurationUseCase,
+} from './user-payment/use-cases/admin-reward-configuration.use-cases';
 
 import {
   TypeOrmPaymentAuditLogAdapter,
   TypeOrmPaymentConfigurationRepository,
+  TypeOrmPaymentRewardConfigurationRepository,
   TypeOrmPaymentExecutionRepository,
   TypeOrmUserPaymentAccountRepository,
   TypeOrmWithdrawalOtpRepository,
@@ -85,6 +96,7 @@ import { InfobipOtpSmsAdapter } from './otp/infobip-otp-sms.adapter';
     WalletController,
     UserPaymentController,
     ExamRewardInternalController,
+    RewardInternalController,
     InfobipDeliveryReportController,
   ],
   providers: [
@@ -94,6 +106,7 @@ import { InfobipOtpSmsAdapter } from './otp/infobip-otp-sms.adapter';
 
     CreateWalletForUserUseCase,
     CreditWalletFromValidatedExamUseCase,
+    CreditRewardSourceUseCase,
     GetMyWalletUseCase,
     GetMyWalletTransactionsUseCase,
     GetMyWalletOverviewUseCase,
@@ -108,6 +121,7 @@ import { InfobipOtpSmsAdapter } from './otp/infobip-otp-sms.adapter';
     UpsertPaymentAccountUseCase,
     GetPaymentAccountsUseCase,
     ListAdminWithdrawalsUseCase,
+    GetWithdrawalOtpDeliveryStatusUseCase,
     ApproveWithdrawalUseCase,
     RejectWithdrawalUseCase,
     UnlockWithdrawalOtpUseCase,
@@ -115,6 +129,9 @@ import { InfobipOtpSmsAdapter } from './otp/infobip-otp-sms.adapter';
     GetPaymentConfigurationUseCase,
     UpdatePaymentConfigurationUseCase,
     GetUserPaymentActivityUseCase,
+    ListRewardConfigurationsUseCase,
+    GetRewardConfigurationUseCase,
+    UpdateRewardConfigurationUseCase,
 
     { provide: WALLET_REPOSITORY, useClass: TypeOrmWalletRepository },
     { provide: WALLET_TRANSACTION_REPOSITORY, useClass: TypeOrmWalletTransactionRepository },
@@ -124,6 +141,7 @@ import { InfobipOtpSmsAdapter } from './otp/infobip-otp-sms.adapter';
     { provide: USER_PAYMENT_ACCOUNT_REPOSITORY, useClass: TypeOrmUserPaymentAccountRepository },
     { provide: PAYMENT_EXECUTION_REPOSITORY, useClass: TypeOrmPaymentExecutionRepository },
     { provide: PAYMENT_CONFIGURATION_REPOSITORY, useClass: TypeOrmPaymentConfigurationRepository },
+    { provide: PAYMENT_REWARD_CONFIGURATION_REPOSITORY, useClass: TypeOrmPaymentRewardConfigurationRepository },
     { provide: PAYMENT_NOTIFICATION_PORT, useClass: FirebaseFcmPaymentNotificationAdapter },
     { provide: PAYMENT_AUDIT_LOG_PORT, useClass: TypeOrmPaymentAuditLogAdapter },
     { provide: USER_PROFILE_PORT, useClass: UtilisateursUserProfileAdapter },
@@ -132,6 +150,7 @@ import { InfobipOtpSmsAdapter } from './otp/infobip-otp-sms.adapter';
   exports: [
     CreateWalletForUserUseCase,
     CreditWalletFromValidatedExamUseCase,
+    CreditRewardSourceUseCase,
     UpsertPaymentAccountUseCase,
     ConfirmManualPaymentUseCase,
     WALLET_REPOSITORY,
@@ -142,6 +161,6 @@ export class WalletModule implements OnModuleInit {
   private readonly logger = new Logger(WalletModule.name);
 
   onModuleInit() {
-    this.logger.log('WalletModule chargé : routes wallet, user-payment, OTP Infobip et internal exam rewards prêtes.');
+    this.logger.log('WalletModule chargé : routes wallet, user-payment, OTP Infobip et internal rewards prêtes.');
   }
 }

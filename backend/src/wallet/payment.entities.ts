@@ -10,4 +10,6 @@ export { UserPaymentAccountHistoryEntity } from './user-payment/entities/user-pa
 export { PaymentBatchEntity } from './user-payment/entities/payment-batch.entity';
 export { PaymentAuditLogEntity } from './user-payment/entities/payment-audit-log.entity';
 export { PaymentNotificationEntity } from './user-payment/entities/payment-notification.entity';
+export { PaymentRewardSourceTypeEntity } from './user-payment/entities/payment-reward-source-type.entity';
+export { PaymentRewardConfigurationEntity } from './user-payment/entities/payment-reward-configuration.entity';
 export { WithdrawalOtpEntity } from './otp/entities/withdrawal-otp.entity';

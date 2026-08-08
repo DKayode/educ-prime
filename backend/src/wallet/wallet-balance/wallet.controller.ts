@@ -26,7 +26,7 @@ export class WalletController {
     private readonly verifyWithdrawalOtp: VerifyWithdrawalOtpUseCase,
     private readonly resendWithdrawalOtp: ResendWithdrawalOtpUseCase,
     private readonly getWithdrawalOtpDebugCode: GetWithdrawalOtpDebugCodeUseCase,
-  ) { }
+  ) {}
 
   @Get('me')
   @ApiOperation({ summary: 'Consulter uniquement le wallet de l’utilisateur connecté' })
