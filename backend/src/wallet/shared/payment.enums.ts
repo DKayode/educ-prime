@@ -1,3 +1,10 @@
+
+export enum RewardSourceTypeCode {
+  EPREUVE = 'EPREUVE',
+  EXAMEN = 'EXAMEN',
+  CONCOURS = 'CONCOURS',
+}
+
 export enum WalletStatus {
   ACTIVE = 'ACTIVE',
   SUSPENDED = 'SUSPENDED',
