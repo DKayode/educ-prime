@@ -37,7 +37,6 @@ import {
   ClipboardCheck,
   Wallet,
   Banknote,
-  Gift,
   Map,
   MapPin,
   ClipboardList,
@@ -126,7 +125,6 @@ const navTree: NavItem[] = [
         icon: Wallet,
         children: [
           { title: "Retraits", icon: Banknote, url: "/admin/retraits" },
-          { title: "Récompenses", icon: Gift, url: "/admin/wallet-recompenses" },
           { title: "Configuration", icon: SlidersHorizontal, url: "/admin/wallet-configuration" },
         ],
       },

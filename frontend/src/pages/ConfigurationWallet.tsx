@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Settings2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { RewardConfigurationSection } from "@/components/RewardConfigurationSection";
 import {
   walletAdminService,
   PaymentConfiguration,
@@ -142,6 +143,17 @@ export default function ConfigurationWallet() {
         <p className="py-8 text-center text-sm text-destructive">Impossible de charger la configuration.</p>
       ) : (
         <div className="space-y-6">
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">Récompenses</h2>
+              <p className="text-sm text-muted-foreground">
+                Crédit versé à l'auteur, par type de contenu validé — épreuve, examen national, concours.
+                Chaque bloc s'enregistre séparément (bouton propre à la carte).
+              </p>
+            </div>
+            <RewardConfigurationSection />
+          </div>
+
           <Card className="shadow-sm">
             <CardHeader><CardTitle className="text-base">Retraits</CardTitle><CardDescription>Bornes et frais des demandes de retrait</CardDescription></CardHeader>
             <CardContent className="space-y-4">
