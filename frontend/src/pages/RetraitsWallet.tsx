@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, XCircle, Wallet, ChevronLeft, ChevronRight, BadgeCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { OtpDeliveryIndicator } from "@/components/OtpDeliveryIndicator";
 import {
   walletAdminService,
   WithdrawalRequest,
@@ -173,7 +174,12 @@ export default function RetraitsWallet() {
                           </div>
                         ) : <span className="text-xs text-muted-foreground">non renseigné</span>}
                       </TableCell>
-                      <TableCell><Badge variant={meta.variant} className={meta.className}>{meta.label}</Badge></TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Badge variant={meta.variant} className={meta.className}>{meta.label}</Badge>
+                          <OtpDeliveryIndicator withdrawalId={w.id} />
+                        </div>
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{new Date(w.createdAt).toLocaleString("fr-FR")}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1.5">
