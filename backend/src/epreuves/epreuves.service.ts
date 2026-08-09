@@ -10,6 +10,7 @@ import { FilterEpreuveDto } from './dto/filter-epreuve.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { EpreuveResponseDto } from './dto/epreuve-response.dto';
+import { professeurPublic } from './professeur-public.util';
 
 @Injectable()
 export class EpreuvesService {
@@ -46,11 +47,7 @@ export class EpreuvesService {
       type: epreuve.type,
       annee: epreuve.annee,
       section: epreuve.section,
-      professeur: {
-        nom: epreuve.professeur.nom,
-        prenom: epreuve.professeur.prenom,
-        telephone: epreuve.professeur.telephone,
-      },
+      professeur: professeurPublic(epreuve.professeur),
       matiere: {
         id: epreuve.matiere.id,
         nom: epreuve.matiere.nom,
