@@ -3,6 +3,19 @@ import * as nodemailer from 'nodemailer';
 import { ConfigService } from '@nestjs/config';
 import { CountryConfigService } from '../config/country-config.service';
 
+/**
+ * Les titres et noms viennent de données utilisateur (titre d'une soumission,
+ * nom du compte) : ne jamais les injecter bruts dans le HTML d'un mail.
+ */
+function escapeHtml(value: string): string {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class MailService {
     private transporter: nodemailer.Transporter;
@@ -215,26 +228,48 @@ export class MailService {
 
         let statusText = '';
         let messageHtml = '';
+        // Contenus déposés par les utilisateurs : leur approbation crédite le
+        // wallet, donc le mail parle de gains. Les autres entités qui passent
+        // par cette méthode (offres JobKia…) ne rapportent rien — elles gardent
+        // le message neutre plus bas.
+        const CONTENUS_RECOMPENSES: Record<string, { approuve: string }> = {
+            'épreuve': { approuve: 'approuvée' },   // féminin
+            'examen national': { approuve: 'approuvé' },
+            'concours': { approuve: 'approuvé' },
+        };
 
-        if (status === 'active' || status === 'approved') {
+        if ((status === 'active' || status === 'approved') && CONTENUS_RECOMPENSES[entityType]) {
+            const accord = CONTENUS_RECOMPENSES[entityType].approuve;
+            statusText = accord;
+            messageHtml = `
+        <p>Excellente nouvelle ! 🎉</p>
+        <p>Votre ${entityType} «&nbsp;<strong>${escapeHtml(serviceTitle)}</strong>&nbsp;» a été <strong>${accord}</strong> et est désormais visible par tous les utilisateurs sur EDUKIA.</p>
+        <p>Les revenus générés grâce à vos contenus sont disponibles dans votre <strong>Wallet EDUKIA</strong>.</p>
+        <p>Le retrait de vos gains via Mobile Money sera disponible dès la semaine prochaine. Vous recevrez directement une notification dans l'application vous invitant à renseigner votre numéro Mobile Money afin que nous puissions effectuer le transfert.</p>
+        <p>Merci pour votre confiance et votre contribution à la communauté EDUKIA.</p>`;
+        } else if (status === 'active' || status === 'approved') {
+            // Entités sans récompense (offres JobKia…) : message neutre inchangé.
             statusText = 'approuvé';
-            messageHtml = `<p>Excellente nouvelle ! Votre ${entityType} <strong>"${serviceTitle}"</strong> a été <strong>approuvé</strong> et est maintenant visible par tous les utilisateurs.</p>`;
+            messageHtml = `<p>Excellente nouvelle ! Votre ${entityType} <strong>"${escapeHtml(serviceTitle)}"</strong> a été <strong>approuvé</strong> et est maintenant visible par tous les utilisateurs.</p>`;
         } else if (status === 'declined') {
             statusText = 'refusé';
             const reasonHtml = reason && reason.trim()
-                ? `<p><strong>Motif :</strong> ${reason.trim()}</p>`
+                ? `<p><strong>Motif :</strong> ${escapeHtml(reason.trim())}</p>`
                 : '';
-            messageHtml = `<p>Nous sommes au regret de vous informer que votre ${entityType} <strong>"${serviceTitle}"</strong> a été <strong>refusé</strong>.</p>${reasonHtml}`;
+            messageHtml = `<p>Nous sommes au regret de vous informer que votre ${entityType} <strong>"${escapeHtml(serviceTitle)}"</strong> a été <strong>refusé</strong>.</p>${reasonHtml}`;
         } else {
             // Optional: don't send emails for other status changes
             return;
         }
 
+        const remerciement = CONTENUS_RECOMPENSES[entityType] && (status === 'active' || status === 'approved')
+            ? ''                                    // déjà dit dans le message ci-dessus
+            : `<br/><p>Merci pour votre confiance,</p>`;
+
         const innerContent = `
-        <h2 style="color: #0f172a; margin-top: 0;">Bonjour ${userName},</h2>
+        <h2 style="color: #0f172a; margin-top: 0;">Bonjour ${escapeHtml(userName)},</h2>
         ${messageHtml}
-        <br/>
-        <p>Merci pour votre confiance,</p>
+        ${remerciement}
         <p>L'équipe Edukia</p>
         `;
 
