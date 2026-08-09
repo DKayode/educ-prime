@@ -15,6 +15,7 @@ import { PaginationResponse } from '../common/interfaces/pagination-response.int
 import { MailService } from '../mail/mail.service';
 import { FilesService } from '../files/files.service';
 import { CreditWalletFromValidatedExamUseCase } from '../wallet/wallet-balance/use-cases/credit-wallet-from-validated-exam.use-case';
+import { RewardSourceTypeCode } from '../wallet/shared/payment.enums';
 
 @Injectable()
 export class ExamensNationauxSubmissionsService {
@@ -381,7 +382,7 @@ export class ExamensNationauxSubmissionsService {
         // Idempotent via reference EXAM_REWARD:<uuid> (re-approving never double-credits).
         if (submission.soumis_par_id != null) {
             this.creditWalletFromExam
-                .execute({ userId: submission.soumis_par_id, examId: saved.uuid, description: 'Examen national validé' })
+                .execute({ userId: submission.soumis_par_id, sourceType: RewardSourceTypeCode.EXAMEN, examId: saved.uuid, description: 'Examen national validé' })
                 .then((res: any) => this.logger.log(`Wallet crédité (examen national ${saved.uuid}) pour user ${submission.soumis_par_id}${res?.duplicated ? ' [déjà crédité]' : ''}`))
                 .catch(err => this.logger.error(`Crédit wallet échoué (soumission ${id}): ${err.message}`));
         }
