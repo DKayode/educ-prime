@@ -16,6 +16,13 @@ sources:
     include_containers:
       - edukia_backend
       - edukia_nginx
+      # The SPA container is a SECOND nginx (frontend/Dockerfile is FROM
+      # nginx:alpine) — its access/error logs were invisible in Grafana until
+      # it was allowlisted here.
+      - edukia_frontend
+      # Renewal failures are a site outage waiting to happen; they only ever
+      # showed up in `docker logs`.
+      - edukia_certbot
 
 transforms:
   process:
@@ -43,6 +50,18 @@ transforms:
       msg = replace(msg, r'(?i)"passwd"\s*:\s*"[^"]*"', s'"passwd":"[REDACTED]"')
       msg = replace(msg, r'(?i)"api_?key"\s*:\s*"[^"]*"', s'"api_key":"[REDACTED]"')
       msg = replace(msg, r'(?i)"authorization"\s*:\s*"[^"]*"', s'"authorization":"[REDACTED]"')
+
+      # nginx's error_log format is FIXED — nginx cannot emit JSON there — and
+      # container startup notices are plain text too. Every dashboard and alert
+      # filters with `| json | __error__=""`, so those lines reached Loki and
+      # were then silently dropped at query time. Wrap whatever isn't already a
+      # JSON object so one `| json` pipeline sees every line. Access logs (both
+      # nginx layers) and pino output are already objects and pass through
+      # untouched.
+      parsed, parse_err = parse_json(msg)
+      if parse_err != null || !is_object(parsed) {
+        msg = encode_json({"level": "raw", "service": .service, "message": msg})
+      }
       .message = msg
 
 sinks:
