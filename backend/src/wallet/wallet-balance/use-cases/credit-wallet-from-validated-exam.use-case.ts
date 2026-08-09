@@ -4,6 +4,8 @@ import { CreditRewardSourceUseCase } from '../../user-payment/use-cases/credit-r
 
 export interface CreditWalletFromValidatedExamCommand {
   userId: number;
+  /** Type de contenu récompensé. Absent ⇒ EPREUVE (ancien endpoint interne). */
+  sourceType?: RewardSourceTypeCode;
   examId: string;
   amount?: number;
   currency?: string;
@@ -24,16 +26,24 @@ export class CreditWalletFromValidatedExamUseCase {
   constructor(private readonly creditRewardSource: CreditRewardSourceUseCase) {}
 
   execute(command: CreditWalletFromValidatedExamCommand) {
+    const sourceType = command.sourceType ?? RewardSourceTypeCode.EPREUVE;
+
     return this.creditRewardSource.execute({
       userId: command.userId,
-      sourceType: RewardSourceTypeCode.EPREUVE,
+      sourceType,
       sourceId: command.examId,
       amount: command.amount,
       currency: command.currency,
-      // On conserve l'ancien format par défaut pour éviter tout double crédit
-      // sur les références déjà créées en production.
+      // La référence reste `EXAM_REWARD:<uuid>` pour TOUTES les sources, y
+      // compris CONCOURS et EXAMEN. Épreuves, concours et examens nationaux ont
+      // toujours écrit ce même préfixe : c'est sur lui que porte le contrôle de
+      // doublon le plus ancien, et il est vérifié AVANT le contrôle par source.
+      // Passer à `CONCOURS_REWARD:` ferait manquer les lignes historiques — et
+      // celles-ci sont rétro-marquées EPREUVE par la migration 037, donc le
+      // contrôle par source ne les rattraperait pas non plus : ré-approuver un
+      // concours déjà payé le paierait une seconde fois.
       reference: command.reference ?? `EXAM_REWARD:${command.examId}`,
-      description: command.description ?? `Récompense épreuve validée ${command.examId}`,
+      description: command.description ?? `Récompense validée ${command.examId}`,
       metadata: {
         examId: command.examId,
         legacyEndpoint: 'internal/payment/exam-rewards/credit',

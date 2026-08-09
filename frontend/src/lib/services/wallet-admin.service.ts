@@ -50,8 +50,8 @@ export type FeeType = 'FIXED' | 'PERCENTAGE';
 
 export interface PaymentConfiguration {
   id: string;
+  /** Vestigial: le montant réel vit dans RewardConfiguration (par source). */
   rewardPerExam: number;
-  rewardPerConcours: number;
   rewardEnabled: boolean;
   minimumWithdrawal: number;
   maximumWithdrawal: number;
@@ -76,6 +76,82 @@ export type PaymentConfigurationUpdate = Partial<Omit<PaymentConfiguration, 'id'
 // Admin endpoints exposed by the Wallet / UserPayment module. Not country-scoped
 // (the ?country= the api client appends is harmless — the wallet controllers
 // ignore it).
+/** Une source de récompense : le crédit versé quand un contenu chargé est validé. */
+export type RewardSourceType = 'EPREUVE' | 'EXAMEN' | 'CONCOURS';
+
+export interface RewardConfiguration {
+  id: string;
+  rewardSourceTypeId: string;
+  rewardSourceTypeCode: RewardSourceType;
+  rewardSourceTypeLabel: string;
+  rewardAmount: number;
+  currency: string;
+  rewardEnabled: boolean;
+  /** 0 = crédit disponible immédiatement ; > 0 = crédité en attente. */
+  reviewDelayHours: number;
+  requiresAdminValidation: boolean;
+  /** Sur tous les plafonds : 0 = aucune limite. */
+  dailyRewardAmountLimit: number;
+  monthlyRewardAmountLimit: number;
+  maxRewardsPerUserPerDay: number;
+  maxRewardsPerUserPerMonth: number;
+  isActive: boolean;
+  updatedBy?: number | null;
+  updatedAt?: string;
+}
+
+export type RewardConfigurationUpdate = Partial<
+  Pick<
+    RewardConfiguration,
+    | 'rewardAmount'
+    | 'currency'
+    | 'rewardEnabled'
+    | 'reviewDelayHours'
+    | 'requiresAdminValidation'
+    | 'dailyRewardAmountLimit'
+    | 'monthlyRewardAmountLimit'
+    | 'maxRewardsPerUserPerDay'
+    | 'maxRewardsPerUserPerMonth'
+  >
+>;
+
+/** Suivi de livraison du SMS d'OTP envoyé à l'utilisateur lors d'une demande de retrait. */
+export type OtpDeliveryState =
+  | 'NOT_REQUIRED' | 'CREATED' | 'SENT_TO_PROVIDER' | 'DELIVERED'
+  | 'UNDELIVERED' | 'FAILED' | 'DELIVERY_UNKNOWN' | 'DELIVERY_TIMEOUT';
+
+export interface OtpDeliveryDiagnostic {
+  level: 'OK' | 'INFO' | 'WARNING' | 'ERROR';
+  code: string;
+  message: string;
+}
+
+export interface WithdrawalOtpDelivery {
+  withdrawalRequestId: string;
+  otp: {
+    status: string;
+    provider: string;
+    /** Masqué côté serveur. */
+    phoneNumber: string;
+    deliveryStatus: OtpDeliveryState | null;
+    providerStatusName: string | null;
+    providerStatusDescription: string | null;
+    deliveryErrorCode: string | null;
+    deliveryErrorMessage: string | null;
+    failureReason: string | null;
+    sentAt: string | null;
+    deliveredAt: string | null;
+    failedAt: string | null;
+    attemptCount: number;
+    maxAttempts: number;
+    resendCount: number;
+    expiresAt: string | null;
+    lockedAt: string | null;
+    lockedReason: string | null;
+  } | null;
+  diagnostic: OtpDeliveryDiagnostic;
+}
+
 export const walletAdminService = {
   listWithdrawals: async (params?: { status?: WithdrawalStatus; page?: number; limit?: number }): Promise<WithdrawalList> => {
     const q = new URLSearchParams();
@@ -98,4 +174,19 @@ export const walletAdminService = {
 
   updateConfiguration: (payload: PaymentConfigurationUpdate): Promise<PaymentConfiguration> =>
     api.patch('/user-payment/admin/configuration', payload),
+
+  listRewardConfigurations: (): Promise<RewardConfiguration[]> =>
+    api.get<RewardConfiguration[]>('/user-payment/admin/reward-configurations'),
+
+  getRewardConfiguration: (sourceType: RewardSourceType): Promise<RewardConfiguration> =>
+    api.get<RewardConfiguration>(`/user-payment/admin/reward-configurations/${sourceType}`),
+
+  updateRewardConfiguration: (
+    sourceType: RewardSourceType,
+    payload: RewardConfigurationUpdate,
+  ): Promise<RewardConfiguration> =>
+    api.patch(`/user-payment/admin/reward-configurations/${sourceType}`, payload),
+
+  getOtpDeliveryStatus: (withdrawalId: string): Promise<WithdrawalOtpDelivery> =>
+    api.get<WithdrawalOtpDelivery>(`/user-payment/admin/withdrawals/${withdrawalId}/otp-delivery-status`),
 };
