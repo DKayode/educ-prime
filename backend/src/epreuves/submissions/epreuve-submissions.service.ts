@@ -172,7 +172,11 @@ export class EpreuveSubmissionsService {
     submission.proposed_matiere = dto.proposed_matiere ?? null;
     submission.titre = titre;
     // Seuls EXAMENS / EXAMENS NATIONAUX — tout le reste (ou vide) → EXAMENS.
-    submission.type = normalizeEpreuveType(dto.type);
+    // On garde le type tel qu'envoyé (validé par le DTO) : si un client mobile
+    // annonce « Examens Nationaux », l'admin doit le voir dans la file pour
+    // rediriger l'auteur vers /examens-nationaux. La coercition n'a lieu qu'à
+    // l'approbation, sur l'épreuve créée.
+    submission.type = dto.type ?? EpreuveType.EXAMENS;
     submission.annee = dto.annee ?? null;
     submission.section = section;
     submission.pays = submissionPays;
@@ -204,7 +208,7 @@ export class EpreuveSubmissionsService {
       titre: s.titre,
       // Défaut EXAMENS à l'affichage : les anciennes soumissions (type NULL en
       // base, avant migration 071) sont présentées comme « Examens ».
-      type: normalizeEpreuveType(s.type),
+      type: s.type ?? EpreuveType.EXAMENS,
       annee: s.annee,
       section: s.section,
       status: s.status,
@@ -417,7 +421,7 @@ export class EpreuveSubmissionsService {
 
     if (dto.annee !== undefined) patch.annee = dto.annee ?? null;
     if (dto.section !== undefined && dto.section != null) patch.section = dto.section;
-    if (dto.type !== undefined) patch.type = normalizeEpreuveType(dto.type);
+    if (dto.type !== undefined) patch.type = dto.type;
 
     if (Object.keys(patch).length > 0) {
       await this.submissionsRepository.update({ id }, patch);

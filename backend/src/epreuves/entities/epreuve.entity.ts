@@ -15,17 +15,29 @@ export enum EpreuveSection {
   RATTRAPAGE = 'rattrapage',
 }
 
-// Seules ces deux valeurs sont acceptées en écriture / filtre pour une épreuve.
-// Utilisé par les DTO (@IsIn) et le filtre de liste : une valeur explicite hors
-// de cette liste est REJETÉE (400), pas silencieusement convertie.
-export const WRITABLE_EPREUVE_TYPES = [EpreuveType.EXAMENS, EpreuveType.EXAMEN_NATIONAL] as const;
+// Une épreuve ne peut plus être écrite qu'en « Examens ».
+//
+// « Examens Nationaux » était une étape intermédiaire (migrations 070/071) pour
+// marquer un examen national sur une épreuve. Ces contenus ont désormais leur
+// propre ressource — table examens_nationaux et endpoints /examens-nationaux —
+// et la valeur n'a jamais servi en production : 0 épreuve la porte. On cesse
+// donc de l'accepter en écriture côté dashboard.
+export const WRITABLE_EPREUVE_TYPES = [EpreuveType.EXAMENS] as const;
 
-// Défaut EXAMENS uniquement quand le type est ABSENT (undefined/null/vide) —
-// p. ex. une soumission mobile qui n'envoie pas le champ, ou une ancienne ligne.
-// Les valeurs explicites invalides sont rejetées en amont par la validation DTO,
-// donc n'atteignent jamais cette fonction.
-export function normalizeEpreuveType(type?: EpreuveType | string | null): EpreuveType {
-  return type === EpreuveType.EXAMEN_NATIONAL ? EpreuveType.EXAMEN_NATIONAL : EpreuveType.EXAMENS;
+// Les soumissions restent tolérantes : des builds mobiles déjà livrés envoient
+// « Examens Nationaux » (la soumission #773 en production le prouve). On les
+// accepte plutôt que de casser ces clients ; l'épreuve créée à l'approbation
+// sera de toute façon « Examens ».
+export const SUBMITTABLE_EPREUVE_TYPES = [EpreuveType.EXAMENS, EpreuveType.EXAMEN_NATIONAL] as const;
+
+/**
+ * Type de l'épreuve réellement créée. Toujours « Examens » : les examens
+ * nationaux ne sont plus des épreuves, ils ont leur propre ressource. Conservé
+ * comme point unique de vérité pour les écritures (création dashboard, mise à
+ * jour, approbation d'une soumission).
+ */
+export function normalizeEpreuveType(_type?: EpreuveType | string | null): EpreuveType {
+    return EpreuveType.EXAMENS;
 }
 
 @Entity('epreuves')

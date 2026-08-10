@@ -29,7 +29,7 @@ export class MajEpreuveDto {
   nombre_pages?: number;
 
   @IsOptional()
-  @IsIn(WRITABLE_EPREUVE_TYPES as unknown as string[], { message: 'Le type doit être « Examens » ou « Examens Nationaux »' })
+  @IsIn(WRITABLE_EPREUVE_TYPES as unknown as string[], { message: "Le type d'une épreuve doit être « Examens » — les examens nationaux ont leur propre ressource (/examens-nationaux)" })
   type?: EpreuveType;
 
   @IsOptional()

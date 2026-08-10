@@ -36,9 +36,9 @@ export class CreerEpreuveDto {
   @IsNumber()
   nombre_pages?: number;
 
-  @ApiProperty({ enum: WRITABLE_EPREUVE_TYPES, description: "Type d'épreuve : « Examens » ou « Examens Nationaux » (défaut Examens si absent)", required: false })
+  @ApiProperty({ enum: WRITABLE_EPREUVE_TYPES, description: "Type d'épreuve : « Examens » (défaut si absent). Les examens nationaux passent par /examens-nationaux.", required: false })
   @IsOptional()
-  @IsIn(WRITABLE_EPREUVE_TYPES as unknown as string[], { message: 'Le type doit être « Examens » ou « Examens Nationaux »' })
+  @IsIn(WRITABLE_EPREUVE_TYPES as unknown as string[], { message: "Le type d'une épreuve doit être « Examens » — les examens nationaux ont leur propre ressource (/examens-nationaux)" })
   type?: EpreuveType;
 
   @ApiProperty({ example: 2023, description: 'Année de l\'épreuve', required: false })
