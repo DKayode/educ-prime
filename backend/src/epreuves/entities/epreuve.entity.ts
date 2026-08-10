@@ -21,14 +21,9 @@ export enum EpreuveSection {
 // marquer un examen national sur une épreuve. Ces contenus ont désormais leur
 // propre ressource — table examens_nationaux et endpoints /examens-nationaux —
 // et la valeur n'a jamais servi en production : 0 épreuve la porte. On cesse
-// donc de l'accepter en écriture côté dashboard.
+// donc de l'accepter en écriture, y compris sur les soumissions : un examen
+// national se dépose via POST /examens-nationaux/submissions, pas ici.
 export const WRITABLE_EPREUVE_TYPES = [EpreuveType.EXAMENS] as const;
-
-// Les soumissions restent tolérantes : des builds mobiles déjà livrés envoient
-// « Examens Nationaux » (la soumission #773 en production le prouve). On les
-// accepte plutôt que de casser ces clients ; l'épreuve créée à l'approbation
-// sera de toute façon « Examens ».
-export const SUBMITTABLE_EPREUVE_TYPES = [EpreuveType.EXAMENS, EpreuveType.EXAMEN_NATIONAL] as const;
 
 /**
  * Type de l'épreuve réellement créée. Toujours « Examens » : les examens
