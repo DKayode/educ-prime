@@ -60,6 +60,6 @@ export class ResoudreSubmissionDto {
 
   @ApiProperty({ enum: WRITABLE_EPREUVE_TYPES, required: false, description: "Type d'épreuve : « Examens ». Un examen national se dépose via /examens-nationaux/submissions." })
   @IsOptional()
-  @IsIn(WRITABLE_EPREUVE_TYPES as unknown as string[], { message: "Le type doit être « Examens ». Un examen national se dépose via /examens-nationaux/submissions." })
+  @IsIn(WRITABLE_EPREUVE_TYPES as unknown as string[], { message: "Le type doit être « Examens »" })
   type?: EpreuveType;
 }
