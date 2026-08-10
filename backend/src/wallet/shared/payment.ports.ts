@@ -5,6 +5,7 @@ import {
   PaymentExecutionStatus,
   PaymentMethod,
   PaymentNotificationType,
+  RewardSourceTypeCode,
   WalletStatus,
   WalletTransactionStatus,
   WalletTransactionType,
@@ -74,6 +75,12 @@ export interface WalletActivityHistoryItemModel {
    */
   isTerminal?: boolean;
 
+  /** Origine du crédit si l'événement concerne une récompense wallet. */
+  rewardSourceType?: RewardSourceTypeCode | string | null;
+  rewardSourceLabel?: string | null;
+  rewardSourceId?: string | null;
+  rewardSourceReference?: string | null;
+
   occurredAt: Date;
   withdrawalRequestId?: string | null;
   walletTransactionId?: string | null;
@@ -87,6 +94,50 @@ export interface WalletActivityHistoryItemModel {
   reference?: string | null;
   status?: string | null;
   metadata?: Record<string, unknown>;
+}
+
+
+export interface RewardSourceTypeModel {
+  id: string;
+  code: RewardSourceTypeCode;
+  label: string;
+  description?: string | null;
+  isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface PaymentRewardConfigurationModel {
+  id: string;
+  rewardSourceTypeId: string;
+  rewardSourceTypeCode: RewardSourceTypeCode;
+  rewardSourceTypeLabel: string;
+  rewardAmount: number;
+  currency: string;
+  rewardEnabled: boolean;
+  reviewDelayHours: number;
+  requiresAdminValidation: boolean;
+  dailyRewardAmountLimit: number;
+  monthlyRewardAmountLimit: number;
+  maxRewardsPerUserPerDay: number;
+  maxRewardsPerUserPerMonth: number;
+  metadata?: Record<string, unknown> | null;
+  isActive: boolean;
+  updatedBy?: number | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface PaymentRewardConfigurationRepositoryPort {
+  ensureDefaults(): Promise<void>;
+  findSourceTypeByCode(code: RewardSourceTypeCode): Promise<RewardSourceTypeModel | null>;
+  getActiveBySourceTypeCode(code: RewardSourceTypeCode): Promise<PaymentRewardConfigurationModel>;
+  findAll(): Promise<PaymentRewardConfigurationModel[]>;
+  updateBySourceTypeCode(
+    code: RewardSourceTypeCode,
+    configuration: Partial<Omit<PaymentRewardConfigurationModel, 'id' | 'rewardSourceTypeId' | 'rewardSourceTypeCode' | 'rewardSourceTypeLabel' | 'createdAt' | 'updatedAt'>>,
+    updatedBy: number,
+  ): Promise<PaymentRewardConfigurationModel>;
 }
 
 export interface PaymentConfigurationModel {
@@ -148,6 +199,10 @@ export interface WalletTransactionModel {
   balanceBefore: number;
   balanceAfter: number;
   reference: string;
+  rewardSourceTypeId?: string | null;
+  rewardSourceTypeCode?: RewardSourceTypeCode | string | null;
+  rewardSourceId?: string | null;
+  rewardSourceReference?: string | null;
   status: WalletTransactionStatus;
   createdAt: Date;
 }
@@ -163,12 +218,19 @@ export interface WalletTransactionRepositoryPort {
     availableBalanceAfter: number;
     pendingBalanceAfter: number;
     reference: string;
+    rewardSourceTypeId?: string | null;
+    rewardSourceTypeCode?: RewardSourceTypeCode | string | null;
+    rewardSourceId?: string | null;
+    rewardSourceReference?: string | null;
     description?: string;
     status: WalletTransactionStatus;
     createdBy?: number | null;
     metadata?: Record<string, unknown>;
   }): Promise<WalletTransactionModel>;
   findByWalletId(walletId: string, page?: number, limit?: number): Promise<{ data: WalletTransactionModel[]; total: number }>;
+  existsRewardForWalletSource(walletId: string, sourceTypeCode: RewardSourceTypeCode, sourceId: string): Promise<boolean>;
+  countRewardsForWalletSourceType(walletId: string, sourceTypeCode: RewardSourceTypeCode, from: Date, to: Date): Promise<number>;
+  sumRewardsForWalletSourceType(walletId: string, sourceTypeCode: RewardSourceTypeCode, from: Date, to: Date): Promise<number>;
   findByWalletIdForAdmin(walletId: string, page?: number, limit?: number): Promise<{ data: WalletTransactionModel[]; total: number }>;
   sumByType(walletId: string, type: WalletTransactionType): Promise<number>;
 }
@@ -397,8 +459,6 @@ export interface PaymentConfigurationRepositoryPort {
 
 export interface PaymentUserProfile {
   id: number;
-  uuid?: string | null;
-  profil?: string | null;
   email: string;
   telephone?: string | null;
   isEmailVerified: boolean;

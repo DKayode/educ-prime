@@ -43,6 +43,139 @@ export class ListAdminWithdrawalsUseCase {
   execute(status?: WithdrawalStatus, page = 1, limit = 20) { return this.withdrawals.findForAdmin(status, page, limit); }
 }
 
+
+@Injectable()
+export class GetWithdrawalOtpDeliveryStatusUseCase {
+  constructor(
+    @Inject(WITHDRAWAL_REQUEST_REPOSITORY) private readonly withdrawals: WithdrawalRequestRepositoryPort,
+    @Inject(WITHDRAWAL_OTP_REPOSITORY) private readonly otps: WithdrawalOtpRepositoryPort,
+    @Inject(WALLET_REPOSITORY) private readonly wallets: WalletRepositoryPort,
+  ) {}
+
+  async execute(withdrawalRequestId: string) {
+    const withdrawal = await this.withdrawals.findById(withdrawalRequestId);
+    if (!withdrawal) throw new NotFoundException('Demande de retrait introuvable');
+
+    const wallet = await this.wallets.findById(withdrawal.walletId);
+    if (!wallet) throw new NotFoundException('Wallet introuvable');
+
+    const otp = await this.otps.findLatestByWithdrawalId(withdrawal.id);
+
+    const diagnostic = this.buildDiagnostic(otp);
+
+    return {
+      withdrawalRequestId: withdrawal.id,
+      walletId: withdrawal.walletId,
+      userId: wallet.userId,
+      withdrawal: {
+        amount: withdrawal.amount,
+        fees: withdrawal.fees,
+        netAmount: withdrawal.netAmount,
+        status: withdrawal.status,
+        securityStatus: withdrawal.securityStatus ?? null,
+        securityReviewReason: withdrawal.securityReviewReason ?? null,
+        paymentDeadline: withdrawal.paymentDeadline ?? null,
+        createdAt: withdrawal.createdAt,
+      },
+      otp: otp ? {
+        id: otp.id,
+        status: otp.status,
+        provider: otp.provider,
+        phoneNumber: this.maskPhoneNumber(otp.phoneNumber),
+        providerMessageId: otp.providerMessageId ?? null,
+        providerBulkId: otp.providerBulkId ?? null,
+        deliveryStatus: otp.deliveryStatus ?? null,
+        providerStatusName: otp.providerStatusName ?? null,
+        providerStatusGroupName: otp.providerStatusGroupName ?? null,
+        providerStatusDescription: otp.providerStatusDescription ?? null,
+        deliveryErrorCode: otp.deliveryErrorCode ?? null,
+        deliveryErrorMessage: otp.deliveryErrorMessage ?? null,
+        failureReason: otp.failureReason ?? null,
+        sentAt: otp.lastSentAt ?? null,
+        deliveredAt: otp.deliveredAt ?? null,
+        failedAt: otp.failedAt ?? null,
+        lastProviderCallbackAt: otp.lastProviderCallbackAt ?? null,
+        deliveryCheckCount: otp.deliveryCheckCount ?? 0,
+        nextDeliveryCheckAt: otp.nextDeliveryCheckAt ?? null,
+        attemptCount: otp.attemptCount,
+        maxAttempts: otp.maxAttempts,
+        resendCount: otp.resendCount ?? 0,
+        expiresAt: otp.expiresAt,
+        lockedAt: otp.lockedAt ?? null,
+        lockedReason: otp.lockedReason ?? null,
+        unlockedAt: otp.unlockedAt ?? null,
+        unlockedBy: otp.unlockedBy ?? null,
+      } : null,
+      diagnostic,
+    };
+  }
+
+  private buildDiagnostic(otp: any): {
+    level: 'OK' | 'INFO' | 'WARNING' | 'ERROR';
+    code: string;
+    message: string;
+  } {
+    if (!otp) {
+      return {
+        level: 'WARNING',
+        code: 'OTP_NOT_FOUND',
+        message: 'Aucun OTP n’a été trouvé pour cette demande de retrait.',
+      };
+    }
+
+    if (otp.provider !== 'infobip') {
+      return {
+        level: 'INFO',
+        code: 'NON_INFOBIP_PROVIDER',
+        message: `Le dernier OTP utilise le fournisseur ${otp.provider}. Aucun statut de livraison Infobip n’est attendu.`,
+      };
+    }
+
+    if (!otp.providerMessageId) {
+      return {
+        level: 'ERROR',
+        code: 'INFOBIP_NOT_ACCEPTED',
+        message: 'Infobip n’a pas retourné de messageId. Vérifier les variables INFOBIP, le sender, le format du numéro et les logs serveur.',
+      };
+    }
+
+    if (otp.deliveryStatus === OtpDeliveryStatus.DELIVERED) {
+      return {
+        level: 'OK',
+        code: 'OTP_DELIVERED',
+        message: 'Infobip indique que le SMS OTP a été livré.',
+      };
+    }
+
+    if ([OtpDeliveryStatus.UNDELIVERED, OtpDeliveryStatus.FAILED, OtpDeliveryStatus.DELIVERY_TIMEOUT].includes(otp.deliveryStatus)) {
+      return {
+        level: 'ERROR',
+        code: 'OTP_NOT_DELIVERED',
+        message: 'Infobip a retourné un statut indiquant que le SMS OTP n’a pas été livré.',
+      };
+    }
+
+    if ([OtpDeliveryStatus.SENT_TO_PROVIDER, OtpDeliveryStatus.DELIVERY_UNKNOWN, OtpDeliveryStatus.CREATED].includes(otp.deliveryStatus)) {
+      return {
+        level: 'WARNING',
+        code: 'OTP_DELIVERY_PENDING_OR_UNKNOWN',
+        message: 'Le SMS OTP a été envoyé à Infobip, mais la livraison finale n’est pas encore confirmée.',
+      };
+    }
+
+    return {
+      level: 'INFO',
+      code: 'OTP_STATUS_UNSPECIFIED',
+      message: 'Statut OTP disponible, mais diagnostic automatique non déterminé.',
+    };
+  }
+
+  private maskPhoneNumber(phoneNumber: string): string {
+    if (!phoneNumber || phoneNumber.length < 6) return '***';
+    return `${phoneNumber.slice(0, 4)}****${phoneNumber.slice(-3)}`;
+  }
+}
+
 @Injectable()
 export class ApproveWithdrawalUseCase {
   constructor(

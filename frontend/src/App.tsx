@@ -31,6 +31,12 @@ import Villes from "./pages/Villes";
 import Settings from "./pages/Settings";
 import ServicesAdmin from "./pages/ServicesAdmin";
 import EpreuvesApprobation from "./pages/EpreuvesApprobation";
+import ExamensNationaux from "./pages/ExamensNationaux";
+import ExamensNationauxApprobation from "./pages/ExamensNationauxApprobation";
+import TypesExamen from "./pages/TypesExamen";
+import SeriesExamen from "./pages/SeriesExamen";
+import MatieresExamen from "./pages/MatieresExamen";
+import FilieresExamen from "./pages/FilieresExamen";
 import OffresAdmin from "./pages/OffresAdmin";
 import ServiceTypesAdmin from "./pages/ServiceTypesAdmin";
 import RecruteursAdmin from "./pages/RecruteursAdmin";
@@ -87,6 +93,12 @@ const App = () => (
                       <Route path="/concours" element={<Concours />} />
                       <Route path="/concours/groupes" element={<ConcoursGrouped />} />
                       <Route path="/approbations/concours" element={<ConcoursAdmin />} />
+                      <Route path="/examens-nationaux" element={<ExamensNationaux />} />
+                      <Route path="/approbations/examens-nationaux" element={<ExamensNationauxApprobation />} />
+                      <Route path="/types-examen" element={<TypesExamen />} />
+                      <Route path="/series-examen" element={<SeriesExamen />} />
+                      <Route path="/matieres-examen" element={<MatieresExamen />} />
+                      <Route path="/filieres-examen" element={<FilieresExamen />} />
                       <Route path="/forums" element={<Forums />} />
                       <Route path="/parcours" element={<Parcours />} />
                       <Route path="/categories" element={<Categories />} />

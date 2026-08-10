@@ -1,23 +1,11 @@
-import { BadRequestException, ConflictException, Inject, Injectable } from '@nestjs/common';
-import {
-  PAYMENT_AUDIT_LOG_PORT,
-  PAYMENT_CONFIGURATION_REPOSITORY,
-  PAYMENT_NOTIFICATION_PORT,
-  WALLET_REPOSITORY,
-  WALLET_TRANSACTION_REPOSITORY,
-} from '../../shared/payment.tokens';
-import {
-  PaymentAuditLogPort,
-  PaymentConfigurationRepositoryPort,
-  PaymentNotificationPort,
-  WalletRepositoryPort,
-  WalletTransactionRepositoryPort,
-} from '../../shared/payment.ports';
-import { PaymentNotificationType, WalletTransactionStatus, WalletTransactionType } from '../../shared/payment.enums';
-import { WalletAggregate } from '../domain/wallet.aggregate';
+import { Injectable } from '@nestjs/common';
+import { RewardSourceTypeCode } from '../../shared/payment.enums';
+import { CreditRewardSourceUseCase } from '../../user-payment/use-cases/credit-reward-source.use-case';
 
 export interface CreditWalletFromValidatedExamCommand {
   userId: number;
+  /** Type de contenu récompensé. Absent ⇒ EPREUVE (ancien endpoint interne). */
+  sourceType?: RewardSourceTypeCode;
   examId: string;
   amount?: number;
   currency?: string;
@@ -26,70 +14,41 @@ export interface CreditWalletFromValidatedExamCommand {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * Compatibilité avec l'ancienne route interne dédiée aux épreuves.
+ *
+ * L'ancien endpoint reste disponible pour ne pas casser le module de chargement
+ * déjà en production. En interne, il redirige maintenant vers le nouveau cas
+ * d'usage générique basé sur RewardSourceType.
+ */
 @Injectable()
 export class CreditWalletFromValidatedExamUseCase {
-  constructor(
-    @Inject(WALLET_REPOSITORY) private readonly wallets: WalletRepositoryPort,
-    @Inject(WALLET_TRANSACTION_REPOSITORY) private readonly transactions: WalletTransactionRepositoryPort,
-    @Inject(PAYMENT_CONFIGURATION_REPOSITORY) private readonly configurations: PaymentConfigurationRepositoryPort,
-    @Inject(PAYMENT_NOTIFICATION_PORT) private readonly notifications: PaymentNotificationPort,
-    @Inject(PAYMENT_AUDIT_LOG_PORT) private readonly audit: PaymentAuditLogPort,
-  ) { }
+  constructor(private readonly creditRewardSource: CreditRewardSourceUseCase) {}
 
-  async execute(command: CreditWalletFromValidatedExamCommand) {
-    const configuration = await this.configurations.getActive();
-    if (!configuration.walletEnabled || !configuration.rewardEnabled) {
-      throw new ConflictException('La récompense des épreuves est désactivée');
-    }
+  execute(command: CreditWalletFromValidatedExamCommand) {
+    const sourceType = command.sourceType ?? RewardSourceTypeCode.EPREUVE;
 
-    const amount = Number(command.amount ?? configuration.rewardPerExam);
-    if (!amount || amount <= 0) throw new BadRequestException('Le montant à créditer doit être supérieur à zéro');
-
-    const reference = command.reference ?? `EXAM_REWARD:${command.examId}`;
-    if (await this.transactions.existsByReference(reference)) return { duplicated: true, reference };
-
-    let wallet = await this.wallets.findByUserId(command.userId);
-    if (!wallet) wallet = await this.wallets.createForUser(command.userId, command.currency ?? configuration.currency);
-
-    const aggregate = WalletAggregate.from(wallet);
-    const balanceBefore = wallet.balance;
-
-    if (configuration.reviewDelayHours > 0) aggregate.creditPending(amount);
-    else aggregate.creditAvailable(amount);
-
-    const savedWallet = await this.wallets.updateBalances(aggregate.value);
-
-    const transaction = await this.transactions.create({
-      walletId: savedWallet.id!,
-      type: WalletTransactionType.REWARD,
-      amount,
-      balanceBefore,
-      balanceAfter: savedWallet.balance,
-      availableBalanceAfter: savedWallet.availableBalance,
-      pendingBalanceAfter: savedWallet.pendingBalance,
-      reference,
-      description: command.description ?? `Récompense épreuve validée ${command.examId}`,
-      status: configuration.reviewDelayHours > 0 ? WalletTransactionStatus.PENDING : WalletTransactionStatus.COMPLETED,
-      metadata: { examId: command.examId, reviewDelayHours: configuration.reviewDelayHours, ...command.metadata },
-    });
-
-    await this.notifications.notifyUser({
+    return this.creditRewardSource.execute({
       userId: command.userId,
-      title: 'Wallet crédité',
-      message: configuration.reviewDelayHours > 0
-        ? `Votre récompense de ${amount} ${configuration.currency} est en attente.`
-        : `Votre wallet a été crédité de ${amount} ${configuration.currency}.`,
-      type: PaymentNotificationType.WALLET_CREDITED,
-      metadata: { walletId: savedWallet.id, transactionId: transaction.id, examId: command.examId },
+      sourceType,
+      sourceId: command.examId,
+      amount: command.amount,
+      currency: command.currency,
+      // La référence reste `EXAM_REWARD:<uuid>` pour TOUTES les sources, y
+      // compris CONCOURS et EXAMEN. Épreuves, concours et examens nationaux ont
+      // toujours écrit ce même préfixe : c'est sur lui que porte le contrôle de
+      // doublon le plus ancien, et il est vérifié AVANT le contrôle par source.
+      // Passer à `CONCOURS_REWARD:` ferait manquer les lignes historiques — et
+      // celles-ci sont rétro-marquées EPREUVE par la migration 037, donc le
+      // contrôle par source ne les rattraperait pas non plus : ré-approuver un
+      // concours déjà payé le paierait une seconde fois.
+      reference: command.reference ?? `EXAM_REWARD:${command.examId}`,
+      description: command.description ?? `Récompense validée ${command.examId}`,
+      metadata: {
+        examId: command.examId,
+        legacyEndpoint: 'internal/payment/exam-rewards/credit',
+        ...command.metadata,
+      },
     });
-
-    await this.audit.log({
-      action: 'EXAM_REWARD_CREDITED',
-      entity: 'Wallet',
-      entityId: savedWallet.id,
-      newValue: { userId: command.userId, amount, examId: command.examId, reference },
-    });
-
-    return { wallet: savedWallet, transaction, duplicated: false };
   }
 }

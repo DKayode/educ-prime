@@ -10,10 +10,12 @@ import { Filiere } from '../../filieres/entities/filiere.entity';
 import { NiveauEtude } from '../../niveau-etude/entities/niveau-etude.entity';
 import { Matiere } from '../../matieres/entities/matiere.entity';
 import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
+import { applyLevelMatch, findLookupByName } from '../../common/utils/duplicate-match.util';
 import { PaginationResponse } from '../../common/interfaces/pagination-response.interface';
 import { CreerSubmissionDto } from './dto/creer-submission.dto';
 import { ResoudreSubmissionDto } from './dto/resoudre-submission.dto';
 import { CreditWalletFromValidatedExamUseCase } from '../../wallet/wallet-balance/use-cases/credit-wallet-from-validated-exam.use-case';
+import { RewardSourceTypeCode } from '../../wallet/shared/payment.enums';
 
 @Injectable()
 export class EpreuveSubmissionsService {
@@ -87,15 +89,37 @@ export class EpreuveSubmissionsService {
       .filter((p) => p !== '')
       .join(' — ');
 
-    // Duplicate check ONLY when all four parents are existing ids. matiere_id
-    // pins the whole chain, so matiere_id + annee + section identifies it (titre exclu).
-    const allFourResolved =
-      dto.etablissement_id != null && dto.filiere_id != null &&
-      dto.niveau_etude_id != null && dto.matiere_id != null;
+    // Résolution en cascade des noms proposés : « Maths » ne vaut son id que si
+    // le parent est connu (le même nom existe sous des dizaines de niveaux).
+    const etabRef = dto.etablissement_id != null
+      ? { id: dto.etablissement_id, nom: dto.proposed_etablissement ?? null }
+      : await findLookupByName(this.etablissementsRepository, submissionPays, dto.proposed_etablissement);
+    const filiereRef = dto.filiere_id != null
+      ? { id: dto.filiere_id, nom: dto.proposed_filiere ?? null }
+      : etabRef
+        ? await findLookupByName(this.filieresRepository, submissionPays, dto.proposed_filiere,
+            (qb) => qb.andWhere('l.etablissement_id = :parent', { parent: etabRef.id }))
+        : null;
+    const niveauRef = dto.niveau_etude_id != null
+      ? { id: dto.niveau_etude_id, nom: dto.proposed_niveau ?? null }
+      : filiereRef
+        ? await findLookupByName(this.niveauxRepository, submissionPays, dto.proposed_niveau,
+            (qb) => qb.andWhere('l.filiere_id = :parent', { parent: filiereRef.id }))
+        : null;
+    const matiereRef = dto.matiere_id != null
+      ? { id: dto.matiere_id, nom: matiereNom }
+      : niveauRef
+        ? await findLookupByName(this.matieresRepository, submissionPays, dto.proposed_matiere,
+            (qb) => qb.andWhere('l.niveau_etude_id = :parent', { parent: niveauRef.id }))
+        : null;
 
-    if (allFourResolved) {
+    // Duplicate check dès que la matière est connue — par id fourni ou par nom
+    // proposé résolu dans la chaîne. matiere_id pins the whole chain, so
+    // matiere_id + annee + section identifies it (titre exclu). Même clé que le
+    // garde-fou d'approbation : autant refuser tout de suite.
+    if (matiereRef) {
       const dupQb = this.epreuvesRepository.createQueryBuilder('epreuve')
-        .where('epreuve.matiere_id = :matiere_id', { matiere_id: dto.matiere_id })
+        .where('epreuve.matiere_id = :matiere_id', { matiere_id: matiereRef.id })
         .andWhere('epreuve.section = :section', { section });
       if (dto.annee === null || dto.annee === undefined) {
         dupQb.andWhere('epreuve.annee IS NULL');
@@ -111,32 +135,24 @@ export class EpreuveSubmissionsService {
       }
     }
 
-    // Reject a duplicate PENDING submission (same effective parents + titre +
-    // année + section) so two users can't queue the same épreuve twice. Each
-    // parent matches by existing id when given, else by proposed name
-    // (case-insensitive), else "absent".
+    // Reject a duplicate PENDING submission (same effective parents + année +
+    // section) so two users can't queue the same épreuve twice. Chaque parent
+    // matche par id OU par nom proposé équivalent (casse et accents ignorés),
+    // sinon "absent" des deux côtés.
     const pendDup = this.submissionsRepository.createQueryBuilder('s')
       .where('s.pays = :pays', { pays: submissionPays })
       .andWhere('s.status = :st', { st: ServiceStatusEnum.PENDING_APPROVAL })
       .andWhere('s.section = :sec', { sec: section });
     if (dto.annee == null) pendDup.andWhere('s.annee IS NULL');
     else pendDup.andWhere('s.annee = :an', { an: dto.annee });
-    const matchParent = (
-      idCol: string, propCol: string,
-      id: number | null | undefined, name: string | null | undefined, k: string,
-    ) => {
-      if (id != null) {
-        pendDup.andWhere(`s.${idCol} = :${k}i`, { [`${k}i`]: id });
-      } else if (name && name.trim()) {
-        pendDup.andWhere(`s.${idCol} IS NULL AND LOWER(s.${propCol}) = LOWER(:${k}n)`, { [`${k}n`]: name.trim() });
-      } else {
-        pendDup.andWhere(`s.${idCol} IS NULL AND s.${propCol} IS NULL`);
-      }
-    };
-    matchParent('etablissement_id', 'proposed_etablissement', dto.etablissement_id, dto.proposed_etablissement, 'e');
-    matchParent('filiere_id', 'proposed_filiere', dto.filiere_id, dto.proposed_filiere, 'f');
-    matchParent('niveau_etude_id', 'proposed_niveau', dto.niveau_etude_id, dto.proposed_niveau, 'n');
-    matchParent('matiere_id', 'proposed_matiere', dto.matiere_id, dto.proposed_matiere, 'm');
+    applyLevelMatch(pendDup, 's', 'etablissement_id', 'proposed_etablissement',
+      etabRef?.id ?? null, etabRef?.nom ?? dto.proposed_etablissement, 'e');
+    applyLevelMatch(pendDup, 's', 'filiere_id', 'proposed_filiere',
+      filiereRef?.id ?? null, filiereRef?.nom ?? dto.proposed_filiere, 'f');
+    applyLevelMatch(pendDup, 's', 'niveau_etude_id', 'proposed_niveau',
+      niveauRef?.id ?? null, niveauRef?.nom ?? dto.proposed_niveau, 'n');
+    applyLevelMatch(pendDup, 's', 'matiere_id', 'proposed_matiere',
+      matiereRef?.id ?? null, matiereRef?.nom ?? dto.proposed_matiere, 'm');
     const pendingDuplicate = await pendDup.getOne();
     if (pendingDuplicate) {
       this.logger.warn(`Soumission doublon (déjà en attente #${pendingDuplicate.id}) — refusée`);
@@ -517,7 +533,7 @@ export class EpreuveSubmissionsService {
     // reference EXAM_REWARD:<uuid>, so re-approving never double-credits.
     if (submission.soumis_par_id != null) {
       this.creditWalletFromExam
-        .execute({ userId: submission.soumis_par_id, examId: savedEpreuve.uuid, description: 'Épreuve validée' })
+        .execute({ userId: submission.soumis_par_id, sourceType: RewardSourceTypeCode.EPREUVE, examId: savedEpreuve.uuid, description: 'Épreuve validée' })
         .then((res: any) => this.logger.log(`Wallet crédité (épreuve ${savedEpreuve.uuid}) pour user ${submission.soumis_par_id}${res?.duplicated ? ' [déjà crédité]' : ''}`))
         .catch(err => this.logger.error(`Crédit wallet échoué (soumission ${id}): ${err.message}`));
     }

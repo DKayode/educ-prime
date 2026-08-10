@@ -12,6 +12,8 @@ import { PaginationResponse } from '../common/interfaces/pagination-response.int
 import { MailService } from '../mail/mail.service';
 import { FilesService } from '../files/files.service';
 import { CreditWalletFromValidatedExamUseCase } from '../wallet/wallet-balance/use-cases/credit-wallet-from-validated-exam.use-case';
+import { RewardSourceTypeCode } from '../wallet/shared/payment.enums';
+import { applyLevelMatch, findLookupByName } from '../common/utils/duplicate-match.util';
 
 @Injectable()
 export class ConcoursSubmissionsService {
@@ -54,9 +56,10 @@ export class ConcoursSubmissionsService {
     }
 
     // STEP 1 — any authenticated user submits concours metadata. For each parent
-    // they supply an existing id (validated) OR a proposed name. A duplicate
-    // (409) is only raised when BOTH structure and titre are existing ids and an
-    // identical (structure, titre, annee) concours already exists in the pays.
+    // they supply an existing id (validated) OR a proposed name. A 409 is raised
+    // when an identical (structure, titre, annee) concours already exists, or is
+    // already queued — un nom proposé qui retombe sur un lookup existant compte
+    // comme cet id, donc « ENAM » en texte libre ne contourne pas le contrôle.
     async createSubmission(pays: string, userId: number, dto: CreateConcoursSubmissionDto) {
         const proposedStructure = dto.proposed_structure?.trim() || null;
         const proposedTitre = dto.proposed_titre?.trim() || null;
@@ -69,28 +72,37 @@ export class ConcoursSubmissionsService {
             );
         }
 
-        // Validate provided existing ids.
+        // Validate provided existing ids. A proposed name that already matches a
+        // lookup counts as that lookup — sinon « ENAM » en texte libre échappe au
+        // contrôle de doublon face à une soumission portant `structure_id`.
+        let structureRef: Structure | null = null;
         if (dto.structure_id != null) {
-            const structure = await this.structureRepository.findOne({ where: { id: dto.structure_id } });
-            if (!structure) throw new NotFoundException(`Structure avec l'ID ${dto.structure_id} non trouvée`);
+            structureRef = await this.structureRepository.findOne({ where: { id: dto.structure_id } });
+            if (!structureRef) throw new NotFoundException(`Structure avec l'ID ${dto.structure_id} non trouvée`);
+        } else {
+            structureRef = await findLookupByName(this.structureRepository, pays, proposedStructure);
         }
+        let titreRef: Titre | null = null;
         if (dto.titre_id != null) {
-            const titre = await this.titreRepository.findOne({ where: { id: dto.titre_id } });
-            if (!titre) throw new NotFoundException(`Titre avec l'ID ${dto.titre_id} non trouvé`);
+            titreRef = await this.titreRepository.findOne({ where: { id: dto.titre_id } });
+            if (!titreRef) throw new NotFoundException(`Titre avec l'ID ${dto.titre_id} non trouvé`);
+        } else {
+            titreRef = await findLookupByName(this.titreRepository, pays, proposedTitre);
         }
 
-        // Duplicate check ONLY when both parents resolve to existing ids.
-        if (dto.structure_id != null && dto.titre_id != null) {
+        // Duplicate check as soon as both parents are known — par id fourni ou par
+        // nom proposé qui retombe sur un lookup existant.
+        if (structureRef && titreRef) {
             const existing = await this.concoursRepository.findOne({
                 where: {
                     pays,
-                    structure_id: dto.structure_id,
-                    titre_id: dto.titre_id,
+                    structure_id: structureRef.id,
+                    titre_id: titreRef.id,
                     annee: dto.annee == null ? IsNull() : dto.annee,
                 },
             });
             if (existing) {
-                this.logger.warn(`Doublon concours (structure ${dto.structure_id}, titre ${dto.titre_id}, annee ${dto.annee}, pays ${pays}) — soumission refusée`);
+                this.logger.warn(`Doublon concours (structure ${structureRef.id}, titre ${titreRef.id}, annee ${dto.annee}, pays ${pays}) — soumission refusée`);
                 throw new ConflictException(
                     `Un concours pour cette structure, ce titre et cette année (${dto.annee ?? 'non précisée'}) existe déjà.`,
                 );
@@ -99,21 +111,15 @@ export class ConcoursSubmissionsService {
 
         // Reject a duplicate PENDING submission (same effective structure + titre
         // + année) so two users can't queue the same concours twice. Structure/
-        // titre match by existing id when given, else by proposed name (case-
-        // insensitive); année is null-aware.
+        // titre match by existing id when given, else by proposed name (casse et
+        // accents ignorés) ; année is null-aware.
         const dupQb = this.submissionRepository.createQueryBuilder('s')
             .where('s.pays = :pays', { pays })
             .andWhere('s.status = :st', { st: ServiceStatusEnum.PENDING_APPROVAL });
-        if (dto.structure_id != null) {
-            dupQb.andWhere('s.structure_id = :sid', { sid: dto.structure_id });
-        } else {
-            dupQb.andWhere('s.structure_id IS NULL AND LOWER(s.proposed_structure) = LOWER(:ps)', { ps: proposedStructure });
-        }
-        if (dto.titre_id != null) {
-            dupQb.andWhere('s.titre_id = :tid', { tid: dto.titre_id });
-        } else {
-            dupQb.andWhere('s.titre_id IS NULL AND LOWER(s.proposed_titre) = LOWER(:pt)', { pt: proposedTitre });
-        }
+        applyLevelMatch(dupQb, 's', 'structure_id', 'proposed_structure',
+            structureRef?.id ?? null, structureRef?.nom ?? proposedStructure, 'st');
+        applyLevelMatch(dupQb, 's', 'titre_id', 'proposed_titre',
+            titreRef?.id ?? null, titreRef?.nom ?? proposedTitre, 'ti');
         if (dto.annee == null) {
             dupQb.andWhere('s.annee IS NULL');
         } else {
@@ -368,7 +374,7 @@ export class ConcoursSubmissionsService {
         // EXAM_REWARD:<uuid> (re-approving does not double-credit).
         if (submission.soumis_par_id != null) {
             this.creditWalletFromExam
-                .execute({ userId: submission.soumis_par_id, examId: savedConcours.uuid, description: 'Concours validé' })
+                .execute({ userId: submission.soumis_par_id, sourceType: RewardSourceTypeCode.CONCOURS, examId: savedConcours.uuid, description: 'Concours validé' })
                 .then((res: any) => this.logger.log(`Wallet crédité (concours ${savedConcours.uuid}) pour user ${submission.soumis_par_id}${res?.duplicated ? ' [déjà crédité]' : ''}`))
                 .catch(err => this.logger.error(`Crédit wallet échoué (soumission ${id}): ${err.message}`));
         }

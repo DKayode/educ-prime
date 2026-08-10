@@ -17,6 +17,7 @@ import { FilterMatiereDto } from '../matieres/dto/filter-matiere.dto';
 import { FilterEpreuveDto } from '../epreuves/dto/filter-epreuve.dto';
 import { FiliereResponseDto } from '../filieres/dto/filiere-response.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
+import { professeurPublic } from '../epreuves/professeur-public.util';
 
 // Countries whose academic hierarchy is always returned in full, regardless of
 // the `all` query flag. The default lists hide établissements / filières /
@@ -422,11 +423,7 @@ export class EtablissementsService {
         nombre_pages: epreuve.nombre_pages,
         nombre_telechargements: epreuve.nombre_telechargements,
         type: epreuve.type,
-        professeur: {
-          nom: epreuve.professeur.nom,
-          prenom: epreuve.professeur.prenom,
-          telephone: epreuve.professeur.telephone,
-        },
+        professeur: professeurPublic(epreuve.professeur),
         matiere: {
           id: epreuve.matiere.id,
           nom: epreuve.matiere.nom,

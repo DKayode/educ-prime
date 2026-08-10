@@ -24,19 +24,39 @@ export class AppVersionService {
     }
 
     /**
+     * Numeric x.y.z core of a version string, or null if it can't be read.
+     * Flutter reports `1.0.13+48` (version+build) and semver allows
+     * `1.0.13-beta.2`; both suffixes are dropped — the build number and the
+     * pre-release tag never decide whether an update is required.
+     */
+    private parseVersion(version: string): number[] | null {
+        const core = (version ?? '').trim().replace(/^v/i, '').split('+')[0].split('-')[0];
+        if (!core) return null;
+        const parts = core.split('.').map((p) => Number.parseInt(p, 10));
+        return parts.some((n) => !Number.isFinite(n)) ? null : parts;
+    }
+
+    /**
      * Compare two semantic versions (x.y.z).
      * Returns:
      *  1 if v1 > v2
      * -1 if v1 < v2
      *  0 if v1 == v2
+     *
+     * An unreadable version compares EQUAL, never lower: this comparison gates
+     * `force_update`, and a client we failed to parse must not be locked out of
+     * the app. (The previous `.map(Number)` turned `1.0.13+48` into NaN, which
+     * `|| 0` then silently read as patch 0 — every Flutter build compared as
+     * x.y.0 and got force-updated.)
      */
     compareVersions(v1: string, v2: string): number {
-        const v1Parts = v1.split('.').map(Number);
-        const v2Parts = v2.split('.').map(Number);
+        const a = this.parseVersion(v1);
+        const b = this.parseVersion(v2);
+        if (a === null || b === null) return 0;
 
         for (let i = 0; i < 3; i++) {
-            const part1 = v1Parts[i] || 0;
-            const part2 = v2Parts[i] || 0;
+            const part1 = a[i] ?? 0;
+            const part2 = b[i] ?? 0;
 
             if (part1 > part2) return 1;
             if (part1 < part2) return -1;

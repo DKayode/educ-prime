@@ -131,7 +131,8 @@ export class RessourceResponseDto {
     nombre_telechargements: number;
 
     @ApiPropertyRessource({ type: () => ProfesseurInRessourceDto })
-    professeur: ProfesseurInRessourceDto;
+    /** `null` si l'auteur du dépôt n'est pas un professeur (cas des dépôts étudiants). */
+    professeur: ProfesseurInRessourceDto | null;
 
     @ApiPropertyRessource({ type: () => MatiereInRessourceDto })
     matiere: MatiereInRessourceDto;
@@ -172,7 +173,8 @@ export class EpreuveResponseDto {
     section: EpreuveSection;
 
     @ApiProperty({ type: () => ProfesseurInEpreuveDto })
-    professeur: ProfesseurInEpreuveDto;
+    /** `null` si l'auteur du dépôt n'est pas un professeur (cas des dépôts étudiants). */
+    professeur: ProfesseurInEpreuveDto | null;
 
     @ApiProperty({ type: () => MatiereInEpreuveDto })
     matiere: MatiereInEpreuveDto;
