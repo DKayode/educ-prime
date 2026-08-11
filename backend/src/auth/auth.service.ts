@@ -40,12 +40,18 @@ export class AuthService {
    * Best-effort : une écriture de statistique ne doit jamais faire échouer une
    * connexion. En cas d'erreur on journalise et on continue.
    */
-  private async recordLoginEvent(userId: number, pays: string | undefined, appareil?: string) {
+  private async recordLoginEvent(
+    userId: number,
+    pays: string | undefined,
+    appareil?: string,
+    type: 'connexion' | 'refresh' = 'connexion',
+  ) {
     try {
       await this.loginEventRepository.insert({
         utilisateur_id: userId,
         pays: pays || 'benin',
         appareil: appareil ?? null,
+        type,
       });
     } catch (error) {
       this.logger.error(`Journalisation de la connexion échouée (utilisateur ${userId}): ${error.message}`);
@@ -196,6 +202,11 @@ export class AuthService {
     // Generate new access token (cross-country, see login())
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwtService.sign(payload);
+
+    // Une session renouvelée est une session active : sans cette ligne, seules
+    // les ré-authentifications seraient comptées et les utilisateurs les plus
+    // assidus — ceux qui ne se déconnectent jamais — seraient invisibles.
+    await this.recordLoginEvent(user.id, (user as any).pays, validToken.appareil, 'refresh');
 
     this.logger.log(`Access token rafraîchi pour utilisateur: ${user.email} (ID: ${user.id})`);
     return { access_token: accessToken };
