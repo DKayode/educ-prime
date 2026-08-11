@@ -31,7 +31,7 @@ affichage** à partir de trois registres que l'application alimente toute seule.
 | Registre | Ce qu'il contient | Ce qu'il sert à mesurer |
 |---|---|---|
 | **Le carnet des comptes** | Une ligne par personne inscrite, avec ce qu'elle a déclaré à l'inscription : rôle, sexe, tranche d'âge, zone de résidence, situation de handicap | Les inscriptions et toutes les répartitions |
-| **Le journal des connexions** | Une ligne à chaque ouverture de session, depuis le 11 août 2026 | Les indicateurs « connectés » |
+| **Le journal des connexions** | Une ligne à chaque ouverture ou reprise de session, depuis le 11 août 2026 | Les indicateurs « connectés » |
 | **Le journal des consultations** | Une ligne à chaque ouverture d'une épreuve ou d'un concours | Les « apprenants actifs » |
 
 ### La recette est toujours la même
@@ -90,7 +90,7 @@ confondus (administrateurs compris).
 | **Femmes de 35 ans ou moins** | Les deux critères ci-dessus à la fois |
 | **En zone rurale** | Zone de résidence déclarée « rural » |
 | **En situation de handicap** | Case handicap cochée sur le profil |
-| **Connectés sur la période** | Comptes distincts ayant ouvert au moins une session |
+| **Connectés sur la période** | Comptes distincts ayant ouvert ou repris au moins une session |
 
 Chaque carte affiche aussi un pourcentage, appelé **part du total** : la carte
 divisée par « Total inscrits ».
@@ -117,14 +117,14 @@ Sous-titre : « Connexion & consultation de ressources par les apprenants ».
 
 | Carte | Définition |
 |---|---|
-| **Apprenants connectés sur la période** | Apprenants distincts ayant ouvert au moins une session pendant la période |
+| **Apprenants connectés sur la période** | Apprenants distincts ayant ouvert ou repris au moins une session pendant la période |
 | **Dernière semaine** | Apprenants distincts ayant consulté une épreuve ou un concours sur les 7 derniers jours |
 | **Dernières 2 semaines** | Idem sur 14 jours |
 | **Dernier mois** | Idem sur 30 jours |
 
 **Se connecter et consulter ne sont pas la même chose.** « Connectés » compte
-l'ouverture de session ; « Dernière semaine » compte l'ouverture effective d'un
-contenu. Le second est la mesure d'usage réel.
+l'ouverture de l'application ; « Dernière semaine » compte l'ouverture effective
+d'un contenu. Le second est la mesure d'usage réel.
 
 > Les trois fenêtres 7 / 14 / 30 jours **ne suivent pas la période choisie**.
 > Elles regardent toujours en arrière depuis la **date de fin**. Si la période
@@ -170,7 +170,7 @@ rapport garde le même défaut.
 1. **Les âges non renseignés ne sont comptés dans aucune tranche.** Un compte sans tranche d'âge n'apparaît ni dans « 35 ans ou moins », ni ailleurs : la somme des tranches est donc inférieure au total.
 2. **Il en va de même pour le sexe, la zone et le handicap.** Ces cartes comptent des déclarations, pas des faits : un champ vide est un « non » silencieux, et fait baisser mécaniquement le pourcentage.
 3. **La section Utilisateurs inclut les administrateurs.** Pour le public réel, utiliser la section Apprenants.
-4. **« Connectés » compte des ouvertures de session, pas du temps passé** ni du contenu consulté.
+4. **« Connectés » compte des sessions, pas du temps passé** ni du contenu consulté. Une session reprise sans ressaisie du mot de passe compte comme une ouverture : l'indicateur mesure la présence, pas la ré-authentification.
 5. **Tous les chiffres dépendent du pays sélectionné.** Un indicateur cité sans le pays n'a pas de sens.
 6. **Une inscription n'est jamais retirée rétroactivement.** Un compte supprimé plus tard reste absent des périodes futures mais ne modifie pas le passé affiché.
 
@@ -189,16 +189,16 @@ Partout, seules les lignes du **pays sélectionné** sont prises.
 | Femmes de 35 ans ou moins | Comptes | Idem, les deux critères ensemble | Toutes les lignes restantes |
 | En zone rurale | Comptes | Idem, zone déclarée « rural » | Toutes les lignes restantes |
 | En situation de handicap | Comptes | Idem, case handicap cochée | Toutes les lignes restantes |
-| Utilisateurs connectés | Connexions | Sessions ouvertes entre les deux dates | Les personnes, chacune une fois |
+| Utilisateurs connectés | Connexions | Sessions ouvertes ou reprises entre les deux dates | Les personnes, chacune une fois |
 | Apprenants inscrits | Comptes | Comptes créés entre les deux dates, rôle étudiant | Toutes les lignes restantes |
 | Répartitions apprenants | Comptes | Idem + le critère de la carte | Toutes les lignes restantes |
-| Apprenants connectés | Connexions | Sessions ouvertes entre les deux dates, personne de rôle étudiant | Les personnes, chacune une fois |
+| Apprenants connectés | Connexions | Sessions ouvertes ou reprises entre les deux dates, personne de rôle étudiant | Les personnes, chacune une fois |
 | Apprenants actifs 7 / 14 / 30 j | Consultations | Épreuves et concours ouverts dans les 7, 14 ou 30 jours précédant la date de fin, par un étudiant | Les personnes, chacune une fois |
 
 ### Trois exemples lus à voix haute
 
 - **« Femmes de 35 ans ou moins » = 120.** On a pris le carnet des comptes, gardé ceux du Bénin créés entre le 1er et le 31 janvier, puis ceux à la fois déclarés « F » et dans une tranche sous 35 ans. Il en restait 120.
-- **« Utilisateurs connectés » = 820.** On a pris le journal des connexions, gardé les sessions ouvertes en janvier par des comptes du Bénin, puis compté les personnes distinctes : 820, quel que soit leur nombre de connexions et leur date d'inscription.
+- **« Utilisateurs connectés » = 820.** On a pris le journal des connexions, gardé les sessions ouvertes ou reprises en janvier par des comptes du Bénin, puis compté les personnes distinctes : 820, quel que soit leur nombre de passages et leur date d'inscription.
 - **« Apprenants actifs, dernier mois » = 340.** On a pris le journal des consultations, gardé les ouvertures d'épreuves et de concours des 30 jours précédant le 31 janvier, faites par des étudiants, puis compté les personnes distinctes : 340.
 
 ---
@@ -221,6 +221,15 @@ Deux conséquences, désormais corrigées :
 Depuis le 11 août 2026, chaque connexion réussie écrit sa propre ligne dans un
 journal qui n'est ni modifié ni purgé. Les chiffres sont donc justes et
 reproductibles à partir de cette date — et valent **0** avant.
+
+**Le journal enregistre aussi les sessions reprises**, et il fallait cela pour
+que le compte soit honnête. L'application ne redemande le mot de passe qu'après
+une réinstallation, une déconnexion volontaire ou trente jours d'absence : une
+personne qui l'ouvre tous les jours ne se « reconnecte » presque jamais. Ne
+compter que les mots de passe saisis aurait rendu invisibles les utilisateurs
+les plus assidus. Une reprise de session est donc journalisée comme une
+connexion, et une personne revenue vingt fois dans le mois compte toujours pour
+une seule.
 
 ### Trois répartitions sont exactes mais presque vides
 
