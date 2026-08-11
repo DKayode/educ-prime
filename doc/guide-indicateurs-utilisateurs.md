@@ -88,6 +88,11 @@ Attention : les deux premières tuiles parlent d'**inscriptions**, les deux
 suivantes d'**activité**. Ce ne sont pas les mêmes personnes, et il ne faut pas
 les soustraire l'une de l'autre.
 
+Deux pièges propres à ce bandeau :
+
+- **« Apprenants actifs » ne suit pas la période choisie.** Les trois autres tuiles bougent avec les dates ; celle-ci regarde toujours le dernier mois précédant la date de fin. Sur une période de douze mois, elle reste un chiffre mensuel.
+- **C'est le même nombre que « Dernier mois » plus bas.** Il apparaît deux fois à l'écran ; ce ne sont pas deux mesures qui se confirment l'une l'autre.
+
 ---
 
 ## 4. Section « Utilisateurs »
@@ -162,16 +167,23 @@ mais pas au dénominateur.
 Mesure faite sur les données du Bénin le 11 août 2026, avant le correctif de
 la section 10 :
 
-| Période | Inscrits | Connectés | Taux affiché |
-|---|---|---|---|
-| 7 jours | 98 | 169 | **172 %** |
-| 30 jours | 4 499 | 820 | 18 % |
-| 6 mois | 23 907 | 12 012 | 50 % |
+| Période | Inscrits | Connectés | Rapport réel | Affiché à l'écran |
+|---|---|---|---|---|
+| 7 jours | 98 | 169 | 172 % | **100 %** |
+| 30 jours | 4 499 | 820 | 18 % | 18 % |
+| 6 mois | 23 907 | 12 012 | 50 % | 50 % |
 
-Sur une période courte, le taux peut donc **dépasser 100 %**. Ce n'est pas une
-anomalie de données : le numérateur et le dénominateur ne portent pas sur la
-même population. En présentation, citer les deux nombres bruts — « 169 comptes
-connectés, 98 nouvelles inscriptions » — plutôt que ce pourcentage.
+**L'écran ne montre jamais plus de 100 %** : au-delà, la valeur est ramenée à
+100 et la barre apparaît pleine. C'est le point à retenir, car il se voit moins
+qu'un chiffre absurde. Un « taux de connexion 100 % » sur sept jours ne signifie
+pas que tout le monde s'est connecté — il signale seulement que le numérateur a
+dépassé le dénominateur, faute de porter sur la même population.
+
+Cette limite vaut pour **toutes** les barres de pourcentage de la page, y
+compris celles de la section Engagement.
+
+En présentation, citer les deux nombres bruts — « 169 comptes connectés,
+98 nouvelles inscriptions » — plutôt que ce pourcentage.
 
 Le correctif du 11 août change les valeurs de ce tableau mais pas le
 raisonnement : le dénominateur reste « les inscrits de la période », donc le
@@ -194,21 +206,80 @@ rapport garde le même défaut.
 ## 9. Fiche de calcul, indicateur par indicateur
 
 Pour chaque indicateur : le registre utilisé, ce qu'on garde, ce qu'on compte.
-Partout, seules les lignes du **pays sélectionné** sont prises.
+Partout, seules les lignes du **pays sélectionné** sont prises — pour les
+comptes et les connexions c'est le pays inscrit sur le compte, pour les
+téléchargements celui du contexte de la requête. Les deux coïncident dans
+l'usage courant.
 
-| Indicateur | Registre | On garde | On compte |
+L'écran affiche **vingt et un nombres**. Les voici tous, dans l'ordre où ils
+apparaissent.
+
+### Le bandeau du haut — 4 tuiles
+
+Aucune n'a de pourcentage : ce sont des reprises de cartes situées plus bas.
+
+| Tuile | Registre | On garde | On compte |
 |---|---|---|---|
 | Utilisateurs inscrits | Comptes | Comptes créés entre les deux dates | Toutes les lignes |
-| Âgés de 35 ans ou moins | Comptes | Idem, tranche déclarée sous 35 ans | Toutes les lignes restantes |
-| Femmes | Comptes | Idem, sexe déclaré « F » | Toutes les lignes restantes |
-| Femmes de 35 ans ou moins | Comptes | Idem, les deux critères ensemble | Toutes les lignes restantes |
-| En zone rurale | Comptes | Idem, zone déclarée « rural » | Toutes les lignes restantes |
-| En situation de handicap | Comptes | Idem, case handicap cochée | Toutes les lignes restantes |
+| Apprenants inscrits | Comptes | Idem, rôle « étudiant » | Toutes les lignes restantes |
 | Utilisateurs connectés | Connexions | Sessions ouvertes ou reprises entre les deux dates | Les personnes, chacune une fois |
-| Apprenants inscrits | Comptes | Comptes créés entre les deux dates, rôle étudiant | Toutes les lignes restantes |
-| Répartitions apprenants | Comptes | Idem + le critère de la carte | Toutes les lignes restantes |
-| Apprenants connectés | Connexions | Sessions ouvertes ou reprises entre les deux dates, personne de rôle étudiant | Les personnes, chacune une fois |
-| Apprenants actifs 7 / 14 / 30 j | Consultations | Épreuves et concours téléchargés dans les 7, 14 ou 30 jours précédant la date de fin, par un étudiant | Les personnes, chacune une fois |
+| Apprenants actifs | Consultations | Téléchargements du dernier mois par un étudiant | Les personnes, chacune une fois |
+
+La quatrième tuile est **exactement** la case « Dernier mois » de la section
+Engagement — même nombre, affiché deux fois. Elle ne suit pas la période
+choisie, contrairement aux trois autres.
+
+### Section Utilisateurs — 7 cartes
+
+Toutes portent sur les comptes créés entre les deux dates, **tous rôles
+confondus**. Le registre est le carnet des comptes ; on compte les lignes
+restantes.
+
+| Carte | Critère retenu | Dénominateur du pourcentage |
+|---|---|---|
+| Total inscrits | Aucun — c'est le total | Aucun, pas de pourcentage |
+| Âgés de 35 ans ou moins | Tranche déclarée « < 18 », « 18 - 25 » ou « 26 - 35 » | Total inscrits |
+| Femmes | Sexe déclaré « F » | Total inscrits |
+| Femmes de 35 ans ou moins | Les deux critères à la fois | Total inscrits |
+| En zone rurale | Zone déclarée « rural » | Total inscrits |
+| En situation de handicap | Case handicap à « oui » | Total inscrits |
+| Connectés sur la période | Registre différent : journal des connexions, personnes distinctes | Total inscrits, sous le nom « taux de connexion » |
+
+La dernière carte est la seule de la section à changer de registre — d'où le
+défaut de dénominateur expliqué en section 7.
+
+### Section Apprenants — 6 cartes
+
+Mêmes découpages, restreints au rôle « étudiant ». Registre : le carnet des
+comptes.
+
+| Carte | Critère retenu | Dénominateur du pourcentage |
+|---|---|---|
+| Apprenants inscrits | Rôle « étudiant » | Aucun, pas de pourcentage |
+| Âgés de 35 ans ou moins | Rôle étudiant + tranche sous 35 ans | Apprenants inscrits |
+| Femmes de 35 ans ou moins | Rôle étudiant + sexe « F » + tranche sous 35 ans | Apprenants inscrits |
+| Femmes | Rôle étudiant + sexe « F » | Apprenants inscrits |
+| En zone rurale | Rôle étudiant + zone « rural » | Apprenants inscrits |
+| En situation de handicap | Rôle étudiant + case handicap | Apprenants inscrits |
+
+### Section Engagement — 4 nombres
+
+| Nombre | Registre | On garde | Dénominateur du pourcentage |
+|---|---|---|---|
+| Apprenants connectés sur la période | Connexions | Sessions ouvertes ou reprises entre les deux dates, par un étudiant | Apprenants inscrits |
+| Dernière semaine | Consultations | Téléchargements des 7 jours précédant la date de fin, par un étudiant | Apprenants inscrits |
+| Dernières 2 semaines | Consultations | Idem sur 14 jours | Apprenants inscrits |
+| Dernier mois | Consultations | Idem sur un mois | Apprenants inscrits |
+
+Les quatre pourcentages de cette section souffrent du même défaut que le taux
+de connexion : le numérateur compte des personnes **actives**, le dénominateur
+des personnes **inscrites sur la période**. Sur une période courte, la barre
+sature à 100 % sans que cela veuille dire quoi que ce soit.
+
+Deux détails de calcul, pour être complet :
+
+- **« Dernier mois » est un mois calendaire, pas trente jours fixes.** Du 11 juillet au 11 août, par exemple. L'écran l'annonce comme « 30 j » ; l'écart est d'un ou deux jours selon le mois.
+- **Les trois fenêtres ignorent la date de début.** Elles se calent uniquement sur la date de fin et remontent en arrière, même si la période choisie est plus courte qu'elles.
 
 ### Trois exemples lus à voix haute
 
