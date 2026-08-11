@@ -23,7 +23,37 @@ Rien sur cette page n'est un cumul historique. Tout dépend des deux dates.
 
 ---
 
-## 2. Le bandeau du haut
+## 2. D'où viennent les chiffres
+
+Aucun indicateur n'est saisi à la main : tous sont **recomptés à chaque
+affichage** à partir de trois registres que l'application alimente toute seule.
+
+| Registre | Ce qu'il contient | Ce qu'il sert à mesurer |
+|---|---|---|
+| **Le carnet des comptes** | Une ligne par personne inscrite, avec ce qu'elle a déclaré à l'inscription : rôle, sexe, tranche d'âge, zone de résidence, situation de handicap | Les inscriptions et toutes les répartitions |
+| **Le journal des connexions** | Une ligne à chaque ouverture de session | Les indicateurs « connectés » |
+| **Le journal des consultations** | Une ligne à chaque ouverture d'une épreuve ou d'un concours | Les « apprenants actifs » |
+
+### La recette est toujours la même
+
+Chaque indicateur se construit en trois gestes :
+
+1. **On choisit un registre** — comptes, connexions ou consultations.
+2. **On filtre** — on ne garde que les lignes du pays sélectionné, et celles qui tombent entre les deux dates.
+3. **On compte** — soit toutes les lignes restantes, soit seulement celles qui portent une caractéristique (femme, zone rurale, etc.).
+
+**Une personne n'est jamais comptée deux fois.** Quelqu'un qui se connecte dix
+fois dans le mois compte pour **un** dans « Utilisateurs connectés ». Quelqu'un
+qui ouvre quinze épreuves compte pour **un** dans « Apprenants actifs ».
+
+### Deux précisions qui changent la lecture
+
+- **La tranche d'âge est déclarée, pas calculée.** L'application ne connaît pas la date de naissance : elle utilise la tranche que la personne a choisie en s'inscrivant. Qui n'a rien choisi n'apparaît dans aucune tranche.
+- **Les inscriptions sont datées du jour de création du compte.** Un compte créé il y a deux ans n'entrera jamais dans les inscriptions d'un mois récent, même si la personne est très active aujourd'hui.
+
+---
+
+## 3. Le bandeau du haut
 
 Quatre chiffres de synthèse, repris en détail plus bas.
 
@@ -40,7 +70,7 @@ les soustraire l'une de l'autre.
 
 ---
 
-## 3. Section « Utilisateurs »
+## 4. Section « Utilisateurs »
 
 Sous-titre à l'écran : « Population totale inscrite sur la période ». Sept
 cartes, toutes portant sur les comptes **créés pendant la période**, tous rôles
@@ -61,7 +91,7 @@ divisée par « Total inscrits ».
 
 ---
 
-## 4. Section « Apprenants »
+## 5. Section « Apprenants »
 
 Sous-titre : « Inscription — utilisateurs au rôle étudiant ». Les mêmes
 découpages, restreints aux comptes de rôle **étudiant**, et rapportés au total
@@ -75,7 +105,7 @@ administrateurs, les professeurs et les autres rôles.
 
 ---
 
-## 5. Section « Engagement »
+## 6. Section « Engagement »
 
 Sous-titre : « Connexion & consultation de ressources par les apprenants ».
 
@@ -97,7 +127,7 @@ contenu. Le second est la mesure d'usage réel.
 
 ---
 
-## 6. Comment lire les pourcentages
+## 7. Comment lire les pourcentages
 
 Les pourcentages des sections Utilisateurs et Apprenants se lisent sans piège :
 ils rapportent une sous-population à son total, sur la même période. « Femmes
@@ -124,7 +154,7 @@ connectés, 98 nouvelles inscriptions » — plutôt que ce pourcentage.
 
 ---
 
-## 7. Ce que les chiffres ne disent pas
+## 8. Ce que les chiffres ne disent pas
 
 1. **Les âges non renseignés ne sont comptés dans aucune tranche.** Un compte sans tranche d'âge n'apparaît ni dans « 35 ans ou moins », ni ailleurs : la somme des tranches est donc inférieure au total.
 2. **Il en va de même pour le sexe, la zone et le handicap.** Ces cartes comptent des déclarations, pas des faits : un champ vide est un « non » silencieux, et fait baisser mécaniquement le pourcentage.
@@ -135,12 +165,27 @@ connectés, 98 nouvelles inscriptions » — plutôt que ce pourcentage.
 
 ---
 
-## 8. Récapitulatif
+## 9. Fiche de calcul, indicateur par indicateur
 
-| Indicateur | Population | Fenêtre |
-|---|---|---|
-| Utilisateurs inscrits | Tous rôles | Période |
-| Apprenants inscrits | Rôle étudiant | Période |
-| Répartitions âge / sexe / zone / handicap | Selon la section | Période |
-| Connectés (utilisateurs, apprenants) | Comptes ayant ouvert une session | Période |
-| Apprenants actifs 7 / 14 / 30 j | Apprenants ayant consulté une ressource | Depuis la date de fin |
+Pour chaque indicateur : le registre utilisé, ce qu'on garde, ce qu'on compte.
+Partout, seules les lignes du **pays sélectionné** sont prises.
+
+| Indicateur | Registre | On garde | On compte |
+|---|---|---|---|
+| Utilisateurs inscrits | Comptes | Comptes créés entre les deux dates | Toutes les lignes |
+| Âgés de 35 ans ou moins | Comptes | Idem, tranche déclarée sous 35 ans | Toutes les lignes restantes |
+| Femmes | Comptes | Idem, sexe déclaré « F » | Toutes les lignes restantes |
+| Femmes de 35 ans ou moins | Comptes | Idem, les deux critères ensemble | Toutes les lignes restantes |
+| En zone rurale | Comptes | Idem, zone déclarée « rural » | Toutes les lignes restantes |
+| En situation de handicap | Comptes | Idem, case handicap cochée | Toutes les lignes restantes |
+| Utilisateurs connectés | Connexions | Sessions ouvertes entre les deux dates | Les personnes, chacune une fois |
+| Apprenants inscrits | Comptes | Comptes créés entre les deux dates, rôle étudiant | Toutes les lignes restantes |
+| Répartitions apprenants | Comptes | Idem + le critère de la carte | Toutes les lignes restantes |
+| Apprenants connectés | Connexions | Sessions ouvertes entre les deux dates, personne de rôle étudiant | Les personnes, chacune une fois |
+| Apprenants actifs 7 / 14 / 30 j | Consultations | Épreuves et concours ouverts dans les 7, 14 ou 30 jours précédant la date de fin, par un étudiant | Les personnes, chacune une fois |
+
+### Trois exemples lus à voix haute
+
+- **« Femmes de 35 ans ou moins » = 120.** On a pris le carnet des comptes, gardé ceux du Bénin créés entre le 1er et le 31 janvier, puis ceux à la fois déclarés « F » et dans une tranche sous 35 ans. Il en restait 120.
+- **« Utilisateurs connectés » = 820.** On a pris le journal des connexions, gardé les sessions ouvertes en janvier par des comptes du Bénin, puis compté les personnes distinctes : 820, quel que soit leur nombre de connexions et leur date d'inscription.
+- **« Apprenants actifs, dernier mois » = 340.** On a pris le journal des consultations, gardé les ouvertures d'épreuves et de concours des 30 jours précédant le 31 janvier, faites par des étudiants, puis compté les personnes distinctes : 340.
