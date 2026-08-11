@@ -32,7 +32,7 @@ affichage** à partir de trois registres que l'application alimente toute seule.
 |---|---|---|
 | **Le carnet des comptes** | Une ligne par personne inscrite, avec ce qu'elle a déclaré à l'inscription : rôle, sexe, tranche d'âge, zone de résidence, situation de handicap | Les inscriptions et toutes les répartitions |
 | **Le journal des connexions** | Une ligne à chaque ouverture ou reprise de session, depuis le 11 août 2026 | Les indicateurs « connectés » |
-| **Le journal des consultations** | Une ligne à chaque ouverture d'une épreuve ou d'un concours | Les « apprenants actifs » |
+| **Le journal des consultations** | Une ligne à chaque téléchargement d'une épreuve ou d'un concours, depuis le 1er juillet 2026 | Les « apprenants actifs » |
 
 ### La recette est toujours la même
 
@@ -44,7 +44,21 @@ Chaque indicateur se construit en trois gestes :
 
 **Une personne n'est jamais comptée deux fois.** Quelqu'un qui se connecte dix
 fois dans le mois compte pour **un** dans « Utilisateurs connectés ». Quelqu'un
-qui ouvre quinze épreuves compte pour **un** dans « Apprenants actifs ».
+qui télécharge quinze épreuves compte pour **un** dans « Apprenants actifs ».
+
+### Ce qui déclenche une ligne de consultation
+
+C'est le geste le plus mal compris de la page, donc autant être précis : la
+ligne est écrite **au moment où le serveur remet le document**, c'est-à-dire
+quand la personne appuie sur « télécharger » et reçoit le PDF de l'épreuve ou
+du concours.
+
+En conséquence :
+
+- **Parcourir la liste des épreuves n'écrit rien.** Ouvrir la fiche d'une épreuve pour en lire le titre non plus. Seule la remise du fichier compte.
+- **Un même document repris trois fois écrit trois lignes**, mais la personne reste comptée une seule fois dans « Apprenants actifs ».
+- **Seuls les apprenants apparaissent** dans cet indicateur : les téléchargements faits par un administrateur sont enregistrés mais exclus du compte.
+- **Les examens nationaux ne sont pas comptés** — voir la section 10.
 
 ### Deux précisions qui changent la lecture
 
@@ -68,7 +82,7 @@ Quatre chiffres de synthèse, repris en détail plus bas.
 | **Utilisateurs inscrits** | Comptes créés pendant la période, tous rôles |
 | **Apprenants inscrits** | Parmi eux, ceux dont le rôle est « étudiant » |
 | **Utilisateurs connectés** | Comptes s'étant connectés au moins une fois pendant la période |
-| **Apprenants actifs** | Apprenants ayant consulté une épreuve ou un concours sur les 30 derniers jours |
+| **Apprenants actifs** | Apprenants ayant téléchargé une épreuve ou un concours sur les 30 derniers jours |
 
 Attention : les deux premières tuiles parlent d'**inscriptions**, les deux
 suivantes d'**activité**. Ce ne sont pas les mêmes personnes, et il ne faut pas
@@ -118,13 +132,13 @@ Sous-titre : « Connexion & consultation de ressources par les apprenants ».
 | Carte | Définition |
 |---|---|
 | **Apprenants connectés sur la période** | Apprenants distincts ayant ouvert ou repris au moins une session pendant la période |
-| **Dernière semaine** | Apprenants distincts ayant consulté une épreuve ou un concours sur les 7 derniers jours |
+| **Dernière semaine** | Apprenants distincts ayant téléchargé une épreuve ou un concours sur les 7 derniers jours |
 | **Dernières 2 semaines** | Idem sur 14 jours |
 | **Dernier mois** | Idem sur 30 jours |
 
 **Se connecter et consulter ne sont pas la même chose.** « Connectés » compte
-l'ouverture de l'application ; « Dernière semaine » compte l'ouverture effective
-d'un contenu. Le second est la mesure d'usage réel.
+l'ouverture de l'application ; « Dernière semaine » compte le téléchargement
+effectif d'un document. Le second est la mesure d'usage réel.
 
 > Les trois fenêtres 7 / 14 / 30 jours **ne suivent pas la période choisie**.
 > Elles regardent toujours en arrière depuis la **date de fin**. Si la période
@@ -194,17 +208,17 @@ Partout, seules les lignes du **pays sélectionné** sont prises.
 | Apprenants inscrits | Comptes | Comptes créés entre les deux dates, rôle étudiant | Toutes les lignes restantes |
 | Répartitions apprenants | Comptes | Idem + le critère de la carte | Toutes les lignes restantes |
 | Apprenants connectés | Connexions | Sessions ouvertes ou reprises entre les deux dates, personne de rôle étudiant | Les personnes, chacune une fois |
-| Apprenants actifs 7 / 14 / 30 j | Consultations | Épreuves et concours ouverts dans les 7, 14 ou 30 jours précédant la date de fin, par un étudiant | Les personnes, chacune une fois |
+| Apprenants actifs 7 / 14 / 30 j | Consultations | Épreuves et concours téléchargés dans les 7, 14 ou 30 jours précédant la date de fin, par un étudiant | Les personnes, chacune une fois |
 
 ### Trois exemples lus à voix haute
 
 - **« Femmes de 35 ans ou moins » = 120.** On a pris le carnet des comptes, gardé ceux du Bénin créés entre le 1er et le 31 janvier, puis ceux à la fois déclarés « F » et dans une tranche sous 35 ans. Il en restait 120.
 - **« Utilisateurs connectés » = 820.** On a pris le journal des connexions, gardé les sessions ouvertes ou reprises en janvier par des comptes du Bénin, puis compté les personnes distinctes : 820, quel que soit leur nombre de passages et leur date d'inscription.
-- **« Apprenants actifs, dernier mois » = 340.** On a pris le journal des consultations, gardé les ouvertures d'épreuves et de concours des 30 jours précédant le 31 janvier, faites par des étudiants, puis compté les personnes distinctes : 340.
+- **« Apprenants actifs, dernier mois » = 340.** On a pris le journal des consultations, gardé les téléchargements d'épreuves et de concours des 30 jours précédant le 31 janvier, faites par des étudiants, puis compté les personnes distinctes : 340.
 
 ---
 
-## 10. Deux limites connues, à dire avant qu'on les découvre
+## 10. Trois limites connues, à dire avant qu'on les découvre
 
 ### Les indicateurs « connectés » ont changé de source le 11 août 2026
 
@@ -252,3 +266,18 @@ Présenter « 0 utilisateur en zone rurale » ou « 1,1 % de moins de 35 ans »
 comme un constat sur le public serait faux : ces cartes décrivent un champ de
 formulaire vide, pas les personnes. Tant que ces informations ne sont pas
 demandées à l'inscription, mieux vaut ne pas les citer.
+
+### Les examens nationaux ne comptent pas dans « Apprenants actifs »
+
+Le journal des consultations n'enregistre que les épreuves et les concours.
+Les examens nationaux sont devenus une ressource à part entière, avec son
+propre mode de distribution, et leurs téléchargements n'écrivent aucune ligne.
+
+« Apprenants actifs » sous-estime donc l'usage réel : quelqu'un qui ne
+télécharge que des sujets d'examen national n'y figure pas. Le chiffre reste
+juste pour ce qu'il mesure — les épreuves et les concours — mais il ne doit pas
+être présenté comme l'activité totale de la plateforme.
+
+Relevé le 11 août 2026 sur le Bénin, le journal contenait 4 959 téléchargements
+d'épreuves par 320 apprenants et 742 de concours par 24 apprenants, depuis le
+1er juillet.
