@@ -22,8 +22,14 @@ import { CountryConfigService } from '../config/country-config.service';
  *    NULL age_group is excluded automatically (not counted). Replaces the former
  *    date_naissance-based computation.
  *  - disability: situation_handicap IS TRUE (booléen).
- *  - logins (KPI 8 / 15): distinct refresh_tokens.utilisateur_id in the period
- *    (refresh_tokens has no pays, so we join utilisateurs for the country scope).
+ *  - logins (KPI 8 / 15): distinct login_events.utilisateur_id in the period.
+ *    login_events is append-only, one row per successful login (migration 073).
+ *    It replaced refresh_tokens, which could not measure this: createRefreshToken
+ *    DELETES the device's previous row before inserting a new one, so only the
+ *    LAST login of each user survived. A user returning every week appeared only
+ *    in the period of their most recent visit, and re-running a report for a past
+ *    period returned a different figure each time. Journal starts 2026-08-11:
+ *    earlier periods legitimately read 0.
  *  - KPI 16: distinct learners with a resource_access row (épreuve|concours) in
  *    the trailing week / 2 weeks / month windows, all anchored on endDate.
  */
@@ -78,7 +84,7 @@ export class KpiService {
       SELECT
         COUNT(DISTINCT rt.utilisateur_id)                                       AS users_logged_in,
         COUNT(DISTINCT rt.utilisateur_id) FILTER (WHERE u.role = 'étudiant')    AS learners_logged_in
-      FROM refresh_tokens rt
+      FROM login_events rt
       JOIN utilisateurs u ON u.id = rt.utilisateur_id
       WHERE u.pays = $1
         AND rt.date_creation >= ${lo}
