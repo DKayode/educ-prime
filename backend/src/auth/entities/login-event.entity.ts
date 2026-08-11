@@ -25,6 +25,15 @@ export class LoginEvent {
     @Column({ type: 'varchar', length: 20, nullable: true })
     appareil?: string | null;
 
+    /**
+     * 'connexion' — identifiants saisis ; 'refresh' — session renouvelée sans
+     * ressaisie. Le jeton d'accès dure 1 jour et celui de rafraîchissement 30 :
+     * sans le second cas, une personne qui garde sa session ouverte n'aurait
+     * produit aucune ligne, et les plus actifs auraient été les moins comptés.
+     */
+    @Column({ type: 'varchar', length: 20, default: 'connexion' })
+    type: string;
+
     @CreateDateColumn({ name: 'date_creation', type: 'timestamptz' })
     date_creation: Date;
 }
