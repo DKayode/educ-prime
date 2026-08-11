@@ -31,7 +31,7 @@ affichage** à partir de trois registres que l'application alimente toute seule.
 | Registre | Ce qu'il contient | Ce qu'il sert à mesurer |
 |---|---|---|
 | **Le carnet des comptes** | Une ligne par personne inscrite, avec ce qu'elle a déclaré à l'inscription : rôle, sexe, tranche d'âge, zone de résidence, situation de handicap | Les inscriptions et toutes les répartitions |
-| **Le journal des connexions** | Une ligne à chaque ouverture de session | Les indicateurs « connectés » |
+| **Le journal des connexions** | Une ligne à chaque ouverture de session, depuis le 11 août 2026 | Les indicateurs « connectés » |
 | **Le journal des consultations** | Une ligne à chaque ouverture d'une épreuve ou d'un concours | Les « apprenants actifs » |
 
 ### La recette est toujours la même
@@ -50,6 +50,12 @@ qui ouvre quinze épreuves compte pour **un** dans « Apprenants actifs ».
 
 - **La tranche d'âge est déclarée, pas calculée.** L'application ne connaît pas la date de naissance : elle utilise la tranche que la personne a choisie en s'inscrivant. Qui n'a rien choisi n'apparaît dans aucune tranche.
 - **Les inscriptions sont datées du jour de création du compte.** Un compte créé il y a deux ans n'entrera jamais dans les inscriptions d'un mois récent, même si la personne est très active aujourd'hui.
+
+> **Le journal des connexions démarre le 11 août 2026.** Avant cette date, les
+> indicateurs « connectés » affichent **0** : ce n'est pas une chute d'activité,
+> c'est l'absence de mesure. Ils comptaient jusque-là une donnée qui ne
+> convenait pas — voir la section 10 — et l'historique réel n'est pas
+> reconstituable.
 
 ---
 
@@ -139,7 +145,8 @@ Or les personnes connectées ne sont pas forcément inscrites sur cette période
 un compte créé l'an dernier qui se connecte aujourd'hui est compté au numérateur
 mais pas au dénominateur.
 
-Conséquence mesurée sur les données réelles du Bénin :
+Mesure faite sur les données du Bénin le 11 août 2026, avant le correctif de
+la section 10 :
 
 | Période | Inscrits | Connectés | Taux affiché |
 |---|---|---|---|
@@ -151,6 +158,10 @@ Sur une période courte, le taux peut donc **dépasser 100 %**. Ce n'est pas une
 anomalie de données : le numérateur et le dénominateur ne portent pas sur la
 même population. En présentation, citer les deux nombres bruts — « 169 comptes
 connectés, 98 nouvelles inscriptions » — plutôt que ce pourcentage.
+
+Le correctif du 11 août change les valeurs de ce tableau mais pas le
+raisonnement : le dénominateur reste « les inscrits de la période », donc le
+rapport garde le même défaut.
 
 ---
 
@@ -189,3 +200,40 @@ Partout, seules les lignes du **pays sélectionné** sont prises.
 - **« Femmes de 35 ans ou moins » = 120.** On a pris le carnet des comptes, gardé ceux du Bénin créés entre le 1er et le 31 janvier, puis ceux à la fois déclarés « F » et dans une tranche sous 35 ans. Il en restait 120.
 - **« Utilisateurs connectés » = 820.** On a pris le journal des connexions, gardé les sessions ouvertes en janvier par des comptes du Bénin, puis compté les personnes distinctes : 820, quel que soit leur nombre de connexions et leur date d'inscription.
 - **« Apprenants actifs, dernier mois » = 340.** On a pris le journal des consultations, gardé les ouvertures d'épreuves et de concours des 30 jours précédant le 31 janvier, faites par des étudiants, puis compté les personnes distinctes : 340.
+
+---
+
+## 10. Deux limites connues, à dire avant qu'on les découvre
+
+### Les indicateurs « connectés » ont changé de source le 11 août 2026
+
+Ils comptaient jusque-là des lignes de la table des jetons de connexion. Or
+cette table ne conserve **qu'une ligne par compte** : à chaque connexion,
+l'ancienne est supprimée et remplacée. Elle ne portait donc que la **dernière**
+connexion de chaque personne — 18 246 comptes sur 18 249 n'avaient qu'une seule
+ligne.
+
+Deux conséquences, désormais corrigées :
+
+- une personne revenant chaque semaine n'était comptée que dans la période de sa dernière visite, si bien que la fidélité était invisible ;
+- le même rapport rejoué plus tard donnait un chiffre différent pour un mois passé, la ligne s'étant déplacée entre-temps.
+
+Depuis le 11 août 2026, chaque connexion réussie écrit sa propre ligne dans un
+journal qui n'est ni modifié ni purgé. Les chiffres sont donc justes et
+reproductibles à partir de cette date — et valent **0** avant.
+
+### Trois répartitions sont exactes mais presque vides
+
+Elles ne sont pas mal calculées : les informations ne sont pas collectées à
+l'inscription. Relevé sur le Bénin le 11 août 2026, sur 32 594 comptes :
+
+| Carte | Renseigné | Ce que la carte affiche en réalité |
+|---|---|---|
+| **En zone rurale** | 1 compte, et il est « urbain » | Toujours 0 |
+| **En situation de handicap** | 1 compte à « oui » | Toujours 1 |
+| **Âgés de 35 ans ou moins** | 370 comptes (1,1 %) | Une part de ce 1,1 %, pas de la population |
+
+Présenter « 0 utilisateur en zone rurale » ou « 1,1 % de moins de 35 ans »
+comme un constat sur le public serait faux : ces cartes décrivent un champ de
+formulaire vide, pas les personnes. Tant que ces informations ne sont pas
+demandées à l'inscription, mieux vaut ne pas les citer.
