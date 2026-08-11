@@ -173,6 +173,7 @@ rapport garde le même défaut.
 4. **« Connectés » compte des sessions, pas du temps passé** ni du contenu consulté. Une session reprise sans ressaisie du mot de passe compte comme une ouverture : l'indicateur mesure la présence, pas la ré-authentification.
 5. **Tous les chiffres dépendent du pays sélectionné.** Un indicateur cité sans le pays n'a pas de sens.
 6. **Une inscription n'est jamais retirée rétroactivement.** Un compte supprimé plus tard reste absent des périodes futures mais ne modifie pas le passé affiché.
+7. **Sur une seule journée, « connectés » peut sous-compter légèrement.** Une session reste valide vingt-quatre heures : qui a ouvert l'application hier soir peut la rouvrir ce matin sans qu'aucune ligne soit écrite. Sur une semaine ou un mois, le décalage disparaît — toute personne active finit par reprendre sa session. Préférer donc les fenêtres d'au moins sept jours.
 
 ---
 
@@ -230,6 +231,11 @@ compter que les mots de passe saisis aurait rendu invisibles les utilisateurs
 les plus assidus. Une reprise de session est donc journalisée comme une
 connexion, et une personne revenue vingt fois dans le mois compte toujours pour
 une seule.
+
+Deux conséquences pratiques pour la lecture des premiers rapports :
+
+- **Le 11 août 2026 est une journée partielle.** L'enregistrement des reprises de session est entré en service dans la soirée ; ce jour-là ne compte donc que les personnes passées après cette heure, et ne doit pas servir de point de comparaison.
+- **Le premier chiffre pleinement comparable porte sur la semaine du 12 au 18 août 2026.** Avant, il n'y a pas de mesure ; ce n'est pas la même chose qu'une absence d'activité.
 
 ### Trois répartitions sont exactes mais presque vides
 
