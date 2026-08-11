@@ -7,6 +7,7 @@ import { RegisterDto } from './dto/register.dto';
 import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
 import { RefreshToken, AppareilType } from './entities/refresh-token.entity';
 import { BlacklistedToken } from './entities/blacklisted-token.entity';
+import { LoginEvent } from './entities/login-event.entity';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { MailService } from '../mail/mail.service';
@@ -26,6 +27,29 @@ export class AuthService {
 
   private get refreshTokenRepository(): Repository<RefreshToken> {
     return this.resolver.getRepository(RefreshToken);
+  }
+
+  private get loginEventRepository(): Repository<LoginEvent> {
+    return this.resolver.getRepository(LoginEvent);
+  }
+
+  /**
+   * Trace la connexion pour les KPI. En AJOUT SEUL, contrairement à
+   * refresh_tokens dont la ligne est remplacée à chaque connexion.
+   *
+   * Best-effort : une écriture de statistique ne doit jamais faire échouer une
+   * connexion. En cas d'erreur on journalise et on continue.
+   */
+  private async recordLoginEvent(userId: number, pays: string | undefined, appareil?: string) {
+    try {
+      await this.loginEventRepository.insert({
+        utilisateur_id: userId,
+        pays: pays || 'benin',
+        appareil: appareil ?? null,
+      });
+    } catch (error) {
+      this.logger.error(`Journalisation de la connexion échouée (utilisateur ${userId}): ${error.message}`);
+    }
   }
 
   private get blacklistedTokenRepository(): Repository<BlacklistedToken> {
@@ -84,6 +108,8 @@ export class AuthService {
 
     // Generate refresh token (30 days)
     const refreshToken = await this.createRefreshToken(user.id, appareil || AppareilType.WEB);
+
+    await this.recordLoginEvent(user.id, (user as any).pays, appareil || AppareilType.WEB);
 
     this.logger.log(`Connexion réussie: ${user.email} (ID: ${user.id}, Rôle: ${user.role})`);
     return {

@@ -10,6 +10,7 @@ import { RoleGuard } from './guards/role.guard';
 import { UtilisateursModule } from '../utilisateurs/utilisateurs.module';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { BlacklistedToken } from './entities/blacklisted-token.entity';
+import { LoginEvent } from './entities/login-event.entity';
 import { MailModule } from '../mail/mail.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
@@ -26,7 +27,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       }),
       inject: [ConfigService],
     }),
-    TypeOrmModule.forFeature([RefreshToken, BlacklistedToken]),
+    TypeOrmModule.forFeature([RefreshToken, BlacklistedToken, LoginEvent]),
     MailModule,
   ],
   controllers: [AuthController],
