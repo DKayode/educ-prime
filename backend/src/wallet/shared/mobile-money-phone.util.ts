@@ -11,11 +11,12 @@ import { MobileMoneyProvider } from './payment.enums';
  * de l'opérateur : ceux-ci changent au gré des attributions de l'ARCEP locale,
  * et un numéro refusé à tort est plus coûteux qu'un opérateur mal étiqueté.
  *
- * Le couple pays/opérateur, lui, est vérifié (`operatorsAllowed`). Seul MTN est
- * ouvert, dans les trois pays : le virement est exécuté à la main, et l'ouvrir
- * à un opérateur qu'on ne sait pas payer reviendrait à accepter des comptes
- * inutilisables. Moov et Celtiis sortent donc de la liste — voir la note sur
- * les comptes déjà enregistrés dans la PR.
+ * Le couple pays/opérateur, lui, est vérifié (`operatorsAllowed`), et la liste
+ * suit la façon dont l'argent sort réellement :
+ *   Bénin et Congo — virement par MTN Mobile Money, donc MTN seul.
+ *   Sénégal — virement par Wave, qui n'est pas un opérateur télécom et
+ *     fonctionne quel que soit le réseau du numéro. Y filtrer l'opérateur
+ *     n'aurait donc aucun sens : `operatorsAllowed: null` = aucun filtre.
  */
 export interface MobileMoneyCountrySpec {
   /** Slug pays de la plateforme (config.json). */
@@ -27,7 +28,8 @@ export interface MobileMoneyCountrySpec {
   nationalPattern: RegExp;
   /** Forme montrée à l'utilisateur dans les messages d'erreur. */
   format: string;
-  operatorsAllowed: MobileMoneyProvider[];
+  /** null = aucun filtre : le moyen de virement ne dépend pas de l'opérateur. */
+  operatorsAllowed: MobileMoneyProvider[] | null;
 }
 
 export const MOBILE_MONEY_COUNTRIES: MobileMoneyCountrySpec[] = [
@@ -47,7 +49,9 @@ export const MOBILE_MONEY_COUNTRIES: MobileMoneyCountrySpec[] = [
     // Mobiles à 9 chiffres : 70, 75, 76, 77 ou 78.
     nationalPattern: /^7[05678]\d{7}$/,
     format: '+221 7XXXXXXXX',
-    operatorsAllowed: [MobileMoneyProvider.MTN_MOMO],
+    // Wave marche sur tous les réseaux : filtrer l'opérateur exclurait des
+    // bénéficiaires parfaitement payables.
+    operatorsAllowed: null,
   },
   {
     country: 'congo',
@@ -121,9 +125,17 @@ export function toE164MobileMoneyPhone(phoneNumber?: string | null): string | nu
  * Message d'erreur quand l'opérateur choisi n'existe pas dans le pays du
  * numéro — plus utile que « format invalide », puisque le numéro, lui, est bon.
  */
+export function isOperatorAllowed(
+  operator: MobileMoneyProvider,
+  spec: MobileMoneyCountrySpec,
+): boolean {
+  return spec.operatorsAllowed === null || spec.operatorsAllowed.includes(operator);
+}
+
 export function operatorMismatchMessage(
   operator: MobileMoneyProvider,
   spec: MobileMoneyCountrySpec,
 ): string {
-  return `L'opérateur ${operator} n'est pas disponible pour un numéro ${spec.label} (${spec.format}). Opérateurs acceptés : ${spec.operatorsAllowed.join(', ')}.`;
+  const accepted = spec.operatorsAllowed?.join(', ') ?? '';
+  return `L'opérateur ${operator} n'est pas disponible pour un numéro ${spec.label} (${spec.format}). Opérateurs acceptés : ${accepted}.`;
 }

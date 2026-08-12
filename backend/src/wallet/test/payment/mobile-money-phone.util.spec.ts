@@ -2,6 +2,7 @@ import { MobileMoneyProvider } from '../../shared/payment.enums';
 import {
   MOBILE_MONEY_COUNTRIES,
   MOBILE_MONEY_PHONE_REGEX,
+  isOperatorAllowed,
   isValidMobileMoneyPhone,
   normalizeMobileMoneyPhone,
   normalizeMobileMoneyPhoneDetailed,
@@ -66,10 +67,24 @@ describe('mobile-money-phone.util', () => {
     expect(normalizeMobileMoneyPhoneDetailed('+242 061234567')?.country).toBe('congo');
   });
 
-  it("n'ouvre que MTN, dans les trois pays", () => {
-    for (const spec of MOBILE_MONEY_COUNTRIES) {
-      expect(spec.operatorsAllowed).toEqual([MobileMoneyProvider.MTN_MOMO]);
-    }
+  describe('opérateurs autorisés', () => {
+    const spec = (dial: string) => MOBILE_MONEY_COUNTRIES.find((c) => c.dialCode === dial)!;
+
+    it('limite le Bénin et le Congo à MTN — le virement y passe par MTN MoMo', () => {
+      for (const dial of ['229', '242']) {
+        expect(spec(dial).operatorsAllowed).toEqual([MobileMoneyProvider.MTN_MOMO]);
+        expect(isOperatorAllowed(MobileMoneyProvider.MTN_MOMO, spec(dial))).toBe(true);
+        expect(isOperatorAllowed(MobileMoneyProvider.MOOV_MONEY, spec(dial))).toBe(false);
+        expect(isOperatorAllowed(MobileMoneyProvider.WAVE, spec(dial))).toBe(false);
+      }
+    });
+
+    it("n'impose aucun opérateur au Sénégal — Wave marche sur tous les réseaux", () => {
+      expect(spec('221').operatorsAllowed).toBeNull();
+      for (const operator of Object.values(MobileMoneyProvider)) {
+        expect(isOperatorAllowed(operator, spec('221'))).toBe(true);
+      }
+    });
   });
 
   describe('regex des DTO', () => {

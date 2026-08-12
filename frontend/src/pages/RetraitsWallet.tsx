@@ -266,6 +266,7 @@ export default function RetraitsWallet() {
                   <SelectItem value="MTN_MOMO">MTN MoMo</SelectItem>
                   <SelectItem value="MOOV_MONEY">Moov Money</SelectItem>
                   <SelectItem value="CELTIIS_CASH">Celtiis Cash</SelectItem>
+                  <SelectItem value="WAVE">Wave</SelectItem>
                 </SelectContent>
               </Select>
             </div>

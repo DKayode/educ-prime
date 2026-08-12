@@ -3,7 +3,7 @@ import { api } from '../api';
 export type WithdrawalStatus =
   | 'PENDING' | 'OTP_PENDING' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'REJECTED';
 
-export type MobileMoneyProvider = 'MTN_MOMO' | 'MOOV_MONEY' | 'CELTIIS_CASH';
+export type MobileMoneyProvider = 'MTN_MOMO' | 'MOOV_MONEY' | 'CELTIIS_CASH' | 'WAVE';
 
 export interface WithdrawalUser {
   id: number;

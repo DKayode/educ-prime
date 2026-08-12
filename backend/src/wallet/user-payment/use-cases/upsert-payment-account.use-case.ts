@@ -2,7 +2,7 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { PAYMENT_AUDIT_LOG_PORT, USER_PAYMENT_ACCOUNT_REPOSITORY } from '../../shared/payment.tokens';
 import { PaymentAuditLogPort, UserPaymentAccountRepositoryPort } from '../../shared/payment.ports';
 import { MobileMoneyProvider } from '../../shared/payment.enums';
-import { MOBILE_MONEY_PHONE_ERROR_MESSAGE, normalizeMobileMoneyPhoneDetailed, operatorMismatchMessage } from '../../shared/mobile-money-phone.util';
+import { MOBILE_MONEY_PHONE_ERROR_MESSAGE, isOperatorAllowed, normalizeMobileMoneyPhoneDetailed, operatorMismatchMessage } from '../../shared/mobile-money-phone.util';
 
 @Injectable()
 export class UpsertPaymentAccountUseCase {
@@ -16,7 +16,7 @@ export class UpsertPaymentAccountUseCase {
     if (!phone) {
       throw new BadRequestException(MOBILE_MONEY_PHONE_ERROR_MESSAGE);
     }
-    if (!phone.spec.operatorsAllowed.includes(data.operator)) {
+    if (!isOperatorAllowed(data.operator, phone.spec)) {
       throw new BadRequestException(operatorMismatchMessage(data.operator, phone.spec));
     }
     const normalizedPhoneNumber = phone.display;
