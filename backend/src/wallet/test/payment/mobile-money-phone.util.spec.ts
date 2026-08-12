@@ -79,10 +79,15 @@ describe('mobile-money-phone.util', () => {
       }
     });
 
-    it("n'impose aucun opérateur au Sénégal — Wave marche sur tous les réseaux", () => {
-      expect(spec('221').operatorsAllowed).toBeNull();
-      for (const operator of Object.values(MobileMoneyProvider)) {
-        expect(isOperatorAllowed(operator, spec('221'))).toBe(true);
+    it('limite le Sénégal à Wave — le virement y passe par Wave', () => {
+      expect(spec('221').operatorsAllowed).toEqual([MobileMoneyProvider.WAVE]);
+      expect(isOperatorAllowed(MobileMoneyProvider.WAVE, spec('221'))).toBe(true);
+      expect(isOperatorAllowed(MobileMoneyProvider.MTN_MOMO, spec('221'))).toBe(false);
+    });
+
+    it('accepte tous les mobiles sénégalais, quel que soit leur réseau', () => {
+      for (const value of ['+221 701234567', '+221 751234567', '+221 761234567', '+221 771234567', '+221 781234567']) {
+        expect(isValidMobileMoneyPhone(value)).toBe(true);
       }
     });
   });
