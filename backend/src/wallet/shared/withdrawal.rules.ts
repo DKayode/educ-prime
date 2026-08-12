@@ -1,6 +1,6 @@
 import { BusinessRule, RuleResult } from './rules-engine.service';
 import { PaymentConfigurationModel, WalletModel, WalletRestrictionModel } from './payment.ports';
-import { BENIN_MOBILE_MONEY_PHONE_FORMAT, isValidBeninMobileMoneyPhone } from './benin-phone-number.util';
+import { MOBILE_MONEY_PHONE_ERROR_MESSAGE, isValidMobileMoneyPhone } from './mobile-money-phone.util';
 import { WalletStatus } from './payment.enums';
 
 export interface WithdrawalRuleContext {
@@ -108,12 +108,16 @@ export class PaymentAccountExistsRule implements BusinessRule<WithdrawalRuleCont
   }
 }
 
-export class BeninPaymentAccountPhoneRule implements BusinessRule<WithdrawalRuleContext> {
+/**
+ * Le nom de la règle reste `BENIN_PAYMENT_ACCOUNT_PHONE` : il est renvoyé tel
+ * quel aux clients, et le renommer casserait ceux qui l'aiguillent.
+ */
+export class MobileMoneyAccountPhoneRule implements BusinessRule<WithdrawalRuleContext> {
   readonly name = 'BENIN_PAYMENT_ACCOUNT_PHONE';
   evaluate(ctx: WithdrawalRuleContext) {
-    return isValidBeninMobileMoneyPhone(ctx.paymentAccountPhoneNumber)
+    return isValidMobileMoneyPhone(ctx.paymentAccountPhoneNumber)
       ? ok()
-      : fail(this.name, `Le numéro Mobile Money doit respecter le format béninois ${BENIN_MOBILE_MONEY_PHONE_FORMAT}`);
+      : fail(this.name, MOBILE_MONEY_PHONE_ERROR_MESSAGE);
   }
 }
 
@@ -128,5 +132,5 @@ export const DEFAULT_WITHDRAWAL_RULES = [
   new NoPendingWithdrawalRule(),
   new WithdrawalLimitRule(),
   new PaymentAccountExistsRule(),
-  new BeninPaymentAccountPhoneRule(),
+  new MobileMoneyAccountPhoneRule(),
 ];

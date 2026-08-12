@@ -2,7 +2,7 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { PAYMENT_AUDIT_LOG_PORT, USER_PAYMENT_ACCOUNT_REPOSITORY } from '../../shared/payment.tokens';
 import { PaymentAuditLogPort, UserPaymentAccountRepositoryPort } from '../../shared/payment.ports';
 import { MobileMoneyProvider } from '../../shared/payment.enums';
-import { BENIN_MOBILE_MONEY_PHONE_ERROR_MESSAGE, normalizeBeninMobileMoneyPhone } from '../../shared/benin-phone-number.util';
+import { MOBILE_MONEY_PHONE_ERROR_MESSAGE, normalizeMobileMoneyPhoneDetailed, operatorMismatchMessage } from '../../shared/mobile-money-phone.util';
 
 @Injectable()
 export class UpsertPaymentAccountUseCase {
@@ -12,10 +12,14 @@ export class UpsertPaymentAccountUseCase {
   ) {}
 
   async execute(data: { userId: number; operator: MobileMoneyProvider; phoneNumber: string; accountName: string; changedBy: number }) {
-    const normalizedPhoneNumber = normalizeBeninMobileMoneyPhone(data.phoneNumber);
-    if (!normalizedPhoneNumber) {
-      throw new BadRequestException(BENIN_MOBILE_MONEY_PHONE_ERROR_MESSAGE);
+    const phone = normalizeMobileMoneyPhoneDetailed(data.phoneNumber);
+    if (!phone) {
+      throw new BadRequestException(MOBILE_MONEY_PHONE_ERROR_MESSAGE);
     }
+    if (!phone.spec.operatorsAllowed.includes(data.operator)) {
+      throw new BadRequestException(operatorMismatchMessage(data.operator, phone.spec));
+    }
+    const normalizedPhoneNumber = phone.display;
 
     const account = await this.accounts.upsertDefault({ ...data, phoneNumber: normalizedPhoneNumber });
     await this.audit.log({

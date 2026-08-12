@@ -41,7 +41,7 @@ export interface WithdrawalList {
 export interface ConfirmPaymentPayload {
   provider: MobileMoneyProvider;
   transactionReference: string;
-  phoneNumber: string;   // +229 01XXXXXXXX
+  phoneNumber: string;   // +229 01XXXXXXXX, +221 7XXXXXXXX ou +242 0XXXXXXXX
   paidAmount: number;
   comment?: string;
 }
