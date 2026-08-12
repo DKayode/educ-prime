@@ -28,6 +28,7 @@ import {
 } from '../shared/payment.ports';
 import { OtpDeliveryStatus, RewardSourceTypeCode, WalletStatus, WalletTransactionStatus, WalletTransactionType, WithdrawalSecurityStatus, WithdrawalStatus } from '../shared/payment.enums';
 import { WithdrawalOtpStatus } from '../otp/entities/withdrawal-otp.entity';
+import { Utilisateur } from 'src/utilisateurs/entities/utilisateur.entity';
 import { WalletEntity } from '../wallet-balance/entities/wallet.entity';
 import { WalletTransactionEntity } from '../wallet-balance/entities/wallet-transaction.entity';
 import { WalletRestrictionEntity } from '../wallet-balance/entities/wallet-restriction.entity';
@@ -227,9 +228,69 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
   }
 
   async findForAdmin(status?: WithdrawalStatus, page = 1, limit = 20) {
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
+
     const where = status ? { status } : {};
-    const [data, total] = await this.repo.findAndCount({ where, order: { createdAt: 'DESC' }, skip: (page - 1) * limit, take: limit });
-    return { data: data.map((row) => this.map(row)), total };
+    const [rows, total] = await this.repo.findAndCount({
+      where,
+      order: { createdAt: 'DESC' },
+      skip: (safePage - 1) * safeLimit,
+      take: safeLimit,
+    });
+    if (!rows.length) return { data: [], total };
+
+    // withdrawal_requests ne porte que le wallet : le demandeur se rejoint par
+    // wallets.user_id. Trois requêtes ciblées plutôt qu'une jointure d'entités,
+    // pour ne jamais charger les colonnes sensibles de `utilisateurs`.
+    const wallets = await this.resolver.getRepository(WalletEntity).find({
+      where: { id: In([...new Set(rows.map((row) => row.walletId))]) },
+      select: ['id', 'userId'],
+    });
+    const userIdByWallet = new Map(wallets.map((wallet) => [wallet.id, wallet.userId]));
+
+    const userIds = [...new Set([...userIdByWallet.values()].filter((id) => id != null))];
+    const users = userIds.length
+      ? await this.resolver.getRepository(Utilisateur).find({
+          where: { id: In(userIds) },
+          select: ['id', 'nom', 'prenom', 'email', 'telephone'],
+        })
+      : [];
+    const userById = new Map(users.map((user) => [user.id, user]));
+
+    const accountIds = [...new Set(rows.map((row) => row.paymentAccountId).filter(Boolean) as string[])];
+    const accounts = accountIds.length
+      ? await this.resolver.getRepository(UserPaymentAccountEntity).find({ where: { id: In(accountIds) } })
+      : [];
+    const accountById = new Map(accounts.map((account) => [account.id, account]));
+
+    const data = rows.map((row) => {
+      const user = userById.get(userIdByWallet.get(row.walletId));
+      const account = row.paymentAccountId ? accountById.get(row.paymentAccountId) : null;
+      return {
+        ...this.map(row),
+        user: user
+          ? {
+              id: user.id,
+              nom: user.nom ?? null,
+              prenom: user.prenom ?? null,
+              email: user.email ?? null,
+              telephone: user.telephone ?? null,
+            }
+          : null,
+        paymentAccount: account
+          ? {
+              id: account.id,
+              operator: account.operator,
+              phoneNumber: account.phoneNumber,
+              accountName: account.accountName ?? null,
+              verified: account.verified,
+            }
+          : null,
+      };
+    });
+
+    return { data, total };
   }
 
   async findByWalletId(walletId: string, page = 1, limit = 50) {
