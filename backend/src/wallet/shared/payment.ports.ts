@@ -271,6 +271,28 @@ export interface WithdrawalRequestModel {
   createdAt: Date;
 }
 
+/**
+ * Vue admin d'une demande de retrait. `withdrawal_requests` ne porte que le
+ * wallet : sans ces deux blocs, l'écran d'approbation affiche une demande sans
+ * savoir qui la fait ni vers quel numéro payer.
+ */
+export interface AdminWithdrawalRequestModel extends WithdrawalRequestModel {
+  user?: {
+    id: number;
+    nom: string | null;
+    prenom: string | null;
+    email: string | null;
+    telephone: string | null;
+  } | null;
+  paymentAccount?: {
+    id: string;
+    operator: MobileMoneyProvider;
+    phoneNumber: string;
+    accountName: string | null;
+    verified: boolean;
+  } | null;
+}
+
 export interface WithdrawalRequestRepositoryPort {
   create(data: {
     walletId: string;
@@ -284,7 +306,7 @@ export interface WithdrawalRequestRepositoryPort {
   }): Promise<WithdrawalRequestModel>;
   findById(id: string): Promise<WithdrawalRequestModel | null>;
   findOpenByWalletId(walletId: string): Promise<WithdrawalRequestModel | null>;
-  findForAdmin(status?: WithdrawalStatus, page?: number, limit?: number): Promise<{ data: WithdrawalRequestModel[]; total: number }>;
+  findForAdmin(status?: WithdrawalStatus, page?: number, limit?: number): Promise<{ data: AdminWithdrawalRequestModel[]; total: number }>;
   findByWalletId(walletId: string, page?: number, limit?: number): Promise<{ data: WithdrawalRequestModel[]; total: number }>;
   findWalletActivityHistory(walletId: string, page?: number, limit?: number): Promise<{ data: WalletActivityHistoryItemModel[]; total: number }>;
   findWithPaymentDetailsByUserId(userId: number, page?: number, limit?: number): Promise<{ data: any[]; total: number }>;
