@@ -9,9 +9,13 @@ import { MobileMoneyProvider } from './payment.enums';
  *
  * La validation porte sur le format **national du pays**, pas sur les préfixes
  * de l'opérateur : ceux-ci changent au gré des attributions de l'ARCEP locale,
- * et un numéro refusé à tort est plus coûteux qu'un opérateur mal étiqueté. Le
- * couple pays/opérateur, lui, est vérifié (`operatorsAllowed`) : Celtiis ou Moov
- * sur un numéro sénégalais n'aurait aucun sens.
+ * et un numéro refusé à tort est plus coûteux qu'un opérateur mal étiqueté.
+ *
+ * Le couple pays/opérateur, lui, est vérifié (`operatorsAllowed`). Seul MTN est
+ * ouvert, dans les trois pays : le virement est exécuté à la main, et l'ouvrir
+ * à un opérateur qu'on ne sait pas payer reviendrait à accepter des comptes
+ * inutilisables. Moov et Celtiis sortent donc de la liste — voir la note sur
+ * les comptes déjà enregistrés dans la PR.
  */
 export interface MobileMoneyCountrySpec {
   /** Slug pays de la plateforme (config.json). */
@@ -34,11 +38,7 @@ export const MOBILE_MONEY_COUNTRIES: MobileMoneyCountrySpec[] = [
     // Numérotation à 10 chiffres depuis 2023 : 01 puis 8 chiffres.
     nationalPattern: /^01\d{8}$/,
     format: '+229 01XXXXXXXX',
-    operatorsAllowed: [
-      MobileMoneyProvider.MTN_MOMO,
-      MobileMoneyProvider.MOOV_MONEY,
-      MobileMoneyProvider.CELTIIS_CASH,
-    ],
+    operatorsAllowed: [MobileMoneyProvider.MTN_MOMO],
   },
   {
     country: 'senegal',

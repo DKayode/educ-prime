@@ -66,13 +66,10 @@ describe('mobile-money-phone.util', () => {
     expect(normalizeMobileMoneyPhoneDetailed('+242 061234567')?.country).toBe('congo');
   });
 
-  it("n'autorise Moov et Celtiis qu'au Bénin", () => {
-    const operators = (dial: string) =>
-      MOBILE_MONEY_COUNTRIES.find((c) => c.dialCode === dial)!.operatorsAllowed;
-
-    expect(operators('229')).toContain(MobileMoneyProvider.MOOV_MONEY);
-    expect(operators('221')).toEqual([MobileMoneyProvider.MTN_MOMO]);
-    expect(operators('242')).toEqual([MobileMoneyProvider.MTN_MOMO]);
+  it("n'ouvre que MTN, dans les trois pays", () => {
+    for (const spec of MOBILE_MONEY_COUNTRIES) {
+      expect(spec.operatorsAllowed).toEqual([MobileMoneyProvider.MTN_MOMO]);
+    }
   });
 
   describe('regex des DTO', () => {
