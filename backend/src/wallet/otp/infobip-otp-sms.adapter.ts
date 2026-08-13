@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OtpDeliveryStatus } from '../shared/payment.enums';
 import { OtpSmsSenderPort } from '../shared/payment.ports';
-import { toE164BeninMobileMoneyPhone } from '../shared/benin-phone-number.util';
+import { toE164MobileMoneyPhone } from '../shared/mobile-money-phone.util';
 
 interface InfobipSendSmsResponse {
   bulkId?: string;
@@ -42,7 +42,7 @@ export class InfobipOtpSmsAdapter implements OtpSmsSenderPort {
     userId?: number;
   }): Promise<{ provider: string; messageId?: string | null; bulkId?: string | null; deliveryStatus?: OtpDeliveryStatus }> {
     const provider = (payload.provider || this.config.get<string>('OTP_SMS_PROVIDER', 'console')).toLowerCase();
-    const toE164 = toE164BeninMobileMoneyPhone(payload.phoneNumber);
+    const toE164 = toE164MobileMoneyPhone(payload.phoneNumber);
 
     const finalMessage = this.appendAndroidSmsHash(payload.message);
 

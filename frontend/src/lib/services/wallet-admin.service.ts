@@ -3,7 +3,7 @@ import { api } from '../api';
 export type WithdrawalStatus =
   | 'PENDING' | 'OTP_PENDING' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'REJECTED';
 
-export type MobileMoneyProvider = 'MTN_MOMO' | 'MOOV_MONEY' | 'CELTIIS_CASH';
+export type MobileMoneyProvider = 'MTN_MOMO' | 'MOOV_MONEY' | 'CELTIIS_CASH' | 'WAVE';
 
 export interface WithdrawalUser {
   id: number;
@@ -41,7 +41,7 @@ export interface WithdrawalList {
 export interface ConfirmPaymentPayload {
   provider: MobileMoneyProvider;
   transactionReference: string;
-  phoneNumber: string;   // +229 01XXXXXXXX
+  phoneNumber: string;   // +229 01XXXXXXXX, +221 7XXXXXXXX ou +242 0XXXXXXXX
   paidAmount: number;
   comment?: string;
 }

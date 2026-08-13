@@ -266,6 +266,7 @@ export default function RetraitsWallet() {
                   <SelectItem value="MTN_MOMO">MTN MoMo</SelectItem>
                   <SelectItem value="MOOV_MONEY">Moov Money</SelectItem>
                   <SelectItem value="CELTIIS_CASH">Celtiis Cash</SelectItem>
+                  <SelectItem value="WAVE">Wave</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -275,7 +276,7 @@ export default function RetraitsWallet() {
             </div>
             <div className="space-y-1.5">
               <Label>Numéro payé</Label>
-              <Input value={pay.phoneNumber} onChange={(e) => setPay((p) => ({ ...p, phoneNumber: e.target.value }))} placeholder="+229 01XXXXXXXX" />
+              <Input value={pay.phoneNumber} onChange={(e) => setPay((p) => ({ ...p, phoneNumber: e.target.value }))} placeholder="+229 01XXXXXXXX · +221 7XXXXXXXX · +242 0XXXXXXXX" />
             </div>
             <div className="space-y-1.5">
               <Label>Montant payé (XOF)</Label>

@@ -33,7 +33,7 @@ import {
   WithdrawalStatus,
 } from '../../shared/payment.enums';
 import { WalletAggregate } from '../../wallet-balance/domain/wallet.aggregate';
-import { BENIN_MOBILE_MONEY_PHONE_ERROR_MESSAGE, normalizeBeninMobileMoneyPhone } from '../../shared/benin-phone-number.util';
+import { MOBILE_MONEY_PHONE_ERROR_MESSAGE, normalizeMobileMoneyPhone } from '../../shared/mobile-money-phone.util';
 import { generateNumericOtp, hashWithdrawalOtp } from '../../otp/otp.util';
 import { WithdrawalOtpStatus } from '../../otp/entities/withdrawal-otp.entity';
 
@@ -365,9 +365,9 @@ export class ConfirmManualPaymentUseCase {
     internalNote?: string | null;
     proof?: { fileName: string; fileUrl: string; mimeType: string; uploadedBy: number };
   }) {
-    const normalizedPhoneNumber = normalizeBeninMobileMoneyPhone(command.phoneNumber);
+    const normalizedPhoneNumber = normalizeMobileMoneyPhone(command.phoneNumber);
     if (!normalizedPhoneNumber) {
-      throw new BadRequestException(BENIN_MOBILE_MONEY_PHONE_ERROR_MESSAGE);
+      throw new BadRequestException(MOBILE_MONEY_PHONE_ERROR_MESSAGE);
     }
 
     if (await this.executions.existsByTransactionReference(command.transactionReference)) {

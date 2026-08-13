@@ -55,6 +55,8 @@ export enum MobileMoneyProvider {
   MTN_MOMO = 'MTN_MOMO',
   MOOV_MONEY = 'MOOV_MONEY',
   CELTIIS_CASH = 'CELTIIS_CASH',
+  /** Sénégal : le virement y passe par Wave, pas par un opérateur télécom. */
+  WAVE = 'WAVE',
 }
 
 export enum PaymentExecutionStatus {
