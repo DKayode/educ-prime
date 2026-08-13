@@ -40,7 +40,7 @@ import { WithdrawalOtpStatus } from '../../otp/entities/withdrawal-otp.entity';
 @Injectable()
 export class ListAdminWithdrawalsUseCase {
   constructor(@Inject(WITHDRAWAL_REQUEST_REPOSITORY) private readonly withdrawals: WithdrawalRequestRepositoryPort) {}
-  execute(status?: WithdrawalStatus, page = 1, limit = 20) { return this.withdrawals.findForAdmin(status, page, limit); }
+  execute(pays: string, status?: WithdrawalStatus, page = 1, limit = 20) { return this.withdrawals.findForAdmin(pays, status, page, limit); }
 }
 
 
@@ -200,6 +200,51 @@ export class RejectWithdrawalUseCase {
   async execute(id: string, adminId: number, reason: string) {
     const withdrawal = await this.withdrawals.reject(id, adminId, reason);
     await this.audit.log({ adminId, action: 'WITHDRAWAL_REJECTED', entity: 'WithdrawalRequest', entityId: id, newValue: { reason } });
+    return withdrawal;
+  }
+}
+
+/**
+ * Annule une demande restée en attente de code OTP et prévient l'utilisateur
+ * du motif, pour qu'il puisse recommencer en connaissance de cause.
+ *
+ * Le solde n'est pas immobilisé à la création d'une demande : il n'y a donc
+ * rien à recréditer. Le code en attente est périmé, sinon un SMS déjà reçu
+ * pourrait valider une demande annulée.
+ */
+@Injectable()
+export class CancelWithdrawalUseCase {
+  constructor(
+    @Inject(WITHDRAWAL_REQUEST_REPOSITORY) private readonly withdrawals: WithdrawalRequestRepositoryPort,
+    @Inject(WITHDRAWAL_OTP_REPOSITORY) private readonly otps: WithdrawalOtpRepositoryPort,
+    @Inject(WALLET_REPOSITORY) private readonly wallets: WalletRepositoryPort,
+    @Inject(PAYMENT_NOTIFICATION_PORT) private readonly notifications: PaymentNotificationPort,
+    @Inject(PAYMENT_AUDIT_LOG_PORT) private readonly audit: PaymentAuditLogPort,
+  ) {}
+
+  async execute(id: string, adminId: number, reason: string) {
+    const withdrawal = await this.withdrawals.cancel(id, adminId, reason);
+
+    await this.otps.expireActiveByWithdrawalId(id);
+
+    const wallet = await this.wallets.findById(withdrawal.walletId);
+    if (wallet?.userId) {
+      await this.notifications.notifyUser({
+        userId: wallet.userId,
+        title: 'Demande de retrait annulée',
+        message: `${reason} Vous pouvez déposer une nouvelle demande.`,
+        type: PaymentNotificationType.WITHDRAWAL_CANCELLED,
+        metadata: { withdrawalRequestId: id, reason },
+      });
+    }
+
+    await this.audit.log({
+      adminId,
+      action: 'WITHDRAWAL_CANCELLED',
+      entity: 'WithdrawalRequest',
+      entityId: id,
+      newValue: { reason },
+    });
     return withdrawal;
   }
 }

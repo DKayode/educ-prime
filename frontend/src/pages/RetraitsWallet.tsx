@@ -45,6 +45,7 @@ const STATUS_META: Record<string, { label: string; variant: "default" | "seconda
   PROCESSING: { label: "En cours", variant: "outline" },
   PAID: { label: "Payée", variant: "default", className: "bg-emerald-600 hover:bg-emerald-600" },
   REJECTED: { label: "Rejetée", variant: "destructive" },
+  CANCELLED: { label: "Annulée", variant: "outline", className: "text-muted-foreground" },
 };
 
 const FILTERS: { value: string; label: string }[] = [
@@ -68,6 +69,8 @@ export default function RetraitsWallet() {
   const [rejectTarget, setRejectTarget] = useState<WithdrawalRequest | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [payTarget, setPayTarget] = useState<WithdrawalRequest | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<WithdrawalRequest | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const [pay, setPay] = useState<{ provider: MobileMoneyProvider; transactionReference: string; phoneNumber: string; paidAmount: string }>(
     { provider: "MTN_MOMO", transactionReference: "", phoneNumber: "", paidAmount: "" },
   );
@@ -87,6 +90,12 @@ export default function RetraitsWallet() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["wallet-withdrawals"] });
 
+
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => walletAdminService.cancel(id, reason),
+    onSuccess: () => { invalidate(); setCancelTarget(null); setCancelReason(""); toast({ title: "Demande annulée", description: "L'utilisateur est notifié et peut en déposer une nouvelle." }); },
+    onError: (e: any) => toast({ title: "Erreur", description: e?.message || "Échec de l'annulation", variant: "destructive" }),
+  });
 
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => walletAdminService.reject(id, reason),
@@ -152,7 +161,7 @@ export default function RetraitsWallet() {
               <TableBody>
                 {rows.map((w) => {
                   const meta = STATUS_META[w.status] ?? { label: w.status, variant: "secondary" as const };
-                  const busy = rejectMutation.isPending || confirmMutation.isPending;
+                  const busy = rejectMutation.isPending || confirmMutation.isPending || cancelMutation.isPending;
                   return (
                     <TableRow key={w.id}>
                       <TableCell>
@@ -195,10 +204,17 @@ export default function RetraitsWallet() {
                               </Button>
                             </>
                           )}
+                          {w.status === "OTP_PENDING" && (
+                            <Button variant="outline" size="sm" className="h-8 gap-1" disabled={busy}
+                              title="Annuler cette demande pour que l'utilisateur puisse recommencer"
+                              onClick={() => { setCancelTarget(w); setCancelReason(""); }}>
+                              <XCircle className="h-4 w-4" /> Annuler
+                            </Button>
+                          )}
                           {w.status === "PAID" && (
                             <span className="text-xs font-medium text-emerald-600">Payé</span>
                           )}
-                          {w.status === "REJECTED" && w.rejectedReason && (
+                          {(w.status === "REJECTED" || w.status === "CANCELLED") && w.rejectedReason && (
                             <span className="text-xs text-muted-foreground italic max-w-[180px] truncate" title={w.rejectedReason}>{w.rejectedReason}</span>
                           )}
                         </div>
@@ -221,6 +237,50 @@ export default function RetraitsWallet() {
       </Card>
 
       {/* Reject dialog */}
+      <Dialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Annuler la demande</DialogTitle>
+            <DialogDescription>
+              La demande est effacée et l'utilisateur peut aussitôt en déposer une nouvelle.
+              Le motif lui est transmis tel quel : dites-lui ce qui n'a pas fonctionné.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {cancelTarget?.user && (
+              <p className="text-sm text-muted-foreground">
+                {[cancelTarget.user.prenom, cancelTarget.user.nom].filter(Boolean).join(" ")}
+                {cancelTarget.paymentAccount?.phoneNumber ? ` — ${cancelTarget.paymentAccount.phoneNumber}` : ""}
+              </p>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="cancel-reason">Motif</Label>
+              <Input id="cancel-reason" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Ex. : le SMS n'a pas pu être livré sur ce numéro." />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                "Le SMS n'a pas pu être livré sur ce numéro.",
+                "Le code a expiré avant validation.",
+                "Le numéro Mobile Money enregistré est incorrect.",
+              ].map((motif) => (
+                <Button key={motif} type="button" variant="secondary" size="sm" className="h-7 text-xs font-normal"
+                  onClick={() => setCancelReason(motif)}>
+                  {motif}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelTarget(null)}>Fermer</Button>
+            <Button disabled={cancelReason.trim().length < 5 || cancelMutation.isPending}
+              onClick={() => cancelTarget && cancelMutation.mutate({ id: cancelTarget.id, reason: cancelReason.trim() })}>
+              {cancelMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Annuler la demande
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!rejectTarget} onOpenChange={(o) => !o && setRejectTarget(null)}>
         <DialogContent>
           <DialogHeader>

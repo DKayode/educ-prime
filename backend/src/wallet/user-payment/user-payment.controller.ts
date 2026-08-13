@@ -24,6 +24,8 @@ import { RewardSourceTypeCode, WithdrawalStatus } from '../shared/payment.enums'
 import { UpsertPaymentAccountDto } from './dto/upsert-payment-account.dto';
 import { ConfirmManualPaymentDto } from './dto/confirm-manual-payment.dto';
 import { UpdatePaymentConfigurationDto } from './dto/update-payment-configuration.dto';
+import { CancelWithdrawalDto } from './dto/cancel-withdrawal.dto';
+import { CurrentCountry } from '../../common/decorators/current-country.decorator';
 import { RejectWithdrawalDto } from './dto/reject-withdrawal.dto';
 import { UnlockWithdrawalOtpDto } from './dto/unlock-withdrawal-otp.dto';
 import { UpdateRewardConfigurationDto } from './dto/update-reward-configuration.dto';
@@ -41,6 +43,7 @@ import {
   GetPaymentConfigurationUseCase,
   GetWithdrawalOtpDeliveryStatusUseCase,
   ListAdminWithdrawalsUseCase,
+  CancelWithdrawalUseCase,
   RejectWithdrawalUseCase,
   UnlockWithdrawalOtpUseCase,
   UpdatePaymentConfigurationUseCase,
@@ -58,6 +61,7 @@ export class UserPaymentController {
     private readonly getWithdrawalOtpDeliveryStatus: GetWithdrawalOtpDeliveryStatusUseCase,
     private readonly approveWithdrawal: ApproveWithdrawalUseCase,
     private readonly rejectWithdrawal: RejectWithdrawalUseCase,
+    private readonly cancelWithdrawal: CancelWithdrawalUseCase,
     private readonly unlockWithdrawalOtp: UnlockWithdrawalOtpUseCase,
     private readonly confirmManualPayment: ConfirmManualPaymentUseCase,
     private readonly getConfiguration: GetPaymentConfigurationUseCase,
@@ -98,11 +102,13 @@ export class UserPaymentController {
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   adminWithdrawals(
+    @CurrentCountry() pays: string,
     @Query('status') status?: WithdrawalStatus,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     return this.listAdminWithdrawals.execute(
+      pays,
       status,
       Number(page ?? 1),
       Number(limit ?? 20),
@@ -149,6 +155,23 @@ export class UserPaymentController {
       req.user.utilisateurId,
       dto.reason,
     );
+  }
+
+  @UseGuards(RoleGuard)
+  @Roles(RoleType.ADMIN)
+  @Patch('admin/withdrawals/:id/cancel')
+  @ApiOperation({
+    summary: "Annuler une demande de retrait restée en attente de code OTP",
+    description:
+      "Libère l'utilisateur, qui peut aussitôt déposer une nouvelle demande. Le motif lui est transmis. Réservé aux demandes en OTP_PENDING : une demande déjà validée se rejette.",
+  })
+  @ApiParam({ name: 'id', description: 'Identifiant de la demande de retrait' })
+  cancel(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() dto: CancelWithdrawalDto,
+  ) {
+    return this.cancelWithdrawal.execute(id, req.user.utilisateurId, dto.reason);
   }
 
   @UseGuards(RoleGuard)

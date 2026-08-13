@@ -227,17 +227,25 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
     return row ? this.map(row) : null;
   }
 
-  async findForAdmin(status?: WithdrawalStatus, page = 1, limit = 20) {
+  async findForAdmin(pays: string, status?: WithdrawalStatus, page = 1, limit = 20) {
     const safePage = Number.isFinite(page) && page > 0 ? page : 1;
     const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
 
-    const where = status ? { status } : {};
-    const [rows, total] = await this.repo.findAndCount({
-      where,
-      order: { createdAt: 'DESC' },
-      skip: (safePage - 1) * safeLimit,
-      take: safeLimit,
-    });
+    // withdrawal_requests ne porte pas de colonne `pays` : le pays d'une demande
+    // est celui du compte qui la dépose, atteint par wallets.user_id. Sans cette
+    // jointure l'écran d'approbation montrait les demandes de tous les pays quel
+    // que soit le sélecteur.
+    const qb = this.repo
+      .createQueryBuilder('w')
+      .innerJoin(WalletEntity, 'wallet', 'wallet.id = w.walletId')
+      .innerJoin(Utilisateur, 'u', 'u.id = wallet.userId')
+      .where('u.pays = :pays', { pays })
+      .orderBy('w.createdAt', 'DESC')
+      .skip((safePage - 1) * safeLimit)
+      .take(safeLimit);
+    if (status) qb.andWhere('w.status = :status', { status });
+
+    const [rows, total] = await qb.getManyAndCount();
     if (!rows.length) return { data: [], total };
 
     // withdrawal_requests ne porte que le wallet : le demandeur se rejoint par
@@ -1043,6 +1051,32 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
     return this.map(await this.repo.save(row));
   }
 
+  /**
+   * Annulation d'une demande restée bloquée à l'étape OTP — SMS jamais reçu,
+   * mauvais numéro, code expiré. Elle libère l'utilisateur, qui peut aussitôt
+   * en déposer une nouvelle : `findOpenByWalletId` ne compte pas les demandes
+   * annulées.
+   *
+   * Distincte du rejet : rejeter, c'est refuser une demande examinée ; annuler,
+   * c'est effacer une tentative qui n'a jamais abouti. Les colonnes
+   * `rejected_*` portent la trace des deux — elles servent ici de champs
+   * génériques « qui, quand, pourquoi », sans migration.
+   */
+  async cancel(id: string, adminId: number, reason: string): Promise<WithdrawalRequestModel> {
+    const row = await this.repo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Demande de retrait introuvable');
+    if (row.status !== WithdrawalStatus.OTP_PENDING) {
+      throw new BadRequestException(
+        "Seule une demande en attente de code OTP peut être annulée. Utilisez le rejet pour une demande déjà validée.",
+      );
+    }
+    row.status = WithdrawalStatus.CANCELLED;
+    row.rejectedBy = adminId;
+    row.rejectedAt = new Date();
+    row.rejectedReason = reason;
+    return this.map(await this.repo.save(row));
+  }
+
   async markPending(id: string): Promise<WithdrawalRequestModel> {
     const row = await this.repo.findOne({ where: { id } });
     if (!row) throw new NotFoundException('Demande de retrait introuvable');
@@ -1221,6 +1255,10 @@ export class TypeOrmWithdrawalRequestRepository implements WithdrawalRequestRepo
       paymentMethod: row.paymentMethod,
       paymentAccountId: row.paymentAccountId,
       paymentDeadline: row.paymentDeadline,
+      // Motif du rejet ou de l'annulation : l'écran d'approbation l'affiche
+      // depuis toujours, le mappeur ne l'avait jamais renvoyé.
+      rejectedReason: row.rejectedReason ?? null,
+      rejectedAt: row.rejectedAt ?? null,
       createdAt: row.createdAt,
     };
   }
