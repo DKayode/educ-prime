@@ -1,7 +1,7 @@
 import { api } from '../api';
 
 export type WithdrawalStatus =
-  | 'PENDING' | 'OTP_PENDING' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'REJECTED';
+  | 'PENDING' | 'OTP_PENDING' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'REJECTED' | 'CANCELLED';
 
 export type MobileMoneyProvider = 'MTN_MOMO' | 'MOOV_MONEY' | 'CELTIIS_CASH' | 'WAVE';
 
@@ -165,6 +165,9 @@ export const walletAdminService = {
   approve: (id: string) => api.patch(`/user-payment/admin/withdrawals/${id}/approve`, {}),
 
   reject: (id: string, reason: string) => api.patch(`/user-payment/admin/withdrawals/${id}/reject`, { reason }),
+
+  /** Réservé aux demandes en OTP_PENDING : libère l'utilisateur, qui peut recommencer. */
+  cancel: (id: string, reason: string) => api.patch(`/user-payment/admin/withdrawals/${id}/cancel`, { reason }),
 
   confirmPayment: (id: string, payload: ConfirmPaymentPayload) =>
     api.patch(`/user-payment/admin/withdrawals/${id}/confirm-payment`, payload),

@@ -268,6 +268,8 @@ export interface WithdrawalRequestModel {
   paymentMethod: PaymentMethod;
   paymentAccountId?: string | null;
   paymentDeadline?: Date | null;
+  rejectedReason?: string | null;
+  rejectedAt?: Date | null;
   createdAt: Date;
 }
 
@@ -306,12 +308,13 @@ export interface WithdrawalRequestRepositoryPort {
   }): Promise<WithdrawalRequestModel>;
   findById(id: string): Promise<WithdrawalRequestModel | null>;
   findOpenByWalletId(walletId: string): Promise<WithdrawalRequestModel | null>;
-  findForAdmin(status?: WithdrawalStatus, page?: number, limit?: number): Promise<{ data: AdminWithdrawalRequestModel[]; total: number }>;
+  findForAdmin(pays: string, status?: WithdrawalStatus, page?: number, limit?: number): Promise<{ data: AdminWithdrawalRequestModel[]; total: number }>;
   findByWalletId(walletId: string, page?: number, limit?: number): Promise<{ data: WithdrawalRequestModel[]; total: number }>;
   findWalletActivityHistory(walletId: string, page?: number, limit?: number): Promise<{ data: WalletActivityHistoryItemModel[]; total: number }>;
   findWithPaymentDetailsByUserId(userId: number, page?: number, limit?: number): Promise<{ data: any[]; total: number }>;
   approve(id: string, adminId: number, deadline?: Date | null): Promise<WithdrawalRequestModel>;
   reject(id: string, adminId: number, reason: string): Promise<WithdrawalRequestModel>;
+  cancel(id: string, adminId: number, reason: string): Promise<WithdrawalRequestModel>;
   markPending(id: string): Promise<WithdrawalRequestModel>;
   markSecurityReviewRequired(id: string, reason: string): Promise<WithdrawalRequestModel>;
   unlockOtpSecurityReview(id: string, adminId: number, reason: string): Promise<WithdrawalRequestModel>;
