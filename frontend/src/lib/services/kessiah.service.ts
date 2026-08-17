@@ -38,11 +38,27 @@ export interface Transcription {
     texte: string;
 }
 
+/**
+ * Ce qu'on relit : une épreuve déjà publiée, ou une soumission encore en
+ * attente. Le second cas est le chemin nominal — la transcription est lancée
+ * dès le dépôt, si bien qu'à l'ouverture de la file de modération elle est
+ * prête, et l'admin valide le document et sa lecture d'un même geste.
+ */
+export type TranscriptionTarget =
+    | { kind: 'epreuve'; id: number | string }
+    | { kind: 'submission'; uuid: string };
+
+function targetPath(target: TranscriptionTarget): string {
+    return target.kind === 'submission'
+        ? `/kessiah/epreuves/submissions/${target.uuid}/transcription`
+        : `/kessiah/epreuves/${target.id}/transcription`;
+}
+
 export const kessiahService = {
-    /** `null` quand Kessiah n'a pas encore lu l'épreuve. */
-    async getTranscription(epreuveId: number | string): Promise<Transcription | null> {
+    /** `null` quand Kessiah n'a pas encore terminé la lecture. */
+    async getTranscription(target: TranscriptionTarget): Promise<Transcription | null> {
         try {
-            return await api.get<Transcription>(`/kessiah/epreuves/${epreuveId}/transcription`);
+            return await api.get<Transcription>(targetPath(target));
         } catch (err: any) {
             if (err?.statusCode === 404) return null;
             throw err;
@@ -54,9 +70,9 @@ export const kessiahService = {
      * que de rejeter en bloc : l'admin a le document sous les yeux.
      */
     async review(
-        epreuveId: number | string,
+        target: TranscriptionTarget,
         review: { statut: 'valide' | 'rejete'; texte?: string },
     ): Promise<{ epreuve_id: string; statut: TranscriptionStatut }> {
-        return api.patch(`/kessiah/epreuves/${epreuveId}/transcription`, review);
+        return api.patch(targetPath(target), review);
     },
 };

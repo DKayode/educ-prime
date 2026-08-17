@@ -772,8 +772,8 @@ export default function Epreuves() {
       </Dialog>
 
       <TranscriptionReviewDialog
-        epreuveId={reviewEpreuve?.id ?? null}
-        epreuveTitre={reviewEpreuve?.titre}
+        target={reviewEpreuve ? { kind: "epreuve", id: reviewEpreuve.id } : null}
+        titre={reviewEpreuve?.titre}
         open={reviewEpreuve !== null}
         onOpenChange={(open) => !open && setReviewEpreuve(null)}
       />

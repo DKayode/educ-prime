@@ -16,7 +16,7 @@ import { CreerSubmissionDto } from './dto/creer-submission.dto';
 import { ResoudreSubmissionDto } from './dto/resoudre-submission.dto';
 import { CreditWalletFromValidatedExamUseCase } from '../../wallet/wallet-balance/use-cases/credit-wallet-from-validated-exam.use-case';
 import { RewardSourceTypeCode } from '../../wallet/shared/payment.enums';
-import { KessiahService } from '../../kessiah/kessiah.service';
+import { KessiahService, kessiahStagingKey, type KessiahExtractionState } from '../../kessiah/kessiah.service';
 
 @Injectable()
 export class EpreuveSubmissionsService {
@@ -284,13 +284,64 @@ export class EpreuveSubmissionsService {
     this.applyTypeFilter(qb, type);
 
     const [rows, total] = await qb.getManyAndCount();
+
+    // L'admin ouvre sa file : c'est le signal pour préparer la lecture des
+    // soumissions qui n'en ont pas encore. Le temps qu'il en traite une ou
+    // deux, les suivantes sont transcrites — et il pourra valider le document
+    // et sa lecture d'un même geste. Il n'existe pas de meilleur déclencheur :
+    // les fichiers montent directement sur R2 via URL présignée, le backend
+    // n'apprend donc jamais qu'un envoi a abouti.
+    const states = await this.kessiah.getStates(rows.map(r => kessiahStagingKey(r.uuid)));
+    const transcriptions: Record<string, KessiahExtractionState> = states;
+    void this.prepareTranscriptions(rows, states);
+
     return {
-      data: rows.map(r => this.toSubmissionResponse(r)),
+      data: rows.map(r => ({
+        ...this.toSubmissionResponse(r),
+        transcription: transcriptions[kessiahStagingKey(r.uuid)] ?? null,
+      })),
       total,
       page,
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  /**
+   * Envoie à Kessiah les soumissions qu'il n'a pas encore lues.
+   *
+   * Déclenché à l'affichage de la file, jamais attendu : l'écran doit
+   * s'ouvrir immédiatement. Chaque document est traité l'un après l'autre
+   * plutôt qu'en parallèle — rien ne presse, et une rafale de téléchargements
+   * R2 pour une simple ouverture de page serait disproportionnée.
+   */
+  private async prepareTranscriptions(
+    rows: EpreuveSubmission[],
+    states: Record<string, KessiahExtractionState>,
+  ): Promise<void> {
+    if (!this.kessiah.enabled) return;
+
+    for (const row of rows) {
+      const key = kessiahStagingKey(row.uuid);
+      if (states[key]) continue;                       // déjà lue, ou en cours
+      if (!row.file_path || !row.file_extension) continue;  // rien à lire
+
+      try {
+        const { url } = await this.filesService.createDownloadUrl(
+          'epreuve_submissions', row.uuid, 'file', row.file_extension,
+        );
+        const response = await fetch(url);
+        if (!response.ok) continue;   // upload présigné jamais abouti : on réessaiera
+        await this.kessiah.requestExtraction({
+          epreuveId: key,
+          epreuveUuid: row.uuid,
+          pdf: new Uint8Array(await response.arrayBuffer()),
+          filename: `soumission-${row.uuid}.${row.file_extension}`,
+        });
+      } catch (err: any) {
+        this.logger.warn(`Préparation Kessiah ignorée (soumission ${row.id}): ${err?.message ?? err}`);
+      }
+    }
   }
 
   // Self-service: the caller's OWN épreuve submissions, pays-scoped, newest
@@ -533,7 +584,7 @@ export class EpreuveSubmissionsService {
     // étudiant plusieurs minutes. Best-effort et non bloquant, comme le crédit
     // du wallet ci-dessous : Kessiah indisponible ne doit pas défaire une
     // approbation.
-    this.sendToKessiah(savedEpreuve)
+    this.sendToKessiah(savedEpreuve, submission.uuid)
       .catch(err => this.logger.error(`Lecture Kessiah non déclenchée (épreuve ${savedEpreuve.id}): ${err?.message ?? err}`));
 
     // Reward the uploader's wallet for the validated épreuve. Best-effort — a
@@ -564,8 +615,15 @@ export class EpreuveSubmissionsService {
    * Kessiah pour télécharger lui-même, et lui faire suivre une URL fournie par
    * l'appelant ouvrirait une porte à des requêtes sortantes arbitraires.
    */
-  private async sendToKessiah(epreuve: Epreuve): Promise<void> {
+  private async sendToKessiah(epreuve: Epreuve, submissionUuid: string): Promise<void> {
     if (!this.kessiah.enabled) return;
+
+    // Cas nominal : la soumission a été lue pendant qu'elle attendait dans la
+    // file, il n'y a qu'à rattacher ce texte à l'épreuve créée. Retranscrire
+    // ici coûterait un second OCR pour un résultat identique.
+    if (await this.kessiah.adoptTranscription(epreuve.id, kessiahStagingKey(submissionUuid))) {
+      return;
+    }
 
     const { url } = await this.filesService.createDownloadUrl(
       'epreuves', epreuve.uuid, 'file', epreuve.file_extension,

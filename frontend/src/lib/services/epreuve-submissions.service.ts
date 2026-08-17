@@ -43,6 +43,19 @@ export interface EpreuveSubmission {
     niveau_etude: boolean;
     matiere: boolean;
   };
+  /**
+   * Où en est Kessiah dans sa lecture du document. `null` tant qu'elle n'a
+   * pas commencé — la transcription est lancée à l'ouverture de cette file,
+   * pour être prête quand l'admin arrive sur la ligne.
+   */
+  transcription?: {
+    statut: 'en_cours' | 'extrait' | 'valide' | 'rejete';
+    source: 'text_layer' | 'ocr';
+    pages_pretes: number;
+    pages_total: number | null;
+    confidence: number | null;
+    lisible: boolean;
+  } | null;
 }
 
 export interface ResolveSubmissionData {

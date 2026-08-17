@@ -4,7 +4,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
-import { KessiahService } from './kessiah.service';
+import { KessiahService, kessiahStagingKey } from './kessiah.service';
 import { ReviewTranscriptionDto } from './dto/review-transcription.dto';
 
 /**
@@ -41,6 +41,40 @@ export class KessiahController {
             );
         }
         return transcription;
+    }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(RoleType.ADMIN)
+    @Get('submissions/:uuid/transcription')
+    @ApiOperation({
+        summary:
+            "Transcription d'une soumission encore en attente, pour la valider en même temps que le document.",
+    })
+    async getSubmissionTranscription(@Param('uuid') uuid: string) {
+        const transcription = await this.kessiah.getTranscription(kessiahStagingKey(uuid));
+        if (!transcription) {
+            throw new NotFoundException(
+                `Aucune transcription pour la soumission ${uuid} : sa lecture n'est pas encore terminée.`,
+            );
+        }
+        return transcription;
+    }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(RoleType.ADMIN)
+    @Patch('submissions/:uuid/transcription')
+    @ApiOperation({
+        summary:
+            'Valider ou rejeter la transcription d\'une soumission. Le verdict suit l\'épreuve à son approbation.',
+    })
+    async reviewSubmissionTranscription(
+        @Param('uuid') uuid: string,
+        @Body() dto: ReviewTranscriptionDto,
+    ) {
+        return this.kessiah.reviewTranscription(kessiahStagingKey(uuid), {
+            statut: dto.statut,
+            texte: dto.texte,
+        });
     }
 
     @UseGuards(JwtAuthGuard, RolesGuard)

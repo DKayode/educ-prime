@@ -17,6 +17,18 @@ import { ConfigService } from '@nestjs/config';
  * Kessiah ne doit jamais faire échouer l'approbation d'une soumission, au même
  * titre que le crédit du wallet.
  */
+/**
+ * Clé provisoire sous laquelle une soumission est transcrite.
+ *
+ * L'épreuve réelle — et donc son identifiant — n'existe qu'à l'approbation.
+ * Transcrire dès le dépôt suppose donc une clé intermédiaire, remplacée par
+ * l'identifiant définitif via `adoptTranscription`. Le préfixe évite toute
+ * collision avec un identifiant d'épreuve, qui est numérique.
+ */
+export function kessiahStagingKey(submissionUuid: string): string {
+    return `submission:${submissionUuid}`;
+}
+
 @Injectable()
 export class KessiahService {
     private readonly logger = new Logger(KessiahService.name);
@@ -81,6 +93,64 @@ export class KessiahService {
             this.logger.warn(
                 `Extraction Kessiah injoignable pour l'épreuve ${params.epreuveId}: ${err?.message ?? err}`,
             );
+        }
+    }
+
+    /**
+     * Rattache à l'épreuve la transcription faite au dépôt de sa soumission.
+     *
+     * Une épreuve n'existe qu'à l'approbation : elle est donc transcrite
+     * avant, sous la clé de sa soumission. Renvoie `false` si rien n'a été
+     * transcrit — l'appelant retombe alors sur une extraction classique.
+     *
+     * Ne lève jamais, pour la même raison que `requestExtraction`.
+     */
+    async adoptTranscription(
+        epreuveId: number | string,
+        sourceId: string,
+    ): Promise<boolean> {
+        if (!this.enabled) return false;
+        try {
+            const response = await this.fetchWithTimeout(
+                `${this.baseUrl}/service/epreuves/${epreuveId}/adopt`,
+                {
+                    method: 'POST',
+                    headers: { 'X-Service-Key': this.serviceKey, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source_id: sourceId }),
+                },
+            );
+            if (!response.ok) return false;
+            const body = (await response.json()) as { adopte?: boolean };
+            return Boolean(body?.adopte);
+        } catch (err: any) {
+            this.logger.warn(
+                `Adoption de transcription impossible (épreuve ${epreuveId}): ${err?.message ?? err}`,
+            );
+            return false;
+        }
+    }
+
+    /**
+     * État de lecture de plusieurs épreuves, en un appel.
+     *
+     * Évite au back-office un aller-retour par ligne pour afficher la file de
+     * modération. Renvoie une table vide en cas d'échec : l'écran doit
+     * s'afficher même si Kessiah ne répond pas.
+     */
+    async getStates(ids: Array<number | string>): Promise<Record<string, KessiahExtractionState>> {
+        if (!this.enabled || ids.length === 0) return {};
+        try {
+            const response = await this.fetchWithTimeout(`${this.baseUrl}/service/extractions/states`, {
+                method: 'POST',
+                headers: { 'X-Service-Key': this.serviceKey, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ epreuve_ids: ids.map(String) }),
+            });
+            if (!response.ok) return {};
+            const body = (await response.json()) as { etats?: Record<string, KessiahExtractionState> };
+            return body?.etats ?? {};
+        } catch (err: any) {
+            this.logger.warn(`États de lecture indisponibles: ${err?.message ?? err}`);
+            return {};
         }
     }
 
@@ -151,6 +221,15 @@ export class KessiahService {
             clearTimeout(timer);
         }
     }
+}
+
+export interface KessiahExtractionState {
+    statut: string;
+    source: string;
+    pages_pretes: number;
+    pages_total: number | null;
+    confidence: number | null;
+    lisible: boolean;
 }
 
 export interface KessiahTranscription {

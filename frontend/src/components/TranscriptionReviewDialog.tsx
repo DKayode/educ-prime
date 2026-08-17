@@ -15,6 +15,7 @@ import {
     kessiahService,
     type Transcription,
     type TranscriptionStatut,
+    type TranscriptionTarget,
 } from "@/lib/services/kessiah.service";
 
 /**
@@ -32,8 +33,9 @@ import {
  */
 
 interface Props {
-    epreuveId: number | string | null;
-    epreuveTitre?: string;
+    /** Épreuve publiée, ou soumission encore en attente d'approbation. */
+    target: TranscriptionTarget | null;
+    titre?: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
@@ -52,7 +54,7 @@ const STATUT_VARIANT: Record<TranscriptionStatut, "default" | "secondary" | "des
     rejete: "destructive",
 };
 
-export function TranscriptionReviewDialog({ epreuveId, epreuveTitre, open, onOpenChange }: Props) {
+export function TranscriptionReviewDialog({ target, titre, open, onOpenChange }: Props) {
     const { toast } = useToast();
     const [transcription, setTranscription] = useState<Transcription | null>(null);
     const [texte, setTexte] = useState("");
@@ -60,13 +62,13 @@ export function TranscriptionReviewDialog({ epreuveId, epreuveTitre, open, onOpe
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        if (!open || epreuveId == null) return;
+        if (!open || target == null) return;
         let cancelled = false;
 
         setLoading(true);
         setTranscription(null);
         kessiahService
-            .getTranscription(epreuveId)
+            .getTranscription(target)
             .then((data) => {
                 if (cancelled) return;
                 setTranscription(data);
@@ -85,17 +87,18 @@ export function TranscriptionReviewDialog({ epreuveId, epreuveTitre, open, onOpe
         return () => {
             cancelled = true;
         };
-    }, [open, epreuveId, toast]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, target?.kind, (target as any)?.id, (target as any)?.uuid, toast]);
 
     const submit = async (statut: "valide" | "rejete") => {
-        if (epreuveId == null) return;
+        if (target == null) return;
         setSaving(true);
         try {
             // On ne renvoie le texte que s'il a réellement changé : une
             // correction remet la confiance à 1 et recalcule le découpage en
             // exercices, ce qu'un simple clic de validation ne doit pas faire.
             const modifie = transcription != null && texte !== transcription.texte;
-            await kessiahService.review(epreuveId, {
+            await kessiahService.review(target, {
                 statut,
                 ...(modifie && statut === "valide" ? { texte } : {}),
             });
@@ -125,7 +128,7 @@ export function TranscriptionReviewDialog({ epreuveId, epreuveTitre, open, onOpe
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Transcription — {epreuveTitre ?? `épreuve #${epreuveId}`}</DialogTitle>
+                    <DialogTitle>Transcription — {titre ?? "épreuve"}</DialogTitle>
                     <DialogDescription>
                         Ce que Kessiah lit de cette épreuve. Tant qu'elle n'est pas validée, l'assistante
                         peut résumer et expliquer, mais s'interdit d'affirmer une correction.
