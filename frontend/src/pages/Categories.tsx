@@ -40,6 +40,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/hooks/useAuth";
+import { Permission } from "@/lib/permissions";
 
 interface CategoryFormData {
     nom: string;
@@ -50,6 +52,10 @@ interface CategoryFormData {
 }
 
 export default function Categories() {
+    const { hasPermission } = useAuth();
+    const canCreateReferential = hasPermission(Permission.REFERENTIALS_CREATE);
+    const canUpdateReferential = hasPermission(Permission.REFERENTIALS_UPDATE);
+    const canDeleteReferential = hasPermission(Permission.REFERENTIALS_DELETE);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -228,7 +234,7 @@ export default function Categories() {
                     </div>
                     <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                         <DialogTrigger asChild>
-                            <Button className="gap-2" onClick={openCreateDialog}><Plus className="h-4 w-4" /> Ajouter</Button>
+                            <Button className="gap-2" onClick={openCreateDialog} disabled={!canCreateReferential}><Plus className="h-4 w-4" /> Ajouter</Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-[500px]">
                             <form onSubmit={handleCreate}>
@@ -301,7 +307,7 @@ export default function Categories() {
                                     </div>
                                 </div>
                                 <DialogFooter>
-                                    <Button type="submit" disabled={isUploading}>{isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Créer"}</Button>
+                                    <Button type="submit" disabled={!canCreateReferential || isUploading}>{isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Créer"}</Button>
                                 </DialogFooter>
                             </form>
                         </DialogContent>
@@ -355,8 +361,8 @@ export default function Categories() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}><Pencil className="h-4 w-4" /></Button>
-                                                <Button variant="ghost" size="icon" onClick={() => setDeleteId(item.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                                <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)} disabled={!canUpdateReferential}><Pencil className="h-4 w-4" /></Button>
+                                                <Button variant="ghost" size="icon" onClick={() => setDeleteId(item.id)} disabled={!canDeleteReferential}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -471,7 +477,7 @@ export default function Categories() {
                             </div>
                         )}
                         <DialogFooter>
-                            <Button type="submit" disabled={isUploading}>{isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Mettre à jour"}</Button>
+                            <Button type="submit" disabled={!canCreateReferential || isUploading}>{isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Mettre à jour"}</Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
@@ -485,7 +491,7 @@ export default function Categories() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteId && deleteMutation.mutate(deleteId.toString())} className="bg-destructive text-destructive-foreground">Supprimer</AlertDialogAction>
+                        <AlertDialogAction disabled={!canDeleteReferential} onClick={() => deleteId && deleteMutation.mutate(deleteId.toString())} className="bg-destructive text-destructive-foreground">Supprimer</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

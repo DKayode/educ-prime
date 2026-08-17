@@ -5,7 +5,7 @@ import { PublicitesService } from './publicites.service';
 import { CreerPubliciteDto } from './dto/creer-publicite.dto';
 import { MajPubliciteDto } from './dto/maj-publicite.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -20,7 +20,7 @@ export class PublicitesController {
         private readonly fichiersService: FichiersService,
     ) { }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @Post()
     @ApiOperation({ summary: 'Créer une publicité', description: 'Crée une nouvelle publicité avec possibilité d\'inclure un lien_inscription optionnel.' })
@@ -95,7 +95,7 @@ export class PublicitesController {
         return this.publicitesService.findOne(id);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @Put(':id')
     @ApiOperation({ summary: 'Mettre à jour une publicité', description: 'Permet de modifier les informations d\'une publicité existante, telles que le titre, l\'image ou le lien_inscription.' })
@@ -105,7 +105,7 @@ export class PublicitesController {
         return this.publicitesService.update(id, majPubliciteDto);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @Delete(':id')
     async remove(@Param('id') id: string) {

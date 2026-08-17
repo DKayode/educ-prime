@@ -38,6 +38,8 @@ import { filieresService } from "@/lib/services/filieres.service";
 import { niveauxService } from "@/lib/services/niveaux.service";
 import { matieresService } from "@/lib/services/matieres.service";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { useAuth } from "@/hooks/useAuth";
+import { Permission } from "@/lib/permissions";
 
 const getStatusBadgeVariant = (status?: string) => {
     switch (status) {
@@ -89,6 +91,9 @@ function ResolveDialog({ submission, open, onOpenChange }: {
 }) {
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const { hasPermission } = useAuth();
+    const canUpdateSubmission = hasPermission(Permission.EPREUVES_UPDATE);
+    const canValidateSubmission = hasPermission(Permission.EPREUVES_VALIDATE);
     const [chosen, setChosen] = useState<ResolveSubmissionData>({});
     const [newNames, setNewNames] = useState<Record<string, string>>({});
     const [annee, setAnnee] = useState<string>('');
@@ -417,6 +422,9 @@ export default function EpreuvesApprobation() {
 
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const { hasPermission } = useAuth();
+    const canUpdateSubmission = hasPermission(Permission.EPREUVES_UPDATE);
+    const canValidateSubmission = hasPermission(Permission.EPREUVES_VALIDATE);
 
     const { data: response, isLoading, error } = useQuery({
         queryKey: ['admin-submissions', selectedStatus, selectedType, page, limit],
@@ -575,27 +583,33 @@ export default function EpreuvesApprobation() {
                                                                 <Eye className="h-4 w-4 text-blue-500" />
                                                             </Button>
                                                         )}
-                                                        {isPending && (
+                                                        {isPending && (canUpdateSubmission || canValidateSubmission) && (
                                                             <>
-                                                                <Button variant="ghost" size="icon" onClick={() => setResolveTarget(sub)} title={hasMissing ? "Résoudre les parents manquants" : "Modifier la soumission"}>
-                                                                    <Wrench className={`h-4 w-4 ${hasMissing ? 'text-orange-500' : 'text-muted-foreground'}`} />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost" size="icon"
-                                                                    onClick={() => approveMutation.mutate(sub.id)}
-                                                                    title={approveTitle}
-                                                                    disabled={hasMissing || !hasFile || approveMutation.isPending}
-                                                                >
-                                                                    <CheckCircle className="h-4 w-4 text-green-500" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost" size="icon"
-                                                                    onClick={() => setDeclineTarget(sub)}
-                                                                    title="Refuser"
-                                                                    disabled={declineMutation.isPending}
-                                                                >
-                                                                    <XCircle className="h-4 w-4 text-destructive" />
-                                                                </Button>
+                                                                {canUpdateSubmission && (
+                                                                    <Button variant="ghost" size="icon" onClick={() => setResolveTarget(sub)} title={hasMissing ? "Resoudre les parents manquants" : "Modifier la soumission"}>
+                                                                        <Wrench className={`h-4 w-4 ${hasMissing ? 'text-orange-500' : 'text-muted-foreground'}`} />
+                                                                    </Button>
+                                                                )}
+                                                                {canValidateSubmission && (
+                                                                    <Button
+                                                                        variant="ghost" size="icon"
+                                                                        onClick={() => approveMutation.mutate(sub.id)}
+                                                                        title={approveTitle}
+                                                                        disabled={hasMissing || !hasFile || approveMutation.isPending}
+                                                                    >
+                                                                        <CheckCircle className="h-4 w-4 text-green-500" />
+                                                                    </Button>
+                                                                )}
+                                                                {canValidateSubmission && (
+                                                                    <Button
+                                                                        variant="ghost" size="icon"
+                                                                        onClick={() => setDeclineTarget(sub)}
+                                                                        title="Refuser"
+                                                                        disabled={declineMutation.isPending}
+                                                                    >
+                                                                        <XCircle className="h-4 w-4 text-destructive" />
+                                                                    </Button>
+                                                                )}
                                                             </>
                                                         )}
                                                     </div>

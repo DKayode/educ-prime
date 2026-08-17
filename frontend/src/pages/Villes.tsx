@@ -43,6 +43,8 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useAuth } from "@/hooks/useAuth";
+import { Permission } from "@/lib/permissions";
 
 // Toast the {created, skipped, errors} summary; surface the first few error lines.
 function toastImportSummary(toast: ReturnType<typeof useToast>["toast"], summary: ImportSummary) {
@@ -60,6 +62,10 @@ function toastImportSummary(toast: ReturnType<typeof useToast>["toast"], summary
 const ALL = "all";
 
 export default function Villes() {
+    const { hasPermission } = useAuth();
+    const canCreateReferential = hasPermission(Permission.REFERENTIALS_CREATE);
+    const canUpdateReferential = hasPermission(Permission.REFERENTIALS_UPDATE);
+    const canDeleteReferential = hasPermission(Permission.REFERENTIALS_DELETE);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -216,7 +222,7 @@ export default function Villes() {
                     </Button>
                     <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                         <DialogTrigger asChild>
-                            <Button className="gap-2" onClick={openCreateDialog}><Plus className="h-4 w-4" /> Ajouter</Button>
+                            <Button className="gap-2" onClick={openCreateDialog} disabled={!canCreateReferential}><Plus className="h-4 w-4" /> Ajouter</Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-[500px]">
                             <form onSubmit={handleCreate}>
@@ -244,7 +250,7 @@ export default function Villes() {
                                     </div>
                                 </div>
                                 <DialogFooter>
-                                    <Button type="submit" disabled={createMutation.isPending}>{createMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Créer"}</Button>
+                                    <Button type="submit" disabled={!canCreateReferential || createMutation.isPending}>{createMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Créer"}</Button>
                                 </DialogFooter>
                             </form>
                         </DialogContent>
@@ -274,8 +280,8 @@ export default function Villes() {
                                         <TableCell className="text-muted-foreground text-sm">{item.departement?.nom || "—"}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}><Pencil className="h-4 w-4" /></Button>
-                                                <Button variant="ghost" size="icon" onClick={() => setDeleteId(item.uuid)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                                <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)} disabled={!canUpdateReferential}><Pencil className="h-4 w-4" /></Button>
+                                                <Button variant="ghost" size="icon" onClick={() => setDeleteId(item.uuid)} disabled={!canDeleteReferential}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -326,7 +332,7 @@ export default function Villes() {
                             </div>
                         )}
                         <DialogFooter>
-                            <Button type="submit" disabled={updateMutation.isPending}>{updateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Mettre à jour"}</Button>
+                            <Button type="submit" disabled={!canUpdateReferential || updateMutation.isPending}>{updateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Mettre à jour"}</Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
@@ -340,7 +346,7 @@ export default function Villes() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteId && deleteMutation.mutate(deleteId)} className="bg-destructive text-destructive-foreground">Supprimer</AlertDialogAction>
+                        <AlertDialogAction disabled={!canDeleteReferential} onClick={() => deleteId && deleteMutation.mutate(deleteId)} className="bg-destructive text-destructive-foreground">Supprimer</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

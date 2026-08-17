@@ -41,6 +41,8 @@ import {
     ExamenNationalSubmission,
 } from "@/lib/services/examens-nationaux.service";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Permission } from "@/lib/permissions";
 
 const STATUS_OPTIONS = [
     { value: "pending_approval", label: "En attente" },
@@ -62,6 +64,9 @@ function ExamenResolveDialog({ submission, types, open, onOpenChange }: {
 }) {
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const { hasPermission } = useAuth();
+    const canUpdateSubmission = hasPermission(Permission.EXAMENS_NATIONAUX_UPDATE);
+    const canValidateSubmission = hasPermission(Permission.EXAMENS_NATIONAUX_VALIDATE);
     const [section, setSection] = useState('');
     const [annee, setAnnee] = useState('');
     const [newType, setNewType] = useState('');
@@ -388,6 +393,9 @@ function SubmissionRow({
     const [declineReason, setDeclineReason] = useState("");
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const { hasPermission } = useAuth();
+    const canUpdateSubmission = hasPermission(Permission.EXAMENS_NATIONAUX_UPDATE);
+    const canValidateSubmission = hasPermission(Permission.EXAMENS_NATIONAUX_VALIDATE);
 
     // Resolution is persisted on the submission (PATCH /resolve), so the bound
     // ids / missing flags live on the row itself — no local state to drift.
@@ -520,35 +528,41 @@ function SubmissionRow({
                             <Eye className="h-4 w-4 text-blue-500" />
                         </Button>
                     )}
-                    {isPendingStatus && (
+                    {isPendingStatus && (canUpdateSubmission || canValidateSubmission) && (
                         <>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setResolveOpen(true)}
-                                title={anyMissing ? "Résoudre le type / la série / la matière" : "Modifier la soumission"}
-                                disabled={pending}
-                            >
-                                <Wrench className={`h-4 w-4 ${anyMissing ? 'text-orange-500' : 'text-muted-foreground'}`} />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => approveMutation.mutate()}
-                                title={approveTitle}
-                                disabled={pending || !canApprove}
-                            >
-                                <CheckCircle className="h-4 w-4 text-green-500" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeclineOpen(true)}
-                                title="Refuser"
-                                disabled={pending}
-                            >
-                                <XCircle className="h-4 w-4 text-destructive" />
-                            </Button>
+                            {canUpdateSubmission && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setResolveOpen(true)}
+                                    title={anyMissing ? "Resoudre le type / la serie / la matiere" : "Modifier la soumission"}
+                                    disabled={pending}
+                                >
+                                    <Wrench className={`h-4 w-4 ${anyMissing ? 'text-orange-500' : 'text-muted-foreground'}`} />
+                                </Button>
+                            )}
+                            {canValidateSubmission && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => approveMutation.mutate()}
+                                    title={approveTitle}
+                                    disabled={pending || !canApprove}
+                                >
+                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                </Button>
+                            )}
+                            {canValidateSubmission && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setDeclineOpen(true)}
+                                    title="Refuser"
+                                    disabled={pending}
+                                >
+                                    <XCircle className="h-4 w-4 text-destructive" />
+                                </Button>
+                            )}
                         </>
                     )}
                 </div>

@@ -5,9 +5,9 @@ import { CreateExamenNationalSubmissionDto } from './dto/create-examen-national-
 import { ResoudreExamenNationalSubmissionDto } from './dto/resoudre-examen-national-submission.dto';
 import { ApproveExamenNationalSubmissionDto, DeclinerExamenNationalSubmissionDto, ExamenNationalSubmissionsQueryDto } from './dto/examen-national-submission-misc.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
+import { PermissionsGuard } from '../auth/permissions/permissions.guard';
+import { Permissions } from '../auth/permissions/permissions.decorator';
+import { Permission } from '../auth/permissions/permission.enum';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('examens-nationaux-submissions')
@@ -31,9 +31,9 @@ export class ExamensNationauxSubmissionsController {
         });
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
-    @Roles(RoleType.ADMIN)
     @Get()
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+    @Permissions(Permission.EXAMENS_NATIONAUX_READ)
     @ApiOperation({ summary: 'Lister les soumissions (Admin)' })
     findAll(@CurrentCountry() pays: string, @Query() query: ExamenNationalSubmissionsQueryDto) {
         return this.service.findAll(pays, query.status, query, {
@@ -41,25 +41,25 @@ export class ExamensNationauxSubmissionsController {
         });
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
-    @Roles(RoleType.ADMIN)
     @Patch(':id')
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+    @Permissions(Permission.EXAMENS_NATIONAUX_UPDATE)
     @ApiOperation({ summary: 'Modifier une soumission en attente (Admin) — type/série/matière (id ou proposé), section, année' })
     update(@CurrentCountry() pays: string, @Param('id') id: string, @Body() body: ResoudreExamenNationalSubmissionDto) {
         return this.service.resolveSubmission(pays, +id, body);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
-    @Roles(RoleType.ADMIN)
     @Patch(':id/approve')
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+    @Permissions(Permission.EXAMENS_NATIONAUX_VALIDATE)
     @ApiOperation({ summary: 'Approuver une soumission (Admin) → crée l\'examen national + email' })
     approve(@CurrentCountry() pays: string, @Param('id') id: string, @Body() body: ApproveExamenNationalSubmissionDto) {
         return this.service.approve(pays, +id, body);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
-    @Roles(RoleType.ADMIN)
     @Patch(':id/decline')
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+    @Permissions(Permission.EXAMENS_NATIONAUX_VALIDATE)
     @ApiOperation({ summary: 'Refuser une soumission (Admin) + email à l\'auteur' })
     decline(@CurrentCountry() pays: string, @Param('id') id: string, @Body() body: DeclinerExamenNationalSubmissionDto) {
         return this.service.decline(pays, +id, body?.reason);

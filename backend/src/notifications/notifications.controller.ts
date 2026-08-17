@@ -11,7 +11,8 @@ import {
   Request,
   Param,
   Put,
-  ParseIntPipe
+  ParseIntPipe,
+  UseGuards
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
@@ -20,6 +21,11 @@ import {
 } from './dto/send-notification.dto';
 import { GetNotificationsQueryDto } from './dto/get-notifications-query.dto';
 import { MarkNotificationAsReadDto } from './dto/mark-notification-read.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OwnerOrAdminGuard } from '../auth/guards/owner-or-admin.guard';
+import { PermissionsGuard } from '../auth/permissions/permissions.guard';
+import { Permissions } from '../auth/permissions/permissions.decorator';
+import { Permission } from '../auth/permissions/permission.enum';
 
 @ApiTags('notifications')
 @Controller('notifications')
@@ -28,6 +34,8 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) { }
 
   @Get()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.NOTIFICATIONS_READ)
   @ApiOperation({ summary: 'Récupérer les notifications' })
   @ApiResponse({ status: 200, description: 'Liste des notifications' })
   async getNotifications(
@@ -44,6 +52,8 @@ export class NotificationsController {
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.NOTIFICATIONS_SEND)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Envoyer une notification push' })
   @ApiResponse({ status: 200, description: 'Notification ajoutée à la file d\'attente avec succès' })
@@ -53,6 +63,8 @@ export class NotificationsController {
   }
 
   @Get('status/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.NOTIFICATIONS_READ)
   @ApiOperation({ summary: 'Vérifier la progression d\'un envoi push' })
   @ApiResponse({ status: 200, description: 'Statut du job récupéré' })
   async getStatus(@Param('id') id: string) {
@@ -60,6 +72,8 @@ export class NotificationsController {
   }
 
   @Post('cancel/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.NOTIFICATIONS_CANCEL)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Arrêter un envoi push en cours' })
   async cancelJob(@Param('id') id: string) {
@@ -67,6 +81,7 @@ export class NotificationsController {
   }
 
   @Post('subscribe')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'S\'abonner à un topic' })
   async subscribeToTopic(@Body() dto: SendNotificationDto) {
@@ -74,6 +89,7 @@ export class NotificationsController {
   }
 
   @Post('unsubscribe')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Se désabonner d\'un topic' })
   async unsubscribeFromTopic(@Body() dto: SendNotificationDto) {
@@ -107,6 +123,7 @@ export class NotificationsController {
   // }
 
   @Get('user/:userId')
+  @UseGuards(JwtAuthGuard, OwnerOrAdminGuard)
   @ApiOperation({ summary: 'Récupérer les notifications d\'un utilisateur' })
   @ApiQuery({ name: 'read', required: false, type: Boolean })
   @ApiQuery({ name: 'page', required: false, type: Number })
@@ -130,12 +147,14 @@ export class NotificationsController {
   }
 
   @Get('user/:userId/unread-count')
+  @UseGuards(JwtAuthGuard, OwnerOrAdminGuard)
   @ApiOperation({ summary: 'Récupérer le nombre de notifications non lues' })
   async getUnreadCount(@Param('userId') userId: number) {
     return this.notificationsService.getUnreadCount(userId);
   }
 
   @Put('user/:userId/mark-read')
+  @UseGuards(JwtAuthGuard, OwnerOrAdminGuard)
   @ApiOperation({ summary: 'Marquer une notification comme lue/non lue' })
   async markNotificationAsRead(
     @Param('userId') userId: number,
@@ -145,12 +164,14 @@ export class NotificationsController {
   }
 
   @Put('user/:userId/mark-all-read')
+  @UseGuards(JwtAuthGuard, OwnerOrAdminGuard)
   @ApiOperation({ summary: 'Marquer toutes les notifications comme lues' })
   async markAllNotificationsAsRead(@Param('userId') userId: number) {
     return this.notificationsService.markAllNotificationsAsRead(userId);
   }
 
   @Get(':notificationId/user/:userId')
+  @UseGuards(JwtAuthGuard, OwnerOrAdminGuard)
   @ApiOperation({ summary: 'Récupérer les détails d\'une notification spécifique' })
   async getNotificationDetails(
     @Param('notificationId') notificationId: number,

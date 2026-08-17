@@ -45,6 +45,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useCountryTimezone } from "@/hooks/useCountryTimezone";
+import { useAuth } from "@/hooks/useAuth";
+import { Permission } from "@/lib/permissions";
 
 // date_creation est stocké en UTC ; on l'affiche (date + heure) dans le fuseau du
 // PAYS sélectionné (ex. Benin → Africa/Cotonou), fourni par la config backend.
@@ -84,6 +86,9 @@ export default function Users() {
   });
 
   const { toast } = useToast();
+  const { hasPermission } = useAuth();
+  const canCreateUser = hasPermission(Permission.USERS_CREATE);
+  const canDeleteUser = hasPermission(Permission.USERS_DELETE);
   const queryClient = useQueryClient();
 
   const { data: usersResponse, isLoading, error } = useQuery({
@@ -163,10 +168,12 @@ export default function Users() {
           <h1 className="text-3xl font-bold text-foreground">Utilisateurs</h1>
           <p className="text-muted-foreground">Gérer les utilisateurs de la plateforme</p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
-          <UserPlus className="h-4 w-4" />
-          Nouvel utilisateur
-        </Button>
+        {canCreateUser && (
+          <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            Nouvel utilisateur
+          </Button>
+        )}
       </div>
 
       <Card className="shadow-md">
@@ -290,14 +297,16 @@ export default function Users() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setDeleteId(user.id)}
-                              className="text-destructive hover:text-destructive/90"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {canDeleteUser && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDeleteId(user.id)}
+                                className="text-destructive hover:text-destructive/90"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -400,6 +409,7 @@ export default function Users() {
         </DialogContent>
       </Dialog>
 
+      {canCreateUser && (
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent>
           <DialogHeader>
@@ -501,6 +511,7 @@ export default function Users() {
           </form>
         </DialogContent>
       </Dialog>
+      )}
     </div >
   );
 }

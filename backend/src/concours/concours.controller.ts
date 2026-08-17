@@ -5,7 +5,7 @@ import { ConcoursService } from './concours.service';
 import { CreateConcoursDto } from './dto/create-concours.dto';
 import { UpdateConcoursDto } from './dto/update-concours.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { FilterConcoursDto } from './dto/filter-concours.dto';
@@ -23,7 +23,7 @@ export class ConcoursController {
     private readonly resourceAccessService: ResourceAccessService,
   ) { }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Post()
   create(@CurrentCountry() pays: string, @Body() createConcoursDto: CreateConcoursDto) {
@@ -87,14 +87,14 @@ export class ConcoursController {
     return this.concoursService.findOne(+id);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Put(':id')
   update(@Param('id') id: string, @Body() updateConcoursDto: UpdateConcoursDto) {
     return this.concoursService.update(+id, updateConcoursDto);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Delete(':id')
   remove(@Param('id') id: string) {

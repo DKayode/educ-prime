@@ -127,6 +127,9 @@ export class Utilisateur {
   @Column({ type: 'enum', enum: RoleType })
   role: RoleType;
 
+  @Column({ type: 'integer', default: 0 })
+  token_version: number;
+
   @Column({ type: 'varchar', length: 50, default: 'benin' })
   pays: string;
 

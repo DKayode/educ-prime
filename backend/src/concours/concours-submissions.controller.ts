@@ -7,9 +7,9 @@ import { UpdateConcoursSubmissionDto } from './dto/update-concours-submission.dt
 import { DeclinerConcoursSubmissionDto } from './dto/decliner-concours-submission.dto';
 import { SubmissionsQueryDto } from './dto/submissions-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
+import { PermissionsGuard } from '../auth/permissions/permissions.guard';
+import { Permissions } from '../auth/permissions/permissions.decorator';
+import { Permission } from '../auth/permissions/permission.enum';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 // NOTE: registered BEFORE ConcoursController in the module's `controllers`
@@ -51,9 +51,9 @@ export class ConcoursSubmissionsController {
         return this.submissionsService.findMine(pays, req.user.utilisateurId, query.status, query);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
-    @Roles(RoleType.ADMIN)
     @Get()
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+    @Permissions(Permission.CONCOURS_READ)
     @ApiOperation({ summary: 'Lister les soumissions de concours (Admin) — structure/titre résolus, parents manquants signalés' })
     @ApiQuery({ name: 'status', required: false, description: 'Filtrer par statut (défaut: pending_approval)' })
     @ApiQuery({ name: 'page', required: false, type: Number })
@@ -67,9 +67,9 @@ export class ConcoursSubmissionsController {
 
     // Two paths do the same edit: bare `PATCH /:id` (symmetric with
     // /epreuves/submissions/:id) and the legacy `/:id/resolve`.
-    @UseGuards(JwtAuthGuard, RoleGuard)
-    @Roles(RoleType.ADMIN)
     @Patch(':id')
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+    @Permissions(Permission.CONCOURS_UPDATE)
     @ApiOperation({ summary: 'Modifier une soumission en attente (Admin) — structure/titre (id ou nom proposé), année, lieu' })
     @ApiResponse({ status: 200, description: 'Soumission mise à jour, persistée' })
     update(
@@ -80,9 +80,9 @@ export class ConcoursSubmissionsController {
         return this.submissionsService.resolveSubmission(pays, +id, body);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
-    @Roles(RoleType.ADMIN)
     @Patch(':id/resolve')
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+    @Permissions(Permission.CONCOURS_UPDATE)
     @ApiOperation({ summary: 'Alias de PATCH /:id — modifier une soumission en attente (Admin)' })
     @ApiResponse({ status: 200, description: 'Soumission mise à jour, persistée' })
     resolve(
@@ -93,9 +93,9 @@ export class ConcoursSubmissionsController {
         return this.submissionsService.resolveSubmission(pays, +id, body);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
-    @Roles(RoleType.ADMIN)
     @Patch(':id/approve')
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+    @Permissions(Permission.CONCOURS_VALIDATE)
     @ApiOperation({ summary: 'Approuver une soumission (Admin) → crée le concours réel + email à l\'uploader' })
     @ApiResponse({ status: 200, description: 'Soumission approuvée, concours créé' })
     @ApiResponse({ status: 400, description: 'Structure/titre non résolus' })
@@ -107,9 +107,9 @@ export class ConcoursSubmissionsController {
         return this.submissionsService.approve(pays, +id, body);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
-    @Roles(RoleType.ADMIN)
     @Patch(':id/decline')
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+    @Permissions(Permission.CONCOURS_VALIDATE)
     @ApiOperation({ summary: 'Refuser une soumission (Admin) + email à l\'uploader' })
     @ApiResponse({ status: 200, description: 'Soumission refusée' })
     decline(@CurrentCountry() pays: string, @Param('id') id: string, @Body() body: DeclinerConcoursSubmissionDto) {

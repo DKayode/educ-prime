@@ -12,8 +12,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useAuth } from "@/hooks/useAuth";
+import { Permission } from "@/lib/permissions";
 
 export default function TypesExamen() {
+    const { hasPermission } = useAuth();
+    const canCreateReferential = hasPermission(Permission.REFERENTIALS_CREATE);
+    const canUpdateReferential = hasPermission(Permission.REFERENTIALS_UPDATE);
+    const canDeleteReferential = hasPermission(Permission.REFERENTIALS_DELETE);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -66,7 +72,7 @@ export default function TypesExamen() {
                         <Input placeholder="Rechercher..." className="pl-8 w-[250px]" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
                     </div>
                     <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                        <DialogTrigger asChild><Button className="gap-2" onClick={() => setFormData({ nom: "", description: "" })}><Plus className="h-4 w-4" /> Ajouter</Button></DialogTrigger>
+                        <DialogTrigger asChild><Button className="gap-2" disabled={!canCreateReferential} onClick={() => setFormData({ nom: "", description: "" })}><Plus className="h-4 w-4" /> Ajouter</Button></DialogTrigger>
                         <DialogContent className="max-w-[500px]">
                             <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate({ nom: formData.nom, description: formData.description || undefined }); }}>
                                 <DialogHeader><DialogTitle>Créer un type d'examen</DialogTitle><DialogDescription>BAC, CAP, BEPC, BTS…</DialogDescription></DialogHeader>
@@ -74,7 +80,7 @@ export default function TypesExamen() {
                                     <div className="grid gap-2"><Label>Nom *</Label><Input value={formData.nom} onChange={(e) => setFormData({ ...formData, nom: e.target.value })} required /></div>
                                     <div className="grid gap-2"><Label>Description</Label><Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
                                 </div>
-                                <DialogFooter><Button type="submit" disabled={createMutation.isPending}>{createMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Créer"}</Button></DialogFooter>
+                                <DialogFooter><Button type="submit" disabled={!canCreateReferential || createMutation.isPending}>{createMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Créer"}</Button></DialogFooter>
                             </form>
                         </DialogContent>
                     </Dialog>
@@ -93,8 +99,8 @@ export default function TypesExamen() {
                                         <TableCell className="font-medium">{item.nom}</TableCell>
                                         <TableCell className="text-muted-foreground text-sm">{item.description || "—"}</TableCell>
                                         <TableCell className="text-right"><div className="flex justify-end gap-2">
-                                            <Button variant="ghost" size="icon" onClick={() => { setEditing(item); setIsEditOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(item.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => { setEditing(item); setIsEditOpen(true); }} disabled={!canUpdateReferential}><Pencil className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(item.id)} disabled={!canDeleteReferential}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                         </div></TableCell>
                                     </TableRow>
                                 ))}
@@ -120,7 +126,7 @@ export default function TypesExamen() {
                                 <div className="grid gap-2"><Label>Description</Label><Textarea value={editing.description || ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></div>
                             </div>
                         )}
-                        <DialogFooter><Button type="submit" disabled={updateMutation.isPending}>{updateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Mettre à jour"}</Button></DialogFooter>
+                        <DialogFooter><Button type="submit" disabled={!canUpdateReferential || updateMutation.isPending}>{updateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Mettre à jour"}</Button></DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
@@ -128,7 +134,7 @@ export default function TypesExamen() {
             <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>Confirmer la suppression</AlertDialogTitle><AlertDialogDescription>Supprimer ce type d'examen ? Les séries et matières/filières rattachées seront aussi supprimées.</AlertDialogDescription></AlertDialogHeader>
-                    <AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={() => deleteId && deleteMutation.mutate(deleteId)} className="bg-destructive text-destructive-foreground">Supprimer</AlertDialogAction></AlertDialogFooter>
+                    <AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction disabled={!canDeleteReferential} onClick={() => deleteId && deleteMutation.mutate(deleteId)} className="bg-destructive text-destructive-foreground">Supprimer</AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
         </div>

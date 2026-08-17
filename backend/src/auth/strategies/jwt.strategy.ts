@@ -27,10 +27,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Token blacklisté/révoqué');
       }
     }
+    const isCurrentTokenVersion = await this.authService.isAccessTokenVersionCurrent(
+      payload.sub,
+      payload.tokenVersion ?? 0,
+    );
+    if (!isCurrentTokenVersion) {
+      throw new UnauthorizedException('Token revoque apres changement de droits');
+    }
+
     return {
       utilisateurId: payload.sub,
       email: payload.email,
       role: payload.role,
+      tokenVersion: payload.tokenVersion ?? 0,
     };
   }
 }

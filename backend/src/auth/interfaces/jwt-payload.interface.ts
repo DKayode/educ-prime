@@ -4,6 +4,7 @@ export interface JwtPayload {
   sub: number;
   email: string;
   role: RoleType;
+  tokenVersion?: number;
   iat?: number;
   exp?: number;
 }

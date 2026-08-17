@@ -59,8 +59,14 @@ import {
 } from "@/components/ui/command";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { Permission } from "@/lib/permissions";
 
 export default function Filieres() {
+    const { hasPermission } = useAuth();
+    const canCreateReferential = hasPermission(Permission.REFERENTIALS_CREATE);
+    const canUpdateReferential = hasPermission(Permission.REFERENTIALS_UPDATE);
+    const canDeleteReferential = hasPermission(Permission.REFERENTIALS_DELETE);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [etablissementFilter, setEtablissementFilter] = useState("ALL");
@@ -226,7 +232,7 @@ export default function Filieres() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2" onClick={openCreateDialog}>
+            <Button className="gap-2" onClick={openCreateDialog} disabled={!canCreateReferential}>
               <Plus className="h-4 w-4" />
               Nouvelle filière
             </Button>
@@ -302,7 +308,7 @@ export default function Filieres() {
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Annuler
               </Button>
-              <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
+              <Button onClick={handleSubmit} disabled={(editingFiliere ? !canUpdateReferential : !canCreateReferential) || createMutation.isPending || updateMutation.isPending}>
                 {(createMutation.isPending || updateMutation.isPending) ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -430,6 +436,7 @@ export default function Filieres() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            disabled={!canUpdateReferential}
                             onClick={() => openEditDialog(filiere)}
                           >
                             <Pencil className="h-4 w-4" />
@@ -437,6 +444,7 @@ export default function Filieres() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            disabled={!canDeleteReferential}
                             onClick={() => setDeleteId(filiere.id)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />

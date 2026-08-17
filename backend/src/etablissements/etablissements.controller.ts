@@ -10,7 +10,7 @@ import { FilterFiliereDto } from '../filieres/dto/filter-filiere.dto';
 import { FilterNiveauEtudeDto } from '../niveau-etude/dto/filter-niveau-etude.dto';
 import { FilterMatiereDto } from '../matieres/dto/filter-matiere.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -26,7 +26,7 @@ export class EtablissementsController {
     private readonly fichiersService: FichiersService
   ) { }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Créer un établissement' })
   @Post()
@@ -67,7 +67,7 @@ export class EtablissementsController {
     return this.etablissementsService.findOne(id);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Put(':id')
   @ApiOperation({ summary: 'Mettre à jour un établissement' })
@@ -76,7 +76,7 @@ export class EtablissementsController {
     return this.etablissementsService.update(id, majEtablissementDto);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Delete(':id')
   @ApiOperation({ summary: 'Supprimer un établissement' })

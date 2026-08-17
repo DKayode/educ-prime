@@ -19,6 +19,9 @@ import { CreerDepartementDto } from './dto/creer-departement.dto';
 import { MajDepartementDto } from './dto/maj-departement.dto';
 import { FilterDepartementDto } from './dto/filter-departement.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/permissions/permissions.guard';
+import { Permissions } from '../auth/permissions/permissions.decorator';
+import { Permission } from '../auth/permissions/permission.enum';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('departements')
@@ -36,6 +39,8 @@ export class DepartementController {
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_CREATE)
   @ApiOperation({ summary: 'Créer un département' })
   async create(
     @CurrentCountry() pays: string,
@@ -45,6 +50,8 @@ export class DepartementController {
   }
 
   @Post('import-csv')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_CREATE)
   @UseInterceptors(FileInterceptor('file', { storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Importer des départements via CSV (colonnes: nom,code). Scope via ?country=' })
@@ -81,6 +88,8 @@ export class DepartementController {
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_UPDATE)
   @ApiOperation({ summary: 'Mettre à jour un département' })
   async update(
     @CurrentCountry() pays: string,
@@ -91,6 +100,8 @@ export class DepartementController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_DELETE)
   @ApiOperation({ summary: 'Supprimer un département' })
   async remove(@CurrentCountry() pays: string, @Param('id') id: string) {
     return this.departementService.remove(pays, id);

@@ -5,7 +5,7 @@ import { OpportunitesService } from './opportunites.service';
 import { CreerOpportuniteDto } from './dto/create-opportunite.dto';
 import { UpdateOpportuniteDto } from './dto/update-opportunite.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { FilterOpportuniteDto } from './dto/filter-opportunite.dto';
@@ -20,7 +20,7 @@ export class OpportunitesController {
     private readonly fichiersService: FichiersService,
   ) { }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Post()
   create(@Body() creerOpportuniteDto: CreerOpportuniteDto) {
@@ -44,7 +44,7 @@ export class OpportunitesController {
     return this.opportunitesService.findAll(filterDto, viewer);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @ApiBearerAuth()
   @Get(':id/type-profils')
@@ -53,7 +53,7 @@ export class OpportunitesController {
     return this.opportunitesService.getTypeProfilIds(+id);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @ApiBearerAuth()
   @Put(':id/type-profils')
@@ -99,14 +99,14 @@ export class OpportunitesController {
     return this.opportunitesService.findOne(+id);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Put(':id')
   update(@Param('id') id: string, @Body() updateOpportuniteDto: UpdateOpportuniteDto) {
     return this.opportunitesService.update(+id, updateOpportuniteDto);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Delete(':id')
   remove(@Param('id') id: string) {

@@ -1,7 +1,11 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UsePipes, ValidationPipe, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UsePipes, ValidationPipe, Get, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { NotificationEmailService } from './notification-email.service';
 import { SendEmailDto, UnsubscribeEmailDto } from './dto/send-email.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/permissions/permissions.guard';
+import { Permissions } from '../auth/permissions/permissions.decorator';
+import { Permission } from '../auth/permissions/permission.enum';
 
 @ApiTags('notification-email')
 @Controller('notification-email')
@@ -10,6 +14,8 @@ export class NotificationEmailController {
   constructor(private readonly notificationEmailService: NotificationEmailService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.NOTIFICATIONS_SEND)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Lancer un envoi groupé d\'emails' })
   @ApiResponse({ status: 200, description: 'Le job de diffusion a été ajouté à la file d\'attente', schema: { example: { jobId: '123' } } })
@@ -18,6 +24,8 @@ export class NotificationEmailController {
   }
 
   @Get('status/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.NOTIFICATIONS_READ)
   @ApiOperation({ summary: 'Suivre la progression d\'un envoi (Parent Job)' })
   @ApiParam({ name: 'id', description: 'ID du job parent (ex: result of POST /notification-email)' })
   @ApiResponse({ 
@@ -50,6 +58,8 @@ export class NotificationEmailController {
   }
 
   @Post('cancel/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.NOTIFICATIONS_CANCEL)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Arrêter un envoi groupé en cours' })
   @ApiParam({ name: 'id', description: 'ID du job parent à arrêter' })
@@ -59,6 +69,8 @@ export class NotificationEmailController {
   }
 
   @Post('drain')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.NOTIFICATIONS_CANCEL)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Vider complètement la file d\'attente (Drain)' })
   @ApiResponse({ status: 200, description: 'File d\'attente vidée' })

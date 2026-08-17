@@ -36,6 +36,8 @@ import { concoursService, ConcoursSubmission } from "@/lib/services/concours.ser
 import { structureService } from "@/lib/services/structure.service";
 import { titreService } from "@/lib/services/titre.service";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Permission } from "@/lib/permissions";
 
 // "Parameter" dialog (mirrors the épreuves ResolveDialog): resolve the
 // structure/titre (pick existing OR create) and edit année/lieu on a pending
@@ -49,6 +51,9 @@ function ConcoursResolveDialog({ submission, structures, titres, open, onOpenCha
 }) {
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const { hasPermission } = useAuth();
+    const canUpdateSubmission = hasPermission(Permission.CONCOURS_UPDATE);
+    const canValidateSubmission = hasPermission(Permission.CONCOURS_VALIDATE);
     const [annee, setAnnee] = useState('');
     const [lieu, setLieu] = useState('');
     const [newStructure, setNewStructure] = useState('');
@@ -196,6 +201,9 @@ function SubmissionRow({
     const [declineReason, setDeclineReason] = useState("");
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const { hasPermission } = useAuth();
+    const canUpdateSubmission = hasPermission(Permission.CONCOURS_UPDATE);
+    const canValidateSubmission = hasPermission(Permission.CONCOURS_VALIDATE);
 
     // Resolution is persisted on the submission (PATCH /resolve), so the bound
     // ids live on the row itself — no local state to drift out of sync.
@@ -291,15 +299,18 @@ function SubmissionRow({
                             <Eye className="h-4 w-4 text-blue-500" />
                         </Button>
                     )}
+                    {canUpdateSubmission && (
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => setResolveOpen(true)}
-                        title={bothResolved ? "Modifier la soumission" : "Résoudre la structure / le titre"}
+                        title={bothResolved ? "Modifier la soumission" : "Resoudre la structure / le titre"}
                         disabled={pending}
                     >
                         <Wrench className={`h-4 w-4 ${bothResolved ? 'text-muted-foreground' : 'text-orange-500'}`} />
                     </Button>
+                    )}
+                    {canValidateSubmission && (
                     <Button
                         variant="ghost"
                         size="icon"
@@ -309,6 +320,8 @@ function SubmissionRow({
                     >
                         <CheckCircle className="h-4 w-4 text-green-500" />
                     </Button>
+                    )}
+                    {canValidateSubmission && (
                     <Button
                         variant="ghost"
                         size="icon"
@@ -318,6 +331,7 @@ function SubmissionRow({
                     >
                         <XCircle className="h-4 w-4 text-destructive" />
                     </Button>
+                    )}
                 </div>
             </TableCell>
         </TableRow>

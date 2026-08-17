@@ -17,6 +17,9 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from 'src/auth/permissions/permissions.guard';
+import { Permissions } from 'src/auth/permissions/permissions.decorator';
+import { Permission } from 'src/auth/permissions/permission.enum';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -30,7 +33,8 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService, private readonly fichiersService: FichiersService) { }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_CREATE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Créer une nouvelle catégorie' })
   @ApiResponse({ status: 201, description: 'Catégorie créée avec succès', type: Category })
@@ -71,7 +75,8 @@ export class CategoriesController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_UPDATE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mettre à jour une catégorie' })
   @ApiResponse({ status: 200, description: 'Catégorie mise à jour avec succès', type: Category })
@@ -85,7 +90,8 @@ export class CategoriesController {
   }
 
   @Patch(':id/icone')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_UPDATE)
   @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Mettre à jour l\'icône d\'une catégorie' })
@@ -113,7 +119,8 @@ export class CategoriesController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_DELETE)
   @ApiBearerAuth()
   @HttpCode(204)
   @ApiOperation({ summary: 'Supprimer une catégorie' })

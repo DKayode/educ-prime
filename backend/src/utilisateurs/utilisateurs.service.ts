@@ -475,7 +475,7 @@ export class UtilisateursService {
     this.logger.log(`Recherche de l'utilisateur avec ID: ${id}`);
     const user = await this.utilisateursRepository.findOne({
       where: { id: parseInt(id) },
-      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'mon_code_parrainage', 'code_parrainage_saisi', 'departement_id', 'ville_id',
+      select: ['id', 'nom', 'prenom', 'email', 'pseudo', 'uuid', 'photo', 'profil_photo_path', 'profil_photo_extension', 'sexe', 'telephone', 'role', 'token_version', 'mon_code_parrainage', 'code_parrainage_saisi', 'departement_id', 'ville_id',
         // geo-profile (D4): previously-dropped profile fields
         'pays', 'age_group', 'zone_residence', 'situation_handicap', 'date_creation',
         // geo-profile: match the unified list shape (enrichUserComplete)
@@ -543,8 +543,14 @@ export class UtilisateursService {
       }
     }
 
+    const shouldRevokeAccessTokens =
+      majUtilisateurDto.role !== undefined && majUtilisateurDto.role !== user.role;
+
     // Update user
     Object.assign(user, majUtilisateurDto);
+    if (shouldRevokeAccessTokens) {
+      user.token_version = (user.token_version ?? 0) + 1;
+    }
     const updatedUser = await this.utilisateursRepository.save(user);
     this.logger.log(`Utilisateur mis à jour avec succès: ${updatedUser.email} (ID: ${updatedUser.id})`);
 

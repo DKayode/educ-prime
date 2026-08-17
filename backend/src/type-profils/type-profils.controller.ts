@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
@@ -16,7 +16,7 @@ import { SetEntityTypeProfilDto } from './dto/set-entity-type-profil.dto';
 export class TypeProfilsController {
     constructor(private readonly typeProfilsService: TypeProfilsService) { }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @ApiBearerAuth()
     @Post()
@@ -44,7 +44,7 @@ export class TypeProfilsController {
         return this.typeProfilsService.getRegistry(pays);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @ApiBearerAuth()
     @Put('registry')
@@ -71,7 +71,7 @@ export class TypeProfilsController {
         return this.typeProfilsService.findOne(pays, +id);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @ApiBearerAuth()
     @Put(':id')
@@ -86,7 +86,7 @@ export class TypeProfilsController {
         return this.typeProfilsService.update(pays, +id, updateTypeProfilDto);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @ApiBearerAuth()
     @Delete(':id')

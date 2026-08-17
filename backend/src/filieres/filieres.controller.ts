@@ -4,6 +4,9 @@ import { FilieresService } from './filieres.service';
 import { CreerFiliereDto } from './dto/creer-filiere.dto';
 import { MajFiliereDto } from './dto/maj-filiere.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/permissions/permissions.guard';
+import { Permissions } from '../auth/permissions/permissions.decorator';
+import { Permission } from '../auth/permissions/permission.enum';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterFiliereDto } from './dto/filter-filiere.dto';
 import { FiliereResponseDto } from './dto/filiere-response.dto';
@@ -14,8 +17,9 @@ import { CurrentCountry } from '../common/decorators/current-country.decorator';
 export class FilieresController {
   constructor(private readonly filieresService: FilieresService) { }
 
-  @UseGuards(JwtAuthGuard)
   @Post()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_CREATE)
   async create(@Body() creerFiliereDto: CreerFiliereDto) {
     return this.filieresService.create(creerFiliereDto);
   }
@@ -39,14 +43,16 @@ export class FilieresController {
     return this.filieresService.findOne(id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Put(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_UPDATE)
   async update(@Param('id') id: string, @Body() majFiliereDto: MajFiliereDto) {
     return this.filieresService.update(id, majFiliereDto);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_DELETE)
   async remove(@Param('id') id: string) {
     return this.filieresService.remove(id);
   }

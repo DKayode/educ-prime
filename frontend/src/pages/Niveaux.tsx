@@ -69,8 +69,14 @@ import {
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn, getAcronym } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useAuth } from "@/hooks/useAuth";
+import { Permission } from "@/lib/permissions";
 
 export default function Niveaux() {
+    const { hasPermission } = useAuth();
+    const canCreateReferential = hasPermission(Permission.REFERENTIALS_CREATE);
+    const canUpdateReferential = hasPermission(Permission.REFERENTIALS_UPDATE);
+    const canDeleteReferential = hasPermission(Permission.REFERENTIALS_DELETE);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAddFiliereDialogOpen, setIsAddFiliereDialogOpen] = useState(false);
 
@@ -240,7 +246,7 @@ export default function Niveaux() {
             Gestion groupée des niveaux d'étude par nom.
           </p>
         </div>
-        <Button onClick={handleOpenAddDialog}>
+        <Button onClick={handleOpenAddDialog} disabled={!canCreateReferential}>
           <Plus className="mr-2 h-4 w-4" />
           Nouveau niveau
         </Button>
@@ -275,6 +281,8 @@ export default function Niveaux() {
               onAddFiliere={() => handleOpenAddFiliereDialog(group.nom, group.filieres)}
               onDeleteSingle={(id) => setDeleteId(id)}
               onDeleteGroup={(nom) => setDeleteGroupNom(nom)}
+              canCreateReferential={canCreateReferential}
+              canDeleteReferential={canDeleteReferential}
               onEditSingle={(niveau) => {
                 // Open simple edit dialog for duration/name?
                 // For now, let's keep it simple: Add/Delete filiere associations.
@@ -349,7 +357,7 @@ export default function Niveaux() {
               />
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={createMutation.isPending}>
+              <Button type="submit" disabled={!canCreateReferential || createMutation.isPending}>
                 {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Créer
               </Button>
@@ -389,7 +397,7 @@ export default function Niveaux() {
               />
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={createMutation.isPending}>
+              <Button type="submit" disabled={!canCreateReferential || createMutation.isPending}>
                 {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Ajouter
               </Button>
@@ -447,7 +455,7 @@ export default function Niveaux() {
 }
 
 // Sub-component for Group Card
-function NiveauGroupCard({ group, onAddFiliere, onDeleteSingle, onDeleteGroup, onEditSingle }: { group: any, onAddFiliere: () => void, onDeleteSingle: (id: number) => void, onDeleteGroup: (nom: string) => void, onEditSingle: (n: any) => void }) {
+function NiveauGroupCard({ group, canCreateReferential, canDeleteReferential, onAddFiliere, onDeleteSingle, onDeleteGroup, onEditSingle }: { group: any, canCreateReferential: boolean, canDeleteReferential: boolean, onAddFiliere: () => void, onDeleteSingle: (id: number) => void, onDeleteGroup: (nom: string) => void, onEditSingle: (n: any) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 5;
@@ -472,11 +480,11 @@ function NiveauGroupCard({ group, onAddFiliere, onDeleteSingle, onDeleteGroup, o
             {isOpen ? "Masquer" : "Voir associées"}
             <ChevronDown className={cn("ml-2 h-4 w-4 transition-transform", isOpen && "rotate-180")} />
           </Button>
-          <Button variant="default" size="sm" onClick={onAddFiliere}>
+          <Button variant="default" size="sm" onClick={onAddFiliere} disabled={!canCreateReferential}>
             <LinkIcon className="mr-2 h-4 w-4" />
             Associer à d'autres filières
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => onDeleteGroup(group.nom)} className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-2">
+          <Button variant="ghost" size="icon" onClick={() => onDeleteGroup(group.nom)} disabled={!canDeleteReferential} className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-2">
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
@@ -505,7 +513,7 @@ function NiveauGroupCard({ group, onAddFiliere, onDeleteSingle, onDeleteGroup, o
                   </TableCell>
                   <TableCell>{filiere.duree_mois ? `${filiere.duree_mois} mois` : '-'}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => onDeleteSingle(filiere.niveau_id)}>
+                    <Button variant="ghost" size="icon" onClick={() => onDeleteSingle(filiere.niveau_id)} disabled={!canDeleteReferential}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>

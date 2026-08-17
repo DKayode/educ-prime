@@ -12,6 +12,9 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from 'src/auth/permissions/permissions.guard';
+import { Permissions } from 'src/auth/permissions/permissions.decorator';
+import { Permission } from 'src/auth/permissions/permission.enum';
 import { CurrentCountry } from 'src/common/decorators/current-country.decorator';
 import { TypesExamenService } from './types-examen.service';
 import { CreateTypeExamenDto } from './dto/create-type-examen.dto';
@@ -25,7 +28,8 @@ export class TypesExamenController {
   constructor(private readonly typesExamenService: TypesExamenService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_CREATE)
   @ApiBearerAuth()
   @ApiOperation({ summary: "Créer un nouveau type d'examen" })
   @ApiResponse({ status: 201, description: "Type d'examen créé avec succès", type: TypeExamen })
@@ -52,7 +56,8 @@ export class TypesExamenController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_UPDATE)
   @ApiBearerAuth()
   @ApiOperation({ summary: "Mettre à jour un type d'examen" })
   @ApiResponse({ status: 200, description: "Type d'examen mis à jour avec succès", type: TypeExamen })
@@ -65,7 +70,8 @@ export class TypesExamenController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_DELETE)
   @ApiBearerAuth()
   @HttpCode(204)
   @ApiOperation({ summary: "Supprimer un type d'examen" })

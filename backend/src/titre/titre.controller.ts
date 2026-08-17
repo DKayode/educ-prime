@@ -12,6 +12,9 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from 'src/auth/permissions/permissions.guard';
+import { Permissions } from 'src/auth/permissions/permissions.decorator';
+import { Permission } from 'src/auth/permissions/permission.enum';
 import { TitreService } from './titre.service';
 import { CreateTitreDto } from './dto/create-titre.dto';
 import { UpdateTitreDto } from './dto/update-titre.dto';
@@ -24,7 +27,8 @@ export class TitreController {
   constructor(private readonly titreService: TitreService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_CREATE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Créer un nouveau titre' })
   @ApiResponse({ status: 201, description: 'Titre créé avec succès', type: Titre })
@@ -48,7 +52,8 @@ export class TitreController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_UPDATE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mettre à jour un titre' })
   @ApiResponse({ status: 200, description: 'Titre mis à jour avec succès', type: Titre })
@@ -61,7 +66,8 @@ export class TitreController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_DELETE)
   @ApiBearerAuth()
   @HttpCode(204)
   @ApiOperation({ summary: 'Supprimer un titre' })
