@@ -19,11 +19,12 @@ async function bootstrap() {
     defaultVersion: VERSION_NEUTRAL,
   });
 
-  // Enable CORS for frontend access
+  // Enable CORS for frontend access. In local development Vite may run on
+  // different ports and browsers may use either localhost or 127.0.0.1.
   app.enableCors({
     origin: process.env.NODE_ENV === 'production'
-      ? true 
-      : ['http://localhost', 'http://localhost:80', 'http://localhost:8080', 'http://localhost:5173'],
+      ? true
+      : [/^http:\/\/localhost(?::\d+)?$/, /^http:\/\/127\.0\.0\.1(?::\d+)?$/],
     credentials: true,
   });
 

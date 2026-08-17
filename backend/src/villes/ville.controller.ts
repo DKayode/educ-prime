@@ -19,6 +19,9 @@ import { CreerVilleDto } from './dto/creer-ville.dto';
 import { MajVilleDto } from './dto/maj-ville.dto';
 import { FilterVilleDto } from './dto/filter-ville.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/permissions/permissions.guard';
+import { Permissions } from '../auth/permissions/permissions.decorator';
+import { Permission } from '../auth/permissions/permission.enum';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 
 @ApiTags('villes')
@@ -45,12 +48,16 @@ export class VilleController {
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_CREATE)
   @ApiOperation({ summary: 'Créer une ville (scopée au département parent)' })
   async create(@CurrentCountry() pays: string, @Body() dto: CreerVilleDto) {
     return this.toResponse(await this.villeService.create(pays, dto));
   }
 
   @Post('import-csv')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_CREATE)
   @UseInterceptors(FileInterceptor('file', { storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Importer des villes via CSV (colonnes: departement_nom,ville_nom). Scope via ?country=' })
@@ -80,6 +87,8 @@ export class VilleController {
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_UPDATE)
   @ApiOperation({ summary: 'Mettre à jour une ville' })
   async update(
     @CurrentCountry() pays: string,
@@ -90,6 +99,8 @@ export class VilleController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_DELETE)
   @ApiOperation({ summary: 'Supprimer une ville' })
   async remove(@CurrentCountry() pays: string, @Param('id') id: string) {
     return this.villeService.remove(pays, id);

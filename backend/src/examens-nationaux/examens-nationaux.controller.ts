@@ -5,7 +5,7 @@ import { CreateExamenNationalDto } from './dto/create-examen-national.dto';
 import { UpdateExamenNationalDto } from './dto/update-examen-national.dto';
 import { FilterExamenNationalDto } from './dto/filter-examen-national.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
@@ -15,7 +15,7 @@ import { CurrentCountry } from '../common/decorators/current-country.decorator';
 export class ExamensNationauxController {
     constructor(private readonly service: ExamensNationauxService) { }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @Post()
     @ApiOperation({ summary: 'Créer un examen national (Admin). Titre composé côté serveur.' })
@@ -50,14 +50,14 @@ export class ExamensNationauxController {
         return this.service.findOne(+id);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @Put(':id')
     update(@Param('id') id: string, @Body() dto: UpdateExamenNationalDto) {
         return this.service.update(+id, dto);
     }
 
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @Delete(':id')
     remove(@Param('id') id: string) {

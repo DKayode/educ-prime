@@ -5,6 +5,9 @@ import { CreerNiveauEtudeDto } from './dto/creer-niveau-etude.dto';
 import { MajNiveauEtudeDto } from './dto/maj-niveau-etude.dto';
 import { NiveauEtudeResponseDto } from './dto/niveau-etude-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/permissions/permissions.guard';
+import { Permissions } from '../auth/permissions/permissions.decorator';
+import { Permission } from '../auth/permissions/permission.enum';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterNiveauEtudeDto } from './dto/filter-niveau-etude.dto';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
@@ -14,8 +17,9 @@ import { CurrentCountry } from '../common/decorators/current-country.decorator';
 export class NiveauEtudeController {
   constructor(private readonly niveauEtudeService: NiveauEtudeService) { }
 
-  @UseGuards(JwtAuthGuard)
   @Post()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_CREATE)
   async create(@CurrentCountry() pays: string, @Body() creerNiveauEtudeDto: CreerNiveauEtudeDto) {
     return this.niveauEtudeService.create(pays, creerNiveauEtudeDto);
   }
@@ -45,19 +49,22 @@ export class NiveauEtudeController {
     return this.niveauEtudeService.findOne(id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Put(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_UPDATE)
   async update(@Param('id') id: string, @Body() majNiveauEtudeDto: MajNiveauEtudeDto) {
     return this.niveauEtudeService.update(id, majNiveauEtudeDto);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_DELETE)
   async remove(@Param('id') id: string) {
     return this.niveauEtudeService.remove(id);
   }
-  @UseGuards(JwtAuthGuard)
   @Delete('grouper-par-nom/:nom')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_DELETE)
   @ApiOperation({ summary: 'Supprimer tous les niveaux portant un nom dans un pays donné' })
   @ApiQuery({ name: 'country', required: true, description: 'Country slug; this DELETE targets rows by name and needs the scope explicit.' })
   async removeGroup(@CurrentCountry() pays: string, @Param('nom') nom: string) {

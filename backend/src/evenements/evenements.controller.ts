@@ -6,7 +6,7 @@ import { EvenementsService } from './evenements.service';
 import { CreerEvenementDto } from './dto/create-evenement.dto';
 import { UpdateEvenementDto } from './dto/update-evenement.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -21,7 +21,7 @@ export class EvenementsController {
     private readonly fichiersService: FichiersService,
   ) { }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Post()
   create(@Body() creerEvenementDto: CreerEvenementDto) {
@@ -39,7 +39,7 @@ export class EvenementsController {
     return this.evenementsService.findAll(filterDto, viewer);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @ApiBearerAuth()
   @Get(':id/type-profils')
@@ -48,7 +48,7 @@ export class EvenementsController {
     return this.evenementsService.getTypeProfilIds(+id);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @ApiBearerAuth()
   @Put(':id/type-profils')
@@ -103,14 +103,14 @@ export class EvenementsController {
     return this.evenementsService.findOne(+id);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Put(':id')
   update(@Param('id') id: string, @Body() updateEvenementDto: UpdateEvenementDto) {
     return this.evenementsService.update(+id, updateEvenementDto);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Delete(':id')
   remove(@Param('id') id: string) {

@@ -5,9 +5,9 @@ import { CreerSubmissionDto } from './dto/creer-submission.dto';
 import { ResoudreSubmissionDto } from './dto/resoudre-submission.dto';
 import { DeclinerSubmissionDto } from './dto/decliner-submission.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { RoleType } from '../../utilisateurs/entities/utilisateur.entity';
+import { PermissionsGuard } from '../../auth/permissions/permissions.guard';
+import { Permissions } from '../../auth/permissions/permissions.decorator';
+import { Permission } from '../../auth/permissions/permission.enum';
 import { ServiceStatusEnum } from '../../common/enums/service-status.enum';
 import { EpreuveType } from '../entities/epreuve.entity';
 import { CurrentCountry } from '../../common/decorators/current-country.decorator';
@@ -54,9 +54,9 @@ export class EpreuveSubmissionsController {
     });
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.ADMIN)
   @Get()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.EPREUVES_READ)
   @ApiOperation({ summary: 'Lister les soumissions (Admin) — parents manquants signalés' })
   @ApiQuery({ name: 'status', required: false, enum: ServiceStatusEnum, description: 'Filtrer par statut (ex: pending_approval)' })
   @ApiQuery({ name: 'type', required: false, enum: [EpreuveType.EXAMENS, EpreuveType.EXAMEN_NATIONAL], description: "Filtrer par type d'épreuve (Examens ou Examens Nationaux)" })
@@ -77,18 +77,18 @@ export class EpreuveSubmissionsController {
     });
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.ADMIN)
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.EPREUVES_UPDATE)
   @ApiOperation({ summary: 'Résoudre les parents manquants (Admin) — attache des ids réels' })
   @ApiResponse({ status: 200, description: 'Parents mis à jour' })
   async resolve(@Param('id', ParseIntPipe) id: number, @Body() dto: ResoudreSubmissionDto) {
     return this.submissionsService.resolveParents(id, dto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.ADMIN)
   @Patch(':id/approve')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.EPREUVES_VALIDATE)
   @ApiOperation({ summary: 'Approuver une soumission (Admin) — crée la vraie épreuve, notifie l\'auteur' })
   @ApiResponse({ status: 200, description: 'Épreuve créée, soumission approuvée, auteur notifié' })
   @ApiResponse({ status: 400, description: 'Des parents ne sont pas encore résolus' })
@@ -96,9 +96,9 @@ export class EpreuveSubmissionsController {
     return this.submissionsService.approve(id);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.ADMIN)
   @Patch(':id/decline')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.EPREUVES_VALIDATE)
   @ApiOperation({ summary: 'Refuser une soumission (Admin) — notifie l\'auteur' })
   @ApiResponse({ status: 200, description: 'Soumission refusée, auteur notifié' })
   async decline(@Param('id', ParseIntPipe) id: number, @Body() dto: DeclinerSubmissionDto) {

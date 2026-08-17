@@ -18,7 +18,7 @@ import {
 import { ApiTags, ApiHeader, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { AppVersionService } from './app-version.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { CreateAppVersionDto } from './dto/create-app-version.dto';
@@ -57,7 +57,7 @@ export class AppVersionController {
     // --- Admin Endpoints ---
 
     @Get('admin')
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Lister les versions (Admin)' })
@@ -67,7 +67,7 @@ export class AppVersionController {
     }
 
     @Post('admin')
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Créer une nouvelle version (Admin)' })
@@ -77,7 +77,7 @@ export class AppVersionController {
     }
 
     @Put('admin/:id')
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Mettre à jour une version (Admin)' })
@@ -90,7 +90,7 @@ export class AppVersionController {
     }
 
     @Delete('admin/:id')
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Supprimer une version (Admin)' })

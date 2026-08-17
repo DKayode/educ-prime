@@ -109,7 +109,7 @@ export class AuthService {
     // Generate access token (1d). Country is intentionally not in the
     // payload — accounts are cross-country and switch scope via the
     // request's ?country= / body.pays without re-authenticating.
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = { sub: user.id, email: user.email, role: user.role, tokenVersion: user.token_version ?? 0 };
     const accessToken = this.jwtService.sign(payload);
 
     // Generate refresh token (30 days)
@@ -200,7 +200,7 @@ export class AuthService {
     }
 
     // Generate new access token (cross-country, see login())
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = { sub: user.id, email: user.email, role: user.role, tokenVersion: user.token_version ?? 0 };
     const accessToken = this.jwtService.sign(payload);
 
     // Une session renouvelée est une session active : sans cette ligne, seules
@@ -263,6 +263,11 @@ export class AuthService {
   async validateUser(userId: number): Promise<Utilisateur> {
     this.logger.log(`Validation de l'utilisateur ID: ${userId}`);
     return this.utilisateursService.findOne(userId.toString());
+  }
+
+  async isAccessTokenVersionCurrent(userId: number, tokenVersion = 0): Promise<boolean> {
+    const user = await this.utilisateursService.findOne(userId.toString());
+    return (user?.token_version ?? 0) === tokenVersion;
   }
 
   async forgotPassword(email: string): Promise<void> {

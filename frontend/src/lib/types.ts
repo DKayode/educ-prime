@@ -1,3 +1,5 @@
+import type { PermissionProfile } from './services/authorization.service';
+import type { PermissionValue } from './permissions';
 // Type definitions for API entities.
 
 export interface PaginatedResponse<T> {

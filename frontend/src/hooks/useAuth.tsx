@@ -1,37 +1,58 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { authService } from "@/lib/services/auth.service";
+import { authorizationService } from "@/lib/services/authorization.service";
 import { countriesService } from "@/lib/services/countries.service";
 import { api } from "@/lib/api";
+import type { PermissionValue } from "@/lib/permissions";
+import { hasAllPermissions, hasAnyPermission as checkAnyPermission } from "@/lib/permissions";
 import type { Utilisateur } from "@/lib/types";
 
 interface AuthContextType {
   user: Utilisateur | null;
+  permissions: PermissionValue[];
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  hasPermission: (permission: PermissionValue | PermissionValue[]) => boolean;
+  hasAnyPermission: (permissions: PermissionValue | PermissionValue[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Utilisateur | null>(null);
+  const [permissions, setPermissions] = useState<PermissionValue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const hydrateAuthorization = async (profile: Utilisateur) => {
+    try {
+      const authorization = await authorizationService.getMyAuthorization();
+      const enrichedUser = {
+        ...profile,
+        permissions: authorization.permissions,
+        permissionProfiles: authorization.profiles,
+      };
+      setUser(enrichedUser);
+      setPermissions(authorization.permissions);
+      return enrichedUser;
+    } catch (error) {
+      console.warn('[Auth] Permissions indisponibles, session gardee avec permissions vides', error);
+      setUser(profile);
+      setPermissions([]);
+      return profile;
+    }
+  };
+
   useEffect(() => {
-    // Bootstrap the country slug BEFORE any other request fires so every
-    // subsequent call carries ?country=. Without this seeding, requests sent
-    // between mount and the CountrySwitcher's own effect would silently fall
-    // back to the backend's default scope.
     const bootstrapCountry = async () => {
-      // Already chosen previously? Keep it.
       if (localStorage.getItem('country')) return;
       try {
         const list = await countriesService.list();
         if (list.length > 0) api.setCountry(list[0].country);
       } catch (err) {
-        console.error('[Auth] Échec du bootstrap pays:', err);
+        console.error('[Auth] Echec du bootstrap pays:', err);
       }
     };
 
@@ -41,12 +62,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (authService.isAuthenticated()) {
         try {
           const profile = await authService.getProfile();
-          setUser(profile);
-          console.log('[Auth] ✓ Session restaurée');
+          await hydrateAuthorization(profile);
+          console.log('[Auth] Session restauree');
         } catch (error) {
-          // Token might be expired, clear it
-          console.log('[Auth] Session expirée, déconnexion');
+          console.log('[Auth] Session expiree, deconnexion');
           authService.logout();
+          setUser(null);
+          setPermissions([]);
         }
       } else {
         console.log('[Auth] Aucune session active');
@@ -61,25 +83,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('[Auth] Connexion en cours...');
     try {
       const response = await authService.login({ email, mot_de_passe: password });
-      setUser(response.utilisateur || null);
-      console.log('[Auth] ✓ Connexion réussie');
+      if (response.utilisateur) {
+        await hydrateAuthorization(response.utilisateur);
+      } else {
+        setUser(null);
+        setPermissions([]);
+      }
+      console.log('[Auth] Connexion reussie');
     } catch (error) {
-      console.error('[Auth] ✗ Échec de la connexion');
+      console.error('[Auth] Echec de la connexion');
       throw error;
     }
   };
 
   const logout = async () => {
-    console.log('[Auth] Déconnexion...');
+    console.log('[Auth] Deconnexion...');
     await authService.logout();
     setUser(null);
-    console.log('[Auth] ✓ Déconnexion réussie');
+    setPermissions([]);
+    console.log('[Auth] Deconnexion reussie');
   };
 
   const refreshUser = async () => {
     if (authService.isAuthenticated()) {
       const profile = await authService.getProfile();
-      setUser(profile);
+      await hydrateAuthorization(profile);
     }
   };
 
@@ -87,11 +115,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        permissions,
         isAuthenticated: !!user,
         isLoading,
         login,
         logout,
         refreshUser,
+        hasPermission: (permission) => hasAllPermissions(permissions, permission),
+        hasAnyPermission: (requiredPermissions) => checkAnyPermission(permissions, requiredPermissions),
       }}
     >
       {children}

@@ -3,9 +3,9 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { CompetencesService } from './competences.service';
 import { CreateCompetenceDto, UpdateCompetenceDto } from './dto/competence.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
+import { PermissionsGuard } from '../auth/permissions/permissions.guard';
+import { Permissions } from '../auth/permissions/permissions.decorator';
+import { Permission } from '../auth/permissions/permission.enum';
 
 @ApiTags('competences')
 @Controller('competences')
@@ -33,18 +33,19 @@ export class CompetencesController {
     }
 
     @Post()
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth()
-    @ApiOperation({ summary: 'Créer une compétence' })
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_CREATE)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Créer une compétence' })
     create(@Body() createCompetenceDto: CreateCompetenceDto) {
         return this.competencesService.create(createCompetenceDto);
     }
 
     @Put(':id')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @ApiBearerAuth()
-    @Roles(RoleType.ADMIN)
-    @ApiOperation({ summary: 'Mettre à jour une compétence (Admin)' })
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_UPDATE)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Mettre à jour une compétence (Admin)' })
     update(
         @Param('id', ParseIntPipe) id: number,
         @Body() updateCompetenceDto: UpdateCompetenceDto
@@ -53,9 +54,9 @@ export class CompetencesController {
     }
 
     @Delete(':id')
-    @UseGuards(JwtAuthGuard, RolesGuard)
+    @UseGuards(JwtAuthGuard, PermissionsGuard)
+    @Permissions(Permission.REFERENTIALS_DELETE)
     @ApiBearerAuth()
-    @Roles(RoleType.ADMIN)
     @ApiOperation({ summary: 'Supprimer une compétence (Admin)' })
     remove(@Param('id', ParseIntPipe) id: number) {
         return this.competencesService.remove(id);

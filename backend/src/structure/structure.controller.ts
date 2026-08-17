@@ -12,6 +12,9 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from 'src/auth/permissions/permissions.guard';
+import { Permissions } from 'src/auth/permissions/permissions.decorator';
+import { Permission } from 'src/auth/permissions/permission.enum';
 import { StructureService } from './structure.service';
 import { CreateStructureDto } from './dto/create-structure.dto';
 import { UpdateStructureDto } from './dto/update-structure.dto';
@@ -24,7 +27,8 @@ export class StructureController {
   constructor(private readonly structureService: StructureService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_CREATE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Créer une nouvelle structure' })
   @ApiResponse({ status: 201, description: 'Structure créée avec succès', type: Structure })
@@ -48,7 +52,8 @@ export class StructureController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_UPDATE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mettre à jour une structure' })
   @ApiResponse({ status: 200, description: 'Structure mise à jour avec succès', type: Structure })
@@ -61,7 +66,8 @@ export class StructureController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_DELETE)
   @ApiBearerAuth()
   @HttpCode(204)
   @ApiOperation({ summary: 'Supprimer une structure' })

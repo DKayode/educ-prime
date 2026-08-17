@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, XCircle, Wallet, ChevronLeft, ChevronRight, BadgeCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Permission } from "@/lib/permissions";
 import { OtpDeliveryIndicator } from "@/components/OtpDeliveryIndicator";
 import {
   walletAdminService,
@@ -62,6 +64,10 @@ const money = (n: number) => `${Number(n ?? 0).toLocaleString("fr-FR")} XOF`;
 export default function RetraitsWallet() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
+  const canReject = hasPermission(Permission.WALLET_WITHDRAWALS_REJECT);
+  const canCancel = hasPermission(Permission.WALLET_WITHDRAWALS_CANCEL);
+  const canConfirmPayment = hasPermission(Permission.WALLET_WITHDRAWALS_CONFIRM_PAYMENT);
   const [status, setStatus] = useState<string>("ALL");
   const [page, setPage] = useState(1);
   const limit = 15;
@@ -192,19 +198,23 @@ export default function RetraitsWallet() {
                       <TableCell className="text-xs text-muted-foreground">{new Date(w.createdAt).toLocaleString("fr-FR")}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {(w.status === "PENDING" || w.status === "APPROVED" || w.status === "PROCESSING") && (
+                          {(w.status === "PENDING" || w.status === "APPROVED" || w.status === "PROCESSING") && (canConfirmPayment || canReject) && (
                             <>
-                              <Button size="sm" className="h-8 gap-1 bg-emerald-600 text-white hover:bg-emerald-600/90" disabled={busy}
-                                title="Marquer comme payé (après transfert Mobile Money)"
-                                onClick={() => { setPayTarget(w); setPay({ provider: (w.paymentAccount?.operator as MobileMoneyProvider) ?? "MTN_MOMO", transactionReference: "", phoneNumber: w.paymentAccount?.phoneNumber ?? "", paidAmount: String(w.netAmount) }); }}>
-                                <BadgeCheck className="h-4 w-4" /> Marquer payé
-                              </Button>
-                              <Button variant="ghost" size="icon" title="Rejeter la demande" disabled={busy} onClick={() => { setRejectTarget(w); setRejectReason(""); }}>
-                                <XCircle className="h-4 w-4 text-destructive" />
-                              </Button>
+                              {canConfirmPayment && (
+                                <Button size="sm" className="h-8 gap-1 bg-emerald-600 text-white hover:bg-emerald-600/90" disabled={busy}
+                                  title="Marquer comme paye apres transfert Mobile Money"
+                                  onClick={() => { setPayTarget(w); setPay({ provider: (w.paymentAccount?.operator as MobileMoneyProvider) ?? "MTN_MOMO", transactionReference: "", phoneNumber: w.paymentAccount?.phoneNumber ?? "", paidAmount: String(w.netAmount) }); }}>
+                                  <BadgeCheck className="h-4 w-4" /> Marquer paye
+                                </Button>
+                              )}
+                              {canReject && (
+                                <Button variant="ghost" size="icon" title="Rejeter la demande" disabled={busy} onClick={() => { setRejectTarget(w); setRejectReason(""); }}>
+                                  <XCircle className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
                             </>
                           )}
-                          {w.status === "OTP_PENDING" && (
+                          {w.status === "OTP_PENDING" && canCancel && (
                             <Button variant="outline" size="sm" className="h-8 gap-1" disabled={busy}
                               title="Annuler cette demande pour que l'utilisateur puisse recommencer"
                               onClick={() => { setCancelTarget(w); setCancelReason(""); }}>

@@ -5,7 +5,7 @@ import { CreerMatiereDto } from './dto/creer-matiere.dto';
 import { MajMatiereDto } from './dto/maj-matiere.dto';
 import { MatiereResponseDto } from './dto/matiere-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -17,7 +17,7 @@ import { CurrentCountry } from '../common/decorators/current-country.decorator';
 export class MatieresController {
   constructor(private readonly matieresService: MatieresService) { }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN, RoleType.PROFESSEUR)
   @Post()
   async create(@CurrentCountry() pays: string, @Body() creerMatiereDto: CreerMatiereDto) {
@@ -59,14 +59,14 @@ export class MatieresController {
     return this.matieresService.findOne(id);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN, RoleType.PROFESSEUR)
   @Put(':id')
   async update(@Param('id') id: string, @Body() majMatiereDto: MajMatiereDto) {
     return this.matieresService.update(id, majMatiereDto);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN, RoleType.PROFESSEUR)
   @Delete(':id')
   async remove(@Param('id') id: string) {

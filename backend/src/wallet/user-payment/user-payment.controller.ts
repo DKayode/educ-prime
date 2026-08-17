@@ -17,9 +17,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { RoleGuard } from 'src/auth/guards/role.guard';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { RoleType } from 'src/utilisateurs/entities/utilisateur.entity';
+import { PermissionsGuard } from 'src/auth/permissions/permissions.guard';
+import { Permissions } from 'src/auth/permissions/permissions.decorator';
+import { Permission } from 'src/auth/permissions/permission.enum';
 import { RewardSourceTypeCode, WithdrawalStatus } from '../shared/payment.enums';
 import { UpsertPaymentAccountDto } from './dto/upsert-payment-account.dto';
 import { ConfirmManualPaymentDto } from './dto/confirm-manual-payment.dto';
@@ -92,8 +92,8 @@ export class UserPaymentController {
     return this.getPaymentAccounts.execute(req.user.utilisateurId);
   }
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_WITHDRAWALS_READ)
   @Get('admin/withdrawals')
   @ApiOperation({
     summary: 'Lister les demandes de retrait côté administrateur',
@@ -116,8 +116,8 @@ export class UserPaymentController {
   }
 
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_WITHDRAWALS_READ)
   @Get('admin/withdrawals/:id/otp-delivery-status')
   @ApiOperation({
     summary: 'Diagnostiquer le statut de livraison OTP Infobip d’une demande de retrait',
@@ -127,8 +127,8 @@ export class UserPaymentController {
     return this.getWithdrawalOtpDeliveryStatus.execute(id);
   }
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_WITHDRAWALS_APPROVE)
   @Patch('admin/withdrawals/:id/approve')
   @ApiOperation({
     summary: 'Approuver une demande de retrait',
@@ -138,8 +138,8 @@ export class UserPaymentController {
     return this.approveWithdrawal.execute(id, req.user.utilisateurId);
   }
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_WITHDRAWALS_REJECT)
   @Patch('admin/withdrawals/:id/reject')
   @ApiOperation({
     summary: 'Rejeter une demande de retrait',
@@ -157,8 +157,8 @@ export class UserPaymentController {
     );
   }
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_WITHDRAWALS_CANCEL)
   @Patch('admin/withdrawals/:id/cancel')
   @ApiOperation({
     summary: "Annuler une demande de retrait restée en attente de code OTP",
@@ -174,8 +174,8 @@ export class UserPaymentController {
     return this.cancelWithdrawal.execute(id, req.user.utilisateurId, dto.reason);
   }
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_WITHDRAWALS_UNLOCK_OTP)
   @Patch('admin/withdrawals/:id/unlock-otp')
   @ApiOperation({
     summary: 'Débloquer une demande de retrait bloquée après échecs OTP',
@@ -195,8 +195,8 @@ export class UserPaymentController {
     });
   }
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_WITHDRAWALS_CONFIRM_PAYMENT)
   @Patch('admin/withdrawals/:id/confirm-payment')
   @ApiOperation({
     summary: 'Confirmer le paiement manuel Mobile Money',
@@ -230,8 +230,8 @@ export class UserPaymentController {
 
 
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_READ)
   @Get('admin/users/:userId/payment-activity')
   @ApiOperation({
     summary: 'Consulter toutes les requêtes de paiement/retrait et statistiques d’un utilisateur',
@@ -252,8 +252,8 @@ export class UserPaymentController {
   }
 
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_CONFIGURATION_UPDATE)
   @Get('admin/reward-configurations')
   @ApiOperation({
     summary: 'Lister les configurations de récompense par type de contenu : EPREUVE, EXAMEN, CONCOURS',
@@ -262,8 +262,8 @@ export class UserPaymentController {
     return this.listRewardConfigurations.execute();
   }
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_CONFIGURATION_UPDATE)
   @Get('admin/reward-configurations/:sourceType')
   @ApiOperation({
     summary: 'Consulter la configuration de récompense d’un type de contenu',
@@ -273,8 +273,8 @@ export class UserPaymentController {
     return this.getRewardConfiguration.execute(sourceType);
   }
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_CONFIGURATION_UPDATE)
   @Patch('admin/reward-configurations/:sourceType')
   @ApiOperation({
     summary: 'Mettre à jour la configuration de récompense d’un type de contenu',
@@ -288,8 +288,8 @@ export class UserPaymentController {
     return this.updateRewardConfiguration.execute(sourceType, req.user.utilisateurId, dto);
   }
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_READ)
   @Get('admin/configuration')
   @ApiOperation({
     summary: 'Consulter la configuration Wallet et paiement',
@@ -298,8 +298,8 @@ export class UserPaymentController {
     return this.getConfiguration.execute();
   }
 
-  @UseGuards(RoleGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(PermissionsGuard)
+  @Permissions(Permission.WALLET_CONFIGURATION_UPDATE)
   @Patch('admin/configuration')
   @ApiOperation({
     summary: 'Mettre à jour la configuration Wallet et paiement',

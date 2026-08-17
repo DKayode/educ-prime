@@ -12,6 +12,9 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from 'src/auth/permissions/permissions.guard';
+import { Permissions } from 'src/auth/permissions/permissions.decorator';
+import { Permission } from 'src/auth/permissions/permission.enum';
 import { SeriesService } from './series.service';
 import { CreateSerieDto } from './dto/create-serie.dto';
 import { UpdateSerieDto } from './dto/update-serie.dto';
@@ -25,7 +28,8 @@ export class SeriesController {
   constructor(private readonly seriesService: SeriesService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_CREATE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Créer une nouvelle série (scopée au type d\'examen parent)' })
   @ApiResponse({ status: 201, description: 'Série créée avec succès', type: Serie })
@@ -56,7 +60,8 @@ export class SeriesController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_UPDATE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mettre à jour une série' })
   @ApiResponse({ status: 200, description: 'Série mise à jour avec succès', type: Serie })
@@ -70,7 +75,8 @@ export class SeriesController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.REFERENTIALS_DELETE)
   @ApiBearerAuth()
   @HttpCode(204)
   @ApiOperation({ summary: 'Supprimer une série' })

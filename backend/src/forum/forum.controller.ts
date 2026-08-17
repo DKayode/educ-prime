@@ -7,7 +7,7 @@ import { FilterForumDto } from './dto/filter-forum.dto';
 import { ApiTags, ApiBearerAuth, ApiQuery, ApiOkResponse, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
 import { Forum } from './entities/forum.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
@@ -41,7 +41,7 @@ export class ForumController {
     }
 
     @Get(':id/type-profils')
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Récupérer la checklist de types de profil d\'un forum (admin)' })
@@ -50,7 +50,7 @@ export class ForumController {
     }
 
     @Put(':id/type-profils')
-    @UseGuards(JwtAuthGuard, RoleGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Définir (replace-set) la checklist de types de profil d\'un forum (admin)' })

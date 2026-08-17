@@ -2,9 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { PermissionRoute } from "./components/PermissionRoute";
 import { DashboardLayout } from "./components/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
@@ -58,8 +60,14 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import Forums from "./pages/Forums";
 import Desabonnement from "./pages/Desabonnement";
+import Authorization from "./pages/Authorization";
+import { Permission, type PermissionValue } from "./lib/permissions";
 
 const queryClient = new QueryClient();
+
+const guarded = (permission: PermissionValue | PermissionValue[], element: ReactElement) => (
+  <PermissionRoute permission={permission}>{element}</PermissionRoute>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -79,54 +87,55 @@ const App = () => (
                 <ProtectedRoute>
                   <DashboardLayout>
                     <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/users" element={<Users />} />
-                      <Route path="/etablissements" element={<Etablissements />} />
-                      <Route path="/filieres" element={<Filieres />} />
-                      <Route path="/matieres" element={<Matieres />} />
-                      <Route path="/niveaux" element={<Niveaux />} />
-                      <Route path="/epreuves" element={<Epreuves />} />
-                      <Route path="/approbations/epreuves" element={<EpreuvesApprobation />} />
-                      <Route path="/publicites" element={<Publicites />} />
-                      <Route path="/evenements" element={<Evenements />} />
-                      <Route path="/opportunites" element={<Opportunites />} />
-                      <Route path="/concours" element={<Concours />} />
-                      <Route path="/concours/groupes" element={<ConcoursGrouped />} />
-                      <Route path="/approbations/concours" element={<ConcoursAdmin />} />
-                      <Route path="/examens-nationaux" element={<ExamensNationaux />} />
-                      <Route path="/approbations/examens-nationaux" element={<ExamensNationauxApprobation />} />
-                      <Route path="/types-examen" element={<TypesExamen />} />
-                      <Route path="/series-examen" element={<SeriesExamen />} />
-                      <Route path="/matieres-examen" element={<MatieresExamen />} />
-                      <Route path="/filieres-examen" element={<FilieresExamen />} />
-                      <Route path="/forums" element={<Forums />} />
-                      <Route path="/parcours" element={<Parcours />} />
-                      <Route path="/categories" element={<Categories />} />
-                      <Route path="/types-profil" element={<TypesProfil />} />
-                      <Route path="/types-profil/associations" element={<TypeProfilAssociations />} />
-                      <Route path="/structures" element={<Structures />} />
-                      <Route path="/titres" element={<Titres />} />
-                      <Route path="/departements" element={<Departements />} />
-                      <Route path="/villes" element={<Villes />} />
-                      <Route path="/contacts-professionnels" element={<ContactsProfessionnels />} />
+                      <Route path="/" element={guarded(Permission.ADMIN_DASHBOARD_READ, <Dashboard />)} />
+                      <Route path="/users" element={guarded(Permission.USERS_READ, <Users />)} />
+                      <Route path="/etablissements" element={guarded(Permission.REFERENTIALS_READ, <Etablissements />)} />
+                      <Route path="/filieres" element={guarded(Permission.REFERENTIALS_READ, <Filieres />)} />
+                      <Route path="/matieres" element={guarded(Permission.REFERENTIALS_READ, <Matieres />)} />
+                      <Route path="/niveaux" element={guarded(Permission.REFERENTIALS_READ, <Niveaux />)} />
+                      <Route path="/epreuves" element={guarded(Permission.EPREUVES_READ, <Epreuves />)} />
+                      <Route path="/approbations/epreuves" element={guarded([Permission.EPREUVES_READ, Permission.EPREUVES_VALIDATE], <EpreuvesApprobation />)} />
+                      <Route path="/publicites" element={guarded(Permission.ADMIN_DASHBOARD_READ, <Publicites />)} />
+                      <Route path="/evenements" element={guarded(Permission.ADMIN_DASHBOARD_READ, <Evenements />)} />
+                      <Route path="/opportunites" element={guarded(Permission.ADMIN_DASHBOARD_READ, <Opportunites />)} />
+                      <Route path="/concours" element={guarded(Permission.CONCOURS_READ, <Concours />)} />
+                      <Route path="/concours/groupes" element={guarded(Permission.CONCOURS_READ, <ConcoursGrouped />)} />
+                      <Route path="/approbations/concours" element={guarded([Permission.CONCOURS_READ, Permission.CONCOURS_VALIDATE], <ConcoursAdmin />)} />
+                      <Route path="/examens-nationaux" element={guarded(Permission.EXAMENS_NATIONAUX_READ, <ExamensNationaux />)} />
+                      <Route path="/approbations/examens-nationaux" element={guarded([Permission.EXAMENS_NATIONAUX_READ, Permission.EXAMENS_NATIONAUX_VALIDATE], <ExamensNationauxApprobation />)} />
+                      <Route path="/types-examen" element={guarded(Permission.REFERENTIALS_READ, <TypesExamen />)} />
+                      <Route path="/series-examen" element={guarded(Permission.REFERENTIALS_READ, <SeriesExamen />)} />
+                      <Route path="/matieres-examen" element={guarded(Permission.REFERENTIALS_READ, <MatieresExamen />)} />
+                      <Route path="/filieres-examen" element={guarded(Permission.REFERENTIALS_READ, <FilieresExamen />)} />
+                      <Route path="/forums" element={guarded(Permission.ADMIN_DASHBOARD_READ, <Forums />)} />
+                      <Route path="/parcours" element={guarded(Permission.ADMIN_DASHBOARD_READ, <Parcours />)} />
+                      <Route path="/categories" element={guarded(Permission.REFERENTIALS_READ, <Categories />)} />
+                      <Route path="/types-profil" element={guarded(Permission.REFERENTIALS_READ, <TypesProfil />)} />
+                      <Route path="/types-profil/associations" element={guarded(Permission.REFERENTIALS_UPDATE, <TypeProfilAssociations />)} />
+                      <Route path="/structures" element={guarded(Permission.REFERENTIALS_READ, <Structures />)} />
+                      <Route path="/titres" element={guarded(Permission.REFERENTIALS_READ, <Titres />)} />
+                      <Route path="/departements" element={guarded(Permission.REFERENTIALS_READ, <Departements />)} />
+                      <Route path="/villes" element={guarded(Permission.REFERENTIALS_READ, <Villes />)} />
+                      <Route path="/contacts-professionnels" element={guarded(Permission.ADMIN_DASHBOARD_READ, <ContactsProfessionnels />)} />
                       <Route path="/settings" element={<Settings />} />
-                      <Route path="/notifications" element={<Notifications />} />
-                      <Route path="/admin/services" element={<ServicesAdmin />} />
-                      <Route path="/admin/offres" element={<OffresAdmin />} />
-                      <Route path="/admin/service-types" element={<ServiceTypesAdmin />} />
-                      <Route path="/app-versions" element={<AppVersions />} />
-                      <Route path="/parrainages" element={<Parrainages />} />
-                      <Route path="/appareils-partages" element={<AppareilsPartages />} />
-                      <Route path="/admin/recruteurs" element={<RecruteursAdmin />} />
-                      <Route path="/admin/competences" element={<CompetencesAdmin />} />
-                      <Route path="/indicateurs" element={<Indicateurs />} />
-                      <Route path="/statistiques-approbations" element={<StatistiquesApprobations />} />
-                      <Route path="/admin/retraits" element={<RetraitsWallet />} />
-                      <Route path="/admin/wallet-configuration" element={<ConfigurationWallet />} />
-                      <Route path="/enquetes" element={<EnquetesCampagnes />} />
-                      <Route path="/enquetes/nouveau" element={<EnquetesBuilder />} />
-                      <Route path="/enquetes/:uuid/edition" element={<EnquetesBuilder />} />
-                      <Route path="/enquetes/:uuid/resultats" element={<EnquetesResultats />} />
+                      <Route path="/notifications" element={guarded([Permission.NOTIFICATIONS_READ, Permission.NOTIFICATIONS_SEND], <Notifications />)} />
+                      <Route path="/admin/services" element={guarded(Permission.ADMIN_DASHBOARD_READ, <ServicesAdmin />)} />
+                      <Route path="/admin/offres" element={guarded(Permission.ADMIN_DASHBOARD_READ, <OffresAdmin />)} />
+                      <Route path="/admin/service-types" element={guarded(Permission.ADMIN_DASHBOARD_READ, <ServiceTypesAdmin />)} />
+                      <Route path="/app-versions" element={guarded(Permission.AUTHORIZATION_MANAGE, <AppVersions />)} />
+                      <Route path="/authorization" element={guarded(Permission.AUTHORIZATION_MANAGE, <Authorization />)} />
+                      <Route path="/parrainages" element={guarded(Permission.USERS_READ, <Parrainages />)} />
+                      <Route path="/appareils-partages" element={guarded(Permission.USERS_READ, <AppareilsPartages />)} />
+                      <Route path="/admin/recruteurs" element={guarded(Permission.ADMIN_DASHBOARD_READ, <RecruteursAdmin />)} />
+                      <Route path="/admin/competences" element={guarded(Permission.REFERENTIALS_READ, <CompetencesAdmin />)} />
+                      <Route path="/indicateurs" element={guarded(Permission.STATS_READ, <Indicateurs />)} />
+                      <Route path="/statistiques-approbations" element={guarded(Permission.STATS_READ, <StatistiquesApprobations />)} />
+                      <Route path="/admin/retraits" element={guarded(Permission.WALLET_WITHDRAWALS_READ, <RetraitsWallet />)} />
+                      <Route path="/admin/wallet-configuration" element={guarded(Permission.WALLET_CONFIGURATION_UPDATE, <ConfigurationWallet />)} />
+                      <Route path="/enquetes" element={guarded(Permission.ADMIN_DASHBOARD_READ, <EnquetesCampagnes />)} />
+                      <Route path="/enquetes/nouveau" element={guarded(Permission.ADMIN_DASHBOARD_READ, <EnquetesBuilder />)} />
+                      <Route path="/enquetes/:uuid/edition" element={guarded(Permission.ADMIN_DASHBOARD_READ, <EnquetesBuilder />)} />
+                      <Route path="/enquetes/:uuid/resultats" element={guarded(Permission.ADMIN_DASHBOARD_READ, <EnquetesResultats />)} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>

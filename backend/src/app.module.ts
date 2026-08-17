@@ -77,6 +77,7 @@ import { NotificationEmailModule } from './notification-email/notification-email
 import { BullModule } from '@nestjs/bullmq';
 import { CountryConfigModule } from './config/country-config.module';
 import { CountryMiddleware } from './config/country.middleware';
+import { AuthorizationModule } from './authorization/authorization.module';
 
 // pino-pretty is a devDependency, so it's absent from the prod-only Docker
 // runtime image (`npm install --only=production`). Only use the pretty
@@ -221,6 +222,7 @@ const prettyLogsAvailable = (() => {
     KpiModule,
     SubmissionsStatsModule,
     WalletModule,
+    AuthorizationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

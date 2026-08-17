@@ -12,8 +12,13 @@ import { useToast } from '../ui/use-toast';
 import { Progress } from '../ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { CheckCircle2, Clock } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Permission } from '@/lib/permissions';
 export function NotificationSender() {
     const { toast } = useToast();
+    const { hasPermission } = useAuth();
+    const canSendNotification = hasPermission(Permission.NOTIFICATIONS_SEND);
+    const canCancelNotification = hasPermission(Permission.NOTIFICATIONS_CANCEL);
     const [loading, setLoading] = useState(false);
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
@@ -250,7 +255,7 @@ export function NotificationSender() {
                                 size="sm" 
                                 className="w-full mt-2 h-8 text-xs text-destructive hover:bg-destructive/10"
                                 onClick={handleCancel}
-                                disabled={loading}
+                                disabled={loading || !canCancelNotification}
                             >
                                 Arrêter / Réinitialiser
                             </Button>
@@ -258,9 +263,9 @@ export function NotificationSender() {
                     </Alert>
                 )}
 
-                <Button className="w-full" onClick={handleSend} disabled={loading || !!activeJobId}>
+                <Button className="w-full" onClick={handleSend} disabled={loading || !!activeJobId || !canSendNotification}>
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                    {activeJobId ? "Batch en cours..." : "Lancer l'envoi"}
+                    {!canSendNotification ? "Droit d'envoi requis" : activeJobId ? "Batch en cours..." : "Lancer l'envoi"}
                 </Button>
             </CardFooter>
         </Card>

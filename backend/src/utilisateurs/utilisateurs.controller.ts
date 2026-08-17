@@ -8,7 +8,7 @@ import { MajUtilisateurDto } from './dto/maj-utilisateur.dto';
 import { UpdateProfilDto } from './dto/update-profil.dto';
 import { VerifyEmailDto, ValidateEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from './entities/utilisateur.entity';
 import { OwnerOrAdminGuard } from '../auth/guards/owner-or-admin.guard';
@@ -27,7 +27,7 @@ export class UtilisateursController {
 
 
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Get()
   @ApiOperation({ summary: 'Récupérer la liste des utilisateurs' })
@@ -42,7 +42,7 @@ export class UtilisateursController {
     return this.utilisateursService.findAll(pays, filterDto);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Get('appareils-partages')
   @ApiOperation({ summary: 'Comptes partageant un même token FCM (appareils partagés)' })
@@ -62,7 +62,7 @@ export class UtilisateursController {
     return this.utilisateursService.enrichUserComplete(profil);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Post()
   @ApiOperation({ summary: 'Créer un nouvel utilisateur (Admin)' })
@@ -71,7 +71,7 @@ export class UtilisateursController {
     return this.utilisateursService.inscription(pays, inscriptionDto);
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Post('backfill-referral-codes')
   @ApiOperation({ summary: 'Générer des codes de parrainage pour les utilisateurs existants qui n\'en ont pas (Admin)' })
@@ -80,7 +80,7 @@ export class UtilisateursController {
     return this.utilisateursService.generateMissingReferralCodes();
   }
 
-  @UseGuards(JwtAuthGuard, RoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @Post('backfill-uuids')
   @ApiOperation({ summary: 'Générer des UUIDs pour les utilisateurs existants qui n\'en ont pas (Admin)' })

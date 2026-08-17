@@ -34,8 +34,14 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/hooks/useAuth";
+import { Permission } from "@/lib/permissions";
 
 export default function CompetencesAdmin() {
+    const { hasPermission } = useAuth();
+    const canCreateReferential = hasPermission(Permission.REFERENTIALS_CREATE);
+    const canUpdateReferential = hasPermission(Permission.REFERENTIALS_UPDATE);
+    const canDeleteReferential = hasPermission(Permission.REFERENTIALS_DELETE);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [selectedCompetence, setSelectedCompetence] = useState<CompetenceItem | null>(null);
@@ -183,7 +189,7 @@ export default function CompetencesAdmin() {
 
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                     <DialogTrigger asChild>
-                        <Button onClick={resetForm}>
+                        <Button onClick={resetForm} disabled={!canCreateReferential}>
                             <Plus className="mr-2 h-4 w-4" />
                             Nouvelle Compétence
                         </Button>
@@ -244,7 +250,7 @@ export default function CompetencesAdmin() {
                                 Annuler
                             </Button>
                             <Button
-                                disabled={createFormList.some(r => !r.nom) || createMutation.isPending}
+                                disabled={!canCreateReferential || createFormList.some(r => !r.nom) || createMutation.isPending}
                                 onClick={() => createMutation.mutate(createFormList)}
                             >
                                 {createMutation.isPending && (
@@ -285,7 +291,7 @@ export default function CompetencesAdmin() {
                                 Annuler
                             </Button>
                             <Button
-                                disabled={!editFormData.nom || updateMutation.isPending}
+                                disabled={!canUpdateReferential || !editFormData.nom || updateMutation.isPending}
                                 onClick={() =>
                                     selectedCompetence &&
                                     updateMutation.mutate({
@@ -370,13 +376,14 @@ export default function CompetencesAdmin() {
                                             <Button
                                                 variant="outline"
                                                 size="icon"
+                                                disabled={!canUpdateReferential}
                                                 onClick={() => handleEditClick(competence)}
                                             >
                                                 <Pencil className="h-4 w-4 text-blue-500" />
                                             </Button>
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
-                                                    <Button variant="outline" size="icon" className="hover:bg-destructive hover:text-destructive-foreground">
+                                                    <Button variant="outline" size="icon" disabled={!canDeleteReferential} className="hover:bg-destructive hover:text-destructive-foreground">
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </AlertDialogTrigger>
