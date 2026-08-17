@@ -16,6 +16,7 @@ import { CreerSubmissionDto } from './dto/creer-submission.dto';
 import { ResoudreSubmissionDto } from './dto/resoudre-submission.dto';
 import { CreditWalletFromValidatedExamUseCase } from '../../wallet/wallet-balance/use-cases/credit-wallet-from-validated-exam.use-case';
 import { RewardSourceTypeCode } from '../../wallet/shared/payment.enums';
+import { KessiahService } from '../../kessiah/kessiah.service';
 
 @Injectable()
 export class EpreuveSubmissionsService {
@@ -26,6 +27,7 @@ export class EpreuveSubmissionsService {
     private readonly mailService: MailService,
     private readonly filesService: FilesService,
     private readonly creditWalletFromExam: CreditWalletFromValidatedExamUseCase,
+    private readonly kessiah: KessiahService,
   ) { }
 
   private get submissionsRepository(): Repository<EpreuveSubmission> {
@@ -524,6 +526,16 @@ export class EpreuveSubmissionsService {
     submission.status = ServiceStatusEnum.APPROVED;
     await this.submissionsRepository.save(submission);
 
+    // Faire lire l'épreuve par Kessiah, dès maintenant. C'est le point
+    // d'ingestion naturel : le document vient d'être promu, il ne changera
+    // plus, et l'OCR devient ainsi un coût de catalogue payé une fois pour
+    // toutes — au lieu d'un coût d'usage qui ferait attendre le premier
+    // étudiant plusieurs minutes. Best-effort et non bloquant, comme le crédit
+    // du wallet ci-dessous : Kessiah indisponible ne doit pas défaire une
+    // approbation.
+    this.sendToKessiah(savedEpreuve)
+      .catch(err => this.logger.error(`Lecture Kessiah non déclenchée (épreuve ${savedEpreuve.id}): ${err?.message ?? err}`));
+
     // Reward the uploader's wallet for the validated épreuve. Best-effort — a
     // failure here must not undo the approval. Idempotent: the use-case keys on
     // reference EXAM_REWARD:<uuid>, so re-approving never double-credits.
@@ -542,6 +554,33 @@ export class EpreuveSubmissionsService {
 
     this.logger.log(`Soumission #${id} approuvée → épreuve #${savedEpreuve.id} créée`);
     return { submission: this.toSubmissionResponse(submission), epreuve: savedEpreuve };
+  }
+
+  /**
+   * Transmet le PDF de l'épreuve à Kessiah pour qu'il en produise le texte.
+   *
+   * On récupère les octets depuis R2 et on les POSTe, plutôt que de passer une
+   * URL : au moment de l'approbation aucun jeton étudiant n'existe côté
+   * Kessiah pour télécharger lui-même, et lui faire suivre une URL fournie par
+   * l'appelant ouvrirait une porte à des requêtes sortantes arbitraires.
+   */
+  private async sendToKessiah(epreuve: Epreuve): Promise<void> {
+    if (!this.kessiah.enabled) return;
+
+    const { url } = await this.filesService.createDownloadUrl(
+      'epreuves', epreuve.uuid, 'file', epreuve.file_extension,
+    );
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`téléchargement R2 impossible (HTTP ${response.status})`);
+    }
+
+    await this.kessiah.requestExtraction({
+      epreuveId: epreuve.id,
+      epreuveUuid: epreuve.uuid,
+      pdf: new Uint8Array(await response.arrayBuffer()),
+      filename: `epreuve-${epreuve.uuid}.${epreuve.file_extension || 'pdf'}`,
+    });
   }
 
   // Admin decline: mark declined + email the uploader. Reason is logged only.
