@@ -36,13 +36,29 @@ export interface Transcription {
     tronque: boolean;
     exercices: TranscriptionExercice[];
     texte: string;
+    /**
+     * Découpe par page, pour l'affichage en regard du document. Vide quand le
+     * texte vient d'une couche PDF, extraite d'un bloc : il n'y a alors rien
+     * à apparier page par page.
+     */
+    pages: TranscriptionPage[];
+}
+
+export interface TranscriptionPage {
+    numero: number;
+    texte: string;
+    confidence: number | null;
 }
 
 /**
  * Ce qu'on relit : une épreuve déjà publiée, ou une soumission encore en
- * attente. Le second cas est le chemin nominal — la transcription est lancée
- * dès le dépôt, si bien qu'à l'ouverture de la file de modération elle est
- * prête, et l'admin valide le document et sa lecture d'un même geste.
+ * attente.
+ *
+ * Le second cas est le chemin nominal. La transcription part à l'ouverture de
+ * la file de modération, sans attendre l'approbation : le temps que l'admin
+ * descende jusqu'à une ligne, la lecture est prête, et il valide le document
+ * et sa transcription d'un même geste. L'attacher à l'approbation aurait
+ * imposé un second passage, qui n'aurait jamais eu lieu.
  */
 export type TranscriptionTarget =
     | { kind: 'epreuve'; id: number | string }
@@ -74,5 +90,71 @@ export const kessiahService = {
         review: { statut: 'valide' | 'rejete'; texte?: string },
     ): Promise<{ epreuve_id: string; statut: TranscriptionStatut }> {
         return api.patch(targetPath(target), review);
+    },
+};
+
+/** Une ligne de l'inventaire des transcriptions. */
+export interface ExtractionRow {
+    epreuve_id: string;
+    epreuve_uuid: string | null;
+    statut: TranscriptionStatut;
+    source: 'text_layer' | 'ocr';
+    pages_pretes: number;
+    pages_total: number | null;
+    confidence: number | null;
+    lisible: boolean;
+    tronque: boolean;
+    exercices: number;
+    caracteres: number;
+    mis_a_jour: string | null;
+}
+
+export interface ExtractionStats {
+    total: number;
+    par_statut: Record<TranscriptionStatut, number>;
+    par_source: Record<'text_layer' | 'ocr', number>;
+    /**
+     * `lisibles + illisibles + en_cours = total`. Une lecture en cours n'est
+     * comptée d'aucun des deux côtés : la classer avant la fin serait un
+     * jugement prématuré, et ferait clignoter le tableau à chaque dépôt.
+     */
+    lisibles: number;
+    illisibles: number;
+    en_cours: number;
+    tronques: number;
+    pages_transcrites: number;
+    confiance_moyenne: number | null;
+}
+
+export interface ExtractionListe {
+    data: ExtractionRow[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
+
+export const ketsiaInventaireService = {
+    async liste(params: {
+        statut?: string;
+        lisible?: boolean;
+        source?: string;
+        recherche?: string;
+        page?: number;
+        limit?: number;
+    } = {}): Promise<ExtractionListe> {
+        const qs = new URLSearchParams();
+        if (params.statut) qs.append('statut', params.statut);
+        if (params.lisible !== undefined) qs.append('lisible', String(params.lisible));
+        if (params.source) qs.append('source', params.source);
+        if (params.recherche) qs.append('recherche', params.recherche);
+        if (params.page) qs.append('page', String(params.page));
+        if (params.limit) qs.append('limit', String(params.limit));
+        const suffixe = qs.toString() ? `?${qs}` : '';
+        return api.get<ExtractionListe>(`/kessiah/epreuves/extractions${suffixe}`);
+    },
+
+    async stats(): Promise<ExtractionStats> {
+        return api.get<ExtractionStats>('/kessiah/epreuves/extractions/stats');
     },
 };

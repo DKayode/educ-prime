@@ -73,6 +73,29 @@ export const filesService = {
     },
 
     /**
+     * Les octets du fichier, servis par notre API plutôt que par R2.
+     *
+     * Une URL présignée suffit à OUVRIR un document dans un onglet — une
+     * navigation n'est pas soumise au CORS. Elle ne suffit pas à l'AFFICHER
+     * dans la page : le lecteur PDF télécharge en `fetch`, que le navigateur
+     * bloque faute d'en-tête `Access-Control-Allow-Origin` sur le bucket.
+     *
+     * Le relais passe par `api.download`, qui joint le jeton d'authentification
+     * — la route est protégée, un `fetch` nu de react-pdf recevrait un 401.
+     *
+     * Renvoie null si aucun fichier n'est enregistré : l'appelant dégrade vers
+     * la seule transcription au lieu de bloquer l'écran.
+     */
+    async getContentBlob(entity: string, uuid: string, slot: Slot): Promise<Blob | null> {
+        try {
+            return await api.download(`/files/${entity}/${uuid}/${slot}/content`);
+        } catch (err: any) {
+            if (err?.statusCode === 404) return null;
+            throw err;
+        }
+    },
+
+    /**
      * One-shot upload via the server-proxied endpoint: POST the file as
      * multipart/form-data; the backend streams it to R2 and returns the stored
      * path. Throws if the upload fails.

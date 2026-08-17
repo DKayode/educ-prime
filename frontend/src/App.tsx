@@ -31,6 +31,7 @@ import Villes from "./pages/Villes";
 import Settings from "./pages/Settings";
 import ServicesAdmin from "./pages/ServicesAdmin";
 import EpreuvesApprobation from "./pages/EpreuvesApprobation";
+import KetsiaTranscriptions from "./pages/KetsiaTranscriptions";
 import ExamensNationaux from "./pages/ExamensNationaux";
 import ExamensNationauxApprobation from "./pages/ExamensNationauxApprobation";
 import TypesExamen from "./pages/TypesExamen";
@@ -86,6 +87,7 @@ const App = () => (
                       <Route path="/matieres" element={<Matieres />} />
                       <Route path="/niveaux" element={<Niveaux />} />
                       <Route path="/epreuves" element={<Epreuves />} />
+                      <Route path="/ketsia/transcriptions" element={<KetsiaTranscriptions />} />
                       <Route path="/approbations/epreuves" element={<EpreuvesApprobation />} />
                       <Route path="/publicites" element={<Publicites />} />
                       <Route path="/evenements" element={<Evenements />} />

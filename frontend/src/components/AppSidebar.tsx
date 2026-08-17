@@ -40,6 +40,8 @@ import {
   Map,
   MapPin,
   ClipboardList,
+  Sparkles,
+  ScanText,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -110,6 +112,16 @@ const navTree: NavItem[] = [
           { title: "Titres", icon: Award, url: "/titres" },
         ],
       },
+    ],
+  },
+  {
+    // Ketsia est le nom public de l'assistante ; le code, lui, parle toujours
+    // de Kessiah — renommer les modules aurait cassé l'intégration pour un
+    // gain nul, l'utilisateur ne lisant que ces libellés.
+    title: "Ketsia",
+    icon: Sparkles,
+    children: [
+      { title: "Lectures d'épreuves", icon: ScanText, url: "/ketsia/transcriptions" },
     ],
   },
   {

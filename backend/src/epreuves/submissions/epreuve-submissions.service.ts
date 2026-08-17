@@ -274,7 +274,15 @@ export class EpreuveSubmissionsService {
     const qb = this.baseSubmissionQuery()
       .leftJoinAndSelect('submission.soumis_par', 'soumis_par')
       .where('submission.pays = :pays', { pays })
-      .orderBy('submission.date_creation', 'ASC')
+      // Du plus récent au plus ancien. En ASC, un dépôt du jour atterrissait
+      // sur la DERNIÈRE page de la file : l'admin ne le voyait pas arriver, et
+      // concluait à une soumission perdue.
+      //
+      // Le tri décide aussi de ce que Kessiah lit : prepareTranscriptions ne
+      // traite que les lignes de la page affichée. En ASC, les dépôts récents
+      // n'étaient donc transcrits qu'une fois l'admin descendu jusqu'à eux —
+      // c'est-à-dire jamais, tant que la file n'était pas vidée par le début.
+      .orderBy('submission.date_creation', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -315,6 +323,61 @@ export class EpreuveSubmissionsService {
    * plutôt qu'en parallèle — rien ne presse, et une rafale de téléchargements
    * R2 pour une simple ouverture de page serait disproportionnée.
    */
+  /**
+   * Refuse l'approbation tant que la transcription n'a pas été tranchée.
+   *
+   * Publier une épreuve dont Ketsia n'a pas encore lu le contenu, c'est
+   * publier quelque chose dont personne ne sait si l'assistante saura
+   * l'exploiter. Et une transcription relue APRÈS publication ne l'est
+   * jamais : l'admin est déjà passé à la file suivante.
+   *
+   * Le rejet est une décision valable — il signifie « ce scan est
+   * inexploitable, l'épreuve reste consultable mais Ketsia n'y touchera
+   * pas ». Seule l'absence de décision bloque.
+   *
+   * Si l'intégration Kessiah n'est pas configurée, cette règle ne s'applique
+   * pas : elle transformerait une dépendance optionnelle en dépendance dure,
+   * et une panne du service annexe empêcherait toute modération.
+   */
+  private async assertTranscriptionReviewed(submission: EpreuveSubmission): Promise<void> {
+    if (!this.kessiah.enabled) return;
+
+    const cle = kessiahStagingKey(submission.uuid);
+    let etat: Record<string, KessiahExtractionState>;
+    try {
+      etat = await this.kessiah.getStates([cle]);
+    } catch (err: any) {
+      // Kessiah injoignable : on n'immobilise pas la modération pour autant.
+      this.logger.warn(
+        `État de transcription indisponible (soumission ${submission.id}), approbation autorisée : ${err?.message ?? err}`,
+      );
+      return;
+    }
+
+    const transcription = etat[cle];
+    if (!transcription) {
+      throw new BadRequestException(
+        "Ketsia n'a pas encore lu ce document. Sa lecture démarre à l'ouverture de la file " +
+        "et prend quelques secondes pour un PDF, quelques minutes pour un scan. " +
+        "Patientez, puis relisez la transcription avant d'approuver.",
+      );
+    }
+    if (transcription.statut === 'en_cours') {
+      const sur = transcription.pages_total ? ` sur ${transcription.pages_total}` : '';
+      throw new BadRequestException(
+        `Lecture en cours : ${transcription.pages_pretes} page(s)${sur} transcrite(s). ` +
+        "Attendez la fin, puis relisez la transcription avant d'approuver.",
+      );
+    }
+    if (transcription.statut !== 'valide' && transcription.statut !== 'rejete') {
+      throw new BadRequestException(
+        "La transcription de ce document n'a pas encore été relue. Ouvrez-la, comparez-la " +
+        "au document, puis validez-la — ou rejetez-la si elle est inexploitable. " +
+        "Sans ce verdict, Ketsia s'interdira d'affirmer une correction sur cette épreuve.",
+      );
+    }
+  }
+
   private async prepareTranscriptions(
     rows: EpreuveSubmission[],
     states: Record<string, KessiahExtractionState>,
@@ -521,6 +584,8 @@ export class EpreuveSubmissionsService {
         "Aucun fichier attaché — la soumission doit contenir le fichier de l'épreuve avant approbation.",
       );
     }
+
+    await this.assertTranscriptionReviewed(submission);
 
     // Safety net: never mint a duplicate real épreuve if one already exists for
     // the same matière + année + section (titre exclu — il est déterministe).

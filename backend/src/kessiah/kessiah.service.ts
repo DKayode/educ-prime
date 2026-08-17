@@ -22,8 +22,13 @@ import { ConfigService } from '@nestjs/config';
  *
  * L'épreuve réelle — et donc son identifiant — n'existe qu'à l'approbation.
  * Transcrire dès le dépôt suppose donc une clé intermédiaire, remplacée par
- * l'identifiant définitif via `adoptTranscription`. Le préfixe évite toute
- * collision avec un identifiant d'épreuve, qui est numérique.
+ * l'identifiant définitif via `adoptTranscription`. Le préfixe garantit
+ * l'absence de collision avec un identifiant d'épreuve.
+ *
+ * L'espace d'identifiants de Kessiah est donc fait de CHAÎNES, non d'entiers :
+ * les routes de relecture ne peuvent pas imposer un identifiant numérique,
+ * sous peine de rejeter en 400 les soumissions et les épreuves héritées dont
+ * l'identifiant ne l'est pas.
  */
 export function kessiahStagingKey(submissionUuid: string): string {
     return `submission:${submissionUuid}`;
@@ -79,7 +84,7 @@ export class KessiahService {
 
         try {
             const response = await this.fetchWithTimeout(
-                `${this.baseUrl}/service/epreuves/${params.epreuveId}/extract${query}`,
+                `${this.baseUrl}/service/epreuves/${encodeURIComponent(String(params.epreuveId))}/extract${query}`,
                 { method: 'POST', headers: { 'X-Service-Key': this.serviceKey }, body: form },
             );
             if (!response.ok) {
@@ -112,7 +117,7 @@ export class KessiahService {
         if (!this.enabled) return false;
         try {
             const response = await this.fetchWithTimeout(
-                `${this.baseUrl}/service/epreuves/${epreuveId}/adopt`,
+                `${this.baseUrl}/service/epreuves/${encodeURIComponent(String(epreuveId))}/adopt`,
                 {
                     method: 'POST',
                     headers: { 'X-Service-Key': this.serviceKey, 'Content-Type': 'application/json' },
@@ -164,7 +169,7 @@ export class KessiahService {
     async getTranscription(epreuveId: number | string): Promise<KessiahTranscription | null> {
         this.assertEnabled();
         const response = await this.fetchWithTimeout(
-            `${this.baseUrl}/service/epreuves/${epreuveId}/extraction`,
+            `${this.baseUrl}/service/epreuves/${encodeURIComponent(String(epreuveId))}/extraction`,
             { method: 'GET', headers: { 'X-Service-Key': this.serviceKey } },
         );
         if (response.status === 404) return null;
@@ -189,7 +194,7 @@ export class KessiahService {
     ): Promise<KessiahReviewResult> {
         this.assertEnabled();
         const response = await this.fetchWithTimeout(
-            `${this.baseUrl}/service/epreuves/${epreuveId}/extraction`,
+            `${this.baseUrl}/service/epreuves/${encodeURIComponent(String(epreuveId))}/extraction`,
             {
                 method: 'PATCH',
                 headers: { 'X-Service-Key': this.serviceKey, 'Content-Type': 'application/json' },
@@ -202,6 +207,58 @@ export class KessiahService {
             );
         }
         return (await response.json()) as KessiahReviewResult;
+    }
+
+    /**
+     * Inventaire des transcriptions, pour le tableau de bord Ketsia.
+     *
+     * Kessiah ne connaît des épreuves que leur identifiant : les titres,
+     * matières et niveaux vivent ici. L'appelant joint donc lui-même les deux
+     * jeux — répliquer le catalogue d'Edukia dans Kessiah créerait deux
+     * vérités à maintenir.
+     */
+    async listExtractions(params: {
+        statut?: string;
+        lisible?: boolean;
+        source?: string;
+        recherche?: string;
+        page?: number;
+        limit?: number;
+    }): Promise<KessiahExtractionList> {
+        this.assertEnabled();
+        const qs = new URLSearchParams();
+        if (params.statut) qs.append('statut', params.statut);
+        if (params.lisible !== undefined) qs.append('lisible', String(params.lisible));
+        if (params.source) qs.append('source', params.source);
+        if (params.recherche) qs.append('recherche', params.recherche);
+        if (params.page) qs.append('page', String(params.page));
+        if (params.limit) qs.append('limit', String(params.limit));
+
+        const response = await this.fetchWithTimeout(
+            `${this.baseUrl}/service/extractions${qs.toString() ? `?${qs}` : ''}`,
+            { method: 'GET', headers: { 'X-Service-Key': this.serviceKey } },
+        );
+        if (!response.ok) {
+            throw new ServiceUnavailableException(
+                `Kessiah a répondu ${response.status} pour l'inventaire des transcriptions.`,
+            );
+        }
+        return (await response.json()) as KessiahExtractionList;
+    }
+
+    /** Compteurs du tableau de bord : statuts, sources, lisibilité, volume. */
+    async getStatistics(): Promise<KessiahExtractionStats> {
+        this.assertEnabled();
+        const response = await this.fetchWithTimeout(
+            `${this.baseUrl}/service/extractions/stats`,
+            { method: 'GET', headers: { 'X-Service-Key': this.serviceKey } },
+        );
+        if (!response.ok) {
+            throw new ServiceUnavailableException(
+                `Kessiah a répondu ${response.status} pour les statistiques de transcription.`,
+            );
+        }
+        return (await response.json()) as KessiahExtractionStats;
     }
 
     private assertEnabled(): void {
@@ -246,10 +303,47 @@ export interface KessiahTranscription {
     tronque: boolean;
     exercices: Array<{ index: number; title: string; start: number; end: number }>;
     texte: string;
+    /** Découpe par page, pour l'affichage côte à côte. Vide pour une couche texte. */
+    pages: Array<{ numero: number; texte: string; confidence: number | null }>;
 }
 
 export interface KessiahReviewResult {
     epreuve_id: string;
     statut: string;
     exercices: Array<{ index: number; title: string }>;
+}
+
+export interface KessiahExtractionRow {
+    epreuve_id: string;
+    epreuve_uuid: string | null;
+    statut: string;
+    source: string;
+    pages_pretes: number;
+    pages_total: number | null;
+    confidence: number | null;
+    lisible: boolean;
+    tronque: boolean;
+    exercices: number;
+    caracteres: number;
+    mis_a_jour: string | null;
+}
+
+export interface KessiahExtractionList {
+    data: KessiahExtractionRow[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
+
+export interface KessiahExtractionStats {
+    total: number;
+    par_statut: Record<string, number>;
+    par_source: Record<string, number>;
+    lisibles: number;
+    illisibles: number;
+    en_cours: number;
+    tronques: number;
+    pages_transcrites: number;
+    confiance_moyenne: number | null;
 }

@@ -9,7 +9,9 @@ import {
     UseGuards,
     UseInterceptors,
     BadRequestException,
+    Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
     ApiBearerAuth,
@@ -143,6 +145,36 @@ export class FilesController {
     ) {
         if (!file) throw new BadRequestException('Missing file (field name: "file").');
         return this.filesService.proxyUpload(entity, uuid, slot, file);
+    }
+
+    @Get(':entity/:uuid/:slot/content')
+    @ApiOperation({
+        summary: 'Sert les octets du fichier depuis cette API (contourne le CORS du bucket)',
+        description:
+            "Même cible que /download-url, mais les octets transitent par l'API au lieu " +
+            "d'être lus directement sur R2. Une URL présignée suffit à OUVRIR un document " +
+            "dans un onglet, pas à le LIRE depuis la page : un lecteur PDF télécharge en " +
+            "fetch, que le navigateur bloque faute d'en-tête CORS sur le bucket. Ce relais " +
+            "évite d'avoir à maintenir une liste blanche d'origines chez Cloudflare.",
+    })
+    @ApiParam({ name: 'entity', example: 'epreuve_submissions', enum: KNOWN_ENTITIES, description: ENTITY_PARAM_DESC })
+    @ApiParam({ name: 'uuid', description: 'UUID of the row that owns the file' })
+    @ApiParam({ name: 'slot', example: 'file', enum: KNOWN_SLOTS, description: SLOT_PARAM_DESC })
+    @ApiQuery({ name: 'extension', required: false, description: 'Requis pour les slots virtuels.' })
+    async streamContent(
+        @Param('entity') entity: string,
+        @Param('uuid') uuid: string,
+        @Param('slot') slot: string,
+        @Res() res: Response,
+        @Query('extension') extension?: string,
+    ) {
+        const fichier = await this.filesService.downloadBytes(entity, uuid, slot, extension);
+        res.setHeader('Content-Type', fichier.contentType);
+        // `inline` : le document doit s'afficher dans le lecteur intégré, pas
+        // déclencher un téléchargement.
+        res.setHeader('Content-Disposition', `inline; filename="${fichier.filename}"`);
+        res.setHeader('Content-Length', String(fichier.body.length));
+        res.send(fichier.body);
     }
 
     @Get(':entity/:uuid/:slot/download-url')

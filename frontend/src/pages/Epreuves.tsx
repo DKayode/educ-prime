@@ -700,7 +700,7 @@ export default function Epreuves() {
                             size="icon"
                             className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
                             onClick={() => setReviewEpreuve({ id: epreuve.id, titre: epreuve.titre })}
-                            title="Relire la transcription lue par Kessiah"
+                            title="Relire la transcription lue par Ketsia"
                           >
                             <ScanText className="h-4 w-4" />
                           </Button>

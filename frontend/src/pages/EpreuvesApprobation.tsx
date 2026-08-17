@@ -592,7 +592,7 @@ export default function EpreuvesApprobation() {
                                                                 <Button
                                                                     variant="ghost" size="icon"
                                                                     onClick={() => setReviewTarget({ uuid: sub.uuid, titre: sub.titre })}
-                                                                    title="Relire ce que Kessiah lit du document"
+                                                                    title="Relire ce que Ketsia lit du document"
                                                                     disabled={!hasFile}
                                                                 >
                                                                     <ScanText className={`h-4 w-4 ${sub.transcription?.statut === 'valide' ? 'text-emerald-600' : 'text-muted-foreground'}`} />
@@ -677,6 +677,10 @@ export default function EpreuvesApprobation() {
                 titre={reviewTarget?.titre}
                 open={reviewTarget !== null}
                 onOpenChange={(open) => !open && setReviewTarget(null)}
+                // L'approbation est refusée tant que la transcription n'est pas
+                // tranchée : sans ce rafraîchissement, la ligne garderait son
+                // ancien état et le bouton Approuver continuerait d'échouer.
+                onDecision={() => queryClient.invalidateQueries({ queryKey: ['admin-submissions'] })}
             />
         </div>
     );

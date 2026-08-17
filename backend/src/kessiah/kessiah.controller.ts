@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, NotFoundException, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Patch, NotFoundException, Query, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -27,13 +27,55 @@ export class KessiahController {
 
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)
+    @Get('extractions/stats')
+    @ApiOperation({ summary: 'Compteurs du tableau de bord Ketsia : statuts, lisibilité, volume' })
+    async statistics() {
+        return this.kessiah.getStatistics();
+    }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(RoleType.ADMIN)
+    @Get('extractions')
+    @ApiOperation({
+        summary:
+            "Inventaire des transcriptions. `statut` accepte plusieurs valeurs séparées par des virgules.",
+    })
+    @ApiQuery({ name: 'statut', required: false, description: 'en_cours | extrait | valide | rejete' })
+    @ApiQuery({ name: 'lisible', required: false, type: Boolean })
+    @ApiQuery({ name: 'source', required: false, description: 'text_layer | ocr' })
+    @ApiQuery({ name: 'recherche', required: false })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    async listExtractions(
+        @Query('statut') statut?: string,
+        @Query('lisible') lisible?: string,
+        @Query('source') source?: string,
+        @Query('recherche') recherche?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+    ) {
+        return this.kessiah.listExtractions({
+            statut,
+            // Une chaîne vide ou absente doit valoir « pas de filtre », pas
+            // « lisible = false » : `Boolean('false')` vaut true, d'où la
+            // comparaison explicite.
+            lisible: lisible === undefined || lisible === '' ? undefined : lisible === 'true',
+            source,
+            recherche,
+            page: page ? parseInt(page, 10) : undefined,
+            limit: limit ? parseInt(limit, 10) : undefined,
+        });
+    }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(RoleType.ADMIN)
     @Get(':id/transcription')
     @ApiOperation({
         summary:
             "Transcription d'une épreuve, à relire en regard du document. 404 si Kessiah n'a pas encore lu l'épreuve.",
     })
     @ApiResponse({ status: 200, description: 'Texte, découpage en exercices, état et confiance' })
-    async getTranscription(@Param('id', ParseIntPipe) id: number) {
+    async getTranscription(@Param('id') id: string) {
         const transcription = await this.kessiah.getTranscription(id);
         if (!transcription) {
             throw new NotFoundException(
@@ -86,7 +128,7 @@ export class KessiahController {
     })
     @ApiResponse({ status: 200, description: 'Nouvel état et découpage recalculé' })
     async reviewTranscription(
-        @Param('id', ParseIntPipe) id: number,
+        @Param('id') id: string,
         @Body() dto: ReviewTranscriptionDto,
     ) {
         return this.kessiah.reviewTranscription(id, {

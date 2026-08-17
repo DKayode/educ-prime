@@ -428,6 +428,48 @@ export class FilesService {
      * straight to R2 with a normal PutObject. Same bucket-routing rules as
      * createUploadUrl.
      */
+    /**
+     * Renvoie les octets du fichier, servis par NOTRE origine.
+     *
+     * Une URL présignée R2 suffit à OUVRIR un document dans un onglet — une
+     * navigation n'est pas soumise au CORS. Elle ne suffit pas à le LIRE depuis
+     * la page : un lecteur PDF télécharge les octets en `fetch`, que le
+     * navigateur bloque tant que le bucket ne renvoie pas d'en-tête
+     * `Access-Control-Allow-Origin` pour l'origine du back-office.
+     *
+     * Relayer côté serveur plutôt que d'ouvrir le CORS du bucket : le
+     * back-office fonctionne alors depuis n'importe quelle origine — poste de
+     * développement, préproduction, production — sans qu'une liste blanche
+     * hébergée chez Cloudflare ait à suivre, et sans que l'URL signée quitte
+     * le serveur.
+     *
+     * On réutilise `createDownloadUrl` plutôt que de recalculer la clé : la
+     * résolution d'un slot a plusieurs branches (virtuel, colonne en base), et
+     * les dupliquer ici les ferait diverger à la première évolution.
+     */
+    async downloadBytes(
+        entity: string,
+        uuid: string,
+        slot: string,
+        rawExtension?: string,
+    ): Promise<{ body: Buffer; contentType: string; filename: string }> {
+        const presigned = await this.createDownloadUrl(entity, uuid, slot, rawExtension);
+        const extension = presigned.extension ?? rawExtension ?? 'bin';
+
+        const response = await fetch(presigned.url);
+        if (!response.ok) {
+            throw new NotFoundException(
+                `Objet introuvable sur le stockage pour ${entity}/${uuid}/${slot} (HTTP ${response.status}).`,
+            );
+        }
+
+        return {
+            body: Buffer.from(await response.arrayBuffer()),
+            contentType: MIME_BY_EXT[extension] ?? 'application/octet-stream',
+            filename: `${entity}-${uuid}-${slot}.${extension}`,
+        };
+    }
+
     async proxyUpload(
         entity: string,
         uuid: string,
