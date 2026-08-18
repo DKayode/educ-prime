@@ -1,10 +1,11 @@
 import {
-    Injectable,
-    Inject,
-    NotFoundException,
     BadRequestException,
+    Inject,
+    Injectable,
     InternalServerErrorException,
     Logger,
+    NotFoundException,
+    ServiceUnavailableException,
 } from '@nestjs/common';
 import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -58,6 +59,9 @@ export class FilesService {
     private readonly publicBucket: string;
     private readonly publicBaseUrl: string;
     private readonly downloadTtlSeconds: number;
+
+    /** Au-delà, on rend la main : un back-office figé est pire qu'une erreur. */
+    private static readonly DOWNLOAD_TIMEOUT_MS = 30_000;
 
     constructor(
         @InjectDataSource() private readonly dataSource: DataSource,
@@ -456,7 +460,26 @@ export class FilesService {
         const presigned = await this.createDownloadUrl(entity, uuid, slot, rawExtension);
         const extension = presigned.extension ?? rawExtension ?? 'bin';
 
-        const response = await fetch(presigned.url);
+        // `fetch` enveloppe toute panne réseau dans un « fetch failed » muet et
+        // range le motif réel dans `cause` : sans ce dépaquetage, un DNS, un
+        // refus TCP ou un certificat expiré se ressemblent tous, et remontent
+        // en 500 opaque.
+        //
+        // Le délai est explicite : sans lui, un stockage qui ne répond pas
+        // laisse la requête pendante plusieurs minutes, et l'admin conclut à
+        // un back-office figé.
+        let response: Response;
+        try {
+            response = await fetch(presigned.url, {
+                signal: AbortSignal.timeout(FilesService.DOWNLOAD_TIMEOUT_MS),
+            });
+        } catch (err: any) {
+            const motif = err?.cause?.code ?? err?.cause?.message ?? err?.message ?? 'inconnu';
+            throw new ServiceUnavailableException(
+                `Stockage injoignable pour ${entity}/${uuid}/${slot} : ${motif}.`,
+            );
+        }
+
         if (!response.ok) {
             throw new NotFoundException(
                 `Objet introuvable sur le stockage pour ${entity}/${uuid}/${slot} (HTTP ${response.status}).`,
