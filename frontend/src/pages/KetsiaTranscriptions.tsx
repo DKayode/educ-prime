@@ -126,6 +126,75 @@ function Tuile({
     );
 }
 
+/**
+ * Les deux gestes possibles sur une ligne — relire, relancer — et leur mise en
+ * sommeil pendant que Ketsia lit.
+ *
+ * Une lecture en cours n'a rien à montrer : le texte s'écrit page par page et
+ * aucun verdict n'est rendu. La relancer serait pire que vain — `relire` efface
+ * la ligne et repart de zéro, donc jetterait le travail en train de se faire,
+ * et sur un scan le referait payer à la page.
+ *
+ * Les deux boutons sont donc inertes, et l'icône de relance tourne. C'est ce
+ * qui distingue d'un coup d'œil, dans un tableau où toutes les lignes se
+ * ressemblent, ce que Ketsia est EN TRAIN de lire de ce qu'elle a fini de lire.
+ * La même rotation couvre le court instant entre le clic sur « relancer » et
+ * la réapparition de la ligne en `en_cours` : l'admin ne voit pas l'icône
+ * s'arrêter puis repartir.
+ */
+function ActionsLecture({
+    row,
+    relanceDemandee,
+    onOuvrir,
+    onRelancer,
+}: {
+    row: ExtractionRow;
+    relanceDemandee: boolean;
+    onOuvrir: () => void;
+    onRelancer: () => void;
+}) {
+    const enLecture = row.statut === "en_cours";
+    const relanceSuspendue = enLecture || relanceDemandee;
+
+    return (
+        <div className="flex justify-end gap-1">
+            {/* Le `title` est porté par un span : les navigateurs n'affichent
+                pas l'infobulle d'un bouton désactivé, qui ne reçoit plus
+                d'évènement de survol. Or c'est précisément là qu'il faut
+                expliquer pourquoi le geste est indisponible. */}
+            <span
+                title={
+                    enLecture
+                        ? "Lecture en cours — il n'y a pas encore de texte à relire"
+                        : "Relire la transcription"
+                }
+            >
+                <Button variant="ghost" size="icon" onClick={onOuvrir} disabled={enLecture}>
+                    <Eye className="h-4 w-4" />
+                </Button>
+            </span>
+            <span
+                title={
+                    enLecture
+                        ? "Lecture en cours — la relance redeviendra possible une fois terminée"
+                        : relanceDemandee
+                            ? "Relance demandée…"
+                            : "Relancer la lecture — efface la lecture actuelle et son verdict"
+                }
+            >
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onRelancer}
+                    disabled={relanceSuspendue}
+                >
+                    <RefreshCw className={`h-4 w-4 ${relanceSuspendue ? "animate-spin" : ""}`} />
+                </Button>
+            </span>
+        </div>
+    );
+}
+
 export default function KetsiaTranscriptions() {
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -521,22 +590,12 @@ export default function KetsiaTranscriptions() {
                                                     {row.exercices || <span className="text-muted-foreground">—</span>}
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-1">
-                                                        <Button variant="ghost" size="icon" onClick={() => ouvrir(row)} title="Relire la transcription">
-                                                            <Eye className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => demanderRelecture(row)}
-                                                            disabled={relectureEnCours === row.epreuve_id}
-                                                            title="Relancer la lecture — efface la lecture actuelle et son verdict"
-                                                        >
-                                                            <RefreshCw
-                                                                className={`h-4 w-4 ${relectureEnCours === row.epreuve_id ? "animate-spin" : ""}`}
-                                                            />
-                                                        </Button>
-                                                    </div>
+                                                    <ActionsLecture
+                                                        row={row}
+                                                        relanceDemandee={relectureEnCours === row.epreuve_id}
+                                                        onOuvrir={() => ouvrir(row)}
+                                                        onRelancer={() => demanderRelecture(row)}
+                                                    />
                                                 </TableCell>
                                             </TableRow>
                                         ))}
