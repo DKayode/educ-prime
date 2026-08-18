@@ -150,6 +150,36 @@ export class KessiahService {
      * modération. Renvoie une table vide en cas d'échec : l'écran doit
      * s'afficher même si Kessiah ne répond pas.
      */
+    /**
+     * Comme [getStates], mais distingue « rien à signaler » de « je n'ai pas pu
+     * demander » : rend `null` quand Kessiah est injoignable ou désactivé.
+     *
+     * La nuance décide d'une action. Une épreuve absente d'une réponse REÇUE
+     * n'a jamais été lue, et mérite qu'on lance sa lecture ; la même absence
+     * dans une réponse JAMAIS OBTENUE ne dit rien du tout, et lancer une
+     * lecture sur cette base rejouerait une transcription déjà faite. Les deux
+     * cas donnaient la même table vide.
+     */
+    async getStatesOrUnknown(
+        ids: Array<number | string>,
+    ): Promise<Record<string, KessiahExtractionState> | null> {
+        if (!this.enabled) return null;
+        if (ids.length === 0) return {};
+        try {
+            const response = await this.fetchWithTimeout(`${this.baseUrl}/service/extractions/states`, {
+                method: 'POST',
+                headers: { 'X-Service-Key': this.serviceKey, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ epreuve_ids: ids.map(String) }),
+            });
+            if (!response.ok) return null;
+            const body = (await response.json()) as { etats?: Record<string, KessiahExtractionState> };
+            return body?.etats ?? {};
+        } catch (err: any) {
+            this.logger.warn(`États de lecture indisponibles: ${err?.message ?? err}`);
+            return null;
+        }
+    }
+
     async getStates(ids: Array<number | string>): Promise<Record<string, KessiahExtractionState>> {
         if (!this.enabled || ids.length === 0) return {};
         try {
