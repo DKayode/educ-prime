@@ -52,8 +52,9 @@ import {
     RefreshCw,
 } from "lucide-react";
 import { TranscriptionReviewDialog } from "@/components/TranscriptionReviewDialog";
-import {
 import { useToast } from "@/hooks/use-toast";
+import {
+    kessiahService,
     ketsiaInventaireService,
     type ExtractionRow,
     type TranscriptionStatut,

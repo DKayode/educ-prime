@@ -22,6 +22,14 @@ export interface TranscriptionExercice {
 
 export interface Transcription {
     epreuve_id: string;
+    /**
+     * UUID de l'épreuve côté Edukia, `null` pour une soumission.
+     *
+     * Le stockage objet est indexé par UUID, pas par identifiant numérique :
+     * c'est la seule clé permettant de retrouver le FICHIER d'une épreuve
+     * publiée, et donc d'afficher le document en regard de sa transcription.
+     */
+    epreuve_uuid: string | null;
     statut: TranscriptionStatut;
     /** `text_layer` : lue directement dans le PDF. `ocr` : transcrite d'un scan. */
     source: 'text_layer' | 'ocr';
