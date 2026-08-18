@@ -10,12 +10,41 @@ import { CreateExamenNationalDto } from './dto/create-examen-national.dto';
 import { UpdateExamenNationalDto } from './dto/update-examen-national.dto';
 import { FilterExamenNationalDto } from './dto/filter-examen-national.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
+import { KessiahService, KessiahExtractionState, kessiahNationalKey } from '../kessiah/kessiah.service';
+
+/** État de lecture joint à un examen, ou le constat qu'il n'y en a pas. */
+type EtatDeLecture = KessiahExtractionState | { statut: 'absent' };
 
 @Injectable()
 export class ExamensNationauxService {
     private readonly logger = new Logger(ExamensNationauxService.name);
 
-    constructor(private readonly resolver: DataSourceResolver) { }
+    constructor(
+        private readonly resolver: DataSourceResolver,
+        private readonly kessiah: KessiahService,
+    ) { }
+
+    /**
+     * Joint à chaque examen ce que Ketsia en sait déjà — même champ, mêmes
+     * trois valeurs que sur les épreuves (voir EpreuvesService).
+     *
+     * La clé interrogée est PRÉFIXÉE : l'examen 10 se lit sous `national:10`,
+     * et demander « 10 » rapporterait l'état de l'épreuve 10, qui est un tout
+     * autre document.
+     */
+    private async avecEtatDeLecture<T extends { id: number }>(
+        examens: T[],
+    ): Promise<Array<T & { lecture: EtatDeLecture | null }>> {
+        const etats = await this.kessiah.getStatesOrUnknown(
+            examens.map((e) => kessiahNationalKey(e.id)),
+        );
+        return examens.map((examen) => ({
+            ...examen,
+            lecture: etats === null
+                ? null
+                : etats[kessiahNationalKey(examen.id)] ?? { statut: 'absent' as const },
+        }));
+    }
 
     private get repo(): Repository<ExamenNational> { return this.resolver.getRepository(ExamenNational); }
     private get typeRepo(): Repository<TypeExamen> { return this.resolver.getRepository(TypeExamen); }
@@ -91,13 +120,31 @@ export class ExamensNationauxService {
         if (matiere_examen) qb.andWhere('examen.matiere_examen_id = :mat', { mat: matiere_examen });
         if (filiere_examen) qb.andWhere('examen.filiere_examen_id = :fil', { fil: filiere_examen });
         if (annee) qb.andWhere('examen.annee = :annee', { annee });
-        if (search) qb.andWhere('unaccent(examen.titre) ILIKE unaccent(:search)', { search: `%${search}%` });
+        // Chaque mot séparément, tous exigés — et non la phrase entière.
+        //
+        // Le titre est composé côté serveur sous la forme « BAC - C -
+        // Physique-Chimie - 2025 » : un ILIKE sur « BAC C 2025 » n'y trouve
+        // rien, puisque cette suite de caractères n'y figure pas. La recherche
+        // ne répondait donc qu'aux mots isolés, ce qui la rendait inutilisable
+        // dès qu'on nomme un examen comme on le nomme à l'oral — et rend
+        // muette l'assistante, qui interroge justement en langage naturel.
+        if (search) {
+            const mots = search.trim().split(/\s+/).filter(Boolean);
+            mots.forEach((mot, i) => {
+                qb.andWhere(`unaccent(examen.titre) ILIKE unaccent(:mot${i})`, {
+                    [`mot${i}`]: `%${mot}%`,
+                });
+            });
+        }
 
         qb.orderBy('examen.annee', 'DESC').addOrderBy('examen.titre', 'ASC')
             .skip((page - 1) * limit).take(limit);
 
         const [data, total] = await qb.getManyAndCount();
-        return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+        return {
+            data: await this.avecEtatDeLecture(data),
+            total, page, limit, totalPages: Math.ceil(total / limit),
+        };
     }
 
     async getAnnees(pays: string): Promise<number[]> {
@@ -113,7 +160,8 @@ export class ExamensNationauxService {
     async findOne(id: number) {
         const row = await this.repo.findOne({ where: { id }, relations: ['type_examen', 'serie', 'matiere_examen', 'filiere_examen'] });
         if (!row) throw new NotFoundException('Examen national non trouvé');
-        return row;
+        const [avecLecture] = await this.avecEtatDeLecture([row]);
+        return avecLecture;
     }
 
     async update(id: number, dto: UpdateExamenNationalDto) {

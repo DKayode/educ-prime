@@ -34,6 +34,23 @@ export function kessiahStagingKey(submissionUuid: string): string {
     return `submission:${submissionUuid}`;
 }
 
+/**
+ * Clé de lecture d'un examen national.
+ *
+ * Même nécessité que pour les soumissions, pour une raison différente : ici
+ * les deux identifiants sont bien définitifs, mais ils viennent de deux tables
+ * distinctes et se recouvrent. L'épreuve 10 et l'examen national 10 sont deux
+ * documents sans rapport ; sans préfixe, ils se disputeraient la même ligne de
+ * transcription et la seconde lecture écraserait la première.
+ *
+ * Kessiah lit ce préfixe pour savoir OÙ chercher les octets — un examen
+ * national n'a pas de route `/telechargement`, il se prend au relais du
+ * service de fichiers.
+ */
+export function kessiahNationalKey(examenId: number | string): string {
+    return `national:${examenId}`;
+}
+
 @Injectable()
 export class KessiahService {
     private readonly logger = new Logger(KessiahService.name);
