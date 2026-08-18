@@ -77,10 +77,16 @@ export class FirebaseConfig {
 
   getStorage() {
     if (!this.disponible) {
+      // « puis redémarrer » n'est pas un détail de confort : `disponible` est
+      // fixé une fois pour toutes dans le constructeur, à l'instanciation du
+      // fournisseur. Déposer le fichier sur un backend déjà lancé ne change
+      // donc rien, et le message précédent — « le déposer » — laissait croire
+      // le contraire, en continuant de répondre 503 sur un fichier présent.
       throw new ServiceUnavailableException(
-        "Stockage Firebase indisponible : backend/config/firebase-serviceaccount.json est absent. " +
-        "Ce fichier n'est requis que pour les fichiers hérités, antérieurs à la migration vers R2. " +
-        "Le déposer, ou mener le test sur une épreuve récente.",
+        "Stockage Firebase indisponible : backend/config/firebase-serviceaccount.json " +
+        "était absent au démarrage. Ce fichier n'est requis que pour les fichiers " +
+        "hérités, antérieurs à la migration vers R2. Le déposer PUIS redémarrer le " +
+        "backend, ou mener le test sur une épreuve récente.",
       );
     }
     try {
