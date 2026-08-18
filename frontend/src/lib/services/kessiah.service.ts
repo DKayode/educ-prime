@@ -71,6 +71,21 @@ function targetPath(target: TranscriptionTarget): string {
 }
 
 export const kessiahService = {
+    /**
+     * Relance la lecture d'une épreuve, en effaçant la précédente.
+     *
+     * Utile après une amélioration de l'OCR, ou pour une lecture ancienne dont
+     * la structure a changé — une transcription faite avant le découpage par
+     * page, par exemple, s'affiche en un seul pavé.
+     *
+     * Le verdict précédent est perdu : le texte relu n'est plus celui qui
+     * avait été validé, le reconduire reviendrait à valider ce que personne
+     * n'a lu.
+     */
+    async relire(epreuveId: string): Promise<{ epreuve_id: string; relance: boolean }> {
+        return api.post(`/kessiah/epreuves/extractions/${encodeURIComponent(epreuveId)}/relire`, {});
+    },
+
     /** `null` quand Kessiah n'a pas encore terminé la lecture. */
     async getTranscription(target: TranscriptionTarget): Promise<Transcription | null> {
         try {

@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Param, Patch, NotFoundException, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, NotFoundException, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { KessiahService, kessiahStagingKey } from './kessiah.service';
+import { RelectureService } from './relecture.service';
 import { ReviewTranscriptionDto } from './dto/review-transcription.dto';
 
 /**
@@ -23,7 +24,24 @@ import { ReviewTranscriptionDto } from './dto/review-transcription.dto';
 @ApiTags('kessiah')
 @Controller('kessiah/epreuves')
 export class KessiahController {
-    constructor(private readonly kessiah: KessiahService) { }
+    constructor(
+        private readonly kessiah: KessiahService,
+        private readonly relecture: RelectureService,
+    ) { }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(RoleType.ADMIN)
+    @Post('extractions/:id/relire')
+    @ApiOperation({
+        summary: "Relance la lecture d'une épreuve, en effaçant la précédente",
+        description:
+            "Sert après une amélioration de l'OCR, ou pour une lecture ancienne dont la " +
+            "structure a changé. Le verdict précédent est perdu : le texte relu n'est plus " +
+            "celui qui avait été validé.",
+    })
+    async relire(@Param('id') id: string) {
+        return this.relecture.relire(id);
+    }
 
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(RoleType.ADMIN)

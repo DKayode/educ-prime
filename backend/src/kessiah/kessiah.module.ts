@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { FilesModule } from '../files/files.module';
 import { KessiahController } from './kessiah.controller';
 import { KessiahService } from './kessiah.service';
+import { RelectureService } from './relecture.service';
 
 /**
  * Intégration du service de lecture d'épreuves Kessiah.
@@ -10,8 +12,10 @@ import { KessiahService } from './kessiah.service';
  * devient alors un coût de catalogue et non un coût d'usage.
  */
 @Module({
+    // FilesModule pour retrouver le document à relire dans le stockage objet.
+    imports: [FilesModule],
     controllers: [KessiahController],
-    providers: [KessiahService],
+    providers: [KessiahService, RelectureService],
     exports: [KessiahService],
 })
 export class KessiahModule { }

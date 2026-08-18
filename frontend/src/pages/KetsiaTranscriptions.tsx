@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Cell,
     Legend,
@@ -49,9 +49,11 @@ import {
     ChevronRight,
     AlertTriangle,
     Sparkles,
+    RefreshCw,
 } from "lucide-react";
 import { TranscriptionReviewDialog } from "@/components/TranscriptionReviewDialog";
 import {
+import { useToast } from "@/hooks/use-toast";
     ketsiaInventaireService,
     type ExtractionRow,
     type TranscriptionStatut,
@@ -124,6 +126,8 @@ function Tuile({
 }
 
 export default function KetsiaTranscriptions() {
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
     const [statut, setStatut] = useState<string>("ALL");
     const [lisibilite, setLisibilite] = useState<string>("ALL");
     const [source, setSource] = useState<string>("ALL");
@@ -131,6 +135,7 @@ export default function KetsiaTranscriptions() {
     const [page, setPage] = useState(1);
     const [cible, setCible] = useState<TranscriptionTarget | null>(null);
     const [dialogOuvert, setDialogOuvert] = useState(false);
+    const [relectureEnCours, setRelectureEnCours] = useState<string | null>(null);
 
     const stats = useQuery({
         queryKey: ["ketsia-stats"],
@@ -174,6 +179,52 @@ export default function KetsiaTranscriptions() {
         : [];
 
     const aRelire = s?.par_statut.extrait ?? 0;
+
+    /**
+     * Relance la lecture d'une épreuve depuis zéro.
+     *
+     * Demande confirmation : le verdict précédent est effacé avec le texte, et
+     * une relecture sur un scan consomme des appels de modèle facturés à la
+     * page.
+     */
+    const demanderRelecture = async (row: ExtractionRow) => {
+        const dejaTranche = row.statut === "valide" || row.statut === "rejete";
+        const avertissement = dejaTranche
+            ? "\n\nLe verdict actuel sera perdu : le texte relu ne sera plus celui qui a été tranché."
+            : "";
+        if (
+            !window.confirm(
+                `Relancer la lecture de « ${row.epreuve_id} » ?\n\n` +
+                `La lecture actuelle est effacée et le document est relu depuis le début.` +
+                `${row.source === "ocr" ? " S'agissant d'un scan, cela consomme des appels de transcription." : ""}` +
+                avertissement,
+            )
+        ) {
+            return;
+        }
+
+        setRelectureEnCours(row.epreuve_id);
+        try {
+            await kessiahService.relire(row.epreuve_id);
+            toast({
+                title: "Lecture relancée",
+                description:
+                    "Quelques secondes pour un PDF qui porte son texte, quelques minutes pour un scan. " +
+                    "L'état se met à jour tout seul.",
+            });
+            // La lecture repart de zéro : la ligne et les compteurs changent.
+            queryClient.invalidateQueries({ queryKey: ["ketsia-extractions"] });
+            queryClient.invalidateQueries({ queryKey: ["ketsia-stats"] });
+        } catch (err: any) {
+            toast({
+                title: "Relecture impossible",
+                description: err?.message ?? "Ketsia n'a pas répondu.",
+                variant: "destructive",
+            });
+        } finally {
+            setRelectureEnCours(null);
+        }
+    };
 
     const ouvrir = (row: ExtractionRow) => {
         // Une transcription faite au dépôt vit sous la clé `submission:<uuid>` ;
@@ -469,9 +520,22 @@ export default function KetsiaTranscriptions() {
                                                     {row.exercices || <span className="text-muted-foreground">—</span>}
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <Button variant="ghost" size="icon" onClick={() => ouvrir(row)} title="Relire la transcription">
-                                                        <Eye className="h-4 w-4" />
-                                                    </Button>
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button variant="ghost" size="icon" onClick={() => ouvrir(row)} title="Relire la transcription">
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => demanderRelecture(row)}
+                                                            disabled={relectureEnCours === row.epreuve_id}
+                                                            title="Relancer la lecture — efface la lecture actuelle et son verdict"
+                                                        >
+                                                            <RefreshCw
+                                                                className={`h-4 w-4 ${relectureEnCours === row.epreuve_id ? "animate-spin" : ""}`}
+                                                            />
+                                                        </Button>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}

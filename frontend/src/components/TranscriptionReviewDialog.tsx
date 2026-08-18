@@ -81,6 +81,13 @@ export function TranscriptionReviewDialog({ target, titre, open, onOpenChange, o
         setUrlPdf(null);
         setPageActive(1);
 
+        let urlObjet: string | null = null;
+        const afficher = (blob: Blob | null) => {
+            if (annule || !blob) return;
+            urlObjet = URL.createObjectURL(blob);
+            setUrlPdf(urlObjet);
+        };
+
         kessiahService
             .getTranscription(target)
             .then((data) => {
@@ -88,6 +95,16 @@ export function TranscriptionReviewDialog({ target, titre, open, onOpenChange, o
                 setTranscription(data);
                 setPages(data?.pages ?? []);
                 setTexteEntier(data?.texte ?? "");
+                // Une épreuve publiée n'est identifiée ici que par son numéro,
+                // alors que le stockage est indexé par UUID : seul le corps de
+                // la transcription le porte. Le chargement du document part
+                // donc d'ici, et non en parallèle.
+                if (target.kind === "epreuve" && data?.epreuve_uuid) {
+                    filesService
+                        .getContentBlob("epreuves", data.epreuve_uuid, "file")
+                        .then(afficher)
+                        .catch(() => undefined);
+                }
             })
             .catch((err: any) => {
                 if (annule) return;
@@ -110,15 +127,12 @@ export function TranscriptionReviewDialog({ target, titre, open, onOpenChange, o
         //
         // Son absence n'empêche pas de relire le texte : on dégrade vers le
         // volet unique plutôt que de bloquer toute la fenêtre.
-        let urlObjet: string | null = null;
+        // Une soumission, elle, porte son UUID : son document peut partir tout
+        // de suite, sans attendre la transcription.
         if (target.kind === "submission") {
             filesService
                 .getContentBlob("epreuve_submissions", target.uuid, "file")
-                .then((blob) => {
-                    if (annule || !blob) return;
-                    urlObjet = URL.createObjectURL(blob);
-                    setUrlPdf(urlObjet);
-                })
+                .then(afficher)
                 .catch(() => undefined);
         }
 

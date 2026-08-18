@@ -69,12 +69,20 @@ export class KessiahService {
         epreuveUuid?: string | null;
         pdf: Uint8Array;
         filename?: string;
+        /**
+         * Efface la lecture précédente avant de relire. Indispensable pour une
+         * relecture : Kessiah se sert de l'insertion de sa ligne comme verrou
+         * et renonce quand elle existe, si bien qu'une relecture sans remise à
+         * zéro ne referait rien — en silence.
+         */
+        force?: boolean;
     }): Promise<void> {
         if (!this.enabled) return;
 
-        const query = params.epreuveUuid
-            ? `?epreuve_uuid=${encodeURIComponent(params.epreuveUuid)}`
-            : '';
+        const parametres = new URLSearchParams();
+        if (params.epreuveUuid) parametres.append('epreuve_uuid', params.epreuveUuid);
+        if (params.force) parametres.append('force', 'true');
+        const query = parametres.toString() ? `?${parametres}` : '';
         const form = new FormData();
         form.append(
             'file',
