@@ -11,6 +11,10 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { EpreuveResponseDto } from './dto/epreuve-response.dto';
 import { professeurPublic } from './professeur-public.util';
+import { KessiahService, KessiahExtractionState } from '../kessiah/kessiah.service';
+
+/** État de lecture joint à une épreuve, ou le constat qu'il n'y en a pas. */
+type EtatDeLecture = KessiahExtractionState | { statut: 'absent' };
 
 @Injectable()
 export class EpreuvesService {
@@ -19,7 +23,38 @@ export class EpreuvesService {
   constructor(
     private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
+    private readonly kessiah: KessiahService,
   ) { }
+
+  /**
+   * Joint à chaque épreuve ce que Kessiah en sait déjà.
+   *
+   * Sans ce champ, l'app ne peut que demander une lecture à l'aveugle à chaque
+   * ouverture, et le backend répond « déjà lue » — un aller-retour pour rien,
+   * répété sur toute la navigation. Avec lui, elle ne déclenche que sur les
+   * épreuves jamais lues, et peut afficher l'état sans rien demander de plus.
+   *
+   * Trois valeurs, pas deux — c'est ce qui rend le champ actionnable :
+   *
+   * - un état complet : Ketsia l'a lue, ou est en train ;
+   * - `statut: 'absent'` : elle ne l'a jamais lue, il y a une lecture à
+   *   demander ;
+   * - `null` : Kessiah n'a pas répondu, on ne sait rien. L'app ne déclenche
+   *   rien dans ce cas — une lecture demandée à un service muet échouerait, et
+   *   traiter ce silence comme « jamais lue » rejouerait des transcriptions
+   *   déjà faites. Le catalogue, lui, s'affiche normalement.
+   */
+  private async avecEtatDeLecture<T extends { id: number }>(
+    epreuves: T[],
+  ): Promise<Array<T & { lecture: EtatDeLecture | null }>> {
+    const etats = await this.kessiah.getStatesOrUnknown(epreuves.map((e) => e.id));
+    return epreuves.map((epreuve) => ({
+      ...epreuve,
+      lecture: etats === null
+        ? null
+        : etats[String(epreuve.id)] ?? { statut: 'absent' as const },
+    }));
+  }
 
   private get epreuvesRepository(): Repository<Epreuve> {
     return this.resolver.getRepository(Epreuve);
@@ -139,7 +174,9 @@ export class EpreuvesService {
 
     this.logger.log(`${epreuves.length} épreuve(s) trouvée(s) sur ${total} total`);
 
-    const data = epreuves.map(epreuve => this.toEpreuveResponse(epreuve));
+    const data = await this.avecEtatDeLecture(
+      epreuves.map(epreuve => this.toEpreuveResponse(epreuve)),
+    );
 
     return {
       data,
@@ -164,7 +201,13 @@ export class EpreuvesService {
 
     this.logger.log(`Épreuve trouvée: ${epreuve.titre} (ID: ${id})`);
 
-    return this.toEpreuveResponse(epreuve);
+    // Même champ que dans la liste : la fiche de détails est ouverte sans
+    // repasser par la liste (lien direct, notification), et doit pouvoir
+    // décider seule s'il y a une lecture à demander.
+    const [avecLecture] = await this.avecEtatDeLecture([
+      this.toEpreuveResponse(epreuve),
+    ]);
+    return avecLecture;
   }
 
   async findOneForDownload(id: string): Promise<{ url: string; titre: string }> {

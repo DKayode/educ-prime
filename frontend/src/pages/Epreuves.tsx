@@ -29,7 +29,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Download, FileText, Trash2, Search, Loader2, Eye, ChevronLeft, ChevronRight, Pencil, Check, ChevronsUpDown } from "lucide-react";
+import { Upload, Download, FileText, Trash2, Search, Loader2, Eye, ChevronLeft, ChevronRight, Pencil, Check, ChevronsUpDown, ScanText } from "lucide-react";
+import { TranscriptionReviewDialog } from "@/components/TranscriptionReviewDialog";
 import { cn, getAcronym } from "@/lib/utils";
 import {
   Popover,
@@ -86,6 +87,8 @@ export default function Epreuves() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewTitle, setPreviewTitle] = useState("");
+  // Relecture de ce que Kessiah lit de l'épreuve (transcription automatique).
+  const [reviewEpreuve, setReviewEpreuve] = useState<{ id: number | string; titre: string } | null>(null);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
 
@@ -695,6 +698,15 @@ export default function Epreuves() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
+                            onClick={() => setReviewEpreuve({ id: epreuve.id, titre: epreuve.titre })}
+                            title="Relire la transcription lue par Ketsia"
+                          >
+                            <ScanText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8 text-destructive hover:text-destructive"
                             onClick={() => deleteMutation.mutate(epreuve.id)}
                             disabled={deleteMutation.isPending}
@@ -758,6 +770,13 @@ export default function Epreuves() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <TranscriptionReviewDialog
+        target={reviewEpreuve ? { kind: "epreuve", id: reviewEpreuve.id } : null}
+        titre={reviewEpreuve?.titre}
+        open={reviewEpreuve !== null}
+        onOpenChange={(open) => !open && setReviewEpreuve(null)}
+      />
     </div >
   );
 }

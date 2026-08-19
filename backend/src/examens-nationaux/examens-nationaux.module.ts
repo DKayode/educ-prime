@@ -12,6 +12,7 @@ import { ExamensNationauxSubmissionsController } from './examens-nationaux-submi
 import { ExamensNationauxSubmissionsService } from './examens-nationaux-submissions.service';
 import { MailModule } from '../mail/mail.module';
 import { FilesModule } from '../files/files.module';
+import { KessiahModule } from '../kessiah/kessiah.module';
 import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
@@ -19,6 +20,8 @@ import { WalletModule } from '../wallet/wallet.module';
         TypeOrmModule.forFeature([ExamenNational, ExamenNationalSubmission, TypeExamen, Serie, MatiereExamen, FiliereExamen]),
         MailModule,
         FilesModule,
+        // Pour joindre à chaque examen son état de lecture par Ketsia.
+        KessiahModule,
         WalletModule,
     ],
     // Submissions controller FIRST: its literal `/examens-nationaux/submissions`

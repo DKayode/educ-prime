@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Wrench, AlertTriangle, Check, FileWarning, Plus, Eye } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, ChevronLeft, ChevronRight, Wrench, AlertTriangle, Check, FileWarning, Plus, Eye , ScanText } from "lucide-react";
 import { filesService } from "@/lib/services/files.service";
 import {
     Select,
@@ -32,6 +32,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { TranscriptionReviewDialog } from '@/components/TranscriptionReviewDialog';
 import { epreuveSubmissionsService, EpreuveSubmission, ResolveSubmissionData } from "@/lib/services/epreuve-submissions.service";
 import { etablissementsService } from "@/lib/services/etablissements.service";
 import { filieresService } from "@/lib/services/filieres.service";
@@ -431,6 +432,9 @@ export default function EpreuvesApprobation() {
     const submissions = response?.data || [];
     const totalPages = response?.totalPages || 1;
 
+    // Relecture de ce que Kessiah lit du document soumis.
+    const [reviewTarget, setReviewTarget] = useState<{ uuid: string; titre: string } | null>(null);
+
     const approveMutation = useMutation({
         mutationFn: (id: number) => epreuveSubmissionsService.approve(id),
         onSuccess: () => {
@@ -566,6 +570,14 @@ export default function EpreuvesApprobation() {
                                                                 Fichier manquant
                                                             </Badge>
                                                         )}
+                                                        {sub.transcription?.statut === 'en_cours' && (
+                                                            <Badge variant="outline" className="font-normal">
+                                                                Lecture {sub.transcription.pages_pretes}/{sub.transcription.pages_total ?? '?'}
+                                                            </Badge>
+                                                        )}
+                                                        {sub.transcription?.statut === 'valide' && (
+                                                            <Badge variant="default" className="font-normal">Transcription validée</Badge>
+                                                        )}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
@@ -577,6 +589,14 @@ export default function EpreuvesApprobation() {
                                                         )}
                                                         {isPending && (
                                                             <>
+                                                                <Button
+                                                                    variant="ghost" size="icon"
+                                                                    onClick={() => setReviewTarget({ uuid: sub.uuid, titre: sub.titre })}
+                                                                    title="Relire ce que Ketsia lit du document"
+                                                                    disabled={!hasFile}
+                                                                >
+                                                                    <ScanText className={`h-4 w-4 ${sub.transcription?.statut === 'valide' ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                                                                </Button>
                                                                 <Button variant="ghost" size="icon" onClick={() => setResolveTarget(sub)} title={hasMissing ? "Résoudre les parents manquants" : "Modifier la soumission"}>
                                                                     <Wrench className={`h-4 w-4 ${hasMissing ? 'text-orange-500' : 'text-muted-foreground'}`} />
                                                                 </Button>
@@ -651,6 +671,17 @@ export default function EpreuvesApprobation() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <TranscriptionReviewDialog
+                target={reviewTarget ? { kind: "submission", uuid: reviewTarget.uuid } : null}
+                titre={reviewTarget?.titre}
+                open={reviewTarget !== null}
+                onOpenChange={(open) => !open && setReviewTarget(null)}
+                // L'approbation est refusée tant que la transcription n'est pas
+                // tranchée : sans ce rafraîchissement, la ligne garderait son
+                // ancien état et le bouton Approuver continuerait d'échouer.
+                onDecision={() => queryClient.invalidateQueries({ queryKey: ['admin-submissions'] })}
+            />
         </div>
     );
 }

@@ -16,6 +16,7 @@ import { CreerSubmissionDto } from './dto/creer-submission.dto';
 import { ResoudreSubmissionDto } from './dto/resoudre-submission.dto';
 import { CreditWalletFromValidatedExamUseCase } from '../../wallet/wallet-balance/use-cases/credit-wallet-from-validated-exam.use-case';
 import { RewardSourceTypeCode } from '../../wallet/shared/payment.enums';
+import { KessiahService, kessiahStagingKey, type KessiahExtractionState } from '../../kessiah/kessiah.service';
 
 @Injectable()
 export class EpreuveSubmissionsService {
@@ -26,6 +27,7 @@ export class EpreuveSubmissionsService {
     private readonly mailService: MailService,
     private readonly filesService: FilesService,
     private readonly creditWalletFromExam: CreditWalletFromValidatedExamUseCase,
+    private readonly kessiah: KessiahService,
   ) { }
 
   private get submissionsRepository(): Repository<EpreuveSubmission> {
@@ -272,7 +274,15 @@ export class EpreuveSubmissionsService {
     const qb = this.baseSubmissionQuery()
       .leftJoinAndSelect('submission.soumis_par', 'soumis_par')
       .where('submission.pays = :pays', { pays })
-      .orderBy('submission.date_creation', 'ASC')
+      // Du plus récent au plus ancien. En ASC, un dépôt du jour atterrissait
+      // sur la DERNIÈRE page de la file : l'admin ne le voyait pas arriver, et
+      // concluait à une soumission perdue.
+      //
+      // Le tri décide aussi de ce que Kessiah lit : prepareTranscriptions ne
+      // traite que les lignes de la page affichée. En ASC, les dépôts récents
+      // n'étaient donc transcrits qu'une fois l'admin descendu jusqu'à eux —
+      // c'est-à-dire jamais, tant que la file n'était pas vidée par le début.
+      .orderBy('submission.date_creation', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -282,13 +292,119 @@ export class EpreuveSubmissionsService {
     this.applyTypeFilter(qb, type);
 
     const [rows, total] = await qb.getManyAndCount();
+
+    // L'admin ouvre sa file : c'est le signal pour préparer la lecture des
+    // soumissions qui n'en ont pas encore. Le temps qu'il en traite une ou
+    // deux, les suivantes sont transcrites — et il pourra valider le document
+    // et sa lecture d'un même geste. Il n'existe pas de meilleur déclencheur :
+    // les fichiers montent directement sur R2 via URL présignée, le backend
+    // n'apprend donc jamais qu'un envoi a abouti.
+    const states = await this.kessiah.getStates(rows.map(r => kessiahStagingKey(r.uuid)));
+    const transcriptions: Record<string, KessiahExtractionState> = states;
+    void this.prepareTranscriptions(rows, states);
+
     return {
-      data: rows.map(r => this.toSubmissionResponse(r)),
+      data: rows.map(r => ({
+        ...this.toSubmissionResponse(r),
+        transcription: transcriptions[kessiahStagingKey(r.uuid)] ?? null,
+      })),
       total,
       page,
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  /**
+   * Envoie à Kessiah les soumissions qu'il n'a pas encore lues.
+   *
+   * Déclenché à l'affichage de la file, jamais attendu : l'écran doit
+   * s'ouvrir immédiatement. Chaque document est traité l'un après l'autre
+   * plutôt qu'en parallèle — rien ne presse, et une rafale de téléchargements
+   * R2 pour une simple ouverture de page serait disproportionnée.
+   */
+  /**
+   * Refuse l'approbation tant que la transcription n'a pas été tranchée.
+   *
+   * Publier une épreuve dont Ketsia n'a pas encore lu le contenu, c'est
+   * publier quelque chose dont personne ne sait si l'assistante saura
+   * l'exploiter. Et une transcription relue APRÈS publication ne l'est
+   * jamais : l'admin est déjà passé à la file suivante.
+   *
+   * Le rejet est une décision valable — il signifie « ce scan est
+   * inexploitable, l'épreuve reste consultable mais Ketsia n'y touchera
+   * pas ». Seule l'absence de décision bloque.
+   *
+   * Si l'intégration Kessiah n'est pas configurée, cette règle ne s'applique
+   * pas : elle transformerait une dépendance optionnelle en dépendance dure,
+   * et une panne du service annexe empêcherait toute modération.
+   */
+  private async assertTranscriptionReviewed(submission: EpreuveSubmission): Promise<void> {
+    if (!this.kessiah.enabled) return;
+
+    const cle = kessiahStagingKey(submission.uuid);
+    let etat: Record<string, KessiahExtractionState>;
+    try {
+      etat = await this.kessiah.getStates([cle]);
+    } catch (err: any) {
+      // Kessiah injoignable : on n'immobilise pas la modération pour autant.
+      this.logger.warn(
+        `État de transcription indisponible (soumission ${submission.id}), approbation autorisée : ${err?.message ?? err}`,
+      );
+      return;
+    }
+
+    const transcription = etat[cle];
+    if (!transcription) {
+      throw new BadRequestException(
+        "Ketsia n'a pas encore lu ce document. Sa lecture démarre à l'ouverture de la file " +
+        "et prend quelques secondes pour un PDF, quelques minutes pour un scan. " +
+        "Patientez, puis relisez la transcription avant d'approuver.",
+      );
+    }
+    if (transcription.statut === 'en_cours') {
+      const sur = transcription.pages_total ? ` sur ${transcription.pages_total}` : '';
+      throw new BadRequestException(
+        `Lecture en cours : ${transcription.pages_pretes} page(s)${sur} transcrite(s). ` +
+        "Attendez la fin, puis relisez la transcription avant d'approuver.",
+      );
+    }
+    if (transcription.statut !== 'valide' && transcription.statut !== 'rejete') {
+      throw new BadRequestException(
+        "La transcription de ce document n'a pas encore été relue. Ouvrez-la, comparez-la " +
+        "au document, puis validez-la — ou rejetez-la si elle est inexploitable. " +
+        "Sans ce verdict, Ketsia s'interdira d'affirmer une correction sur cette épreuve.",
+      );
+    }
+  }
+
+  private async prepareTranscriptions(
+    rows: EpreuveSubmission[],
+    states: Record<string, KessiahExtractionState>,
+  ): Promise<void> {
+    if (!this.kessiah.enabled) return;
+
+    for (const row of rows) {
+      const key = kessiahStagingKey(row.uuid);
+      if (states[key]) continue;                       // déjà lue, ou en cours
+      if (!row.file_path || !row.file_extension) continue;  // rien à lire
+
+      try {
+        const { url } = await this.filesService.createDownloadUrl(
+          'epreuve_submissions', row.uuid, 'file', row.file_extension,
+        );
+        const response = await fetch(url);
+        if (!response.ok) continue;   // upload présigné jamais abouti : on réessaiera
+        await this.kessiah.requestExtraction({
+          epreuveId: key,
+          epreuveUuid: row.uuid,
+          pdf: new Uint8Array(await response.arrayBuffer()),
+          filename: `soumission-${row.uuid}.${row.file_extension}`,
+        });
+      } catch (err: any) {
+        this.logger.warn(`Préparation Kessiah ignorée (soumission ${row.id}): ${err?.message ?? err}`);
+      }
+    }
   }
 
   // Self-service: the caller's OWN épreuve submissions, pays-scoped, newest
@@ -469,6 +585,8 @@ export class EpreuveSubmissionsService {
       );
     }
 
+    await this.assertTranscriptionReviewed(submission);
+
     // Safety net: never mint a duplicate real épreuve if one already exists for
     // the same matière + année + section (titre exclu — il est déterministe).
     // matiere_id pins the whole parent chain.
@@ -524,6 +642,16 @@ export class EpreuveSubmissionsService {
     submission.status = ServiceStatusEnum.APPROVED;
     await this.submissionsRepository.save(submission);
 
+    // Faire lire l'épreuve par Kessiah, dès maintenant. C'est le point
+    // d'ingestion naturel : le document vient d'être promu, il ne changera
+    // plus, et l'OCR devient ainsi un coût de catalogue payé une fois pour
+    // toutes — au lieu d'un coût d'usage qui ferait attendre le premier
+    // étudiant plusieurs minutes. Best-effort et non bloquant, comme le crédit
+    // du wallet ci-dessous : Kessiah indisponible ne doit pas défaire une
+    // approbation.
+    this.sendToKessiah(savedEpreuve, submission.uuid)
+      .catch(err => this.logger.error(`Lecture Kessiah non déclenchée (épreuve ${savedEpreuve.id}): ${err?.message ?? err}`));
+
     // Reward the uploader's wallet for the validated épreuve. Best-effort — a
     // failure here must not undo the approval. Idempotent: the use-case keys on
     // reference EXAM_REWARD:<uuid>, so re-approving never double-credits.
@@ -542,6 +670,40 @@ export class EpreuveSubmissionsService {
 
     this.logger.log(`Soumission #${id} approuvée → épreuve #${savedEpreuve.id} créée`);
     return { submission: this.toSubmissionResponse(submission), epreuve: savedEpreuve };
+  }
+
+  /**
+   * Transmet le PDF de l'épreuve à Kessiah pour qu'il en produise le texte.
+   *
+   * On récupère les octets depuis R2 et on les POSTe, plutôt que de passer une
+   * URL : au moment de l'approbation aucun jeton étudiant n'existe côté
+   * Kessiah pour télécharger lui-même, et lui faire suivre une URL fournie par
+   * l'appelant ouvrirait une porte à des requêtes sortantes arbitraires.
+   */
+  private async sendToKessiah(epreuve: Epreuve, submissionUuid: string): Promise<void> {
+    if (!this.kessiah.enabled) return;
+
+    // Cas nominal : la soumission a été lue pendant qu'elle attendait dans la
+    // file, il n'y a qu'à rattacher ce texte à l'épreuve créée. Retranscrire
+    // ici coûterait un second OCR pour un résultat identique.
+    if (await this.kessiah.adoptTranscription(epreuve.id, kessiahStagingKey(submissionUuid))) {
+      return;
+    }
+
+    const { url } = await this.filesService.createDownloadUrl(
+      'epreuves', epreuve.uuid, 'file', epreuve.file_extension,
+    );
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`téléchargement R2 impossible (HTTP ${response.status})`);
+    }
+
+    await this.kessiah.requestExtraction({
+      epreuveId: epreuve.id,
+      epreuveUuid: epreuve.uuid,
+      pdf: new Uint8Array(await response.arrayBuffer()),
+      filename: `epreuve-${epreuve.uuid}.${epreuve.file_extension || 'pdf'}`,
+    });
   }
 
   // Admin decline: mark declined + email the uploader. Reason is logged only.

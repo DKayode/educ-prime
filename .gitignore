@@ -2,6 +2,9 @@
 .env
 .env.local
 .env.production
+# Sauvegardes de configuration (.env.bak, .env.prod...) : même contenu,
+# donc mêmes secrets, et le motif `.env` seul ne les visait pas.
+.env.*
 # Catch dev variants like backend/my.env / staging.env so they can't
 # leak the way `backend/my.env` did once.
 *.env

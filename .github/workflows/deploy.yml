@@ -140,6 +140,11 @@ jobs:
             INFOBIP_NOTIFY_CONTENT_TYPE=application/json
             GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
             SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
+            # Kessiah — lecture automatique des épreuves. Les deux valeurs vont
+            # de pair : il suffit qu'une seule manque pour que l'intégration se
+            # désactive d'elle-même, sans erreur ni appel sortant.
+            KESSIAH_API_BASE_URL=${{ secrets.KESSIAH_API_BASE_URL }}
+            KESSIAH_SERVICE_KEY=${{ secrets.KESSIAH_SERVICE_KEY }}
             ENV_EOF
 
             # Créer le fichier docker-compose.yml depuis le contenu du repo

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -6,6 +6,15 @@ import * as path from 'path';
 @Injectable()
 export class FirebaseConfig {
   private readonly logger = new Logger(FirebaseConfig.name);
+
+  /**
+   * Faux quand le compte de service est absent en développement.
+   *
+   * Sert à rendre une erreur qui se lit, plutôt que le « The default Firebase
+   * app does not exist » de la bibliothèque, qui remonte en 500 opaque et
+   * envoie chercher la cause du mauvais côté.
+   */
+  private disponible = true;
 
   constructor() {
     try {
@@ -18,8 +27,30 @@ export class FirebaseConfig {
 
         if (!fs.existsSync(serviceAccountPath)) {
           const msg = `Firebase service account file not found at: ${serviceAccountPath}`;
-          this.logger.error(msg);
-          throw new Error(msg);
+
+          // En production, ce fichier est indispensable : mieux vaut refuser de
+          // démarrer que servir une API dont le stockage tombera en panne au
+          // premier appel.
+          //
+          // En développement, c'est l'inverse. Ce fournisseur est instancié au
+          // démarrage par FilesModule, si bien que son absence empêchait de
+          // lancer le backend en local — y compris pour travailler sur des
+          // fonctionnalités qui n'ont rien à voir avec Firebase, comme la
+          // modération des épreuves. On journalise et on continue : les seuls
+          // appels qui échoueront sont ceux qui touchent réellement au
+          // stockage Firebase, et ils échoueront explicitement.
+          if (process.env.NODE_ENV === 'production') {
+            this.logger.error(msg);
+            throw new Error(msg);
+          }
+
+          this.disponible = false;
+          this.logger.warn(
+            `${msg} — Firebase désactivé pour cette exécution (NODE_ENV=${process.env.NODE_ENV ?? 'non défini'}). ` +
+            `Le stockage R2 (soumissions, transcriptions Kessiah) fonctionne normalement ; ` +
+            `seuls les fichiers hérités servis par Firebase répondront 503.`,
+          );
+          return;
         }
 
         const raw = fs.readFileSync(serviceAccountPath, 'utf8');
@@ -45,6 +76,19 @@ export class FirebaseConfig {
   }
 
   getStorage() {
+    if (!this.disponible) {
+      // « puis redémarrer » n'est pas un détail de confort : `disponible` est
+      // fixé une fois pour toutes dans le constructeur, à l'instanciation du
+      // fournisseur. Déposer le fichier sur un backend déjà lancé ne change
+      // donc rien, et le message précédent — « le déposer » — laissait croire
+      // le contraire, en continuant de répondre 503 sur un fichier présent.
+      throw new ServiceUnavailableException(
+        "Stockage Firebase indisponible : backend/config/firebase-serviceaccount.json " +
+        "était absent au démarrage. Ce fichier n'est requis que pour les fichiers " +
+        "hérités, antérieurs à la migration vers R2. Le déposer PUIS redémarrer le " +
+        "backend, ou mener le test sur une épreuve récente.",
+      );
+    }
     try {
       return admin.storage();
     } catch (error) {
