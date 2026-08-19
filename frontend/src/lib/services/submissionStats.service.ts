@@ -15,6 +15,7 @@ export interface SubmissionStatsSeriesPoint {
   date: string;             // 'YYYY-MM-DD' — début du bucket
   epreuves: number;
   concours: number;
+  examens_nationaux: number;
 }
 
 export interface SubmissionStatsResponse {
@@ -22,6 +23,7 @@ export interface SubmissionStatsResponse {
   periode: { startDate: string | null; endDate: string | null };
   epreuves: SubmissionStatusCounts;
   concours: SubmissionStatusCounts;
+  examens_nationaux: SubmissionStatusCounts;
   combined: SubmissionStatusCounts;
   granularity: 'day' | 'week' | 'month';
   series: SubmissionStatsSeriesPoint[];
