@@ -8,16 +8,64 @@ on:
     branches:
       - main
   workflow_dispatch:  # Allow manual trigger
+  # Une modification de ce seul fichier ne produit aucune image, donc aucun
+  # workflow_run : sans ce déclencheur, un changement de configuration ne
+  # partirait jamais en production. Le garde-fou ci-dessous évite l'autre
+  # travers — déployer une image périmée quand du code accompagne le
+  # changement.
   push:
     branches:
       - main
     paths:
-      - '.github/workflows/deploy.yml' # Avoid triggering on unrelated changes if desired, but user said remove condition. I'll stick to simple push.
+      - '.github/workflows/deploy.yml'
 
 jobs:
+  # Un commit qui touche à la fois `deploy.yml` et du code déclenche DEUX
+  # workflows en parallèle : la construction de l'image, et ce déploiement.
+  # Le déploiement gagne la course et publie l'image PRÉCÉDENTE, avant d'être
+  # suivi d'un second déploiement une fois l'image construite.
+  #
+  # Le premier s'affiche alors « réussi » sans avoir rien livré de neuf — et si
+  # le second échoue, le tableau de bord reste au vert avec une production sur
+  # l'ancien code. C'est arrivé le 19 août 2026.
+  #
+  # On laisse donc la main à la chaîne construction -> déploiement dès qu'un
+  # fichier susceptible d'être construit a changé. Le travail s'affiche
+  # « ignoré », pas « réussi » : la différence se voit d'un coup d'oeil.
+  verifier-course:
+    runs-on: ubuntu-latest
+    outputs:
+      deployer: ${{ steps.decision.outputs.deployer }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Decider s il faut deployer maintenant
+        id: decision
+        run: |
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "Declenche par ${{ github.event_name }} : deploiement normal."
+            echo "deployer=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          MODIFIES=$(git diff --name-only HEAD^ HEAD || echo '')
+          echo "Fichiers modifies :"
+          echo "$MODIFIES" | sed 's/^/  /'
+
+          if echo "$MODIFIES" | grep -qE '^(backend|frontend)/'; then
+            echo "::notice::Du code accompagne ce changement : une image est en construction. Le deploiement suivra sa reussite."
+            echo "deployer=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Configuration seule : rien a construire, on deploie l image en place."
+            echo "deployer=true" >> "$GITHUB_OUTPUT"
+          fi
+
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ !github.event.workflow_run || github.event.workflow_run.conclusion == 'success' }}
+    needs: verifier-course
+    if: ${{ needs.verifier-course.outputs.deployer == 'true' && (!github.event.workflow_run || github.event.workflow_run.conclusion == 'success') }}
     environment: PRD
     steps:
       - name: Récupérer le dépôt
