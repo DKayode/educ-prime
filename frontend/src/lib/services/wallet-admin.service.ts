@@ -1,7 +1,11 @@
 import { api } from '../api';
 
 export type WithdrawalStatus =
-  | 'PENDING' | 'OTP_PENDING' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'REJECTED' | 'CANCELLED';
+  | 'PENDING' | 'OTP_PENDING' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'REJECTED' | 'CANCELLED'
+  | 'SECURITY_REVIEW_REQUIRED' | 'OTP_EXPIRED';
+
+/** Comment l'admin s'est assuré que la demande est légitime avant de débloquer. */
+export type VerificationMethod = 'PHONE_CALL' | 'ID_DOCUMENT' | 'SUPPORT_REVIEW' | 'OTHER';
 
 export type MobileMoneyProvider = 'MTN_MOMO' | 'MOOV_MONEY' | 'CELTIIS_CASH' | 'WAVE';
 
@@ -168,6 +172,15 @@ export const walletAdminService = {
 
   /** Réservé aux demandes en OTP_PENDING : libère l'utilisateur, qui peut recommencer. */
   cancel: (id: string, reason: string) => api.patch(`/user-payment/admin/withdrawals/${id}/cancel`, { reason }),
+
+  /**
+   * Réservé aux demandes en SECURITY_REVIEW_REQUIRED, bloquées après trop de
+   * codes erronés ou de renvois. Renvoie un nouveau code par défaut.
+   */
+  unlockOtp: (
+    id: string,
+    payload: { reason: string; verificationMethod?: VerificationMethod; allowNewOtp?: boolean },
+  ) => api.patch(`/user-payment/admin/withdrawals/${id}/unlock-otp`, payload),
 
   confirmPayment: (id: string, payload: ConfirmPaymentPayload) =>
     api.patch(`/user-payment/admin/withdrawals/${id}/confirm-payment`, payload),

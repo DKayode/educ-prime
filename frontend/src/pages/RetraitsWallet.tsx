@@ -28,9 +28,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, XCircle, Wallet, ChevronLeft, ChevronRight, BadgeCheck } from "lucide-react";
+import { Loader2, XCircle, Wallet, ChevronLeft, ChevronRight, BadgeCheck, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { OtpDeliveryIndicator } from "@/components/OtpDeliveryIndicator";
+import type { VerificationMethod } from "@/lib/services/wallet-admin.service";
 import {
   walletAdminService,
   WithdrawalRequest,
@@ -46,6 +47,8 @@ const STATUS_META: Record<string, { label: string; variant: "default" | "seconda
   PAID: { label: "Payée", variant: "default", className: "bg-emerald-600 hover:bg-emerald-600" },
   REJECTED: { label: "Rejetée", variant: "destructive" },
   CANCELLED: { label: "Annulée", variant: "outline", className: "text-muted-foreground" },
+  SECURITY_REVIEW_REQUIRED: { label: "Vérification sécurité", variant: "destructive", className: "bg-orange-600 hover:bg-orange-600" },
+  OTP_EXPIRED: { label: "Code expiré", variant: "outline", className: "text-muted-foreground" },
 };
 
 const FILTERS: { value: string; label: string }[] = [
@@ -71,6 +74,10 @@ export default function RetraitsWallet() {
   const [payTarget, setPayTarget] = useState<WithdrawalRequest | null>(null);
   const [cancelTarget, setCancelTarget] = useState<WithdrawalRequest | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [unlockTarget, setUnlockTarget] = useState<WithdrawalRequest | null>(null);
+  const [unlock, setUnlock] = useState<{ reason: string; verificationMethod: VerificationMethod; allowNewOtp: boolean }>(
+    { reason: "", verificationMethod: "PHONE_CALL", allowNewOtp: true },
+  );
   const [pay, setPay] = useState<{ provider: MobileMoneyProvider; transactionReference: string; phoneNumber: string; paidAmount: string }>(
     { provider: "MTN_MOMO", transactionReference: "", phoneNumber: "", paidAmount: "" },
   );
@@ -90,6 +97,17 @@ export default function RetraitsWallet() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["wallet-withdrawals"] });
 
+
+  const unlockMutation = useMutation({
+    mutationFn: ({ id, ...payload }: { id: string; reason: string; verificationMethod: VerificationMethod; allowNewOtp: boolean }) =>
+      walletAdminService.unlockOtp(id, payload),
+    onSuccess: () => {
+      invalidate();
+      setUnlockTarget(null);
+      toast({ title: "Demande débloquée", description: "L'utilisateur est notifié et peut reprendre sa validation." });
+    },
+    onError: (e: any) => toast({ title: "Erreur", description: e?.message || "Échec du déblocage", variant: "destructive" }),
+  });
 
   const cancelMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => walletAdminService.cancel(id, reason),
@@ -161,7 +179,7 @@ export default function RetraitsWallet() {
               <TableBody>
                 {rows.map((w) => {
                   const meta = STATUS_META[w.status] ?? { label: w.status, variant: "secondary" as const };
-                  const busy = rejectMutation.isPending || confirmMutation.isPending || cancelMutation.isPending;
+                  const busy = rejectMutation.isPending || confirmMutation.isPending || cancelMutation.isPending || unlockMutation.isPending;
                   return (
                     <TableRow key={w.id}>
                       <TableCell>
@@ -211,6 +229,19 @@ export default function RetraitsWallet() {
                               <XCircle className="h-4 w-4" /> Annuler
                             </Button>
                           )}
+                          {w.status === "SECURITY_REVIEW_REQUIRED" && (
+                            <>
+                              <Button size="sm" className="h-8 gap-1" disabled={busy}
+                                title="Débloquer après vérification de l'identité du demandeur"
+                                onClick={() => { setUnlockTarget(w); setUnlock({ reason: "", verificationMethod: "PHONE_CALL", allowNewOtp: true }); }}>
+                                <ShieldCheck className="h-4 w-4" /> Débloquer
+                              </Button>
+                              <Button variant="ghost" size="icon" title="Rejeter la demande" disabled={busy}
+                                onClick={() => { setRejectTarget(w); setRejectReason(""); }}>
+                                <XCircle className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </>
+                          )}
                           {w.status === "PAID" && (
                             <span className="text-xs font-medium text-emerald-600">Payé</span>
                           )}
@@ -237,6 +268,58 @@ export default function RetraitsWallet() {
       </Card>
 
       {/* Reject dialog */}
+      <Dialog open={!!unlockTarget} onOpenChange={(o) => !o && setUnlockTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Débloquer la demande</DialogTitle>
+            <DialogDescription>
+              Cette demande a été bloquée après plusieurs codes erronés ou renvois.
+              Ne la débloquez qu'après vous être assuré que le demandeur est bien
+              le titulaire du compte : le déblocage rouvre la voie au paiement.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {unlockTarget?.user && (
+              <p className="text-sm text-muted-foreground">
+                {[unlockTarget.user.prenom, unlockTarget.user.nom].filter(Boolean).join(" ")}
+                {unlockTarget.paymentAccount?.phoneNumber ? ` — ${unlockTarget.paymentAccount.phoneNumber}` : ""}
+              </p>
+            )}
+            <div className="space-y-1.5">
+              <Label>Comment avez-vous vérifié ?</Label>
+              <Select value={unlock.verificationMethod}
+                onValueChange={(v) => setUnlock((u) => ({ ...u, verificationMethod: v as VerificationMethod }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PHONE_CALL">Appel téléphonique</SelectItem>
+                  <SelectItem value="ID_DOCUMENT">Pièce d'identité</SelectItem>
+                  <SelectItem value="SUPPORT_REVIEW">Examen par le support</SelectItem>
+                  <SelectItem value="OTHER">Autre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="unlock-reason">Motif</Label>
+              <Input id="unlock-reason" value={unlock.reason}
+                onChange={(e) => setUnlock((u) => ({ ...u, reason: e.target.value }))}
+                placeholder="Ex. : identité confirmée par appel, numéro Mobile Money cohérent." />
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" className="h-4 w-4" checked={unlock.allowNewOtp}
+                onChange={(e) => setUnlock((u) => ({ ...u, allowNewOtp: e.target.checked }))} />
+              Envoyer aussitôt un nouveau code à l'utilisateur
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUnlockTarget(null)}>Fermer</Button>
+            <Button disabled={unlock.reason.trim().length < 5 || unlockMutation.isPending}
+              onClick={() => unlockTarget && unlockMutation.mutate({ id: unlockTarget.id, ...unlock, reason: unlock.reason.trim() })}>
+              {unlockMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Débloquer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
         <DialogContent>
           <DialogHeader>
