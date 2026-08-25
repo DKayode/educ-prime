@@ -9,6 +9,7 @@ import {
   Wrench,
   FileText,
   Award,
+  GraduationCap,
   Loader2,
   TrendingUp,
   type LucideIcon,
@@ -95,6 +96,7 @@ const GRANULARITY_LABEL: Record<string, string> = {
 
 const EPREUVE_COLOR = "#4f46e5"; // primary/violet
 const CONCOURS_COLOR = "#f59e0b"; // amber
+const EXAMEN_NATIONAL_COLOR = "#0ea5e9"; // sky
 
 // ---------- hero summary tile ----------
 function HeroTile({
@@ -331,7 +333,7 @@ export default function StatistiquesApprobations() {
               value={nf(combined.total)}
               icon={ClipboardCheck}
               accent="primary"
-              sub="épreuves + concours"
+              sub="épreuves + concours + examens nationaux"
             />
             <HeroTile
               label="En attente"
@@ -369,7 +371,7 @@ export default function StatistiquesApprobations() {
           </div>
 
           {/* Per-type breakdown */}
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-3">
             <BreakdownCard
               title="Épreuves"
               description="Demandes d'ajout d'épreuves"
@@ -383,6 +385,13 @@ export default function StatistiquesApprobations() {
               icon={Award}
               accent="amber"
               counts={data.concours}
+            />
+            <BreakdownCard
+              title="Examens nationaux"
+              description="Demandes d'ajout d'examens nationaux"
+              icon={GraduationCap}
+              accent="sky"
+              counts={data.examens_nationaux}
             />
           </div>
 
@@ -398,7 +407,7 @@ export default function StatistiquesApprobations() {
                 </CardTitle>
                 <CardDescription>
                   {GRANULARITY_LABEL[data.granularity] ?? "Par période"} · épreuves
-                  et concours
+                  concours et examens nationaux
                 </CardDescription>
               </div>
             </CardHeader>
@@ -453,6 +462,13 @@ export default function StatistiquesApprobations() {
                       name="Concours"
                       stackId="s"
                       fill={CONCOURS_COLOR}
+                      radius={[0, 0, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="examens_nationaux"
+                      name="Examens nationaux"
+                      stackId="s"
+                      fill={EXAMEN_NATIONAL_COLOR}
                       radius={[4, 4, 0, 0]}
                     />
                   </BarChart>
