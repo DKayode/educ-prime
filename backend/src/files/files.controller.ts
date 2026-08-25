@@ -186,9 +186,9 @@ export class FilesController {
             '10 min). Returns 400 for a public slot — read its URL directly from the ' +
             'entity\'s <slot>_path field. Returns 404 if no file has been uploaded yet. ' +
             'Private slots: epreuves.file, concours.file, prestataires.identity, ' +
-            'kessiah_documents.file. VIRTUAL slots (kessiah_documents.file) have no ' +
-            'Edukia row holding the extension — the owning service must pass it back ' +
-            'via ?extension=<ext>.',
+            'kessiah_documents.file, kessiah_chat_images.file. VIRTUAL slots (both ' +
+            'kessiah_* slots) have no Edukia row holding the extension — the owning ' +
+            'service must pass it back via ?extension=<ext>.',
     })
     @ApiParam({ name: 'entity', example: 'epreuves', enum: KNOWN_ENTITIES, description: ENTITY_PARAM_DESC })
     @ApiParam({ name: 'uuid', description: 'UUID of the row that owns the file' })
@@ -197,7 +197,7 @@ export class FilesController {
         name: 'extension',
         required: false,
         example: 'docx',
-        description: 'File extension. REQUIRED for virtual slots (kessiah_documents.file); ignored otherwise.',
+        description: 'File extension. REQUIRED for virtual slots (kessiah_documents.file, kessiah_chat_images.file); ignored otherwise.',
     })
     async createDownloadUrl(
         @Param('entity') entity: string,
