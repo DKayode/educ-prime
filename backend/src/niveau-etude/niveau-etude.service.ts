@@ -50,8 +50,14 @@ export class NiveauEtudeService {
       .take(limit)
       .orderBy('niveau.nom', filterDto.sort_order || 'ASC')
 
+    if (filterDto.filiere_id) {
+      queryBuilder.andWhere('filiere.id = :filiereId', { filiereId: filterDto.filiere_id });
+    }
+
+    // Insensible à la casse et aux accents : voir la note du DTO sur les noms
+    // porteurs d'une apostrophe typographique.
     if (filiere) {
-      queryBuilder.andWhere('filiere.nom = :filiere', { filiere });
+      queryBuilder.andWhere('unaccent(lower(filiere.nom)) = unaccent(lower(:filiere))', { filiere });
     }
 
     if (search) {
