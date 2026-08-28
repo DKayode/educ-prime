@@ -22,9 +22,14 @@ export class FilterNiveauEtudeDto extends PaginationDto {
     @IsInt()
     filiere_id?: number;
 
-    // Default: only niveaux d'étude that have at least one épreuve (via
-    // matière→épreuve). Pass all=true to include empty niveaux
-    // (admin management / pickers).
+    // ATTENTION : ce commentaire décrivait une intention, jamais un
+    // comportement. Aucun filtre « seulement les niveaux ayant une épreuve »
+    // n'existe dans le service — `findAll` renvoie tous les niveaux du pays,
+    // que ce drapeau soit passé ou non. Vérifié en production le 28 août 2026 :
+    // 143 niveaux avec et sans `all=true`.
+    //
+    // Le champ est conservé pour ne pas rejeter par un 400 les clients qui
+    // l'envoient déjà (`forbidNonWhitelisted` est actif).
     @IsOptional()
     @Transform(({ value }) => value === true || value === 'true')
     @IsBoolean()
