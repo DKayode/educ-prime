@@ -61,8 +61,25 @@ export class MatieresService {
       );
     }
 
+    // Filtrer par identifiant plutôt que par nom quand le client le peut :
+    // l'égalité sur le nom est stricte, et 17 filières portent une apostrophe
+    // typographique qu'un clavier remplace par une apostrophe droite.
+    if (filterDto.filiere_id) {
+      queryBuilder.andWhere('filiere.id = :filiereId', { filiereId: filterDto.filiere_id });
+    }
+
+    // Sans ce filtre, l'écran de dépôt ne pouvait demander que les matières de
+    // TOUTE la filière, tous niveaux confondus — 68 pour Médecine Générale,
+    // dont 10 seulement remontaient.
+    if (filterDto.niveau_etude_id) {
+      queryBuilder.andWhere('niveau_etude.id = :niveauId', { niveauId: filterDto.niveau_etude_id });
+    }
+
+    // Comparaison insensible à la casse et aux accents : le nom transite par
+    // l'interface, où il peut être ressaisi ou normalisé. Une liste vide sans
+    // message coûte plus cher qu'une correspondance un peu large.
     if (filterDto.filiere) {
-      queryBuilder.andWhere('filiere.nom = :filiere', { filiere: filterDto.filiere });
+      queryBuilder.andWhere('unaccent(lower(filiere.nom)) = unaccent(lower(:filiere))', { filiere: filterDto.filiere });
     }
 
     const [matieres, total] = await queryBuilder.getManyAndCount();

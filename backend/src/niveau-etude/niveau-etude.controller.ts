@@ -27,7 +27,9 @@ export class NiveauEtudeController {
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (nom niveau, nom filière)' })
-  @ApiQuery({ name: 'filiere', required: false, type: String, description: 'Filtrer par nom de filière' })
+  @ApiQuery({ name: 'filiere', required: false, type: String, description: 'Filtrer par nom de filière (insensible à la casse et aux accents)' })
+  @ApiQuery({ name: 'filiere_id', required: false, type: Number, description: 'Filtrer par identifiant de filière — préférable au nom' })
+  @ApiQuery({ name: 'all', required: false, type: Boolean, description: "Inclure les niveaux sans épreuve. À passer pour un menu de sélection : par défaut 33 des 143 niveaux du Bénin sont masqués." })
   async findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterNiveauEtudeDto) {
     return this.niveauEtudeService.findAll(pays, filterDto);
   }

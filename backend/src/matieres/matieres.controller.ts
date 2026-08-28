@@ -37,7 +37,9 @@ export class MatieresController {
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre d\'éléments par page' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche globale (nom matière, nom niveau, nom filière)' })
-  @ApiQuery({ name: 'filiere', required: false, type: String, description: 'Filtrer par nom de filière' })
+  @ApiQuery({ name: 'filiere', required: false, type: String, description: 'Filtrer par nom de filière (insensible à la casse et aux accents)' })
+  @ApiQuery({ name: 'filiere_id', required: false, type: Number, description: 'Filtrer par identifiant de filière — préférable au nom' })
+  @ApiQuery({ name: 'niveau_etude_id', required: false, type: Number, description: "Filtrer par identifiant de niveau d'étude" })
   async findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterMatiereDto) {
     return this.matieresService.findAll(pays, filterDto);
   }
