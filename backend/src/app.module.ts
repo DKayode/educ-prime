@@ -73,6 +73,7 @@ import { CompetencesModule } from './competences/competences.module';
 import { OffresModule } from './offres/offres.module';
 import { KpiModule } from './kpi/kpi.module';
 import { SubmissionsStatsModule } from './submissions-stats/submissions-stats.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { WalletModule } from './wallet/wallet.module';
 import { NotificationEmailModule } from './notification-email/notification-email.module';
 import { BullModule } from '@nestjs/bullmq';
@@ -222,6 +223,7 @@ const prettyLogsAvailable = (() => {
     OffresModule,
     KpiModule,
     SubmissionsStatsModule,
+    DashboardModule,
     WalletModule,
   ],
   controllers: [AppController],
