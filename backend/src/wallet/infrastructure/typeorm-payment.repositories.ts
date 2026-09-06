@@ -1578,6 +1578,10 @@ export class TypeOrmPaymentRewardConfigurationRepository implements PaymentRewar
     const allowedFields: Array<keyof PaymentRewardConfigurationModel> = [
       'rewardAmount',
       'currency',
+      // Sans ces deux-là, un taux de commission envoyé était silencieusement
+      // ignoré : la réponse renvoyait l'ancienne valeur sans la moindre erreur.
+      'commissionType',
+      'commissionPercentage',
       'rewardEnabled',
       'reviewDelayHours',
       'requiresAdminValidation',

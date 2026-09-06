@@ -110,40 +110,61 @@ describe('ParrainageService', () => {
     });
   });
 
-  describe('résolution du parrain', () => {
-    it('retient la relation posée à l’inscription', async () => {
-      utilisateurs.findOne.mockResolvedValue({ id: 10, parrain: { id: 20 } });
-      expect(await service.resoudreParrain(10, 'AUTRE1')).toBe(20);
+  describe('résolution du bénéficiaire', () => {
+    /** Le premier appel cherche le propriétaire du code, le second le filleul. */
+    const avec = ({ proprietaireDuCode, parrainInscription }: any) => {
+      utilisateurs.findOne.mockImplementation(async ({ where }: any) =>
+        where.mon_code_parrainage !== undefined
+          ? proprietaireDuCode
+          : { id: 10, parrain: parrainInscription },
+      );
+    };
+
+    it('retient le parrain d’inscription sans code', async () => {
+      avec({ parrainInscription: { id: 20 } });
+      expect(await service.resoudreParrain(10)).toBe(20);
     });
 
-    it('n’accepte un code saisi que sans parrain existant', async () => {
-      utilisateurs.findOne
-        .mockResolvedValueOnce({ id: 10, parrain: null })
-        .mockResolvedValueOnce({ id: 33 });
-      expect(await service.resoudreParrain(10, 'code33')).toBe(33);
-      // Le code est normalisé en majuscules, comme à l'inscription.
-      expect(utilisateurs.findOne.mock.calls[1][0].where.mon_code_parrainage).toBe('CODE33');
+    it('LE CODE SAISI PRIME sur le parrain d’inscription', async () => {
+      // Celui qui convainc d'acheter n'est pas forcément celui qui avait amené
+      // le compte, parfois des mois plus tôt.
+      avec({ proprietaireDuCode: { id: 33 }, parrainInscription: { id: 20 } });
+      expect(await service.resoudreParrain(10, 'CODE33')).toBe(33);
     });
 
-    it('refuse l’auto-parrainage par code', async () => {
-      utilisateurs.findOne
-        .mockResolvedValueOnce({ id: 10, parrain: null })
-        .mockResolvedValueOnce({ id: 10 });
-      expect(await service.resoudreParrain(10, 'MONCODE')).toBeNull();
+    it('ne touche PAS à la relation d’inscription', async () => {
+      avec({ proprietaireDuCode: { id: 33 }, parrainInscription: { id: 20 } });
+      await service.resoudreParrain(10, 'CODE33');
+      // Aucune écriture sur utilisateurs : la donnée d'acquisition est
+      // immuable, sans quoi une seule vente réattribuerait toutes les
+      // commissions futures.
+      expect(utilisateurs.save).toBeUndefined();
+      expect(utilisateurs.update).toBeUndefined();
+    });
+
+    it('normalise le code en majuscules, comme à l’inscription', async () => {
+      avec({ proprietaireDuCode: { id: 33 }, parrainInscription: null });
+      await service.resoudreParrain(10, ' code33 ');
+      expect(utilisateurs.findOne.mock.calls[0][0].where.mon_code_parrainage).toBe('CODE33');
+    });
+
+    it('retombe sur le parrain d’inscription si le code est inconnu', async () => {
+      avec({ proprietaireDuCode: null, parrainInscription: { id: 20 } });
+      expect(await service.resoudreParrain(10, 'INEXISTANT')).toBe(20);
+    });
+
+    it('retombe sur le parrain d’inscription si le code est le sien', async () => {
+      avec({ proprietaireDuCode: { id: 10 }, parrainInscription: { id: 20 } });
+      expect(await service.resoudreParrain(10, 'MONCODE')).toBe(20);
     });
 
     it('refuse l’auto-parrainage hérité de l’inscription', async () => {
-      utilisateurs.findOne.mockResolvedValue({ id: 10, parrain: { id: 10 } });
+      avec({ parrainInscription: { id: 10 } });
       expect(await service.resoudreParrain(10)).toBeNull();
     });
 
-    it('tolère un code inconnu', async () => {
-      utilisateurs.findOne.mockResolvedValueOnce({ id: 10, parrain: null }).mockResolvedValueOnce(null);
-      expect(await service.resoudreParrain(10, 'INEXISTANT')).toBeNull();
-    });
-
     it('renvoie null sans code ni parrain', async () => {
-      utilisateurs.findOne.mockResolvedValue({ id: 10, parrain: null });
+      avec({ parrainInscription: null });
       expect(await service.resoudreParrain(10)).toBeNull();
     });
   });

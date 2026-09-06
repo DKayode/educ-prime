@@ -18,11 +18,14 @@ le parrain reçoit un pourcentage du prix payé, **crédité dans son wallet**.
 Deux surfaces côté application :
 
 - un **écran « Mes parrainages »** : filleuls, commissions perçues ;
-- un **champ code de parrainage** optionnel à la souscription, pour les
-  utilisateurs qui n'en avaient pas saisi à l'inscription.
+- un **champ code de parrainage** optionnel à la souscription, proposé à
+  **tous** — il désigne qui touche la commission de cet abonnement.
 
 Rien à faire pour déclencher le versement : il part du serveur quand
 l'abonnement est encaissé.
+
+Le taux, et le fait qu'une commission soit versée, se règlent depuis le
+back-office (**Abonnements → Commission parrainage**) sans déploiement.
 
 ### ⚠️ La commission est désactivée au lancement
 
@@ -91,27 +94,31 @@ de commission portent `reward_source_type_code = "PARRAINAGE_ABONNEMENT"`.
 
 ### La règle à comprendre
 
-**Le code n'est pris en compte que si l'utilisateur n'avait PAS déjà de parrain.**
-La relation posée à l'inscription prime et n'est jamais réécrite : c'est une
-donnée d'acquisition, pas un champ modifiable.
+**Le code saisi à l'achat prime sur le parrain d'inscription** — mais seulement
+pour CET abonnement.
 
-| situation de l'utilisateur | effet du `code_parrainage` |
+| situation | qui perçoit la commission |
 |---|---|
-| parrain défini à l'inscription | **ignoré** — le parrain d'origine garde la commission |
-| aucun parrain | le code est résolu et le parrain rattaché |
-| code inconnu | ignoré, la souscription réussit quand même |
-| son propre code | ignoré (auto-parrainage refusé) |
+| code saisi, valide | **le propriétaire du code** |
+| code saisi, inconnu | le parrain d'inscription (repli silencieux) |
+| code saisi = le sien | le parrain d'inscription (auto-parrainage refusé) |
+| aucun code | le parrain d'inscription |
+| ni code ni parrain | personne |
 
-**Ne présentez donc pas le champ à un utilisateur qui a déjà un parrain** — il
-saisirait un code sans effet et croirait avoir crédité quelqu'un.
-`GET /abonnements/mon-abonnement` ne dit pas s'il en a un ; le plus simple est
-de n'afficher le champ que lorsque l'utilisateur n'a rien saisi à l'inscription,
-information dont l'application dispose déjà à ce moment-là.
+**Le champ est utile à tout le monde**, y compris à qui a déjà un parrain :
+celui qui convainc d'acheter n'est pas forcément celui qui avait amené le
+compte, parfois des mois plus tôt.
+
+⚠️ **Le parrain d'inscription n'est jamais réécrit.** `utilisateurs.parrain_id`
+reste ce qu'il était : un code saisi à l'achat ne vaut que pour l'abonnement en
+cours. Sans cette séparation, une seule vente réattribuerait toutes les
+commissions futures de ce compte. Ne présentez donc pas l'opération comme un
+« changement de parrain ».
 
 Un code invalide **ne fait pas échouer la souscription**. C'est délibéré :
 bloquer un paiement pour une faute de frappe sur un champ facultatif serait
-absurde. Mais l'application ne recevra aucun signal d'erreur — ne promettez
-donc pas au filleul que son code « a été pris en compte ».
+absurde. Mais l'application ne recevra aucun signal d'erreur — ne confirmez donc
+pas au filleul que son code « a été pris en compte ».
 
 ---
 
@@ -213,8 +220,9 @@ Future<Abonnement> souscrire(String planUuid, {String? codeParrainage}) async {
     body: jsonEncode({
       'plan_uuid': planUuid,
       'pays': pays,
-      // Ignoré côté serveur si l'utilisateur a déjà un parrain — ne l'annoncez
-      // donc pas comme « pris en compte » à l'écran.
+      // Désigne le bénéficiaire de la commission de CET abonnement. Le parrain
+      // d'inscription n'est pas modifié, et un code inconnu est ignoré sans
+      // erreur — ne confirmez donc pas qu'il « a été pris en compte ».
       if (codeParrainage != null && codeParrainage.isNotEmpty)
         'code_parrainage': codeParrainage.toUpperCase(),
     }),
@@ -231,8 +239,9 @@ Future<Abonnement> souscrire(String planUuid, {String? codeParrainage}) async {
 **La commission est à 0 % et désactivée au lancement.** N'affichez aucun taux en
 dur, et prévoyez l'état « aucune commission ».
 
-**Le code saisi à la souscription est ignoré si l'utilisateur a déjà un
-parrain.** Ne montrez le champ que dans le cas contraire.
+**Le code saisi à l'achat prime**, mais seulement pour cet abonnement : le
+parrain d'inscription n'est pas modifié. Ne l'annoncez pas comme un changement
+de parrain.
 
 **Un code invalide n'échoue pas.** Aucune erreur ne remonte : ne confirmez pas au
 filleul que son code a fonctionné.

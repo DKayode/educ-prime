@@ -3,7 +3,9 @@ import { ModuleRef } from '@nestjs/core';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { RoleType, Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
-import { RewardSourceTypeCode, WalletStatus } from '../wallet/shared/payment.enums';
+import { FeeType, RewardSourceTypeCode, WalletStatus } from '../wallet/shared/payment.enums';
+import { PAYMENT_REWARD_CONFIGURATION_REPOSITORY } from '../wallet/shared/payment.tokens';
+import type { PaymentRewardConfigurationRepositoryPort } from '../wallet/shared/payment.ports';
 import { CreditRewardSourceUseCase } from '../wallet/user-payment/use-cases/credit-reward-source.use-case';
 import { Abonnement } from './entities/abonnement.entity';
 
@@ -42,32 +44,50 @@ export class ParrainageService {
     return this.moduleRef.get(CreditRewardSourceUseCase, { strict: false });
   }
 
+  /** Même raison de résolution tardive que ci-dessus. */
+  private get configurationsRecompense(): PaymentRewardConfigurationRepositoryPort {
+    return this.moduleRef.get(PAYMENT_REWARD_CONFIGURATION_REPOSITORY, { strict: false });
+  }
+
   /**
-   * Parrain à créditer pour une souscription.
+   * Bénéficiaire de la commission POUR CET ABONNEMENT.
    *
-   * La relation posée à l'inscription (`utilisateurs.parrain_id`) fait foi. Un
-   * code saisi au moment de la souscription ne sert qu'à un utilisateur qui
-   * n'avait PAS de parrain : réécrire la relation d'inscription confondrait une
-   * donnée d'acquisition avec un geste commercial.
+   * Deux chemins d'attribution, dans cet ordre :
+   *
+   * 1. **le code saisi à l'achat**, s'il désigne quelqu'un d'autre ;
+   * 2. à défaut, **le parrain d'inscription** (`utilisateurs.parrain_id`).
+   *
+   * Le code saisi l'emporte : celui qui a convaincu d'acheter n'est pas
+   * forcément celui qui avait amené le compte, parfois des mois plus tôt.
+   *
+   * ⚠️ Cette résolution ne concerne QUE l'abonnement en cours. La relation
+   * `utilisateurs.parrain_id` n'est jamais réécrite : c'est une donnée
+   * d'acquisition, et la modifier réattribuerait rétroactivement toutes les
+   * commissions futures à quelqu'un qui n'a fait qu'une vente.
    */
   async resoudreParrain(utilisateurId: number, codeSaisi?: string): Promise<number | null> {
+    const parrainDuCode = codeSaisi ? await this.parrainParCode(codeSaisi, utilisateurId) : null;
+    if (parrainDuCode) return parrainDuCode;
+
     const filleul = await this.utilisateurs.findOne({
       where: { id: utilisateurId },
       relations: ['parrain'],
       select: { id: true, parrain: { id: true } } as any,
     });
+    const parrainInscription = (filleul as any)?.parrain?.id ?? null;
 
-    const parrainExistant = (filleul as any)?.parrain?.id ?? null;
-    if (parrainExistant) return parrainExistant === utilisateurId ? null : parrainExistant;
+    // Un compte dont la relation pointerait sur lui-même ne doit rien produire.
+    return parrainInscription && parrainInscription !== utilisateurId ? parrainInscription : null;
+  }
 
-    if (!codeSaisi) return null;
-
-    const parrain = await this.utilisateurs.findOne({
-      where: { mon_code_parrainage: codeSaisi.trim().toUpperCase() },
+  /** Propriétaire d'un code, hors auto-parrainage. Un code inconnu vaut « pas de code ». */
+  private async parrainParCode(code: string, utilisateurId: number): Promise<number | null> {
+    const proprietaire = await this.utilisateurs.findOne({
+      where: { mon_code_parrainage: code.trim().toUpperCase() },
       select: ['id'],
     });
-    if (!parrain || parrain.id === utilisateurId) return null;
-    return parrain.id;
+    if (!proprietaire || proprietaire.id === utilisateurId) return null;
+    return proprietaire.id;
   }
 
   /**
@@ -145,6 +165,43 @@ export class ParrainageService {
     }
 
     return null;
+  }
+
+  /**
+   * Réglage de la commission, lu depuis la configuration de récompense du
+   * wallet — même source que le versement, pour qu'il n'y ait jamais deux
+   * vérités sur le taux.
+   */
+  async reglageCommission() {
+    const config = await this.configurationsRecompense.getActiveBySourceTypeCode(
+      RewardSourceTypeCode.PARRAINAGE_ABONNEMENT,
+    );
+    return {
+      taux: Number(config.commissionPercentage ?? 0),
+      est_active: !!config.rewardEnabled,
+      devise: config.currency,
+      // Un taux à 0 ne verse rien même « activé » : le dire évite de croire la
+      // fonctionnalité en marche.
+      verse_effectivement: !!config.rewardEnabled && Number(config.commissionPercentage ?? 0) > 0,
+    };
+  }
+
+  async modifierCommission(champs: { taux?: number; est_active?: boolean }, adminId?: number) {
+    await this.configurationsRecompense.updateBySourceTypeCode(
+      RewardSourceTypeCode.PARRAINAGE_ABONNEMENT,
+      {
+        ...(champs.taux !== undefined
+          ? { commissionPercentage: champs.taux, commissionType: FeeType.PERCENTAGE, rewardAmount: 0 }
+          : {}),
+        ...(champs.est_active !== undefined ? { rewardEnabled: champs.est_active } : {}),
+      } as any,
+      adminId ?? 0,
+    );
+    const reglage = await this.reglageCommission();
+    this.logger.log(
+      `Commission de parrainage : taux=${reglage.taux}% active=${reglage.est_active}`,
+    );
+    return reglage;
   }
 
   /** Vue « mes parrainages » : filleuls, abonnements payants, commissions perçues. */

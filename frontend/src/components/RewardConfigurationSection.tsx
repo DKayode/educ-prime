@@ -102,6 +102,10 @@ export function RewardConfigurationSection() {
   };
 
   const configs = (data ?? [])
+    // La commission de parrainage a sa propre page (Abonnements → Commission de
+    // parrainage) : deux formulaires pour une même valeur invitent à les croire
+    // indépendants.
+    .filter((c) => !EST_COMMISSION(c.rewardSourceTypeCode))
     .slice()
     .sort((a, b) => SOURCE_ORDER.indexOf(a.rewardSourceTypeCode) - SOURCE_ORDER.indexOf(b.rewardSourceTypeCode));
 

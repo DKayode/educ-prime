@@ -8,12 +8,19 @@ export class SouscrireDto {
   plan_uuid: string;
 
   /**
-   * Code de parrainage saisi au moment de la souscription (#246).
+   * Code de parrainage saisi à l'achat (#246).
    *
-   * Ne sert qu'à un utilisateur qui n'avait PAS de parrain : la relation posée
-   * à l'inscription prime, et n'est jamais réécrite ici.
+   * Son propriétaire perçoit la commission de CET abonnement, à la place du
+   * parrain d'inscription. La relation `utilisateurs.parrain_id` n'est pas
+   * touchée : réécrire une donnée d'acquisition réattribuerait rétroactivement
+   * toutes les commissions futures.
    */
-  @ApiPropertyOptional({ example: 'GZT8NW', description: 'Ignoré si l’utilisateur a déjà un parrain' })
+  @ApiPropertyOptional({
+    example: 'GZT8NW',
+    description:
+      'Le propriétaire du code perçoit la commission de cet abonnement. Le parrain ' +
+      'd’inscription reste inchangé. Un code inconnu est ignoré sans erreur.',
+  })
   @IsOptional()
   @IsString()
   @Length(4, 20, { message: 'Le code de parrainage est invalide' })

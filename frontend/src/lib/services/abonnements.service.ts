@@ -83,6 +83,14 @@ export interface QuotaPayload {
   est_actif?: boolean;
 }
 
+export interface ReglageCommission {
+  taux: number;
+  est_active: boolean;
+  devise: string;
+  /** Un taux à 0 ne verse rien, même « activé ». */
+  verse_effectivement: boolean;
+}
+
 export interface ActivationPayload {
   montant_paye: number;
   reference_paiement?: string;
@@ -132,6 +140,15 @@ export const abonnementsService = {
 
   async updateQuota(uuid: string, data: QuotaPayload): Promise<ConfigurationQuota> {
     return api.put<ConfigurationQuota>(`/admin/abonnements/quotas/${uuid}`, data);
+  },
+
+  // ── Commission de parrainage ─────────────────────────────────────────────
+  async getCommission(): Promise<ReglageCommission> {
+    return api.get<ReglageCommission>('/admin/abonnements/commission');
+  },
+
+  async updateCommission(data: { taux?: number; est_active?: boolean }): Promise<ReglageCommission> {
+    return api.put<ReglageCommission>('/admin/abonnements/commission', data);
   },
 
   // ── Abonnements ──────────────────────────────────────────────────────────

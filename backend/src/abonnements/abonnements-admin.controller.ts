@@ -12,7 +12,9 @@ import { FilterAbonnementDto } from './dto/filter-abonnement.dto';
 import { ProlongerAbonnementDto } from './dto/prolonger-abonnement.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { PlansService } from './plans.service';
+import { ParrainageService } from './parrainage.service';
 import { QuotaService } from './quota.service';
+import { UpdateCommissionDto } from './dto/update-commission.dto';
 import { UpdateQuotaDto } from './dto/update-quota.dto';
 
 @ApiTags('abonnements-admin')
@@ -25,7 +27,31 @@ export class AbonnementsAdminController {
     private readonly abonnementsService: AbonnementsService,
     private readonly plansService: PlansService,
     private readonly quotas: QuotaService,
+    private readonly parrainage: ParrainageService,
   ) {}
+
+  // ── Commission de parrainage ─────────────────────────────────────────────
+
+  @Get('commission')
+  @ApiOperation({
+    summary: 'Taux de commission de parrainage',
+    description:
+      'Part du prix payé versée au bénéficiaire — parrain d’inscription, ou propriétaire du ' +
+      'code saisi à l’achat.',
+  })
+  commission() {
+    return this.parrainage.reglageCommission();
+  }
+
+  @Put('commission')
+  @ApiOperation({
+    summary: 'Régler le taux de commission',
+    description:
+      'Prend effet immédiatement, sans déploiement. Ne modifie pas les commissions déjà versées.',
+  })
+  modifierCommission(@Body() dto: UpdateCommissionDto, @Request() req) {
+    return this.parrainage.modifierCommission(dto, req.user?.utilisateurId);
+  }
 
   // ── Quotas gratuits ──────────────────────────────────────────────────────
 
