@@ -10,6 +10,8 @@ import { SouscrireDto } from './dto/souscrire.dto';
 import { AbonnementEvenement, TypeEvenementAbonnement } from './entities/abonnement-evenement.entity';
 import { Abonnement, StatutAbonnement } from './entities/abonnement.entity';
 import { EntitlementService } from './entitlement.service';
+import { ModuleRef } from '@nestjs/core';
+import { CodeValidationService } from '../codes/code-validation.service';
 import { ParrainageService } from './parrainage.service';
 import { PlansService } from './plans.service';
 
@@ -24,7 +26,16 @@ export class AbonnementsService {
     private readonly entitlement: EntitlementService,
     private readonly parrainage: ParrainageService,
     private readonly dataSource: DataSource,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  /**
+   * Résolution tardive : CodesModule importe AbonnementsModule pour PlansService,
+   * l'inverse ne peut donc pas être une arête du graphe de modules.
+   */
+  private get codes(): CodeValidationService {
+    return this.moduleRef.get(CodeValidationService, { strict: false });
+  }
 
   /**
    * Ouvre un abonnement EN_ATTENTE. Il ne devient ACTIF qu'au paiement (#248)
@@ -49,35 +60,111 @@ export class AbonnementsService {
     if (enAttente) {
       enAttente.plan_id = plan.id;
       enAttente.devise = plan.devise;
-      // Un code saisi au second passage doit être pris en compte.
-      enAttente.parrain_id =
-        enAttente.parrain_id ?? (await this.parrainage.resoudreParrain(utilisateurId, dto.code_parrainage));
+      // Un code saisi au second passage doit être pris en compte : on libère la
+      // souscription en attente pour repartir d'une résolution propre.
+      await this.codes.libererPourAbonnement(enAttente.id);
+      await this.abonnements.update(enAttente.id, { code_id: null, montant_remise: 0 });
       const rafraichi = await this.abonnements.save(enAttente);
       return this.findByUuid(rafraichi.uuid);
     }
 
-    // Le parrain est figé maintenant, pas au paiement : entre les deux, la
-    // relation de parrainage pourrait changer et attribuer la commission à
-    // quelqu'un qui n'a rien amené.
-    const parrainId = await this.parrainage.resoudreParrain(utilisateurId, dto.code_parrainage);
+    const codeSaisi = dto.code ?? dto.code_parrainage;
 
-    const abonnement = await this.abonnements.save(
-      this.abonnements.create({
-        pays,
-        utilisateur_id: utilisateurId,
-        plan_id: plan.id,
-        statut: StatutAbonnement.EN_ATTENTE,
-        montant_paye: 0,
-        devise: plan.devise,
-        parrain_id: parrainId,
-      }),
-    );
+    // Un seul code, plusieurs effets possibles : remise, commission, abonnement
+    // offert. C'est le registre qui les porte — le module abonnements se
+    // contente de les appliquer.
+    const resultat = codeSaisi
+      ? await this.codes.valider(codeSaisi, utilisateurId, { planId: plan.id, prix: plan.prix, pays })
+      : null;
+    const codeValide = resultat?.valide ? resultat : null;
+
+    if (codeSaisi && !codeValide) {
+      // Refus silencieux : bloquer un paiement pour une faute de frappe sur un
+      // champ facultatif serait absurde. `code_id: null` en dit assez au client.
+      this.logger.log(`Code « ${codeSaisi} » ignoré pour l'utilisateur ${utilisateurId} : ${resultat?.motif}`);
+    }
+
+    const effets = codeValide?.effets ?? {};
+    const remise = effets.remise?.montant_remise ?? 0;
+    const offert = !!effets.abonnement_offert;
+
+    // Le bénéficiaire est figé maintenant, pas au paiement : entre les deux, le
+    // code pourrait être désactivé ou changer de propriétaire. Un abonnement
+    // offert n'encaisse rien, donc ne verse aucune commission.
+    const parrainId = offert ? null : effets.commission_pour ?? null;
+
+    const abonnement = await this.dataSource.transaction(async (manager) => {
+      // L'ORDRE COMPTE. Le verrou sur le code se prend AVANT d'insérer
+      // l'abonnement : l'insertion prend un FOR KEY SHARE sur la ligne de
+      // `codes` via la clé étrangère, et l'élever ensuite en FOR UPDATE
+      // provoque un interblocage dès deux acheteurs simultanés — observé sur le
+      // devstack avec 10 requêtes parallèles.
+      let codeRetenu = codeValide?.code ?? null;
+      if (codeRetenu) {
+        const verrou = await this.codes.verrouillerEtValider(manager, codeRetenu.id, utilisateurId);
+        if (!verrou.ok) {
+          // La place a été prise entre l'aperçu et l'achat : on souscrit sans le
+          // code plutôt que d'échouer un paiement.
+          this.logger.warn(`Code ${codeRetenu.code} indisponible : ${verrou.motif}`);
+          codeRetenu = null;
+        }
+      }
+      const retenu = !!codeRetenu;
+      const remiseRetenue = retenu ? remise : 0;
+      const offertRetenu = retenu && offert;
+
+      // Un abonnement offert est ACTIF d'emblée : il n'y a rien à encaisser, et
+      // le laisser EN_ATTENTE obligerait un admin à confirmer un paiement qui
+      // n'aura jamais lieu.
+      const debut = offertRetenu ? new Date() : null;
+      const duree = effets.abonnement_offert?.duree_jours ?? plan.duree_jours;
+      const fin = offertRetenu ? new Date(debut!.getTime() + duree * 24 * 60 * 60 * 1000) : null;
+
+      const cree = await manager.getRepository(Abonnement).save(
+        manager.getRepository(Abonnement).create({
+          pays,
+          utilisateur_id: utilisateurId,
+          plan_id: plan.id,
+          statut: offertRetenu ? StatutAbonnement.ACTIF : StatutAbonnement.EN_ATTENTE,
+          date_debut: debut,
+          date_fin: fin,
+          montant_paye: 0,
+          montant_remise: remiseRetenue,
+          offert: offertRetenu,
+          devise: plan.devise,
+          parrain_id: retenu ? parrainId : null,
+          code_id: codeRetenu?.id ?? null,
+        }),
+      );
+
+      if (codeRetenu) {
+        await this.codes.enregistrerUtilisation(manager, codeRetenu.id, utilisateurId, {
+          abonnementId: cree.id,
+          montantRemise: remiseRetenue,
+          pays,
+          effets,
+        });
+      }
+      return cree;
+    });
 
     await this.journaliser(abonnement.id, TypeEvenementAbonnement.CREE, {
       planCode: plan.code,
       prix: plan.prix,
-      parrainId,
+      parrainId: abonnement.parrain_id,
+      code: abonnement.code_id ? codeValide?.code?.code : null,
+      montantRemise: abonnement.montant_remise,
+      offert: abonnement.offert,
     });
+
+    if (abonnement.offert) {
+      await this.journaliser(abonnement.id, TypeEvenementAbonnement.ACTIVE, {
+        offert: true,
+        code: codeValide?.code?.code,
+        date_fin: abonnement.date_fin,
+      });
+    }
+
     this.logger.log(`Abonnement ${abonnement.uuid} créé (EN_ATTENTE) pour utilisateur ${utilisateurId}`);
     return this.findByUuid(abonnement.uuid);
   }
@@ -187,6 +274,9 @@ export class AbonnementsService {
     }
     abonnement.statut = StatutAbonnement.ANNULE;
     const sauvegarde = await this.abonnements.save(abonnement);
+    // Rendre la place : sans cela, les codes d'une campagne limitée partiraient
+    // en paniers abandonnés.
+    await this.codes.libererPourAbonnement(sauvegarde.id);
     await this.journaliser(sauvegarde.id, TypeEvenementAbonnement.ANNULE, { motif: motif ?? null });
     return this.findByUuid(uuid);
   }
