@@ -9,23 +9,44 @@ Complète le [guide des abonnements](./api-abonnements-mobile.md).
 
 ---
 
-## 1. Ce qui change
+## 1. La règle, en une phrase
+
+> **Si un code valide — qui n'est pas celui de l'acheteur — est saisi au moment
+> de l'achat, son propriétaire reçoit un pourcentage du montant payé. Sinon,
+> rien n'est versé à personne.**
 
 Le code de parrainage servait jusqu'ici au **suivi** : savoir qui amène des
-utilisateurs. Il devient rémunérateur — quand un filleul souscrit un abonnement,
-le parrain reçoit un pourcentage du prix payé, **crédité dans son wallet**.
+utilisateurs. Il devient rémunérateur, mais uniquement par ce geste précis.
+
+| au moment de l'achat | résultat |
+|---|---|
+| code valide, différent de celui de l'acheteur | **le propriétaire du code est crédité** |
+| code inconnu | rien |
+| code de l'acheteur lui-même | rien |
+| champ laissé vide | rien |
+
+**Il n'y a aucun autre chemin.** Avoir un parrain d'inscription — quelqu'un dont
+le code avait servi à la création du compte — n'ouvre **aucun droit** si ce code
+n'est pas ressaisi à l'achat.
+
+### Ce que cela implique pour l'application
+
+**Le champ code est le déclencheur, pas un détail de formulaire.** Enfoui, mal
+libellé ou laissé vide par défaut, il ne se passe rien : ni erreur, ni
+avertissement, ni commission. Prévoyez-le visible sur l'écran d'achat, avec un
+libellé qui dit ce qu'il fait — « Un code de parrainage ? Son propriétaire sera
+récompensé » plutôt qu'un champ nu.
 
 Deux surfaces côté application :
 
-- un **écran « Mes parrainages »** : filleuls, commissions perçues ;
-- un **champ code de parrainage** à la souscription, proposé à **tous** — c'est
-  lui, et lui seul, qui déclenche la commission.
+- le **champ code** à l'achat, proposé à **tous** les acheteurs ;
+- un **écran « Mes parrainages »** : filleuls et commissions perçues.
 
-Rien à faire pour déclencher le versement : il part du serveur quand
-l'abonnement est encaissé.
+Le versement lui-même est automatique : il part du serveur à l'encaissement,
+sans appel supplémentaire de votre part.
 
-Le taux, et le fait qu'une commission soit versée, se règlent depuis le
-back-office (**Abonnements → Commission parrainage**) sans déploiement.
+Le taux et l'activation se règlent depuis le back-office
+(**Abonnements → Commission parrainage**) sans déploiement.
 
 ### ⚠️ La commission est désactivée au lancement
 
@@ -92,39 +113,43 @@ de commission portent `reward_source_type_code = "PARRAINAGE_ABONNEMENT"`.
 { "plan_uuid": "574612e9-…", "code_parrainage": "KLVCM1", "pays": "benin" }
 ```
 
-### La règle à comprendre
+Le champ est **facultatif** : l'omettre souscrit normalement, sans commission.
 
-**Le code présenté à l'achat est le SEUL moyen de déclencher une commission.**
+### Ce que la réponse dit — et ne dit pas
 
-| situation | qui perçoit la commission |
+`parrain_id` porte l'identifiant du bénéficiaire retenu, ou `null` :
+
+```json
+{ "uuid": "abo-…", "statut": "EN_ATTENTE", "parrain_id": 26754, "montant_paye": 0 }
+```
+
+| réponse | interprétation |
 |---|---|
-| code saisi, valide | **le propriétaire du code** |
-| code saisi, inconnu | **personne** |
-| code saisi = le sien | **personne** (auto-parrainage refusé) |
-| **aucun code** | **personne** |
+| `parrain_id` non nul | le code a été accepté, son propriétaire sera crédité à l'encaissement |
+| `parrain_id: null` | aucun bénéficiaire — code absent, inconnu, ou celui de l'acheteur |
 
-⚠️ **Avoir un parrain d'inscription ne suffit pas.** Un utilisateur amené il y a
-six mois par quelqu'un qui ne saisit rien aujourd'hui : personne n'est payé. La
-commission récompense l'acte de vente, pas l'acquisition passée.
+**C'est le seul retour dont vous disposez.** Un code invalide ne déclenche
+**aucune erreur** : la souscription réussit, `parrain_id` vaut simplement `null`.
+C'est délibéré — bloquer un paiement pour une faute de frappe sur un champ
+facultatif serait absurde.
 
-**Conséquence directe pour l'application : le champ doit être visible et
-compris.** S'il est enfoui ou laissé vide par défaut, la fonctionnalité ne
-produira rien — c'est le geste de saisie qui déclenche tout. Un libellé du type
-« Un code de parrainage ? Votre parrain sera récompensé » vaut mieux qu'un champ
-nu.
+➡️ **Ne confirmez donc jamais « code pris en compte » sur la seule foi du
+`201`.** Vérifiez `parrain_id`. Si vous voulez signaler une saisie erronée,
+c'est le moment : `parrain_id: null` alors que l'utilisateur a saisi quelque
+chose signifie que le code n'a rien donné.
 
-> **Pré-remplir avec le code du parrain d'inscription est possible, mais c'est
-> une décision produit à assumer** : cela restaure de fait l'ancienne règle
-> côté client, et paie quelqu'un qui n'a rien fait pour cette vente. Le serveur,
-> lui, ne le fera jamais.
+### Deux pièges
 
-`utilisateurs.parrain_id` n'est ni lu ni modifié par ce chemin. Il reste la
-donnée d'acquisition, exploitée par les statistiques de parrainage.
+**Ne pré-remplissez pas avec le code du parrain d'inscription.** La tentation
+est naturelle, mais cela restaure côté client une règle que le serveur a
+justement retirée, et paie quelqu'un qui n'a rien fait pour cette vente. Si le
+produit le veut malgré tout, que ce soit une décision explicite — le serveur ne
+le fera jamais de lui-même.
 
-Un code invalide **ne fait pas échouer la souscription**. C'est délibéré :
-bloquer un paiement pour une faute de frappe sur un champ facultatif serait
-absurde. Mais l'application ne recevra aucun signal d'erreur — ne confirmez donc
-pas au filleul que son code « a été pris en compte ».
+**Ne présentez pas l'opération comme un « changement de parrain ».**
+`utilisateurs.parrain_id` n'est ni lu ni modifié par ce chemin ; il reste la
+donnée d'acquisition, exploitée par les statistiques. Le code saisi ne vaut que
+pour l'abonnement en cours.
 
 ---
 
@@ -197,6 +222,14 @@ class ParrainageApi {
   }
 }
 
+class ResultatSouscription {
+  const ResultatSouscription({required this.abonnement, required this.codeIgnore});
+  final Abonnement abonnement;
+  /// Un code a été saisi mais n'a désigné personne : inconnu, ou celui de
+  /// l'acheteur. Aucune commission ne sera versée pour cet abonnement.
+  final bool codeIgnore;
+}
+
 class Parrainages {
   const Parrainages({
     required this.filleuls,
@@ -219,22 +252,44 @@ class Parrainages {
 ### Souscrire avec un code
 
 ```dart
-Future<Abonnement> souscrire(String planUuid, {String? codeParrainage}) async {
+Future<ResultatSouscription> souscrire(String planUuid, {String? codeParrainage}) async {
+  final saisi = codeParrainage?.trim() ?? '';
+
   final r = await _client.post(
     Uri.parse('$baseUrl/abonnements/souscrire'),
     headers: _entetes,
     body: jsonEncode({
       'plan_uuid': planUuid,
       'pays': pays,
-      // SEUL déclencheur de commission : sans ce champ, personne n'est payé,
-      // pas même le parrain d'inscription. Un code inconnu est ignoré sans
-      // erreur — ne confirmez donc pas qu'il « a été pris en compte ».
-      if (codeParrainage != null && codeParrainage.isNotEmpty)
-        'code_parrainage': codeParrainage.toUpperCase(),
+      // SEUL déclencheur de commission. Sans ce champ, personne n'est payé —
+      // pas même le parrain d'inscription.
+      if (saisi.isNotEmpty) 'code_parrainage': saisi.toUpperCase(),
     }),
   );
   if (r.statusCode ~/ 100 != 2) throw ApiException(messageErreur(jsonDecode(r.body)));
-  return Abonnement.fromJson(jsonDecode(r.body));
+
+  final abonnement = Abonnement.fromJson(jsonDecode(r.body));
+
+  // Un code invalide ne lève AUCUNE erreur : le 201 ne prouve rien sur le
+  // code. `parrain_id` est le seul retour exploitable.
+  final codeRetenu = abonnement.parrainId != null;
+  return ResultatSouscription(
+    abonnement: abonnement,
+    // Distinguer « rien saisi » de « saisi mais sans effet » : seul le second
+    // mérite un message à l'utilisateur.
+    codeIgnore: saisi.isNotEmpty && !codeRetenu,
+  );
+}
+```
+
+À l'écran :
+
+```dart
+final res = await api.souscrire(plan.uuid, codeParrainage: champCode.text);
+
+if (res.codeIgnore) {
+  // Ne bloque pas le paiement : la souscription est déjà passée.
+  afficherInfo('Ce code de parrainage n’a pas été reconnu. Votre abonnement se poursuit.');
 }
 ```
 
@@ -245,15 +300,21 @@ Future<Abonnement> souscrire(String planUuid, {String? codeParrainage}) async {
 **La commission est à 0 % et désactivée au lancement.** N'affichez aucun taux en
 dur, et prévoyez l'état « aucune commission ».
 
-**Sans code saisi à l'achat, aucune commission n'est versée** — le parrain
-d'inscription ne suffit pas. Rendez le champ visible : c'est la saisie qui
-déclenche tout.
+**Sans code valide saisi à l'achat, aucune commission n'est versée** — le
+parrain d'inscription ne suffit pas. Rendez le champ visible : c'est la saisie
+qui déclenche tout.
 
-**Un code invalide n'échoue pas et ne paie personne.** Aucune erreur ne remonte :
-ne confirmez pas au filleul que son code a fonctionné.
+**`parrain_id` dans la réponse de `souscrire` est le seul retour sur le code.**
+`null` = aucun bénéficiaire ; un `201` ne prouve rien.
+
+**Un code invalide n'échoue pas et ne paie personne.** Aucune erreur ne remonte —
+vérifiez `parrain_id` avant d'annoncer quoi que ce soit.
+
+**Le code de l'acheteur lui-même est refusé** (auto-parrainage), silencieusement
+comme un code inconnu.
 
 **Le versement suit le paiement, pas la souscription.** Un abonnement
-`EN_ATTENTE` n'a encore rien crédité.
+`EN_ATTENTE` porte déjà son `parrain_id`, mais n'a encore rien crédité.
 
 **L'email des filleuls n'est pas exposé.** Prénom et nom seulement.
 
