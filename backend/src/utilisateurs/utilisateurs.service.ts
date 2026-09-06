@@ -253,11 +253,30 @@ export class UtilisateursService {
 
     // Save user
     const savedUser = await this.utilisateursRepository.save(newUser);
+
+    // Registre unifié des codes (#247). Best-effort : l'inscription ne doit pas
+    // échouer parce que le registre est indisponible — la résolution à l'achat
+    // retombe alors sur `mon_code_parrainage`.
+    void this.enregistrerCodeDansRegistre(savedUser.id, monCodeParrainage, pays);
     this.logger.log(`Utilisateur créé avec succès: ${savedUser.email} (ID: ${savedUser.id}, Rôle: ${savedUser.role}, Code Parrainage: ${savedUser.mon_code_parrainage})`);
 
     // Remove password from response
     delete savedUser.mot_de_passe;
     return this.withProfil(savedUser);
+  }
+
+  /** Voir l'appel dans `inscription`. Jamais attendu, jamais bloquant. */
+  private async enregistrerCodeDansRegistre(utilisateurId: number, code: string, pays: string): Promise<void> {
+    try {
+      await this.utilisateursRepository.query(
+        `INSERT INTO codes (pays, code, type, proprietaire_id, usage_max_total, usage_max_par_utilisateur, est_actif)
+         VALUES ($1, $2, 'PARRAINAGE', $3, NULL, 1, true)
+         ON CONFLICT DO NOTHING`,
+        [pays ?? 'benin', String(code).toUpperCase(), utilisateurId],
+      );
+    } catch (err) {
+      this.logger.warn(`Code ${code} non enregistré dans le registre: ${err?.message ?? err}`);
+    }
   }
 
   private generateReferralCode(): string {

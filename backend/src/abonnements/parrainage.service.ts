@@ -66,11 +66,20 @@ export class ParrainageService {
    */
   async resoudreParrain(utilisateurId: number, codeSaisi?: string): Promise<number | null> {
     if (!codeSaisi?.trim()) return null;
+    const normalise = codeSaisi.trim().toUpperCase();
 
-    const proprietaire = await this.utilisateurs.findOne({
-      where: { mon_code_parrainage: codeSaisi.trim().toUpperCase() },
-      select: ['id'],
-    });
+    // Le registre unifié (#247) fait foi. Le repli sur `mon_code_parrainage`
+    // couvre les comptes dont l'enregistrement au registre a échoué — il est
+    // best-effort à l'inscription, pour ne pas bloquer la création de compte.
+    const [duRegistre] = await this.dataSource.query(
+      `SELECT proprietaire_id FROM codes
+        WHERE upper(code) = $1 AND est_actif = true AND proprietaire_id IS NOT NULL
+        LIMIT 1`,
+      [normalise],
+    );
+    const proprietaire = duRegistre?.proprietaire_id
+      ? { id: Number(duRegistre.proprietaire_id) }
+      : await this.utilisateurs.findOne({ where: { mon_code_parrainage: normalise }, select: ['id'] });
 
     // Code inconnu ou son propre code : pas de bénéficiaire, et la souscription
     // se poursuit sans erreur — bloquer un paiement pour une faute de frappe
