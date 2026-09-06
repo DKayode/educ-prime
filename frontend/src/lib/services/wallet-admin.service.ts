@@ -81,7 +81,7 @@ export type PaymentConfigurationUpdate = Partial<Omit<PaymentConfiguration, 'id'
 // (the ?country= the api client appends is harmless — the wallet controllers
 // ignore it).
 /** Une source de récompense : le crédit versé quand un contenu chargé est validé. */
-export type RewardSourceType = 'EPREUVE' | 'EXAMEN' | 'CONCOURS';
+export type RewardSourceType = 'EPREUVE' | 'EXAMEN' | 'CONCOURS' | 'PARRAINAGE_ABONNEMENT';
 
 export interface RewardConfiguration {
   id: string;
@@ -90,6 +90,9 @@ export interface RewardConfiguration {
   rewardSourceTypeLabel: string;
   rewardAmount: number;
   currency: string;
+  /** FIXED : rewardAmount s'applique. PERCENTAGE : un taux du montant payé (commission de parrainage). */
+  commissionType: FeeType;
+  commissionPercentage: number;
   rewardEnabled: boolean;
   /** 0 = crédit disponible immédiatement ; > 0 = crédité en attente. */
   reviewDelayHours: number;
@@ -109,6 +112,8 @@ export type RewardConfigurationUpdate = Partial<
     RewardConfiguration,
     | 'rewardAmount'
     | 'currency'
+    | 'commissionType'
+    | 'commissionPercentage'
     | 'rewardEnabled'
     | 'reviewDelayHours'
     | 'requiresAdminValidation'

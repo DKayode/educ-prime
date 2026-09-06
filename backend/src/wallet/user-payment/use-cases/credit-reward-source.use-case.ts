@@ -17,6 +17,7 @@ import {
   WalletTransactionRepositoryPort,
 } from '../../shared/payment.ports';
 import {
+  FeeType,
   PaymentNotificationType,
   RewardSourceTypeCode,
   WalletTransactionStatus,
@@ -28,7 +29,13 @@ export interface CreditRewardSourceCommand {
   userId: number;
   sourceType: RewardSourceTypeCode;
   sourceId: string;
+  /** Montant explicite. Ignoré si la configuration est en PERCENTAGE. */
   amount?: number;
+  /**
+   * Montant de référence d'une récompense en pourcentage — le prix payé de
+   * l'abonnement pour une commission de parrainage.
+   */
+  baseAmount?: number;
   currency?: string;
   reference?: string;
   description?: string;
@@ -61,7 +68,7 @@ export class CreditRewardSourceUseCase {
       throw new ConflictException(`La récompense du type ${sourceType} est désactivée`);
     }
 
-    const amount = Number(command.amount ?? rewardConfiguration.rewardAmount);
+    const amount = this.calculerMontant(command, rewardConfiguration);
     if (!amount || amount <= 0) throw new BadRequestException('Le montant à créditer doit être supérieur à zéro');
 
     const reference = command.reference ?? `${sourceType}_REWARD:${sourceId}`;
@@ -160,6 +167,30 @@ export class CreditRewardSourceUseCase {
     };
   }
 
+  /**
+   * Montant à créditer.
+   *
+   * En PERCENTAGE, le taux s'applique au montant de référence transmis par
+   * l'appelant (`baseAmount`) — pas à `rewardAmount`, qui reste à zéro pour ce
+   * type. Le résultat est arrondi à l'entier : le XOF n'a pas de subdivision, et
+   * un solde à deux décimales ne serait jamais retirable en Mobile Money.
+   */
+  private calculerMontant(
+    command: CreditRewardSourceCommand,
+    configuration: PaymentRewardConfigurationModel,
+  ): number {
+    if (configuration.commissionType === FeeType.PERCENTAGE) {
+      const base = Number(command.baseAmount ?? command.amount ?? 0);
+      if (base <= 0) {
+        throw new BadRequestException(
+          'baseAmount est obligatoire pour une récompense en pourcentage',
+        );
+      }
+      return Math.round((base * Number(configuration.commissionPercentage ?? 0)) / 100);
+    }
+    return Number(command.amount ?? configuration.rewardAmount);
+  }
+
   private normalizeSourceType(sourceType: RewardSourceTypeCode): RewardSourceTypeCode {
     const normalized = String(sourceType ?? '').trim().toUpperCase() as RewardSourceTypeCode;
     if (!Object.values(RewardSourceTypeCode).includes(normalized)) {
@@ -176,6 +207,8 @@ export class CreditRewardSourceUseCase {
         return 'Examen national chargé';
       case RewardSourceTypeCode.CONCOURS:
         return 'Concours chargé';
+      case RewardSourceTypeCode.PARRAINAGE_ABONNEMENT:
+        return 'Commission de parrainage';
       default:
         return sourceType;
     }

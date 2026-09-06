@@ -26,7 +26,7 @@ import {
   WithdrawalRequestModel,
   WithdrawalRequestRepositoryPort,
 } from '../shared/payment.ports';
-import { OtpDeliveryStatus, RewardSourceTypeCode, WalletStatus, WalletTransactionStatus, WalletTransactionType, WithdrawalSecurityStatus, WithdrawalStatus } from '../shared/payment.enums';
+import { FeeType, OtpDeliveryStatus, RewardSourceTypeCode, WalletStatus, WalletTransactionStatus, WalletTransactionType, WithdrawalSecurityStatus, WithdrawalStatus } from '../shared/payment.enums';
 import { WithdrawalOtpStatus } from '../otp/entities/withdrawal-otp.entity';
 import { Utilisateur } from 'src/utilisateurs/entities/utilisateur.entity';
 import { WalletEntity } from '../wallet-balance/entities/wallet.entity';
@@ -1498,6 +1498,7 @@ export class TypeOrmPaymentRewardConfigurationRepository implements PaymentRewar
       { code: RewardSourceTypeCode.EPREUVE, label: 'Épreuve chargée', description: 'Crédit accordé après validation d’une épreuve chargée par l’utilisateur.' },
       { code: RewardSourceTypeCode.EXAMEN, label: 'Examen national chargé', description: 'Crédit accordé après validation d’un examen national ou assimilé.' },
       { code: RewardSourceTypeCode.CONCOURS, label: 'Concours chargé', description: 'Crédit accordé après validation d’un concours chargé par l’utilisateur.' },
+      { code: RewardSourceTypeCode.PARRAINAGE_ABONNEMENT, label: 'Commission de parrainage', description: 'Commission versée au parrain sur l’abonnement souscrit par un filleul.' },
     ];
 
     const globalConfiguration = await this.resolver.getRepository(PaymentConfigurationEntity).findOne({ where: { isActive: true }, order: { createdAt: 'DESC' } });
@@ -1516,14 +1517,21 @@ export class TypeOrmPaymentRewardConfigurationRepository implements PaymentRewar
         } as DeepPartial<PaymentRewardSourceTypeEntity>));
       }
 
+      // La commission de parrainage suit le prix du plan, pas un montant fixe,
+      // et démarre DÉSACTIVÉE à 0 % : verser une commission dont le taux n'a pas
+      // été arbitré coûterait de l'argent réel dès le premier abonnement.
+      const estCommission = item.code === RewardSourceTypeCode.PARRAINAGE_ABONNEMENT;
+
       const existingConfiguration = await this.configRepo.findOne({ where: { rewardSourceTypeCode: item.code } });
       if (!existingConfiguration) {
         await this.configRepo.save(this.configRepo.create({
           rewardSourceTypeId: sourceType.id,
           rewardSourceTypeCode: item.code,
-          rewardAmount: legacyAmount,
+          rewardAmount: estCommission ? 0 : legacyAmount,
+          commissionType: estCommission ? FeeType.PERCENTAGE : FeeType.FIXED,
+          commissionPercentage: 0,
           currency,
-          rewardEnabled: true,
+          rewardEnabled: !estCommission,
           reviewDelayHours,
           requiresAdminValidation: false,
           dailyRewardAmountLimit: 0,
@@ -1531,7 +1539,9 @@ export class TypeOrmPaymentRewardConfigurationRepository implements PaymentRewar
           maxRewardsPerUserPerDay: 0,
           maxRewardsPerUserPerMonth: 0,
           isActive: true,
-          metadata: { seededFrom: 'payment_configurations.reward_per_exam' },
+          metadata: estCommission
+            ? { note: 'Commission désactivée à la livraison — régler le taux avant activation.' }
+            : { seededFrom: 'payment_configurations.reward_per_exam' },
         } as DeepPartial<PaymentRewardConfigurationEntity>));
       }
     }
@@ -1608,6 +1618,8 @@ export class TypeOrmPaymentRewardConfigurationRepository implements PaymentRewar
       rewardSourceTypeLabel: row.rewardSourceType?.label ?? this.fallbackRewardSourceTypeLabel(row.rewardSourceTypeCode),
       rewardAmount: Number(row.rewardAmount),
       currency: row.currency,
+      commissionType: row.commissionType ?? FeeType.FIXED,
+      commissionPercentage: Number(row.commissionPercentage ?? 0),
       rewardEnabled: row.rewardEnabled,
       reviewDelayHours: row.reviewDelayHours,
       requiresAdminValidation: row.requiresAdminValidation,
@@ -1625,6 +1637,8 @@ export class TypeOrmPaymentRewardConfigurationRepository implements PaymentRewar
 
   private fallbackRewardSourceTypeLabel(code: RewardSourceTypeCode): string {
     switch (code) {
+      case RewardSourceTypeCode.PARRAINAGE_ABONNEMENT:
+        return 'Commission de parrainage';
       case RewardSourceTypeCode.EPREUVE:
         return 'Épreuve chargée';
       case RewardSourceTypeCode.EXAMEN:

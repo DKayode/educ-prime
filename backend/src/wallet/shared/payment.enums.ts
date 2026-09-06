@@ -3,6 +3,8 @@ export enum RewardSourceTypeCode {
   EPREUVE = 'EPREUVE',
   EXAMEN = 'EXAMEN',
   CONCOURS = 'CONCOURS',
+  /** Commission versée au parrain sur l'abonnement d'un filleul (#246). */
+  PARRAINAGE_ABONNEMENT = 'PARRAINAGE_ABONNEMENT',
 }
 
 export enum WalletStatus {

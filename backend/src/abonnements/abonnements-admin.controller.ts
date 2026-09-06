@@ -109,6 +109,23 @@ export class AbonnementsAdminController {
     return this.abonnementsService.activer(uuid, dto, req.user?.utilisateurId);
   }
 
+  @Get('commissions-en-attente')
+  @ApiOperation({
+    summary: 'Abonnements actifs dont la commission de parrainage n’est pas passée',
+    description:
+      'Wallet du parrain bloqué à l’activation, commission activée après coup, panne ' +
+      'ponctuelle : autant de cas rattrapables.',
+  })
+  commissionsEnAttente(@CurrentCountry() pays: string) {
+    return this.abonnementsService.commissionsEnAttente(pays);
+  }
+
+  @Post(':uuid/rattraper-commission')
+  @ApiOperation({ summary: 'Rejouer le versement de la commission de parrainage' })
+  rattraperCommission(@Param('uuid') uuid: string) {
+    return this.abonnementsService.rattraperCommission(uuid);
+  }
+
   @Post(':uuid/prolonger')
   @ApiOperation({ summary: 'Prolonger un abonnement actif' })
   prolonger(@Param('uuid') uuid: string, @Body() dto: ProlongerAbonnementDto) {

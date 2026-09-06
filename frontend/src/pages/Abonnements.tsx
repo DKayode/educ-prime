@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,7 @@ import {
   History,
   Loader2,
   Search,
+  HandCoins,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -88,6 +89,27 @@ export default function Abonnements() {
         search: rechercheDifferee || undefined,
         statut: statut === "TOUS" ? undefined : statut,
       }),
+  });
+
+  const { data: commissionsDues } = useQuery({
+    queryKey: ["abonnements", "commissions-en-attente"],
+    queryFn: () => abonnementsService.getCommissionsEnAttente(),
+  });
+
+  const rattrapage = useMutation({
+    mutationFn: (uuid: string) => abonnementsService.rattraperCommission(uuid),
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: ["abonnements"] });
+      toast({
+        title: r.verse ? "Commission versée" : "Commission non versée",
+        description: r.verse
+          ? "Le wallet du parrain a été crédité."
+          : `Motif : ${r.motif ?? "le wallet a refusé le crédit"}.`,
+        variant: r.verse ? undefined : "destructive",
+      });
+    },
+    onError: (e: any) =>
+      toast({ title: "Erreur", description: e?.message || "Échec", variant: "destructive" }),
   });
 
   const { data: journal, isLoading: journalCharge } = useQuery({
@@ -178,6 +200,42 @@ export default function Abonnements() {
           </SelectContent>
         </Select>
       </div>
+
+      {!!commissionsDues?.length && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <HandCoins className="h-5 w-5 text-amber-500" />
+              Commissions de parrainage en attente ({commissionsDues.length})
+            </CardTitle>
+            <CardDescription>
+              Abonnements payés dont la commission n’a pas pu être versée — wallet du parrain bloqué
+              au moment de l’activation, commission activée après coup, ou panne ponctuelle. Le
+              versement est rejouable sans risque de double crédit.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {commissionsDues.map((a) => (
+              <div key={a.uuid} className="flex items-center justify-between rounded-lg border bg-background p-3">
+                <div className="text-sm">
+                  <div className="font-medium">{nomComplet(a)}</div>
+                  <div className="text-muted-foreground">
+                    {a.plan?.libelle} — {a.montant_paye.toLocaleString("fr-FR")} {a.devise}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={rattrapage.isPending}
+                  onClick={() => rattrapage.mutate(a.uuid)}
+                >
+                  Rattraper
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="pt-6">

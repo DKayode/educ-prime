@@ -10,6 +10,7 @@ import { SouscrireDto } from './dto/souscrire.dto';
 import { AbonnementEvenement, TypeEvenementAbonnement } from './entities/abonnement-evenement.entity';
 import { Abonnement, StatutAbonnement } from './entities/abonnement.entity';
 import { EntitlementService } from './entitlement.service';
+import { ParrainageService } from './parrainage.service';
 import { PlansService } from './plans.service';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class AbonnementsService {
     @InjectRepository(AbonnementEvenement) private readonly evenementsRepository: Repository<AbonnementEvenement>,
     private readonly plansService: PlansService,
     private readonly entitlement: EntitlementService,
+    private readonly parrainage: ParrainageService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -47,9 +49,17 @@ export class AbonnementsService {
     if (enAttente) {
       enAttente.plan_id = plan.id;
       enAttente.devise = plan.devise;
+      // Un code saisi au second passage doit être pris en compte.
+      enAttente.parrain_id =
+        enAttente.parrain_id ?? (await this.parrainage.resoudreParrain(utilisateurId, dto.code_parrainage));
       const rafraichi = await this.abonnements.save(enAttente);
       return this.findByUuid(rafraichi.uuid);
     }
+
+    // Le parrain est figé maintenant, pas au paiement : entre les deux, la
+    // relation de parrainage pourrait changer et attribuer la commission à
+    // quelqu'un qui n'a rien amené.
+    const parrainId = await this.parrainage.resoudreParrain(utilisateurId, dto.code_parrainage);
 
     const abonnement = await this.abonnements.save(
       this.abonnements.create({
@@ -59,12 +69,14 @@ export class AbonnementsService {
         statut: StatutAbonnement.EN_ATTENTE,
         montant_paye: 0,
         devise: plan.devise,
+        parrain_id: parrainId,
       }),
     );
 
     await this.journaliser(abonnement.id, TypeEvenementAbonnement.CREE, {
       planCode: plan.code,
       prix: plan.prix,
+      parrainId,
     });
     this.logger.log(`Abonnement ${abonnement.uuid} créé (EN_ATTENTE) pour utilisateur ${utilisateurId}`);
     return this.findByUuid(abonnement.uuid);
@@ -123,7 +135,49 @@ export class AbonnementsService {
     });
 
     this.logger.log(`Abonnement ${uuid} activé jusqu'au ${fin.toISOString()} (activation manuelle)`);
+
+    // Best-effort et HORS de ce qui précède : un échec de commission ne doit pas
+    // annuler un abonnement déjà payé. Les abonnements restés à
+    // `commission_versee = false` sont rattrapables depuis le back-office.
+    const commission = await this.parrainage.verserCommission(await this.findByUuid(uuid));
+    if (commission.verse) {
+      await this.journaliser(sauvegarde.id, TypeEvenementAbonnement.COMMISSION_VERSEE, {
+        parrainId: sauvegarde.parrain_id,
+        montantAbonnement: dto.montant_paye,
+      });
+    }
+
     return this.findByUuid(uuid);
+  }
+
+  /**
+   * Rattrape une commission non versée.
+   *
+   * Utile quand le wallet du parrain était bloqué au moment de l'activation, ou
+   * quand la commission a été activée après coup.
+   */
+  async rattraperCommission(uuid: string) {
+    const abonnement = await this.findByUuid(uuid);
+    if (abonnement.statut !== StatutAbonnement.ACTIF) {
+      throw new BadRequestException('Seul un abonnement actif ouvre droit à une commission');
+    }
+    const resultat = await this.parrainage.verserCommission(abonnement);
+    if (resultat.verse) {
+      await this.journaliser(abonnement.id, TypeEvenementAbonnement.COMMISSION_VERSEE, {
+        parrainId: abonnement.parrain_id,
+        rattrapage: true,
+      });
+    }
+    return resultat;
+  }
+
+  /** Abonnements payés dont la commission n'est pas passée. */
+  async commissionsEnAttente(pays: string) {
+    return this.abonnements.find({
+      where: { pays, statut: StatutAbonnement.ACTIF, commission_versee: false },
+      order: { date_creation: 'DESC' },
+      take: 100,
+    }).then((lignes) => lignes.filter((a) => a.parrain_id !== null));
   }
 
   async annuler(uuid: string, motif?: string): Promise<Abonnement> {

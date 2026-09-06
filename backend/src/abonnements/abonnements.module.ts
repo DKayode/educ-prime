@@ -12,6 +12,7 @@ import { QuotaConsommation } from './entities/quota-consommation.entity';
 import { PlanAbonnement } from './entities/plan-abonnement.entity';
 import { EntitlementService } from './entitlement.service';
 import { AbonnementRequisGuard } from './guards/abonnement-requis.guard';
+import { ParrainageService } from './parrainage.service';
 import { PlansService } from './plans.service';
 import { QuotaService } from './quota.service';
 
@@ -25,7 +26,7 @@ import { QuotaService } from './quota.service';
 @Module({
   imports: [TypeOrmModule.forFeature([PlanAbonnement, Abonnement, AbonnementEvenement, QuotaConsommation, ConfigurationQuota, Utilisateur])],
   controllers: [AbonnementsController, AbonnementsAdminController, EntitlementInternalController],
-  providers: [AbonnementsService, PlansService, EntitlementService, QuotaService, AbonnementRequisGuard],
-  exports: [EntitlementService, QuotaService, AbonnementRequisGuard, AbonnementsService],
+  providers: [AbonnementsService, PlansService, EntitlementService, QuotaService, ParrainageService, AbonnementRequisGuard],
+  exports: [EntitlementService, QuotaService, ParrainageService, AbonnementRequisGuard, AbonnementsService],
 })
 export class AbonnementsModule {}
