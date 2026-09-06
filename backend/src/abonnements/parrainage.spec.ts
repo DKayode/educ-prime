@@ -111,61 +111,48 @@ describe('ParrainageService', () => {
   });
 
   describe('résolution du bénéficiaire', () => {
-    /** Le premier appel cherche le propriétaire du code, le second le filleul. */
-    const avec = ({ proprietaireDuCode, parrainInscription }: any) => {
-      utilisateurs.findOne.mockImplementation(async ({ where }: any) =>
-        where.mon_code_parrainage !== undefined
-          ? proprietaireDuCode
-          : { id: 10, parrain: parrainInscription },
-      );
-    };
+    const proprietaireDuCode = (u: any) => utilisateurs.findOne.mockResolvedValue(u);
 
-    it('retient le parrain d’inscription sans code', async () => {
-      avec({ parrainInscription: { id: 20 } });
-      expect(await service.resoudreParrain(10)).toBe(20);
-    });
-
-    it('LE CODE SAISI PRIME sur le parrain d’inscription', async () => {
-      // Celui qui convainc d'acheter n'est pas forcément celui qui avait amené
-      // le compte, parfois des mois plus tôt.
-      avec({ proprietaireDuCode: { id: 33 }, parrainInscription: { id: 20 } });
+    it('crédite le propriétaire du code présenté', async () => {
+      proprietaireDuCode({ id: 33 });
       expect(await service.resoudreParrain(10, 'CODE33')).toBe(33);
     });
 
-    it('ne touche PAS à la relation d’inscription', async () => {
-      avec({ proprietaireDuCode: { id: 33 }, parrainInscription: { id: 20 } });
+    it('ne crédite PERSONNE sans code', async () => {
+      // La commission récompense l'acte de vente, pas l'acquisition passée :
+      // un parrain d'inscription seul n'ouvre aucun droit.
+      expect(await service.resoudreParrain(10)).toBeNull();
+      expect(await service.resoudreParrain(10, '')).toBeNull();
+      expect(await service.resoudreParrain(10, '   ')).toBeNull();
+      // Aucune requête : inutile d'aller chercher un parrain qui ne sera pas payé.
+      expect(utilisateurs.findOne).not.toHaveBeenCalled();
+    });
+
+    it('ne consulte jamais la relation d’inscription', async () => {
+      proprietaireDuCode({ id: 33 });
       await service.resoudreParrain(10, 'CODE33');
-      // Aucune écriture sur utilisateurs : la donnée d'acquisition est
-      // immuable, sans quoi une seule vente réattribuerait toutes les
-      // commissions futures.
+      // Une seule requête, sur le code — `utilisateurs.parrain_id` n'est ni lu
+      // ni écrit par ce chemin.
+      expect(utilisateurs.findOne).toHaveBeenCalledTimes(1);
+      expect(utilisateurs.findOne.mock.calls[0][0].where.mon_code_parrainage).toBeDefined();
       expect(utilisateurs.save).toBeUndefined();
       expect(utilisateurs.update).toBeUndefined();
     });
 
     it('normalise le code en majuscules, comme à l’inscription', async () => {
-      avec({ proprietaireDuCode: { id: 33 }, parrainInscription: null });
+      proprietaireDuCode({ id: 33 });
       await service.resoudreParrain(10, ' code33 ');
       expect(utilisateurs.findOne.mock.calls[0][0].where.mon_code_parrainage).toBe('CODE33');
     });
 
-    it('retombe sur le parrain d’inscription si le code est inconnu', async () => {
-      avec({ proprietaireDuCode: null, parrainInscription: { id: 20 } });
-      expect(await service.resoudreParrain(10, 'INEXISTANT')).toBe(20);
+    it('ignore un code inconnu sans faire échouer la souscription', async () => {
+      proprietaireDuCode(null);
+      expect(await service.resoudreParrain(10, 'INEXISTANT')).toBeNull();
     });
 
-    it('retombe sur le parrain d’inscription si le code est le sien', async () => {
-      avec({ proprietaireDuCode: { id: 10 }, parrainInscription: { id: 20 } });
-      expect(await service.resoudreParrain(10, 'MONCODE')).toBe(20);
-    });
-
-    it('refuse l’auto-parrainage hérité de l’inscription', async () => {
-      avec({ parrainInscription: { id: 10 } });
-      expect(await service.resoudreParrain(10)).toBeNull();
-    });
-
-    it('renvoie null sans code ni parrain', async () => {
-      avec({ parrainInscription: null });
-      expect(await service.resoudreParrain(10)).toBeNull();
+    it('refuse l’auto-parrainage', async () => {
+      proprietaireDuCode({ id: 10 });
+      expect(await service.resoudreParrain(10, 'MONCODE')).toBeNull();
     });
   });
 });

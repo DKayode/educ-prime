@@ -52,40 +52,29 @@ export class ParrainageService {
   /**
    * Bénéficiaire de la commission POUR CET ABONNEMENT.
    *
-   * Deux chemins d'attribution, dans cet ordre :
+   * **Seul le code présenté à l'achat ouvre droit à une commission.** Sans
+   * code, personne n'est crédité — même si l'utilisateur a un parrain
+   * d'inscription.
    *
-   * 1. **le code saisi à l'achat**, s'il désigne quelqu'un d'autre ;
-   * 2. à défaut, **le parrain d'inscription** (`utilisateurs.parrain_id`).
+   * La commission récompense l'acte de vente, pas l'acquisition passée : un
+   * parrain qui a amené un compte il y a six mois n'a rien fait pour
+   * l'abonnement d'aujourd'hui. C'est aussi ce qui rend le code utile — sans
+   * lui, il n'y a rien à partager.
    *
-   * Le code saisi l'emporte : celui qui a convaincu d'acheter n'est pas
-   * forcément celui qui avait amené le compte, parfois des mois plus tôt.
-   *
-   * ⚠️ Cette résolution ne concerne QUE l'abonnement en cours. La relation
-   * `utilisateurs.parrain_id` n'est jamais réécrite : c'est une donnée
-   * d'acquisition, et la modifier réattribuerait rétroactivement toutes les
-   * commissions futures à quelqu'un qui n'a fait qu'une vente.
+   * ⚠️ `utilisateurs.parrain_id` n'est ni lu ni écrit ici. Il reste la donnée
+   * d'acquisition, exploitée par les statistiques de parrainage.
    */
   async resoudreParrain(utilisateurId: number, codeSaisi?: string): Promise<number | null> {
-    const parrainDuCode = codeSaisi ? await this.parrainParCode(codeSaisi, utilisateurId) : null;
-    if (parrainDuCode) return parrainDuCode;
+    if (!codeSaisi?.trim()) return null;
 
-    const filleul = await this.utilisateurs.findOne({
-      where: { id: utilisateurId },
-      relations: ['parrain'],
-      select: { id: true, parrain: { id: true } } as any,
-    });
-    const parrainInscription = (filleul as any)?.parrain?.id ?? null;
-
-    // Un compte dont la relation pointerait sur lui-même ne doit rien produire.
-    return parrainInscription && parrainInscription !== utilisateurId ? parrainInscription : null;
-  }
-
-  /** Propriétaire d'un code, hors auto-parrainage. Un code inconnu vaut « pas de code ». */
-  private async parrainParCode(code: string, utilisateurId: number): Promise<number | null> {
     const proprietaire = await this.utilisateurs.findOne({
-      where: { mon_code_parrainage: code.trim().toUpperCase() },
+      where: { mon_code_parrainage: codeSaisi.trim().toUpperCase() },
       select: ['id'],
     });
+
+    // Code inconnu ou son propre code : pas de bénéficiaire, et la souscription
+    // se poursuit sans erreur — bloquer un paiement pour une faute de frappe
+    // sur un champ facultatif serait absurde.
     if (!proprietaire || proprietaire.id === utilisateurId) return null;
     return proprietaire.id;
   }

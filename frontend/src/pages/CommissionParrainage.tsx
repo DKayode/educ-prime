@@ -65,14 +65,17 @@ export default function CommissionParrainage() {
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>
               <strong className="text-foreground">Qui touche la commission ?</strong> Le
-              propriétaire du <strong>code saisi au moment de l’achat</strong>, s’il y en a un.
-              Sinon, le <strong>parrain d’inscription</strong> — celui dont le code avait été
-              utilisé à la création du compte.
+              propriétaire du <strong>code saisi au moment de l’achat</strong>, et lui seul.
             </p>
             <p>
-              Un code saisi à l’achat ne change <strong>pas</strong> le parrain d’inscription : il
-              ne vaut que pour cet abonnement. Sans cela, une seule vente réattribuerait toutes les
-              commissions futures.
+              <strong className="text-foreground">Sans code, personne n’est payé</strong> — pas même
+              le parrain d’inscription. La commission récompense l’acte de vente, pas l’acquisition
+              passée : avoir amené un compte il y a six mois ne donne aucun droit sur l’abonnement
+              d’aujourd’hui.
+            </p>
+            <p>
+              Le parrain d’inscription (<code>parrain_id</code>) n’est ni lu ni modifié : il reste
+              la donnée d’acquisition, utilisée par les statistiques de parrainage.
             </p>
             <p>
               Le montant est crédité dans le <strong>wallet</strong> du bénéficiaire, retirable
