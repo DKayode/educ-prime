@@ -3,7 +3,8 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { CampagneCode } from './entities/campagne-code.entity';
 import { CodeUtilisation } from './entities/code-utilisation.entity';
-import { Code, TypeCode } from './entities/code.entity';
+import { Code, OrigineCode } from './entities/code.entity';
+import { CodeEffet, Effet } from './entities/code-effet.entity';
 import { CodeValidationService } from './code-validation.service';
 import { CreateCodeDto } from './dto/create-code.dto';
 import { UpdateCodeDto } from './dto/update-code.dto';
@@ -26,6 +27,7 @@ export class CodesService {
     @InjectRepository(Code) private readonly codes: Repository<Code>,
     @InjectRepository(CampagneCode) private readonly campagnes: Repository<CampagneCode>,
     @InjectRepository(CodeUtilisation) private readonly utilisations: Repository<CodeUtilisation>,
+    @InjectRepository(CodeEffet) private readonly effetsRepo: Repository<CodeEffet>,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
@@ -35,15 +37,24 @@ export class CodesService {
 
     const qb = this.codes
       .createQueryBuilder('code')
+      .leftJoinAndSelect('code.effets', 'effets')
       .leftJoin('code.proprietaire', 'proprietaire')
       .addSelect(['proprietaire.id', 'proprietaire.nom', 'proprietaire.prenom', 'proprietaire.email'])
       .leftJoinAndSelect('code.campagne', 'campagne')
       .where('code.pays = :pays', { pays });
 
-    // Les codes de parrainage sont générés à l'inscription : les mêler au
-    // catalogue promo noierait ce dernier sous des dizaines de milliers de lignes.
-    if (filtre.type) qb.andWhere('code.type = :type', { type: filtre.type });
-    else qb.andWhere('code.type <> :parrainage', { parrainage: TypeCode.PARRAINAGE });
+    // Les codes d'inscription sont générés automatiquement : les mêler au
+    // catalogue noierait ce dernier sous des dizaines de milliers de lignes.
+    if (filtre.origine) qb.andWhere('code.origine = :origine', { origine: filtre.origine });
+    else qb.andWhere('code.origine = :admin', { admin: OrigineCode.ADMIN });
+
+    // « Montre-moi tous les codes qui offrent un abonnement » — une question
+    // impossible à poser avec l'ancienne énumération de types.
+    if (filtre.effet) {
+      qb.andWhere('EXISTS (SELECT 1 FROM code_effets e WHERE e.code_id = code.id AND e.effet = :effet)', {
+        effet: filtre.effet,
+      });
+    }
 
     if (filtre.campagne_uuid) qb.andWhere('campagne.uuid = :cu', { cu: filtre.campagne_uuid });
     if (filtre.est_actif !== undefined) qb.andWhere('code.est_actif = :a', { a: filtre.est_actif });
@@ -71,16 +82,26 @@ export class CodesService {
     const code = CodeValidationService.normaliser(dto.code);
     if (await this.existe(code)) throw new ConflictException(`Le code ${code} existe déjà`);
 
-    const cree = this.codes.create({
-      ...dto,
-      code,
-      pays,
-      cree_par: adminId ?? null,
-      plans_eligibles: dto.plans_eligibles?.length ? dto.plans_eligibles : null,
-    });
-    const sauvegarde = await this.codes.save(cree);
-    this.logger.log(`Code ${sauvegarde.code} créé (${sauvegarde.type}, ${pays})`);
-    return sauvegarde;
+    const effets = dto.effets ?? [];
+    CodeValidationService.verifierCoherence(effets.map((e) => e.effet));
+    if (effets.some((e) => e.effet === Effet.COMMISSION) && !dto.proprietaire_id) {
+      throw new BadRequestException('Un effet COMMISSION exige un propriétaire à créditer');
+    }
+
+    const { effets: _e, ...champs } = dto;
+    const sauvegarde = await this.codes.save(
+      this.codes.create({
+        ...champs,
+        code,
+        pays,
+        origine: OrigineCode.ADMIN,
+        cree_par: adminId ?? null,
+        plans_eligibles: dto.plans_eligibles?.length ? dto.plans_eligibles : null,
+        effets: effets.map((e) => ({ effet: e.effet, parametres: e.parametres ?? null }) as CodeEffet),
+      }),
+    );
+    this.logger.log(`Code ${sauvegarde.code} créé (${effets.map((e) => e.effet).join('+') || 'sans effet'}, ${pays})`);
+    return this.findByUuid(sauvegarde.uuid);
   }
 
   async update(uuid: string, dto: UpdateCodeDto): Promise<Code> {
@@ -90,8 +111,16 @@ export class CodesService {
       if (await this.existe(nouveau)) throw new ConflictException(`Le code ${nouveau} existe déjà`);
       code.code = nouveau;
     }
-    const { code: _ignore, ...reste } = dto;
+    const { code: _ignore, effets, ...reste } = dto;
     Object.assign(code, reste);
+
+    // Remplacement complet plutôt que fusion : une modification partielle des
+    // effets laisserait des combinaisons que l'écran n'a pas voulues.
+    if (effets) {
+      CodeValidationService.verifierCoherence(effets.map((e) => e.effet));
+      await this.effetsRepo.delete({ code_id: code.id });
+      code.effets = effets.map((e) => ({ effet: e.effet, parametres: e.parametres ?? null }) as CodeEffet);
+    }
     if (dto.plans_eligibles !== undefined) {
       code.plans_eligibles = dto.plans_eligibles?.length ? dto.plans_eligibles : null;
     }
@@ -154,7 +183,23 @@ export class CodesService {
    * 5 000 codes ne doit pas ouvrir 5 000 allers-retours. Les collisions sont
    * absorbées par `ON CONFLICT DO NOTHING`, et on complète jusqu'au compte.
    */
+  /**
+   * Génère n codes uniques à usage unique — le second cas de l'issue.
+   *
+   * Les codes sont insérés par lots, pas un par un : une campagne de 5 000 codes
+   * ne doit pas ouvrir 5 000 allers-retours. Les collisions sont absorbées par
+   * `ON CONFLICT DO NOTHING`, et on complète jusqu'au compte demandé.
+   */
   async genererCampagne(pays: string, dto: GenererCampagneDto, adminId?: number) {
+    const effets = dto.effets ?? [];
+    CodeValidationService.verifierCoherence(effets.map((e) => e.effet));
+    // Une campagne distribue des codes anonymes : personne à créditer.
+    if (effets.some((e) => e.effet === Effet.COMMISSION)) {
+      throw new BadRequestException(
+        'Une campagne génère des codes sans propriétaire : l’effet COMMISSION n’a personne à créditer.',
+      );
+    }
+
     const prefixe = dto.prefixe ? CodeValidationService.normaliser(dto.prefixe) : '';
     const campagne = await this.campagnes.save(
       this.campagnes.create({
@@ -163,8 +208,7 @@ export class CodesService {
         description: dto.description ?? null,
         prefixe: prefixe || null,
         nombre_codes: dto.nombre_codes,
-        remise_type: dto.remise_type ?? null,
-        remise_valeur: dto.remise_valeur ?? null,
+        effets: effets.length ? effets : null,
         date_debut: dto.date_debut ? new Date(dto.date_debut) : null,
         date_fin: dto.date_fin ? new Date(dto.date_fin) : null,
         cree_par: adminId ?? null,
@@ -175,15 +219,39 @@ export class CodesService {
     for (let tentative = 0; tentative < 10 && inseres < dto.nombre_codes; tentative++) {
       const manquants = dto.nombre_codes - inseres;
       const candidats = Array.from({ length: manquants }, () => this.genererCode(prefixe));
-      const valeurs = candidats.map((c) => `('${pays}','${c}','REDUCTION',${campagne.id},1,1,${dto.remise_type ? `'${dto.remise_type}'` : 'NULL'},${dto.remise_valeur ?? 'NULL'},${dto.date_debut ? `'${dto.date_debut}'` : 'NULL'},${dto.date_fin ? `'${dto.date_fin}'` : 'NULL'},${adminId ?? 'NULL'})`).join(',');
-      const { rowCount } = await this.dataSource.query(
-        `INSERT INTO codes (pays, code, type, campagne_id, usage_max_total, usage_max_par_utilisateur,
-                            remise_type, remise_valeur, date_debut, date_fin, cree_par)
-         VALUES ${valeurs}
+
+      const params: any[] = [];
+      const lignes = candidats.map((c) => {
+        params.push(pays, c, campagne.id, dto.date_debut ?? null, dto.date_fin ?? null, adminId ?? null);
+        const i = params.length - 6;
+        return `($${i + 1}, $${i + 2}, 'ADMIN', $${i + 3}, 1, 1, $${i + 4}, $${i + 5}, $${i + 6})`;
+      });
+
+      const crees = await this.dataSource.query(
+        `INSERT INTO codes (pays, code, origine, campagne_id, usage_max_total, usage_max_par_utilisateur,
+                            date_debut, date_fin, cree_par)
+         VALUES ${lignes.join(',')}
          ON CONFLICT DO NOTHING
          RETURNING id`,
-      ).then((r: any[]) => ({ rowCount: r.length }));
-      inseres += rowCount;
+        params,
+      );
+
+      // Les effets du gabarit, posés sur chaque code réellement créé.
+      if (crees.length && effets.length) {
+        const pEffets: any[] = [];
+        const vEffets = crees.flatMap((c: any) =>
+          effets.map((e) => {
+            pEffets.push(c.id, e.effet, e.parametres ? JSON.stringify(e.parametres) : null);
+            const i = pEffets.length - 3;
+            return `($${i + 1}, $${i + 2}, $${i + 3}::jsonb)`;
+          }),
+        );
+        await this.dataSource.query(
+          `INSERT INTO code_effets (code_id, effet, parametres) VALUES ${vEffets.join(',')} ON CONFLICT DO NOTHING`,
+          pEffets,
+        );
+      }
+      inseres += crees.length;
     }
 
     if (inseres < dto.nombre_codes) {

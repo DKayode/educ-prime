@@ -233,10 +233,12 @@ export class UtilisateursService {
     // Hash password before saving
     const hashedPassword = await bcrypt.hash(inscriptionDto.mot_de_passe, 10);
 
-    // Generate unique referral code for the new user
+    // Unicité vérifiée contre le REGISTRE (#247), pas seulement contre les
+    // utilisateurs : un code généré pouvait tomber sur un code promo existant,
+    // et le même texte désignait alors deux choses — l'insertion au registre
+    // étant best-effort, la collision passait en silence.
     let monCodeParrainage = this.generateReferralCode();
-    // Ensure uniqueness
-    while (await this.utilisateursRepository.findOne({ where: { mon_code_parrainage: monCodeParrainage } })) {
+    while (await this.codeDejaPris(monCodeParrainage)) {
       monCodeParrainage = this.generateReferralCode();
     }
 
@@ -265,15 +267,44 @@ export class UtilisateursService {
     return this.withProfil(savedUser);
   }
 
-  /** Voir l'appel dans `inscription`. Jamais attendu, jamais bloquant. */
+  /** Un code est pris s'il existe chez un utilisateur OU dans le registre. */
+  private async codeDejaPris(code: string): Promise<boolean> {
+    const majuscule = String(code).toUpperCase();
+    if (await this.utilisateursRepository.findOne({ where: { mon_code_parrainage: code } })) return true;
+    try {
+      const [r] = await this.utilisateursRepository.query(
+        `SELECT 1 FROM codes WHERE upper(code) = $1 LIMIT 1`,
+        [majuscule],
+      );
+      return !!r;
+    } catch {
+      // Registre indisponible : on ne bloque pas une inscription pour autant.
+      return false;
+    }
+  }
+
+  /**
+   * Enregistre le code au registre unifié avec son effet COMMISSION.
+   *
+   * Best-effort et jamais attendu : l'inscription ne doit pas échouer parce que
+   * le registre est indisponible. La résolution à l'achat retombe alors sur
+   * `mon_code_parrainage`.
+   */
   private async enregistrerCodeDansRegistre(utilisateurId: number, code: string, pays: string): Promise<void> {
     try {
-      await this.utilisateursRepository.query(
-        `INSERT INTO codes (pays, code, type, proprietaire_id, usage_max_total, usage_max_par_utilisateur, est_actif)
-         VALUES ($1, $2, 'PARRAINAGE', $3, NULL, 1, true)
-         ON CONFLICT DO NOTHING`,
+      const [ligne] = await this.utilisateursRepository.query(
+        `INSERT INTO codes (pays, code, origine, proprietaire_id, usage_max_total, usage_max_par_utilisateur, est_actif)
+         VALUES ($1, $2, 'INSCRIPTION', $3, NULL, 1, true)
+         ON CONFLICT DO NOTHING
+         RETURNING id`,
         [pays ?? 'benin', String(code).toUpperCase(), utilisateurId],
       );
+      if (ligne?.id) {
+        await this.utilisateursRepository.query(
+          `INSERT INTO code_effets (code_id, effet) VALUES ($1, 'COMMISSION') ON CONFLICT DO NOTHING`,
+          [ligne.id],
+        );
+      }
     } catch (err) {
       this.logger.warn(`Code ${code} non enregistré dans le registre: ${err?.message ?? err}`);
     }

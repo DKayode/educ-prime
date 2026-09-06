@@ -1,8 +1,27 @@
 import { api } from '../api';
 import type { PaginationResponse } from '../types/pagination';
 
-export type TypeCode = 'PARRAINAGE' | 'AMBASSADEUR' | 'REDUCTION';
+export type OrigineCode = 'INSCRIPTION' | 'ADMIN';
+export type Effet = 'REDUCTION' | 'COMMISSION' | 'ABONNEMENT_OFFERT';
 export type TypeRemise = 'POURCENTAGE' | 'MONTANT_FIXE';
+
+export interface CodeEffet {
+  effet: Effet;
+  parametres?: Record<string, any> | null;
+}
+
+/**
+ * Combinaisons refusées par le serveur, dupliquées ici pour l'expliquer AVANT
+ * l'envoi — un 400 après coup n'apprend rien à l'administrateur.
+ */
+export const incoherence = (effets: Effet[]): string | null => {
+  const a = new Set(effets);
+  if (a.has('ABONNEMENT_OFFERT') && a.has('REDUCTION'))
+    return "Un abonnement offert n'est pas payé : une réduction ne s'y applique pas.";
+  if (a.has('ABONNEMENT_OFFERT') && a.has('COMMISSION'))
+    return "Un abonnement offert n'encaisse rien : aucune commission ne peut en être tirée.";
+  return null;
+};
 
 export interface ProprietaireCode {
   id: number;
@@ -16,12 +35,11 @@ export interface Code {
   uuid: string;
   pays: string;
   code: string;
-  type: TypeCode;
+  origine: OrigineCode;
+  effets: CodeEffet[];
   proprietaire_id?: number | null;
   proprietaire?: ProprietaireCode | null;
   libelle?: string | null;
-  remise_type?: TypeRemise | null;
-  remise_valeur?: number | null;
   /** `null` = illimité. */
   usage_max_total?: number | null;
   usage_max_par_utilisateur: number;
@@ -36,11 +54,9 @@ export interface Code {
 
 export interface CodePayload {
   code: string;
-  type: TypeCode;
+  effets: CodeEffet[];
   proprietaire_id?: number;
   libelle?: string;
-  remise_type?: TypeRemise;
-  remise_valeur?: number;
   usage_max_total?: number;
   usage_max_par_utilisateur?: number;
   date_debut?: string;
@@ -55,8 +71,7 @@ export interface Campagne {
   description?: string | null;
   prefixe?: string | null;
   nombre_codes: number;
-  remise_type?: TypeRemise | null;
-  remise_valeur?: number | null;
+  effets?: CodeEffet[] | null;
   date_fin?: string | null;
   date_creation: string;
   codes_generes: number;
@@ -68,8 +83,7 @@ export interface CampagnePayload {
   description?: string;
   nombre_codes: number;
   prefixe?: string;
-  remise_type?: TypeRemise;
-  remise_valeur?: number;
+  effets?: CodeEffet[];
   date_debut?: string;
   date_fin?: string;
 }
@@ -98,7 +112,7 @@ const query = (params?: Record<string, unknown>) => {
 
 export const codesService = {
   async getAll(params?: {
-    page?: number; limit?: number; type?: TypeCode; est_actif?: boolean; search?: string; campagne_uuid?: string;
+    page?: number; limit?: number; origine?: OrigineCode; effet?: Effet; est_actif?: boolean; search?: string; campagne_uuid?: string;
   }): Promise<PaginationResponse<Code>> {
     return api.get<PaginationResponse<Code>>(`/admin/codes${query(params)}`);
   },
@@ -136,12 +150,25 @@ export const codesService = {
   },
 };
 
-/** Libellé lisible d'une remise, ou « aucune » pour un code de parrainage. */
-export const libelleRemise = (c: { remise_type?: TypeRemise | null; remise_valeur?: number | null }): string => {
-  if (!c.remise_type || c.remise_valeur == null) return '—';
-  return c.remise_type === 'POURCENTAGE'
-    ? `${c.remise_valeur} %`
-    : `${Number(c.remise_valeur).toLocaleString('fr-FR')} XOF`;
+/** Libellé lisible des effets d'un code — un code sans effet ne fait rien. */
+export const libelleEffets = (effets?: CodeEffet[] | null): string => {
+  if (!effets?.length) return '—';
+  return effets
+    .map((e) => {
+      if (e.effet === 'REDUCTION') {
+        const p = e.parametres ?? {};
+        return p.type === 'POURCENTAGE'
+          ? `−${p.valeur} %`
+          : `−${Number(p.valeur ?? 0).toLocaleString('fr-FR')} XOF`;
+      }
+      if (e.effet === 'COMMISSION') return e.parametres?.taux ? `Commission ${e.parametres.taux} %` : 'Commission';
+      if (e.effet === 'ABONNEMENT_OFFERT') {
+        const j = e.parametres?.duree_jours;
+        return j ? `Abonnement offert (${j} j)` : 'Abonnement offert';
+      }
+      return e.effet;
+    })
+    .join(' · ');
 };
 
 /** `usage_max_total` à `null` veut dire illimité, pas zéro. */

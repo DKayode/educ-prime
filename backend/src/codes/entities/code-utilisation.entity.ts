@@ -25,6 +25,10 @@ export class CodeUtilisation {
   })
   montant_remise: number;
 
+  /** Effets réellement appliqués — l'historique reste lisible si le code change. */
+  @Column({ type: 'jsonb', nullable: true })
+  effets_appliques: Array<{ effet: string; parametres?: Record<string, any> | null }> | null;
+
   @CreateDateColumn({ name: 'date_creation', type: 'timestamptz' })
   date_creation: Date;
 }

@@ -1,5 +1,5 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
-import { TypeRemise } from './code.entity';
+
 
 /**
  * Génération en masse : « n codes uniques à usage unique pour n personnes ».
@@ -28,14 +28,9 @@ export class CampagneCode {
   @Column({ type: 'int', default: 0 })
   nombre_codes: number;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  remise_type: TypeRemise | null;
-
-  @Column({
-    type: 'numeric', precision: 14, scale: 2, nullable: true,
-    transformer: { to: (v: number) => v, from: (v: string) => (v === null ? null : Number(v)) },
-  })
-  remise_valeur: number | null;
+  /** Gabarit d'effets appliqué à chaque code généré — même forme que `code_effets`. */
+  @Column({ type: 'jsonb', nullable: true })
+  effets: Array<{ effet: string; parametres?: Record<string, any> | null }> | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   date_debut: Date | null;

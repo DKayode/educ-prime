@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Length, Matches, Max, Min, ValidateIf } from 'class-validator';
-import { TypeRemise } from '../entities/code.entity';
+import { IsArray, IsDateString, IsInt, IsNotEmpty, IsOptional, IsString, Length, Matches, Max, Min, ValidateNested } from 'class-validator';
+import { EffetDto } from './create-code.dto';
 
 /** « n codes uniques à usage unique pour n personnes ». */
 export class GenererCampagneDto {
@@ -30,17 +30,16 @@ export class GenererCampagneDto {
   @Matches(/^[A-Za-z0-9]+$/, { message: 'Le préfixe n’accepte que lettres et chiffres' })
   prefixe?: string;
 
-  @ApiPropertyOptional({ enum: TypeRemise })
+  @ApiPropertyOptional({
+    type: [Object],
+    description: 'Effets appliqués à chaque code généré. COMMISSION est refusé : les codes d’une campagne n’ont pas de propriétaire.',
+    example: [{ effet: 'REDUCTION', parametres: { type: 'MONTANT_FIXE', valeur: 500 } }],
+  })
   @IsOptional()
-  @IsEnum(TypeRemise)
-  remise_type?: TypeRemise;
-
-  @ApiPropertyOptional({ example: 25 })
-  @ValidateIf((o) => o.remise_type !== undefined)
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  remise_valeur?: number;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EffetDto)
+  effets?: EffetDto[];
 
   @ApiPropertyOptional()
   @IsOptional()

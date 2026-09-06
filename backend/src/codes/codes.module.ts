@@ -8,6 +8,7 @@ import { CodesService } from './codes.service';
 import { CampagneCode } from './entities/campagne-code.entity';
 import { CodeUtilisation } from './entities/code-utilisation.entity';
 import { Code } from './entities/code.entity';
+import { CodeEffet } from './entities/code-effet.entity';
 
 /**
  * Registre unifié des codes : parrainage, ambassadeur, réduction.
@@ -18,7 +19,7 @@ import { Code } from './entities/code.entity';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Code, CampagneCode, CodeUtilisation]),
+    TypeOrmModule.forFeature([Code, CodeEffet, CampagneCode, CodeUtilisation]),
     // Lien à sens unique : AbonnementsModule fournit PlansService pour l'aperçu
     // de remise. L'inverse passe par ModuleRef dans AbonnementsService, ce qui
     // évite de fermer un cycle de modules.

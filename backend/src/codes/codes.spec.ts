@@ -1,16 +1,24 @@
+import { BadRequestException } from '@nestjs/common';
 import { CodeValidationService } from './code-validation.service';
-import { TypeRemise } from './entities/code.entity';
+import { Effet, TypeRemise } from './entities/code-effet.entity';
+
+const reduction = (valeur = 20, type = TypeRemise.POURCENTAGE) => ({
+  effet: Effet.REDUCTION, parametres: { type, valeur },
+});
+const commission = (taux?: number) => ({ effet: Effet.COMMISSION, parametres: taux ? { taux } : null });
+const offert = (duree_jours?: number) => ({
+  effet: Effet.ABONNEMENT_OFFERT, parametres: duree_jours ? { duree_jours } : null,
+});
 
 const codeBase = (surcharges: any = {}) => ({
   id: 1,
   uuid: 'c-1',
   pays: 'benin',
   code: 'RENTREE2026',
-  type: 'REDUCTION',
+  origine: 'ADMIN',
   proprietaire_id: null,
   libelle: 'Rentrée',
-  remise_type: TypeRemise.POURCENTAGE,
-  remise_valeur: 20,
+  effets: [reduction()],
   usage_max_total: null,
   usage_max_par_utilisateur: 1,
   usage_actuel: 0,
@@ -27,6 +35,7 @@ describe('CodeValidationService', () => {
 
   const brancher = (code: any | null) => {
     codes.createQueryBuilder = jest.fn(() => ({
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue(code),
@@ -63,36 +72,83 @@ describe('CodeValidationService', () => {
 
   describe('calcul de la remise', () => {
     it('applique un pourcentage, arrondi à l’entier', () => {
-      const r = service.calculerRemise(codeBase({ remise_valeur: 15 }) as any, 999);
+      const r = service.calculerRemise({ type: TypeRemise.POURCENTAGE, valeur: 15 }, 999);
       expect(r).toMatchObject({ montant_remise: 150, prix_final: 849 });
-      expect(Number.isInteger(r!.montant_remise)).toBe(true);
+      expect(Number.isInteger(r.montant_remise)).toBe(true);
     });
 
     it('applique un montant fixe', () => {
-      const r = service.calculerRemise(
-        codeBase({ remise_type: TypeRemise.MONTANT_FIXE, remise_valeur: 500 }) as any,
-        2000,
-      );
-      expect(r).toMatchObject({ montant_remise: 500, prix_final: 1500 });
+      expect(service.calculerRemise({ type: TypeRemise.MONTANT_FIXE, valeur: 500 }, 2000))
+        .toMatchObject({ montant_remise: 500, prix_final: 1500 });
     });
 
     it('plafonne au prix — pas de prix négatif', () => {
-      // Un code « -5000 » sur un plan à 2000 rend l'abonnement gratuit ; il ne
+      // Un code « −5000 » sur un plan à 2000 rend l'abonnement gratuit ; il ne
       // crée pas une créance envers l'utilisateur.
-      const r = service.calculerRemise(
-        codeBase({ remise_type: TypeRemise.MONTANT_FIXE, remise_valeur: 5000 }) as any,
-        2000,
-      );
-      expect(r).toMatchObject({ montant_remise: 2000, prix_final: 0 });
+      expect(service.calculerRemise({ type: TypeRemise.MONTANT_FIXE, valeur: 5000 }, 2000))
+        .toMatchObject({ montant_remise: 2000, prix_final: 0 });
     });
 
     it('rend une remise de 100 % gratuite, pas négative', () => {
-      const r = service.calculerRemise(codeBase({ remise_valeur: 100 }) as any, 2000);
-      expect(r).toMatchObject({ montant_remise: 2000, prix_final: 0 });
+      expect(service.calculerRemise({ type: TypeRemise.POURCENTAGE, valeur: 100 }, 2000))
+        .toMatchObject({ montant_remise: 2000, prix_final: 0 });
+    });
+  });
+
+  describe('composition des effets', () => {
+    it('cumule remise et commission — l’ancien « ambassadeur »', async () => {
+      brancher(codeBase({ effets: [reduction(10), commission()], proprietaire_id: 20 }));
+      const r = await service.valider('X', 10, { prix: 2000 });
+      expect(r.effets).toMatchObject({ commission_pour: 20 });
+      expect(r.effets!.remise).toMatchObject({ montant_remise: 200 });
+      // La composition remplace une valeur d'énumération : aucun « type » à nommer.
+      expect(r.code!.effets).toEqual([Effet.REDUCTION, Effet.COMMISSION]);
     });
 
-    it('ne calcule rien pour un code sans remise (parrainage)', () => {
-      expect(service.calculerRemise(codeBase({ remise_type: null, remise_valeur: null }) as any, 2000)).toBeUndefined();
+    it('n’attribue aucune commission sans propriétaire', async () => {
+      brancher(codeBase({ effets: [commission()], proprietaire_id: null }));
+      expect((await service.valider('X', 10)).effets?.commission_pour).toBeUndefined();
+    });
+
+    it('rend un abonnement offert, avec sa durée', async () => {
+      brancher(codeBase({ effets: [offert(90)] }));
+      expect((await service.valider('X', 10, { prix: 2000 })).effets)
+        .toMatchObject({ abonnement_offert: { duree_jours: 90 } });
+    });
+
+    it('laisse la durée au plan quand elle n’est pas précisée', async () => {
+      brancher(codeBase({ effets: [offert()] }));
+      const e = (await service.valider('X', 10)).effets!;
+      expect(e.abonnement_offert).toBeDefined();
+      expect(e.abonnement_offert!.duree_jours).toBeUndefined();
+    });
+
+    it('un code sans effet est valide mais ne produit rien', async () => {
+      // Un code de suivi pur, par exemple : il se consomme, sans conséquence.
+      brancher(codeBase({ effets: [] }));
+      const r = await service.valider('X', 10, { prix: 2000 });
+      expect(r.valide).toBe(true);
+      expect(r.effets).toEqual({});
+    });
+  });
+
+  describe('cohérence des combinaisons', () => {
+    it('refuse abonnement offert + réduction', () => {
+      // Rien n'est encaissé : la remise ne s'applique à rien.
+      expect(() => CodeValidationService.verifierCoherence([Effet.ABONNEMENT_OFFERT, Effet.REDUCTION]))
+        .toThrow(BadRequestException);
+    });
+
+    it('refuse abonnement offert + commission', () => {
+      // Aucun encaissement, donc aucune part à reverser.
+      expect(() => CodeValidationService.verifierCoherence([Effet.ABONNEMENT_OFFERT, Effet.COMMISSION]))
+        .toThrow(BadRequestException);
+    });
+
+    it('accepte les combinaisons qui ont un sens', () => {
+      expect(() => CodeValidationService.verifierCoherence([Effet.REDUCTION, Effet.COMMISSION])).not.toThrow();
+      expect(() => CodeValidationService.verifierCoherence([Effet.ABONNEMENT_OFFERT])).not.toThrow();
+      expect(() => CodeValidationService.verifierCoherence([])).not.toThrow();
     });
   });
 
@@ -101,7 +157,7 @@ describe('CodeValidationService', () => {
       brancher(codeBase());
       const r = await service.valider('rentree2026', 10, { prix: 2000 });
       expect(r.valide).toBe(true);
-      expect(r.remise).toMatchObject({ montant_remise: 400, prix_final: 1600 });
+      expect(r.effets!.remise).toMatchObject({ montant_remise: 400, prix_final: 1600 });
     });
 
     it('refuse un code introuvable', async () => {
@@ -130,7 +186,7 @@ describe('CodeValidationService', () => {
     });
 
     it('refuse d’utiliser son propre code', async () => {
-      brancher(codeBase({ proprietaire_id: 10 }));
+      brancher(codeBase({ proprietaire_id: 10, effets: [commission()] }));
       expect(await service.valider('X', 10)).toMatchObject({ motif: 'AUTO_UTILISATION' });
     });
 
