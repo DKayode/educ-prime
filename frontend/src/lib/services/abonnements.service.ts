@@ -91,6 +91,25 @@ export interface ReglageCommission {
   verse_effectivement: boolean;
 }
 
+export interface LigneClassement {
+  rang: number;
+  uuid: string;
+  nom?: string | null;
+  prenom?: string | null;
+  email?: string | null;
+  code?: string | null;
+  nombre_commissions: number;
+  abonnements: number;
+  total: number;
+  derniere: string;
+}
+
+export interface ClassementCommissions {
+  periode: { startDate: string | null; endDate: string | null };
+  totaux: { beneficiaires: number; nombre_commissions: number; total: number };
+  classement: LigneClassement[];
+}
+
 export interface ActivationPayload {
   montant_paye: number;
   reference_paiement?: string;
@@ -149,6 +168,14 @@ export const abonnementsService = {
 
   async updateCommission(data: { taux?: number; est_active?: boolean }): Promise<ReglageCommission> {
     return api.put<ReglageCommission>('/admin/abonnements/commission', data);
+  },
+
+  async getClassementCommissions(params?: {
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<ClassementCommissions> {
+    return api.get<ClassementCommissions>(`/admin/abonnements/classement-commissions${query(params)}`);
   },
 
   // ── Abonnements ──────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import { PlansService } from './plans.service';
 import { ParrainageService } from './parrainage.service';
 import { QuotaService } from './quota.service';
 import { UpdateCommissionDto } from './dto/update-commission.dto';
+import { ClassementCommissionsDto } from './dto/classement-commissions.dto';
 import { UpdateQuotaDto } from './dto/update-quota.dto';
 
 @ApiTags('abonnements-admin')
@@ -133,6 +134,18 @@ export class AbonnementsAdminController {
   })
   activer(@Param('uuid') uuid: string, @Body() dto: ActiverAbonnementDto, @Request() req) {
     return this.abonnementsService.activer(uuid, dto, req.user?.utilisateurId);
+  }
+
+  @Get('classement-commissions')
+  @ApiOperation({
+    summary: 'Meilleurs bénéficiaires de commissions sur une période',
+    description:
+      'Classé par montant perçu. La date retenue est celle du VERSEMENT, pas celle de ' +
+      'l’abonnement : une commission rattrapée appartient au mois où elle a été versée, ' +
+      'sinon les totaux d’une période close changeraient après coup.',
+  })
+  classementCommissions(@Query() query: ClassementCommissionsDto) {
+    return this.parrainage.classementCommissions(query);
   }
 
   @Get('commissions-en-attente')

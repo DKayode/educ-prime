@@ -193,6 +193,90 @@ export class ParrainageService {
     return reglage;
   }
 
+  /**
+   * Classement des bénéficiaires de commissions sur une période.
+   *
+   * Agrégé en SQL plutôt qu'en mémoire : le classement porte sur toutes les
+   * transactions de commission, dont le volume n'a aucune raison de tenir dans
+   * une page.
+   *
+   * `wallet_transactions.created_at` fait foi, et non la date de l'abonnement :
+   * une commission rattrapée appartient au mois où elle a été versée, sinon les
+   * totaux d'une période close changeraient après coup.
+   */
+  async classementCommissions(params: { startDate?: string; endDate?: string; limit?: number }) {
+    const limite = Math.min(params.limit ?? 20, 100);
+    const conditions: string[] = [
+      `wt.reward_source_type_code = $1`,
+      `wt.status <> 'CANCELLED'`,
+    ];
+    const valeurs: any[] = [RewardSourceTypeCode.PARRAINAGE_ABONNEMENT];
+
+    if (params.startDate) {
+      valeurs.push(params.startDate);
+      conditions.push(`wt.created_at >= $${valeurs.length}::date`);
+    }
+    if (params.endDate) {
+      valeurs.push(params.endDate);
+      // Borne de fin INCLUSE : `<= endDate` seul exclurait toute la journée,
+      // puisque created_at porte une heure.
+      conditions.push(`wt.created_at < ($${valeurs.length}::date + interval '1 day')`);
+    }
+    valeurs.push(limite);
+
+    const lignes = await this.dataSource.query(
+      `SELECT u.id,
+              u.uuid,
+              u.nom,
+              u.prenom,
+              u.email,
+              u.mon_code_parrainage                      AS code,
+              COUNT(*)::int                              AS nombre_commissions,
+              COALESCE(SUM(wt.amount), 0)::float         AS total,
+              COUNT(DISTINCT wt.reward_source_id)::int   AS abonnements,
+              MAX(wt.created_at)                         AS derniere
+         FROM wallet_transactions wt
+         JOIN wallets w       ON w.id = wt.wallet_id
+         JOIN utilisateurs u  ON u.id = w.user_id
+        WHERE ${conditions.join(' AND ')}
+        GROUP BY u.id, u.uuid, u.nom, u.prenom, u.email, u.mon_code_parrainage
+        ORDER BY total DESC, nombre_commissions DESC
+        LIMIT $${valeurs.length}`,
+      valeurs,
+    );
+
+    const [totaux] = await this.dataSource.query(
+      `SELECT COUNT(DISTINCT w.user_id)::int        AS beneficiaires,
+              COALESCE(SUM(wt.amount), 0)::float    AS total,
+              COUNT(*)::int                         AS nombre
+         FROM wallet_transactions wt
+         JOIN wallets w ON w.id = wt.wallet_id
+        WHERE ${conditions.join(' AND ')}`,
+      valeurs.slice(0, -1),
+    );
+
+    return {
+      periode: { startDate: params.startDate ?? null, endDate: params.endDate ?? null },
+      totaux: {
+        beneficiaires: Number(totaux?.beneficiaires ?? 0),
+        nombre_commissions: Number(totaux?.nombre ?? 0),
+        total: Number(totaux?.total ?? 0),
+      },
+      classement: lignes.map((l: any, i: number) => ({
+        rang: i + 1,
+        uuid: l.uuid,
+        nom: l.nom,
+        prenom: l.prenom,
+        email: l.email,
+        code: l.code,
+        nombre_commissions: Number(l.nombre_commissions),
+        abonnements: Number(l.abonnements),
+        total: Number(l.total),
+        derniere: l.derniere,
+      })),
+    };
+  }
+
   /** Vue « mes parrainages » : filleuls, abonnements payants, commissions perçues. */
   async mesParrainages(utilisateurId: number) {
     const [filleuls] = await Promise.all([
