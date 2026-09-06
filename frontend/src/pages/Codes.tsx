@@ -16,21 +16,28 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Campagne, Code, codesService, CodePayload, libelleRemise, libelleUsage, TypeCode, TypeRemise,
+  Campagne, Code, CodeEffet, codesService, CodePayload, Effet, incoherence,
+  libelleEffets, libelleUsage, OrigineCode, TypeRemise,
 } from "@/lib/services/codes.service";
 
 const FORMULAIRE_VIDE: CodePayload = {
   code: "",
-  type: "REDUCTION",
+  effets: [],
   libelle: "",
-  remise_type: "POURCENTAGE",
-  remise_valeur: 10,
   usage_max_par_utilisateur: 1,
   est_actif: true,
 };
 
-const badgeType = (t: TypeCode) =>
-  t === "REDUCTION" ? "default" : t === "AMBASSADEUR" ? "secondary" : "outline";
+/** Un effet cochable, avec ses propres paramètres. */
+const EFFETS: { cle: Effet; titre: string; aide: string }[] = [
+  { cle: "REDUCTION", titre: "Réduction", aide: "Baisse le prix de l’abonnement." },
+  { cle: "COMMISSION", titre: "Commission", aide: "Verse une part du prix au propriétaire du code." },
+  {
+    cle: "ABONNEMENT_OFFERT",
+    titre: "Abonnement offert",
+    aide: "Ouvre l’abonnement sans encaissement. À manier avec soin : chaque utilisation est un abonnement donné.",
+  },
+];
 
 export default function Codes() {
   const { toast } = useToast();
@@ -38,28 +45,30 @@ export default function Codes() {
 
   const [recherche, setRecherche] = useState("");
   const rechercheDifferee = useDebounce(recherche, 500);
-  const [type, setType] = useState<TypeCode | "TOUS">("TOUS");
+  const [effetFiltre, setEffetFiltre] = useState<Effet | "TOUS">("TOUS");
   const [page, setPage] = useState(1);
 
   const [dialogOuvert, setDialogOuvert] = useState(false);
   const [edite, setEdite] = useState<Code | null>(null);
   const [formulaire, setFormulaire] = useState<CodePayload>(FORMULAIRE_VIDE);
+  const [effets, setEffets] = useState<CodeEffet[]>([]);
   const [illimite, setIllimite] = useState(true);
   const [maxTotal, setMaxTotal] = useState(100);
   const [utilisationsDe, setUtilisationsDe] = useState<Code | null>(null);
 
   const [campagne, setCampagne] = useState({
-    nom: "", nombre_codes: 100, prefixe: "", remise_type: "POURCENTAGE" as TypeRemise, remise_valeur: 20,
+    nom: "", nombre_codes: 100, prefixe: "",
+    remise_type: "POURCENTAGE" as TypeRemise, remise_valeur: 20,
   });
   const [dialogCampagne, setDialogCampagne] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["codes", rechercheDifferee, type, page],
+    queryKey: ["codes", rechercheDifferee, effetFiltre, page],
     queryFn: () =>
       codesService.getAll({
         page, limit: 20,
         search: rechercheDifferee || undefined,
-        type: type === "TOUS" ? undefined : type,
+        effet: effetFiltre === "TOUS" ? undefined : effetFiltre,
       }),
   });
 
@@ -80,6 +89,7 @@ export default function Codes() {
     mutationFn: () => {
       const payload: CodePayload = {
         ...formulaire,
+        effets,
         usage_max_total: illimite ? undefined : maxTotal,
       };
       return edite ? codesService.update(edite.uuid, payload) : codesService.create(payload);
@@ -101,7 +111,15 @@ export default function Codes() {
   });
 
   const genererCampagne = useMutation({
-    mutationFn: () => codesService.genererCampagne(campagne),
+    mutationFn: () =>
+      codesService.genererCampagne({
+        nom: campagne.nom,
+        nombre_codes: campagne.nombre_codes,
+        prefixe: campagne.prefixe || undefined,
+        // Une campagne distribue des codes anonymes : seule la réduction a du
+        // sens ici, le serveur refuse d'ailleurs COMMISSION.
+        effets: [{ effet: "REDUCTION", parametres: { type: campagne.remise_type, valeur: campagne.remise_valeur } }],
+      }),
     onSuccess: (r) => {
       rafraichir();
       setDialogCampagne(false);
@@ -120,6 +138,7 @@ export default function Codes() {
   const ouvrirCreation = () => {
     setEdite(null);
     setFormulaire(FORMULAIRE_VIDE);
+    setEffets([]);
     setIllimite(true);
     setMaxTotal(100);
     setDialogOuvert(true);
@@ -128,14 +147,29 @@ export default function Codes() {
   const ouvrirEdition = (c: Code) => {
     setEdite(c);
     setFormulaire({
-      code: c.code, type: c.type, libelle: c.libelle ?? "",
-      remise_type: c.remise_type ?? undefined, remise_valeur: c.remise_valeur ?? undefined,
+      code: c.code, effets: c.effets ?? [], libelle: c.libelle ?? "",
+      proprietaire_id: c.proprietaire_id ?? undefined,
       usage_max_par_utilisateur: c.usage_max_par_utilisateur, est_actif: c.est_actif,
     });
+    setEffets(c.effets ?? []);
     setIllimite(c.usage_max_total == null);
     setMaxTotal(c.usage_max_total ?? 100);
     setDialogOuvert(true);
   };
+
+  const aEffet = (e: Effet) => effets.some((x) => x.effet === e);
+  const parametres = (e: Effet) => effets.find((x) => x.effet === e)?.parametres ?? {};
+  const majParametres = (e: Effet, p: Record<string, any>) =>
+    setEffets((tous) => tous.map((x) => (x.effet === e ? { ...x, parametres: { ...x.parametres, ...p } } : x)));
+  const basculerEffet = (e: Effet, actif: boolean) =>
+    setEffets((tous) =>
+      actif
+        ? [...tous, { effet: e, parametres: e === "REDUCTION" ? { type: "POURCENTAGE", valeur: 10 } : null }]
+        : tous.filter((x) => x.effet !== e),
+    );
+
+  const probleme = incoherence(effets.map((e) => e.effet));
+  const commissionSansProprietaire = aEffet("COMMISSION") && !formulaire.proprietaire_id;
 
   const codes = data?.data ?? [];
   const totalPages = data?.totalPages ?? 1;
@@ -145,7 +179,7 @@ export default function Codes() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Codes</h1>
-          <p className="text-muted-foreground">Réductions, ambassadeurs et campagnes</p>
+          <p className="text-muted-foreground">Réductions, commissions, abonnements offerts et campagnes</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setDialogCampagne(true)}>
@@ -164,14 +198,15 @@ export default function Codes() {
           <Info className="h-5 w-5 shrink-0 text-blue-500" />
           <div className="space-y-1 text-sm text-muted-foreground">
             <p>
-              <strong className="text-foreground">Un code, deux effets possibles.</strong> Une{" "}
-              <strong>réduction</strong> baisse le prix ; un code d’<strong>ambassadeur</strong> verse
-              en plus une commission à son propriétaire. L’acheteur ne saisit qu’un champ : le
-              registre décide.
+              <strong className="text-foreground">Un code porte des effets, pas un type.</strong>{" "}
+              <strong>Réduction</strong> baisse le prix, <strong>commission</strong> paie le
+              propriétaire du code, <strong>abonnement offert</strong> ouvre l’abonnement sans
+              encaissement. Un code les cumule — réduction + commission, c’est ce qu’on appelait un
+              « ambassadeur ».
             </p>
             <p>
-              Les codes de <strong>parrainage</strong> sont générés à l’inscription et n’apparaissent
-              pas ici par défaut — ils sont des dizaines de milliers.
+              L’acheteur ne saisit qu’un champ : le registre décide. Les codes générés à
+              l’inscription n’apparaissent pas ici — ils sont des dizaines de milliers.
             </p>
           </div>
         </CardContent>
@@ -194,13 +229,13 @@ export default function Codes() {
                 className="pl-10"
               />
             </div>
-            <Select value={type} onValueChange={(v) => { setType(v as TypeCode | "TOUS"); setPage(1); }}>
-              <SelectTrigger className="sm:w-56"><SelectValue /></SelectTrigger>
+            <Select value={effetFiltre} onValueChange={(v) => { setEffetFiltre(v as Effet | "TOUS"); setPage(1); }}>
+              <SelectTrigger className="sm:w-64"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="TOUS">Réductions et ambassadeurs</SelectItem>
+                <SelectItem value="TOUS">Tous les effets</SelectItem>
                 <SelectItem value="REDUCTION">Réduction</SelectItem>
-                <SelectItem value="AMBASSADEUR">Ambassadeur</SelectItem>
-                <SelectItem value="PARRAINAGE">Parrainage</SelectItem>
+                <SelectItem value="COMMISSION">Commission</SelectItem>
+                <SelectItem value="ABONNEMENT_OFFERT">Abonnement offert</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -218,8 +253,7 @@ export default function Codes() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Code</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Remise</TableHead>
+                      <TableHead>Effets</TableHead>
                       <TableHead className="text-right">Utilisations</TableHead>
                       <TableHead>Campagne</TableHead>
                       <TableHead>Actif</TableHead>
@@ -238,8 +272,22 @@ export default function Codes() {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell><Badge variant={badgeType(c.type)}>{c.type}</Badge></TableCell>
-                        <TableCell>{libelleRemise(c)}</TableCell>
+                        <TableCell>
+                          {c.effets?.length ? (
+                            <div className="flex flex-wrap gap-1">
+                              {c.effets.map((e) => (
+                                <Badge
+                                  key={e.effet}
+                                  variant={e.effet === "ABONNEMENT_OFFERT" ? "destructive" : "secondary"}
+                                >
+                                  {libelleEffets([e])}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right font-medium">{libelleUsage(c)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{c.campagne?.nom ?? "—"}</TableCell>
                         <TableCell>
@@ -314,7 +362,7 @@ export default function Codes() {
                       <TableRow key={c.uuid}>
                         <TableCell className="font-medium">{c.nom}</TableCell>
                         <TableCell className="font-mono text-xs">{c.prefixe ?? "—"}</TableCell>
-                        <TableCell>{libelleRemise(c)}</TableCell>
+                        <TableCell>{libelleEffets(c.effets)}</TableCell>
                         <TableCell className="text-right">{c.codes_generes}</TableCell>
                         <TableCell className="text-right">{c.codes_utilises}</TableCell>
                         <TableCell className="text-right">
@@ -343,30 +391,15 @@ export default function Codes() {
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="code">Code</Label>
-                <Input
-                  id="code"
-                  placeholder="RENTREE2026"
-                  value={formulaire.code}
-                  onChange={(e) => setFormulaire({ ...formulaire, code: e.target.value.toUpperCase() })}
-                />
-                <p className="text-xs text-muted-foreground">La casse est ignorée à la saisie.</p>
-              </div>
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select
-                  value={formulaire.type}
-                  onValueChange={(v) => setFormulaire({ ...formulaire, type: v as TypeCode })}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="REDUCTION">Réduction</SelectItem>
-                    <SelectItem value="AMBASSADEUR">Ambassadeur</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="code">Code</Label>
+              <Input
+                id="code"
+                placeholder="RENTREE2026"
+                value={formulaire.code}
+                onChange={(e) => setFormulaire({ ...formulaire, code: e.target.value.toUpperCase() })}
+              />
+              <p className="text-xs text-muted-foreground">La casse est ignorée à la saisie.</p>
             </div>
 
             <div className="space-y-2">
@@ -379,53 +412,92 @@ export default function Codes() {
               />
             </div>
 
-            {formulaire.type === "AMBASSADEUR" && (
-              <div className="space-y-2">
-                <Label htmlFor="prop">Identifiant du propriétaire</Label>
-                <Input
-                  id="prop"
-                  type="number"
-                  value={formulaire.proprietaire_id ?? ""}
-                  onChange={(e) => setFormulaire({ ...formulaire, proprietaire_id: Number(e.target.value) || undefined })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Il percevra la commission de parrainage sur chaque abonnement acheté avec ce code.
-                </p>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label>Effets</Label>
+              <p className="text-xs text-muted-foreground">
+                Cochez ce que le code doit faire. Cocher réduction et commission fait ce qu’on
+                appelait un « ambassadeur ».
+              </p>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Type de remise</Label>
-                <Select
-                  value={formulaire.remise_type ?? "AUCUNE"}
-                  onValueChange={(v) =>
-                    setFormulaire({
-                      ...formulaire,
-                      remise_type: v === "AUCUNE" ? undefined : (v as TypeRemise),
-                      remise_valeur: v === "AUCUNE" ? undefined : (formulaire.remise_valeur ?? 10),
-                    })
-                  }
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="AUCUNE">Aucune remise</SelectItem>
-                    <SelectItem value="POURCENTAGE">Pourcentage</SelectItem>
-                    <SelectItem value="MONTANT_FIXE">Montant fixe</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="valeur">Valeur</Label>
-                <Input
-                  id="valeur"
-                  type="number"
-                  min={0}
-                  disabled={!formulaire.remise_type}
-                  value={formulaire.remise_valeur ?? ""}
-                  onChange={(e) => setFormulaire({ ...formulaire, remise_valeur: Number(e.target.value) })}
-                />
-              </div>
+              {EFFETS.map(({ cle, titre, aide }) => (
+                <div key={cle} className="rounded-lg border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <Label className="cursor-pointer">{titre}</Label>
+                      <p className="text-xs text-muted-foreground">{aide}</p>
+                    </div>
+                    <Switch checked={aEffet(cle)} onCheckedChange={(v) => basculerEffet(cle, v)} />
+                  </div>
+
+                  {aEffet(cle) && cle === "REDUCTION" && (
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <Select
+                        value={(parametres("REDUCTION") as any).type ?? "POURCENTAGE"}
+                        onValueChange={(v) => majParametres("REDUCTION", { type: v as TypeRemise })}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="POURCENTAGE">Pourcentage</SelectItem>
+                          <SelectItem value="MONTANT_FIXE">Montant fixe</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={(parametres("REDUCTION") as any).valeur ?? 0}
+                        onChange={(e) => majParametres("REDUCTION", { valeur: Number(e.target.value) })}
+                      />
+                    </div>
+                  )}
+
+                  {aEffet(cle) && cle === "COMMISSION" && (
+                    <div className="mt-3 space-y-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="Identifiant du propriétaire à créditer"
+                        value={formulaire.proprietaire_id ?? ""}
+                        onChange={(e) =>
+                          setFormulaire({ ...formulaire, proprietaire_id: Number(e.target.value) || undefined })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Sans taux propre, celui réglé dans « Commission parrainage » s’applique.
+                      </p>
+                    </div>
+                  )}
+
+                  {aEffet(cle) && cle === "ABONNEMENT_OFFERT" && (
+                    <div className="mt-3 space-y-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="Durée en jours (vide = durée du plan)"
+                        value={(parametres("ABONNEMENT_OFFERT") as any).duree_jours ?? ""}
+                        onChange={(e) =>
+                          majParametres("ABONNEMENT_OFFERT", {
+                            duree_jours: Number(e.target.value) || undefined,
+                          })
+                        }
+                      />
+                      {/* L'engagement financier doit être visible AVANT de créer
+                          le code, pas découvert au relevé de comptes. */}
+                      <p className="text-xs text-amber-600">
+                        {illimite
+                          ? "Sans limite d’utilisations, ce code donne un abonnement à chaque personne qui le saisit."
+                          : `Ce code peut donner jusqu’à ${maxTotal} abonnement(s), sans encaissement.`}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {probleme && <p className="text-xs text-destructive">{probleme}</p>}
+              {commissionSansProprietaire && (
+                <p className="text-xs text-destructive">
+                  L’effet commission exige un propriétaire à créditer.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">
@@ -462,7 +534,12 @@ export default function Codes() {
             <Button variant="outline" onClick={() => setDialogOuvert(false)}>Annuler</Button>
             <Button
               onClick={() => enregistrer.mutate()}
-              disabled={enregistrer.isPending || formulaire.code.trim().length < 3}
+              disabled={
+                enregistrer.isPending ||
+                formulaire.code.trim().length < 3 ||
+                !!probleme ||
+                commissionSansProprietaire
+              }
             >
               {enregistrer.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Enregistrer

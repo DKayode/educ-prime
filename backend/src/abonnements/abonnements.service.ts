@@ -70,9 +70,9 @@ export class AbonnementsService {
 
     const codeSaisi = dto.code ?? dto.code_parrainage;
 
-    // Un seul code, deux effets possibles : une remise sur le prix, et/ou une
-    // commission au propriétaire. Les deux se cumulent si le code porte les deux
-    // propriétés — c'est tout l'intérêt d'un registre unifié.
+    // Un seul code, plusieurs effets possibles : remise, commission, abonnement
+    // offert. C'est le registre qui les porte — le module abonnements se
+    // contente de les appliquer.
     const resultat = codeSaisi
       ? await this.codes.valider(codeSaisi, utilisateurId, { planId: plan.id, prix: plan.prix, pays })
       : null;
@@ -84,14 +84,14 @@ export class AbonnementsService {
       this.logger.log(`Code « ${codeSaisi} » ignoré pour l'utilisateur ${utilisateurId} : ${resultat?.motif}`);
     }
 
-    const remise = codeValide?.remise?.montant_remise ?? 0;
+    const effets = codeValide?.effets ?? {};
+    const remise = effets.remise?.montant_remise ?? 0;
+    const offert = !!effets.abonnement_offert;
 
     // Le bénéficiaire est figé maintenant, pas au paiement : entre les deux, le
-    // code pourrait être désactivé ou changer de propriétaire.
-    const parrainId =
-      codeValide?.code?.proprietaire_id && codeValide.code.proprietaire_id !== utilisateurId
-        ? codeValide.code.proprietaire_id
-        : await this.parrainage.resoudreParrain(utilisateurId, codeSaisi);
+    // code pourrait être désactivé ou changer de propriétaire. Un abonnement
+    // offert n'encaisse rien, donc ne verse aucune commission.
+    const parrainId = offert ? null : effets.commission_pour ?? null;
 
     const abonnement = await this.dataSource.transaction(async (manager) => {
       // L'ORDRE COMPTE. Le verrou sur le code se prend AVANT d'insérer
@@ -109,18 +109,30 @@ export class AbonnementsService {
           codeRetenu = null;
         }
       }
-      const remiseRetenue = codeRetenu ? remise : 0;
+      const retenu = !!codeRetenu;
+      const remiseRetenue = retenu ? remise : 0;
+      const offertRetenu = retenu && offert;
+
+      // Un abonnement offert est ACTIF d'emblée : il n'y a rien à encaisser, et
+      // le laisser EN_ATTENTE obligerait un admin à confirmer un paiement qui
+      // n'aura jamais lieu.
+      const debut = offertRetenu ? new Date() : null;
+      const duree = effets.abonnement_offert?.duree_jours ?? plan.duree_jours;
+      const fin = offertRetenu ? new Date(debut!.getTime() + duree * 24 * 60 * 60 * 1000) : null;
 
       const cree = await manager.getRepository(Abonnement).save(
         manager.getRepository(Abonnement).create({
           pays,
           utilisateur_id: utilisateurId,
           plan_id: plan.id,
-          statut: StatutAbonnement.EN_ATTENTE,
+          statut: offertRetenu ? StatutAbonnement.ACTIF : StatutAbonnement.EN_ATTENTE,
+          date_debut: debut,
+          date_fin: fin,
           montant_paye: 0,
           montant_remise: remiseRetenue,
+          offert: offertRetenu,
           devise: plan.devise,
-          parrain_id: parrainId,
+          parrain_id: retenu ? parrainId : null,
           code_id: codeRetenu?.id ?? null,
         }),
       );
@@ -130,6 +142,7 @@ export class AbonnementsService {
           abonnementId: cree.id,
           montantRemise: remiseRetenue,
           pays,
+          effets,
         });
       }
       return cree;
@@ -138,10 +151,20 @@ export class AbonnementsService {
     await this.journaliser(abonnement.id, TypeEvenementAbonnement.CREE, {
       planCode: plan.code,
       prix: plan.prix,
-      parrainId,
+      parrainId: abonnement.parrain_id,
       code: abonnement.code_id ? codeValide?.code?.code : null,
       montantRemise: abonnement.montant_remise,
+      offert: abonnement.offert,
     });
+
+    if (abonnement.offert) {
+      await this.journaliser(abonnement.id, TypeEvenementAbonnement.ACTIVE, {
+        offert: true,
+        code: codeValide?.code?.code,
+        date_fin: abonnement.date_fin,
+      });
+    }
+
     this.logger.log(`Abonnement ${abonnement.uuid} créé (EN_ATTENTE) pour utilisateur ${utilisateurId}`);
     return this.findByUuid(abonnement.uuid);
   }

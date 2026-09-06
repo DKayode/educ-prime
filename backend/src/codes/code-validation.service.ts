@@ -1,8 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
-import { Code, TypeCode, TypeRemise } from './entities/code.entity';
 import { CodeUtilisation } from './entities/code-utilisation.entity';
+import {
+  Effet,
+  ParametresAbonnementOffert,
+  ParametresCommission,
+  ParametresReduction,
+  TypeRemise,
+} from './entities/code-effet.entity';
+import { Code, OrigineCode } from './entities/code.entity';
 
 export type MotifRefus =
   | 'INTROUVABLE'
@@ -22,11 +29,28 @@ export interface Remise {
   prix_final: number;
 }
 
+/** Ce que le code produit concrètement pour cet achat. */
+export interface EffetsAppliques {
+  remise?: Remise;
+  /** Bénéficiaire de la commission, si le code en porte une et a un propriétaire. */
+  commission_pour?: number;
+  /** L'abonnement est offert : aucun encaissement, aucune commission. */
+  abonnement_offert?: { duree_jours?: number };
+}
+
 export interface ResultatValidation {
   valide: boolean;
   motif?: MotifRefus;
-  code?: { id: number; uuid: string; code: string; type: TypeCode; libelle?: string | null; proprietaire_id: number | null };
-  remise?: Remise;
+  code?: {
+    id: number;
+    uuid: string;
+    code: string;
+    origine: OrigineCode;
+    libelle?: string | null;
+    proprietaire_id: number | null;
+    effets: Effet[];
+  };
+  effets?: EffetsAppliques;
 }
 
 @Injectable()
@@ -38,16 +62,37 @@ export class CodeValidationService {
     @InjectRepository(CodeUtilisation) private readonly utilisations: Repository<CodeUtilisation>,
   ) {}
 
-  /** Normalisation unique : la casse et les espaces ne doivent jamais départager deux codes. */
+  /** Normalisation unique : la casse et les espaces ne départagent jamais deux codes. */
   static normaliser(code: string): string {
     return code.trim().toUpperCase();
+  }
+
+  /**
+   * Combinaisons interdites.
+   *
+   * Un abonnement offert n'est pas encaissé : une remise ne s'applique à rien, et
+   * une commission prélèverait une part d'un montant nul. Laisser créer un tel
+   * code produirait un comportement que personne ne saurait expliquer.
+   */
+  static verifierCoherence(effets: Effet[]): void {
+    const a = new Set(effets);
+    if (a.has(Effet.ABONNEMENT_OFFERT) && a.has(Effet.REDUCTION)) {
+      throw new BadRequestException(
+        'Un abonnement offert n’est pas payé : une réduction ne s’y applique pas.',
+      );
+    }
+    if (a.has(Effet.ABONNEMENT_OFFERT) && a.has(Effet.COMMISSION)) {
+      throw new BadRequestException(
+        'Un abonnement offert n’encaisse rien : aucune commission ne peut en être tirée.',
+      );
+    }
   }
 
   async trouver(code: string, pays?: string): Promise<Code | null> {
     const qb = this.codes
       .createQueryBuilder('code')
+      .leftJoinAndSelect('code.effets', 'effets')
       .where('upper(code.code) = :code', { code: CodeValidationService.normaliser(code) });
-    // Un code est visible dans son pays ; on ne filtre que si l'appelant en fournit un.
     if (pays) qb.andWhere('code.pays = :pays', { pays });
     return qb.getOne();
   }
@@ -71,42 +116,66 @@ export class CodeValidationService {
       id: code.id,
       uuid: code.uuid,
       code: code.code,
-      type: code.type,
+      origine: code.origine,
       libelle: code.libelle,
       proprietaire_id: code.proprietaire_id,
+      effets: (code.effets ?? []).map((e) => e.effet),
     };
     if (motif) return { valide: false, motif, code: resume };
 
-    return {
-      valide: true,
-      code: resume,
-      remise: contexte.prix !== undefined ? this.calculerRemise(code, contexte.prix) : undefined,
-    };
+    return { valide: true, code: resume, effets: this.calculerEffets(code, utilisateurId, contexte.prix) };
   }
 
   /**
-   * Montant de la remise accordée par un code.
+   * Traduit les effets déclarés en conséquences concrètes pour cet achat.
    *
-   * Arrondi à l'entier : le XOF n'a pas de subdivision. Le plafonnement au prix
-   * évite un prix final négatif — un code « -5 000 » sur un plan à 2 000 rend
-   * l'abonnement gratuit, il ne crée pas une créance.
+   * Le calcul vit ici, et pas chez l'appelant, pour qu'aperçu et souscription
+   * ne puissent pas diverger.
    */
-  calculerRemise(code: Code, prix: number): Remise | undefined {
-    if (!code.remise_type || code.remise_valeur == null) return undefined;
+  calculerEffets(code: Code, utilisateurId: number, prix?: number): EffetsAppliques {
+    const applique: EffetsAppliques = {};
 
+    for (const e of code.effets ?? []) {
+      switch (e.effet) {
+        case Effet.REDUCTION: {
+          if (prix === undefined) break;
+          const p = (e.parametres ?? {}) as ParametresReduction;
+          if (!p.type || p.valeur == null) break;
+          applique.remise = this.calculerRemise(p, prix);
+          break;
+        }
+        case Effet.COMMISSION: {
+          // Sans propriétaire, personne à payer. S'auto-payer n'a aucun sens.
+          if (!code.proprietaire_id || code.proprietaire_id === utilisateurId) break;
+          const p = (e.parametres ?? {}) as ParametresCommission;
+          applique.commission_pour = code.proprietaire_id;
+          if (p.taux != null) (applique as any).commission_taux = p.taux;
+          break;
+        }
+        case Effet.ABONNEMENT_OFFERT: {
+          const p = (e.parametres ?? {}) as ParametresAbonnementOffert;
+          applique.abonnement_offert = { duree_jours: p.duree_jours };
+          break;
+        }
+      }
+    }
+    return applique;
+  }
+
+  /**
+   * Montant d'une remise.
+   *
+   * Arrondi à l'entier : le XOF n'a pas de subdivision. Plafonné au prix — un
+   * code « −5 000 » sur un plan à 2 000 rend l'abonnement gratuit, il ne crée
+   * pas une créance.
+   */
+  calculerRemise(p: ParametresReduction, prix: number): Remise {
     const brut =
-      code.remise_type === TypeRemise.POURCENTAGE
-        ? Math.round((prix * Number(code.remise_valeur)) / 100)
-        : Math.round(Number(code.remise_valeur));
-
+      p.type === TypeRemise.POURCENTAGE
+        ? Math.round((prix * Number(p.valeur)) / 100)
+        : Math.round(Number(p.valeur));
     const montant = Math.min(Math.max(brut, 0), prix);
-    return {
-      type: code.remise_type,
-      valeur: Number(code.remise_valeur),
-      montant_remise: montant,
-      prix_initial: prix,
-      prix_final: prix - montant,
-    };
+    return { type: p.type, valeur: Number(p.valeur), montant_remise: montant, prix_initial: prix, prix_final: prix - montant };
   }
 
   /**
@@ -117,9 +186,6 @@ export class CodeValidationService {
    * étrangère ; tenter ensuite de l'élever en `FOR UPDATE` produit un
    * INTERBLOCAGE dès que deux acheteurs arrivent en même temps — observé, puis
    * corrigé par cet ordre.
-   *
-   * Sans ce verrou, deux acheteurs simultanés liraient tous deux « il reste une
-   * place » et la prendraient : le plafond « pour n personnes » ne tiendrait pas.
    */
   async verrouillerEtValider(
     manager: EntityManager,
@@ -129,28 +195,26 @@ export class CodeValidationService {
     const [code] = await manager.query(`SELECT * FROM codes WHERE id = $1 FOR UPDATE`, [codeId]);
     if (!code) return { ok: false, motif: 'INTROUVABLE' };
 
-    // Revérification SOUS VERROU : l'aperçu peut dater d'avant la dernière place.
     const motif = await this.motifDeRefus(code as Code, utilisateurId, undefined, manager);
     if (motif) return { ok: false, motif };
     return { ok: true, pays: code.pays };
   }
 
-  /**
-   * Enregistre l'utilisation, une fois la ligne référençante créée.
-   *
-   * Le verrou pris par `verrouillerEtValider` court toujours : la place ne peut
-   * pas avoir été prise entre les deux.
-   */
+  /** Enregistre l'utilisation, une fois la ligne référençante créée. */
   async enregistrerUtilisation(
     manager: EntityManager,
     codeId: number,
     utilisateurId: number,
-    params: { abonnementId?: number; montantRemise?: number; pays?: string },
+    params: { abonnementId?: number; montantRemise?: number; pays?: string; effets?: EffetsAppliques },
   ): Promise<void> {
     await manager.query(
-      `INSERT INTO codes_utilisations (pays, code_id, utilisateur_id, abonnement_id, montant_remise)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [params.pays ?? 'benin', codeId, utilisateurId, params.abonnementId ?? null, params.montantRemise ?? 0],
+      `INSERT INTO codes_utilisations (pays, code_id, utilisateur_id, abonnement_id, montant_remise, effets_appliques)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        params.pays ?? 'benin', codeId, utilisateurId,
+        params.abonnementId ?? null, params.montantRemise ?? 0,
+        params.effets ? JSON.stringify(params.effets) : null,
+      ],
     );
     await manager.query(`UPDATE codes SET usage_actuel = usage_actuel + 1 WHERE id = $1`, [codeId]);
   }

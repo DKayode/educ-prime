@@ -18,11 +18,17 @@ Il n'y a **pas** de champ séparé « code promo » et « code parrain ». L'uti
 ne sait pas — et n'a pas à savoir — de quelle nature est le code qu'on lui a
 donné.
 
-| type de code | effet |
+Un code ne porte pas un « type » mais un ensemble d'**effets**, qu'il cumule :
+
+| effet | conséquence |
 |---|---|
-| `REDUCTION` | baisse le prix |
-| `AMBASSADEUR` | baisse le prix **et** verse une commission à son propriétaire |
-| `PARRAINAGE` | verse une commission à son propriétaire (généré à l'inscription) |
+| `REDUCTION` | baisse le prix de l'abonnement |
+| `COMMISSION` | verse une part du prix au propriétaire du code |
+| `ABONNEMENT_OFFERT` | **ouvre l'abonnement sans paiement** |
+
+Un code de parrainage porte `COMMISSION`. Ce qu'on appelait « ambassadeur »,
+c'est `REDUCTION` + `COMMISSION`. Le client n'a pas à connaître ces noms — il lit
+ce que la réponse annonce.
 
 **Un code invalide ne fait jamais échouer la souscription.** Elle réussit sans
 remise ni commission.
@@ -47,18 +53,39 @@ même code.
 ```json
 {
   "valide": true,
-  "code": { "uuid": "9172b4e6-…", "code": "AMBA247", "type": "AMBASSADEUR", "libelle": null, "proprietaire_id": 26757 },
-  "remise": { "type": "POURCENTAGE", "valeur": 10, "montant_remise": 200, "prix_initial": 2000, "prix_final": 1800 }
+  "code": { "uuid": "9172b4e6-…", "code": "AMBA2", "origine": "ADMIN", "effets": ["REDUCTION", "COMMISSION"] },
+  "effets": {
+    "remise": { "type": "POURCENTAGE", "valeur": 15, "montant_remise": 300, "prix_initial": 2000, "prix_final": 1700 },
+    "commission_pour": 26756
+  }
 }
 ```
 
-Affichez `prix_initial` barré et `prix_final` en évidence. **N'appliquez pas le
-pourcentage vous-même** : l'arrondi et le plafonnement sont faits côté serveur, et
-un calcul local finirait par diverger d'un franc.
+Tout ce qui compte pour l'écran est dans **`effets`** :
 
-Un code de parrainage pur est **valide sans objet `remise`** — il ne réduit rien,
-il désigne un bénéficiaire de commission. Ne traitez pas son absence comme une
-erreur.
+| clé présente | à afficher |
+|---|---|
+| `remise` | prix barré → `prix_final` |
+| `abonnement_offert` | « Cet abonnement vous est offert » — **aucun paiement** |
+| `commission_pour` | rien ; c'est une affaire entre le serveur et le parrain |
+
+**N'appliquez pas le pourcentage vous-même** : arrondi et plafonnement sont faits
+côté serveur, et un calcul local finirait par diverger d'un franc.
+
+Un code de parrainage est **valide avec un objet `effets` presque vide** — il ne
+réduit rien. Ne traitez pas ça comme une erreur.
+
+### Le cas particulier : `abonnement_offert`
+
+```json
+{ "valide": true, "effets": { "abonnement_offert": { "duree_jours": 90 } } }
+```
+
+**Le tunnel de paiement doit être court-circuité.** L'abonnement sera actif dès la
+souscription, sans encaissement. Afficher un montant à régler serait un
+contresens ; le bouton doit dire « Activer », pas « Payer ».
+
+`duree_jours` peut être absent : la durée du plan s'applique alors.
 
 ### Code refusé — 201 aussi
 
@@ -99,9 +126,19 @@ l'esprit ; **utilisez `code`**.
 
 ```json
 {
-  "uuid": "abo-…", "statut": "EN_ATTENTE",
-  "code_id": 52938, "montant_remise": 200,
-  "parrain_id": 26757, "montant_paye": 0
+  "uuid": "abo-…", "statut": "EN_ATTENTE", "offert": false,
+  "code_id": 52938, "montant_remise": 300,
+  "parrain_id": 26756, "montant_paye": 0
+}
+```
+
+Avec un code `ABONNEMENT_OFFERT` :
+
+```json
+{
+  "uuid": "abo-…", "statut": "ACTIF", "offert": true,
+  "date_debut": "2026-09-06T…", "date_fin": "2026-12-05T…",
+  "code_id": 52939, "montant_remise": 0, "parrain_id": null, "montant_paye": 0
 }
 ```
 
@@ -110,7 +147,12 @@ l'esprit ; **utilisez `code`**.
 | `code_id` non nul | le code a été retenu **et sa place consommée** |
 | `code_id: null` | aucun code retenu — absent, invalide, ou place prise entre-temps |
 | `montant_remise` | remise obtenue, en devise du plan |
+| `offert: true` | **rien à payer** : `statut` est déjà `ACTIF`, le droit est ouvert |
 | `parrain_id` | bénéficiaire de la commission, s'il y en a un |
+
+⚠️ **`offert: true` change le parcours.** N'envoyez pas l'utilisateur vers le
+paiement : l'abonnement est actif, montrez-lui sa date de fin. Un abonnement
+offert ne verse jamais de commission — rien n'a été encaissé.
 
 > ⚠️ **La place peut avoir été prise entre l'aperçu et l'achat.** Un code limité à
 > 100 personnes peut atteindre son plafond pendant que l'utilisateur remplit le
@@ -210,6 +252,9 @@ registre tranche, pas l'application.
 **Un code refusé revient en 201.** Testez `valide`, jamais le statut HTTP.
 
 **Un code valide sans `remise` est normal** — c'est un code de parrainage.
+
+**`offert: true` court-circuite le paiement.** Vérifiez ce champ avant d'ouvrir le
+tunnel d'encaissement.
 
 **Ne recalculez pas la remise.** Arrondi et plafonnement sont faits côté serveur ;
 une remise de 100 % rend l'abonnement gratuit, jamais un prix négatif.

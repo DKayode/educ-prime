@@ -2,13 +2,19 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { TypeCode } from '../entities/code.entity';
+import { OrigineCode } from '../entities/code.entity';
+import { Effet } from '../entities/code-effet.entity';
 
 export class FilterCodesDto extends PaginationDto {
-  @ApiPropertyOptional({ enum: TypeCode, description: 'Sans filtre, les codes de parrainage sont exclus.' })
+  @ApiPropertyOptional({ enum: OrigineCode, description: 'Sans filtre, seuls les codes créés au back-office sont listés.' })
   @IsOptional()
-  @IsEnum(TypeCode)
-  type?: TypeCode;
+  @IsEnum(OrigineCode)
+  origine?: OrigineCode;
+
+  @ApiPropertyOptional({ enum: Effet, description: 'Ne garde que les codes portant cet effet.' })
+  @IsOptional()
+  @IsEnum(Effet)
+  effet?: Effet;
 
   @ApiPropertyOptional()
   @IsOptional()

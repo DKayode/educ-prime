@@ -1,23 +1,23 @@
-import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Utilisateur } from '../../utilisateurs/entities/utilisateur.entity';
 import { CampagneCode } from './campagne-code.entity';
+import { CodeEffet } from './code-effet.entity';
 
-export enum TypeCode {
-  /** Désigne un bénéficiaire de commission — généré à l'inscription (#246). */
-  PARRAINAGE = 'PARRAINAGE',
-  /** Comme PARRAINAGE, mais attribué manuellement et cumulable avec une remise. */
-  AMBASSADEUR = 'AMBASSADEUR',
-  /** Réduit le prix de l'abonnement. Sans propriétaire pour un code marketing. */
-  REDUCTION = 'REDUCTION',
-}
-
-export enum TypeRemise {
-  POURCENTAGE = 'POURCENTAGE',
-  MONTANT_FIXE = 'MONTANT_FIXE',
+/**
+ * D'où vient le code — et non ce qu'il fait, qui relève de `code_effets`.
+ *
+ * C'est la seule chose qui distinguait réellement un « parrainage » d'un
+ * « ambassadeur » : les deux versent une commission.
+ */
+export enum OrigineCode {
+  /** Généré automatiquement à la création d'un compte. */
+  INSCRIPTION = 'INSCRIPTION',
+  /** Créé au back-office, seul ou par campagne. */
+  ADMIN = 'ADMIN',
 }
 
 @Entity('codes')
-@Index(['type'])
+@Index(['origine'])
 export class Code {
   @PrimaryGeneratedColumn()
   id: number;
@@ -32,9 +32,10 @@ export class Code {
   @Column({ type: 'varchar', length: 50 })
   code: string;
 
-  @Column({ type: 'varchar', length: 30 })
-  type: TypeCode;
+  @Column({ type: 'varchar', length: 20, default: OrigineCode.ADMIN })
+  origine: OrigineCode;
 
+  /** Bénéficiaire d'un éventuel effet COMMISSION. */
   @Column({ type: 'int', nullable: true })
   proprietaire_id: number | null;
 
@@ -42,17 +43,11 @@ export class Code {
   @JoinColumn({ name: 'proprietaire_id' })
   proprietaire: Utilisateur | null;
 
+  @OneToMany(() => CodeEffet, (effet) => effet.code, { cascade: true, eager: true })
+  effets: CodeEffet[];
+
   @Column({ type: 'varchar', length: 150, nullable: true })
   libelle: string | null;
-
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  remise_type: TypeRemise | null;
-
-  @Column({
-    type: 'numeric', precision: 14, scale: 2, nullable: true,
-    transformer: { to: (v: number) => v, from: (v: string) => (v === null ? null : Number(v)) },
-  })
-  remise_valeur: number | null;
 
   /** `null` = illimité. C'est le « pour n personnes » de l'issue. */
   @Column({ type: 'int', nullable: true })
