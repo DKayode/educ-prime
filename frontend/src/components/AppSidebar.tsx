@@ -42,6 +42,8 @@ import {
   ClipboardList,
   Sparkles,
   ScanText,
+  CreditCard,
+  Tag,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -138,6 +140,14 @@ const navTree: NavItem[] = [
         children: [
           { title: "Retraits", icon: Banknote, url: "/admin/retraits" },
           { title: "Configuration", icon: SlidersHorizontal, url: "/admin/wallet-configuration" },
+        ],
+      },
+      {
+        title: "Abonnements",
+        icon: CreditCard,
+        children: [
+          { title: "Abonnements", icon: CreditCard, url: "/admin/abonnements" },
+          { title: "Plans", icon: Tag, url: "/admin/abonnements/plans" },
         ],
       },
     ],
