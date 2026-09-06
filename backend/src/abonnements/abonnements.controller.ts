@@ -53,7 +53,7 @@ export class AbonnementsController {
   async mesDroits(@Request() req) {
     return {
       verrou_actif: this.entitlement.verrouActif,
-      droits: await this.entitlement.mesDroits(req.user?.utilisateurId),
+      droits: await this.entitlement.mesDroits(req.user?.utilisateurId, req.user?.role),
     };
   }
 

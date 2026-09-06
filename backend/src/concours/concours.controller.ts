@@ -43,7 +43,7 @@ export class ConcoursController {
   @ApiQuery({ name: 'annee', required: false, type: Number, description: 'Filtrer par année' })
   @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Trier par (annee, titre) [Default: titre]' })
   findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterConcoursDto, @Request() req) {
-    return this.concoursService.findAll(pays, filterDto, req.user?.utilisateurId);
+    return this.concoursService.findAll(pays, filterDto, req.user?.utilisateurId, req.user?.role);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -58,7 +58,7 @@ export class ConcoursController {
     @Query() paginationDto: PaginationDto,
     @Request() req,
   ) {
-    return this.concoursService.findGroupedByTitle(pays, paginationDto, req.user?.utilisateurId);
+    return this.concoursService.findGroupedByTitle(pays, paginationDto, req.user?.utilisateurId, req.user?.role);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -96,7 +96,7 @@ export class ConcoursController {
   @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req) {
-    return this.concoursService.findOne(+id, req.user?.utilisateurId);
+    return this.concoursService.findOne(+id, req.user?.utilisateurId, req.user?.role);
   }
 
   @UseGuards(JwtAuthGuard, RoleGuard)

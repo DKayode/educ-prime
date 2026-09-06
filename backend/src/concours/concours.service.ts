@@ -27,9 +27,10 @@ export class ConcoursService {
    * Une seule interrogation de droit par requête HTTP, jamais une par ligne :
    * une liste de 50 concours ne doit pas déclencher 50 requêtes SQL.
    */
-  private async peutTelecharger(utilisateurId?: number): Promise<boolean> {
+  private async peutTelecharger(utilisateurId?: number, role?: string): Promise<boolean> {
     if (!utilisateurId) return false;
-    const decision = await this.entitlement.check(utilisateurId, Feature.CONCOURS_DOWNLOAD);
+    // `role` vient du JWT ; le transmettre évite une requête SQL sur utilisateurs.
+    const decision = await this.entitlement.check(utilisateurId, Feature.CONCOURS_DOWNLOAD, role);
     return decision.allowed;
   }
 
@@ -81,7 +82,7 @@ export class ConcoursService {
     return saved;
   }
 
-  async findAll(pays: string, filterDto: FilterConcoursDto, utilisateurId?: number): Promise<PaginationResponse<Concours>> {
+  async findAll(pays: string, filterDto: FilterConcoursDto, utilisateurId?: number, role?: string): Promise<PaginationResponse<Concours>> {
     const { page = 1, limit = 10, search, annee, sort_by = 'titre', sort_order = 'ASC' } = filterDto;
     this.logger.log(`Récupération des concours (pays=${pays}) - filtres: ${JSON.stringify(filterDto)}`);
 
@@ -117,7 +118,7 @@ export class ConcoursService {
 
     this.logger.log(`${concours.length} concours trouvé(s) sur ${total} total`);
 
-    const verrouille = !(await this.peutTelecharger(utilisateurId));
+    const verrouille = !(await this.peutTelecharger(utilisateurId, role));
 
     return {
       data: concours.map((c) => Object.assign(c, { verrouille })),
@@ -150,6 +151,7 @@ export class ConcoursService {
     pays: string,
     paginationDto: PaginationDto,
     utilisateurId?: number,
+    role?: string,
   ): Promise<PaginationResponse<any>> {
     const { page = 1, limit = 10, search } = paginationDto;
     this.logger.log(`Concours groupés (pays=${pays}, page=${page}, limit=${limit}, search=${search})`);
@@ -255,7 +257,7 @@ export class ConcoursService {
     });
 
     const data = Array.from(grouped.values());
-    const verrouille = !(await this.peutTelecharger(utilisateurId));
+    const verrouille = !(await this.peutTelecharger(utilisateurId, role));
 
     return {
       data: data.map((groupe: any) => ({
@@ -271,7 +273,7 @@ export class ConcoursService {
     };
   }
 
-  async findOne(id: number, utilisateurId?: number) {
+  async findOne(id: number, utilisateurId?: number, role?: string) {
     this.logger.log(`Recherche du concours ID: ${id}`);
     const concours = await this.concoursRepository.findOne({
       where: { id },
@@ -284,7 +286,7 @@ export class ConcoursService {
     }
 
     this.logger.log(`Concours trouvé: ${concours.titre} (ID: ${id})`);
-    return Object.assign(concours, { verrouille: !(await this.peutTelecharger(utilisateurId)) });
+    return Object.assign(concours, { verrouille: !(await this.peutTelecharger(utilisateurId, role)) });
   }
 
   async findOneForDownload(id: number): Promise<{ url: string; titre: string }> {

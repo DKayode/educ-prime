@@ -72,7 +72,13 @@ export class EntitlementService {
     return (await this.abonnementActif(utilisateurId)) !== null;
   }
 
-  async estAdmin(utilisateurId: number): Promise<boolean> {
+  /**
+   * Le rôle voyage déjà dans le JWT (`req.user.role`) : quand l'appelant le
+   * fournit, on s'épargne un aller-retour SQL. Sur une base distante, cette
+   * requête coûtait autant que la question qu'on cherche vraiment à poser.
+   */
+  async estAdmin(utilisateurId: number, role?: string): Promise<boolean> {
+    if (role !== undefined) return role === RoleType.ADMIN;
     if (!utilisateurId) return false;
     const user = await this.utilisateurs.findOne({
       where: { id: utilisateurId },
@@ -85,9 +91,9 @@ export class EntitlementService {
    * Décision pour une feature. Les quotas gratuits (#245) se brancheront ici :
    * ce point d'entrée ne changera pas pour les appelants.
    */
-  async check(utilisateurId: number, feature: Feature): Promise<DecisionDroit> {
+  async check(utilisateurId: number, feature: Feature, role?: string): Promise<DecisionDroit> {
     // Le back-office ne doit jamais être bloqué par un abonnement.
-    if (await this.estAdmin(utilisateurId)) {
+    if (await this.estAdmin(utilisateurId, role)) {
       return { allowed: true, reason: 'ADMIN' };
     }
 
@@ -104,10 +110,17 @@ export class EntitlementService {
   }
 
   /** Décision par feature, pour que le mobile grise son interface sans se prendre un 403. */
-  async mesDroits(utilisateurId: number): Promise<Record<Feature, DecisionDroit>> {
+  async mesDroits(utilisateurId: number, role?: string): Promise<Record<Feature, DecisionDroit>> {
     const features = Object.values(Feature);
-    const decisions = await Promise.all(features.map((f) => this.check(utilisateurId, f)));
-    return features.reduce((acc, f, i) => ({ ...acc, [f]: decisions[i] }), {} as Record<Feature, DecisionDroit>);
+    // Une seule décision calculée puis dupliquée : toutes les fonctionnalités
+    // partagent aujourd'hui la même règle. Cinq appels à `check()` feraient
+    // cinq fois la même requête. #245 réintroduira une décision par
+    // fonctionnalité quand les quotas différeront.
+    const decision = await this.check(utilisateurId, Feature.CONCOURS_DOWNLOAD, role);
+    return features.reduce(
+      (acc, f) => ({ ...acc, [f]: { ...decision } }),
+      {} as Record<Feature, DecisionDroit>,
+    );
   }
 
   /** Abonnements ACTIF dont la date de fin est passée — matière du cron. */
