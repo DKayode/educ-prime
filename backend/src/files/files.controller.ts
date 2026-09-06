@@ -230,12 +230,12 @@ export class FilesController {
         if (!type) return;
 
         const utilisateurId = req?.user?.utilisateurId;
+        const pays = req?.country ?? 'benin';
         const feature = type === 'epreuve' ? Feature.EPREUVE_VIEW : Feature.EXAMEN_NAT_VIEW;
-        const decision = await this.entitlement.check(utilisateurId, feature, req?.user?.role);
+        const decision = await this.entitlement.check(utilisateurId, feature, req?.user?.role, pays);
         if (decision.allowed && decision.reason !== 'FREE_QUOTA') return;
 
         const resourceId = await this.filesService.findRowIdByUuid(entity, uuid);
-        const pays = req?.country ?? 'benin';
         const resultat = await this.quotas.consommer(
             utilisateurId, FeatureQuota.RESOURCE_VIEW, type, resourceId, pays,
         );

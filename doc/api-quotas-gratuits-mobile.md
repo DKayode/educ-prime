@@ -14,17 +14,25 @@ Complète le [guide des abonnements](./api-abonnements-mobile.md).
 
 | ressource | sans abonnement | avec abonnement |
 |---|---|---|
-| **épreuves + examens nationaux** | **5 distinctes**, pool commun | illimité |
-| **Ketsia** | **1 ressource** | illimité |
+| **épreuves + examens nationaux** | **5 distinctes par mois**, pool commun | illimité |
+| **Ketsia** | **1 ressource par mois** | illimité |
 | **concours** | aucun accès gratuit (#244) | illimité |
+
+> Les plafonds sont **réglables depuis le back-office** et peuvent changer sans
+> déploiement. Lisez-les dans `quota.limit`, ne les codez jamais en dur.
 
 Trois propriétés à retenir, chacune visible dans l'interface :
 
 - **Le quota porte sur des ressources distinctes, pas sur des accès.** Ouvrir
-  trois fois la même épreuve consomme 1 sur 5. Rouvrir une ressource déjà
-  décomptée reste possible **même quota épuisé**.
+  trois fois la même épreuve dans le mois consomme 1 sur 5. Rouvrir une ressource
+  déjà décomptée reste possible **même quota épuisé**.
 - **Le pool est commun.** 3 épreuves + 2 examens nationaux épuisent les 5.
-- **Il est à vie.** Aucune remise à zéro mensuelle.
+- **Il se remet à zéro chaque mois**, le 1er à 00:00 UTC. La date exacte est
+  renvoyée par l'API — ne la recalculez pas côté client.
+
+⚠️ Conséquence à ne pas manquer : `deja_consultee` vaut « déjà consultée **ce
+mois-ci** ». Une ressource lue en septembre redevient payante en unité au 1er
+octobre. N'entretenez pas de cache local de ce drapeau d'un mois sur l'autre.
 
 Ketsia a son **propre** compteur : épuiser les 5 ressources ne consomme pas le
 lancement Ketsia, et inversement.
@@ -70,10 +78,25 @@ celle qui vous concerne, ne déduisez pas les autres.
 ### Le compteur seul — `GET /abonnements/mes-quotas?country=benin`
 
 ```json
-{ "RESOURCE_VIEW": { "used": 0, "limit": 5 }, "KETSIA_AI": { "used": 0, "limit": 1 } }
+{
+  "RESOURCE_VIEW": { "used": 1, "limit": 5, "est_actif": true, "periode_reset": "MENSUEL", "reinitialisation": "2026-10-01T00:00:00.000Z" },
+  "KETSIA_AI":     { "used": 0, "limit": 1, "est_actif": true, "periode_reset": "MENSUEL", "reinitialisation": "2026-10-01T00:00:00.000Z" }
+}
 ```
 
-Pratique pour un bandeau « il vous reste 2 ressources gratuites ».
+| champ | usage |
+|---|---|
+| `used` / `limit` | « il vous reste 4 ressources gratuites » |
+| `reinitialisation` | date de remise à zéro — « vos ressources reviennent le 1er octobre » |
+| `periode_reset` | `MENSUEL` ou `AVIE` ; ne supposez pas la valeur |
+| `est_actif` | `false` = quota désactivé, la fonctionnalité est libre |
+
+**Affichez la date de remise à zéro dans le message de blocage.** « Revenez le
+1er octobre, ou abonnez-vous » se refuse mieux qu'un simple « quota épuisé ».
+
+Quand `est_actif` vaut `false`, l'administration a levé le quota : `mes-droits`
+renvoie alors `FREE_QUOTA` **sans** objet `quota`. Traitez son absence comme
+« illimité », pas comme zéro.
 
 ---
 
@@ -225,8 +248,11 @@ class QuotasApi {
 }
 
 class Quota {
-  const Quota({required this.used, required this.limit});
+  const Quota({required this.used, required this.limit, this.reinitialisation});
   final int used, limit;
+  /// Date de remise à zéro renvoyée par le serveur — ne la recalculez pas :
+  /// la période est réglable depuis le back-office (mensuelle ou à vie).
+  final DateTime? reinitialisation;
   int get restant => (limit - used).clamp(0, limit);
   bool get epuise => used >= limit;
   bool get derniere => restant == 1;   // pour prévenir avant le dernier usage
@@ -271,8 +297,13 @@ Future<void> ouvrirEpreuve(Epreuve e) async {
 
 **Une ressource déjà consultée reste ouverte**, quota épuisé ou non.
 
-**Le quota est à vie**, sans remise à zéro : n'affichez pas de date de
-renouvellement.
+**Le quota se remet à zéro chaque mois** — affichez `reinitialisation`, ne la
+recalculez pas.
+
+**Les plafonds sont administrables** et peuvent changer sans déploiement : lisez
+toujours `limit`, ne codez jamais 5 ni 1 en dur.
+
+**Un `quota` absent avec `FREE_QUOTA` signifie « illimité »**, pas zéro.
 
 **Aucun changement d'appel pour les examens nationaux** — `download-url` reste la
 route, elle est simplement soumise au quota.

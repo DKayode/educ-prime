@@ -104,7 +104,7 @@ export class EntitlementService {
    * Décision pour une feature. Les quotas gratuits (#245) se brancheront ici :
    * ce point d'entrée ne changera pas pour les appelants.
    */
-  async check(utilisateurId: number, feature: Feature, role?: string): Promise<DecisionDroit> {
+  async check(utilisateurId: number, feature: Feature, role?: string, pays = 'benin'): Promise<DecisionDroit> {
     // Le back-office ne doit jamais être bloqué par un abonnement.
     if (await this.estAdmin(utilisateurId, role)) {
       return { allowed: true, reason: 'ADMIN' };
@@ -125,11 +125,12 @@ export class EntitlementService {
     // la ressource.
     const featureQuota = EntitlementService.QUOTA_PAR_FEATURE[feature];
     if (featureQuota) {
-      const limit = this.quotas.limite(featureQuota);
-      const used = await this.quotas.compter(utilisateurId, featureQuota);
-      return used < limit
-        ? { allowed: true, reason: 'FREE_QUOTA', quota: { used, limit } }
-        : { allowed: false, reason: 'QUOTA_EXCEEDED', quota: { used, limit } };
+      const reglage = await this.quotas.reglage(featureQuota, pays);
+      if (!reglage.estActif) return { allowed: true, reason: 'FREE_QUOTA' };
+      const used = await this.quotas.compter(utilisateurId, featureQuota, pays);
+      return used < reglage.limite
+        ? { allowed: true, reason: 'FREE_QUOTA', quota: { used, limit: reglage.limite } }
+        : { allowed: false, reason: 'QUOTA_EXCEEDED', quota: { used, limit: reglage.limite } };
     }
 
     return { allowed: false, reason: 'SUBSCRIPTION_REQUIRED' };
@@ -145,7 +146,7 @@ export class EntitlementService {
    * L'abonnement et le rôle sont en revanche résolus UNE fois et réutilisés :
    * cinq appels nus à `check()` referaient cinq fois la même requête.
    */
-  async mesDroits(utilisateurId: number, role?: string): Promise<Record<Feature, DecisionDroit>> {
+  async mesDroits(utilisateurId: number, role?: string, pays = 'benin'): Promise<Record<Feature, DecisionDroit>> {
     const features = Object.values(Feature);
 
     if (await this.estAdmin(utilisateurId, role)) {
@@ -165,13 +166,19 @@ export class EntitlementService {
       return features.reduce((acc, f) => ({ ...acc, [f]: { ...decision } }), {} as Record<Feature, DecisionDroit>);
     }
 
-    const etat = await this.quotas.etatPourUtilisateur(utilisateurId);
+    const etat = await this.quotas.etatPourUtilisateur(utilisateurId, pays);
     return features.reduce((acc, f) => {
       const featureQuota = EntitlementService.QUOTA_PAR_FEATURE[f];
       if (!featureQuota) {
         return { ...acc, [f]: { allowed: false, reason: 'SUBSCRIPTION_REQUIRED' as const } };
       }
-      const { used, limit } = etat[featureQuota];
+      const { used, limit, est_actif } = etat[featureQuota];
+      // Quota désactivé : la fonctionnalité est libre. Annoncer un `quota`
+      // ferait afficher au client un plafond qui ne s'applique pas — et
+      // contredirait `check()`, qui n'en renvoie aucun dans ce cas.
+      if (!est_actif) {
+        return { ...acc, [f]: { allowed: true, reason: 'FREE_QUOTA' as const } };
+      }
       return {
         ...acc,
         [f]: used < limit

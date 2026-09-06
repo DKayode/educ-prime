@@ -55,10 +55,10 @@ export class AbonnementsController {
       '`verrou_actif` dit si le refus est réellement appliqué ou seulement simulé.',
   })
   @ApiResponse({ status: 200, description: 'Une décision par fonctionnalité + l’état du verrou' })
-  async mesDroits(@Request() req) {
+  async mesDroits(@CurrentCountry() pays: string, @Request() req) {
     return {
       verrou_actif: this.entitlement.verrouActif,
-      droits: await this.entitlement.mesDroits(req.user?.utilisateurId, req.user?.role),
+      droits: await this.entitlement.mesDroits(req.user?.utilisateurId, req.user?.role, pays),
     };
   }
 
@@ -67,8 +67,8 @@ export class AbonnementsController {
     summary: 'Consommation des quotas gratuits',
     description: 'Ressources distinctes déjà consultées et lancements de Ketsia, avec leurs plafonds.',
   })
-  mesQuotas(@Request() req) {
-    return this.quotas.etatPourUtilisateur(req.user?.utilisateurId);
+  mesQuotas(@CurrentCountry() pays: string, @Request() req) {
+    return this.quotas.etatPourUtilisateur(req.user?.utilisateurId, pays);
   }
 
   @Post('quota/ketsia')
@@ -86,7 +86,7 @@ export class AbonnementsController {
     @Body() dto: ConsommerKetsiaDto,
   ) {
     const utilisateurId = req.user?.utilisateurId;
-    const decision = await this.entitlement.check(utilisateurId, Feature.KETSIA_AI, req.user?.role);
+    const decision = await this.entitlement.check(utilisateurId, Feature.KETSIA_AI, req.user?.role, pays);
     if (decision.allowed && decision.reason !== 'FREE_QUOTA') {
       return { allowed: true, reason: decision.reason };
     }

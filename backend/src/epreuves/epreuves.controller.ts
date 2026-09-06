@@ -40,7 +40,7 @@ export class EpreuvesController {
    */
   private async autoriserOuConsommer(req: any, epreuveId: number, pays: string): Promise<void> {
     const utilisateurId = req.user?.utilisateurId;
-    const decision = await this.entitlement.check(utilisateurId, Feature.EPREUVE_VIEW, req.user?.role);
+    const decision = await this.entitlement.check(utilisateurId, Feature.EPREUVE_VIEW, req.user?.role, pays);
 
     // Abonné ou admin : rien à décompter.
     if (decision.allowed && decision.reason !== 'FREE_QUOTA') return;
@@ -103,8 +103,8 @@ export class EpreuvesController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number, @Request() req): Promise<any> {
-    return this.epreuvesService.findOne(String(id), req.user?.utilisateurId, req.user?.role);
+  async findOne(@Param('id', ParseIntPipe) id: number, @CurrentCountry() pays: string, @Request() req): Promise<any> {
+    return this.epreuvesService.findOne(String(id), req.user?.utilisateurId, req.user?.role, pays);
   }
 
   @UseGuards(JwtAuthGuard)

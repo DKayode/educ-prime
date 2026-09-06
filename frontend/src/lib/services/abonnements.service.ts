@@ -61,6 +61,26 @@ export interface AbonnementEvenement {
   date_creation: string;
 }
 
+export type FeatureQuota = 'RESOURCE_VIEW' | 'KETSIA_AI';
+export type PeriodeReset = 'MENSUEL' | 'AVIE';
+
+export interface ConfigurationQuota {
+  id: number;
+  uuid: string;
+  pays: string;
+  feature: FeatureQuota;
+  limite: number;
+  periode_reset: PeriodeReset;
+  est_actif: boolean;
+  date_modification: string;
+}
+
+export interface QuotaPayload {
+  limite?: number;
+  periode_reset?: PeriodeReset;
+  est_actif?: boolean;
+}
+
 export interface ActivationPayload {
   montant_paye: number;
   reference_paiement?: string;
@@ -101,6 +121,15 @@ export const abonnementsService = {
   /** Fermeture logique : un plan référencé par un abonnement ne disparaît pas. */
   async fermerPlan(uuid: string): Promise<PlanAbonnement> {
     return api.delete<PlanAbonnement>(`/admin/abonnements/plans/${uuid}`);
+  },
+
+  // ── Quotas gratuits ──────────────────────────────────────────────────────
+  async getQuotas(): Promise<ConfigurationQuota[]> {
+    return api.get<ConfigurationQuota[]>('/admin/abonnements/quotas');
+  },
+
+  async updateQuota(uuid: string, data: QuotaPayload): Promise<ConfigurationQuota> {
+    return api.put<ConfigurationQuota>(`/admin/abonnements/quotas/${uuid}`, data);
   },
 
   // ── Abonnements ──────────────────────────────────────────────────────────

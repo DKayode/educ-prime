@@ -44,6 +44,7 @@ import {
   ScanText,
   CreditCard,
   Tag,
+  Gauge,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -132,6 +133,7 @@ const navTree: NavItem[] = [
     children: [
       { title: "Abonnements", icon: CreditCard, url: "/admin/abonnements" },
       { title: "Plans", icon: Tag, url: "/admin/abonnements/plans" },
+      { title: "Quotas gratuits", icon: Gauge, url: "/admin/abonnements/quotas" },
     ],
   },
   {

@@ -1,4 +1,5 @@
-import { QuotaService, QUOTA_KETSIA_GRATUIT, QUOTA_RESSOURCES_GRATUITES } from './quota.service';
+import { QuotaService } from './quota.service';
+import { PeriodeReset } from './entities/configuration-quota.entity';
 import { FeatureQuota } from './entities/quota-consommation.entity';
 import { EntitlementService, Feature } from './entitlement.service';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
@@ -10,18 +11,23 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
  */
 const depotEnMemoire = () => {
   const lignes: any[] = [];
-  const cle = (l: any) => `${l.utilisateur_id}|${l.feature}|${l.resource_type}|${l.resource_id}`;
+  // La période fait partie de la clé : c'est elle qui produit la remise à zéro.
+  const cle = (l: any) => `${l.utilisateur_id}|${l.feature}|${l.resource_type}|${l.resource_id}|${l.periode}`;
   return {
     lignes,
     count: jest.fn(async ({ where }: any) =>
-      lignes.filter((l) => l.utilisateur_id === where.utilisateur_id && l.feature === where.feature).length),
+      lignes.filter((l) =>
+        l.utilisateur_id === where.utilisateur_id &&
+        l.feature === where.feature &&
+        (where.periode === undefined || l.periode === where.periode)).length),
     findOne: jest.fn(async ({ where }: any) =>
       lignes.find((l) => cle(l) === cle(where)) ?? null),
     find: jest.fn(async ({ where }: any) =>
       lignes.filter((l) =>
         l.utilisateur_id === where.utilisateur_id &&
         l.feature === where.feature &&
-        l.resource_type === where.resource_type)),
+        l.resource_type === where.resource_type &&
+        (where.periode === undefined || l.periode === where.periode))),
     insert: jest.fn(async (l: any) => {
       if (lignes.some((x) => cle(x) === cle(l))) {
         throw Object.assign(new Error('duplicate key'), { code: '23505' });
@@ -29,6 +35,21 @@ const depotEnMemoire = () => {
       lignes.push(l);
       return { identifiers: [] };
     }),
+  };
+};
+
+/** Configurations en mémoire — plafond 5 ressources, 1 Ketsia, mensuel. */
+const depotConfig = (surcharges: any[] = []) => {
+  const base = [
+    { uuid: 'c-1', pays: 'benin', feature: 'RESOURCE_VIEW', limite: 5, periode_reset: PeriodeReset.MENSUEL, est_actif: true },
+    { uuid: 'c-2', pays: 'benin', feature: 'KETSIA_AI', limite: 1, periode_reset: PeriodeReset.MENSUEL, est_actif: true },
+  ].map((c) => ({ ...c, ...(surcharges.find((s) => s.feature === c.feature) ?? {}) }));
+  return {
+    lignes: base,
+    findOne: jest.fn(async ({ where }: any) =>
+      base.find((c) => (where.uuid ? c.uuid === where.uuid : c.feature === where.feature && c.pays === where.pays)) ?? null),
+    find: jest.fn(async () => base),
+    save: jest.fn(async (c: any) => c),
   };
 };
 
@@ -40,11 +61,11 @@ describe('QuotaService', () => {
 
   beforeEach(() => {
     depot = depotEnMemoire();
-    service = new QuotaService(depot as any);
+    service = new QuotaService(depot as any, depotConfig() as any);
   });
 
   it('accorde les 5 premières ressources distinctes', async () => {
-    for (let i = 1; i <= QUOTA_RESSOURCES_GRATUITES; i++) {
+    for (let i = 1; i <= 5; i++) {
       const r = await consommer(i);
       expect(r).toMatchObject({ allowed: true, nouveau: true, used: i });
     }
@@ -86,7 +107,7 @@ describe('QuotaService', () => {
 
   it('tient son propre plafond pour Ketsia', async () => {
     expect(await consommer(1, 'epreuve', FeatureQuota.KETSIA_AI))
-      .toMatchObject({ allowed: true, used: QUOTA_KETSIA_GRATUIT, limit: 1 });
+      .toMatchObject({ allowed: true, used: 1, limit: 1 });
     expect(await consommer(2, 'epreuve', FeatureQuota.KETSIA_AI))
       .toMatchObject({ allowed: false });
     // Revenir sur la ressource déjà décomptée reste permis.
@@ -114,6 +135,78 @@ describe('QuotaService', () => {
     expect([...set].sort()).toEqual([3, 8]);
   });
 
+  describe('remise à zéro mensuelle', () => {
+    it('étiquette les consommations avec le mois courant', async () => {
+      const r = await consommer(1);
+      expect(r.periode).toMatch(/^\d{4}-\d{2}$/);
+      expect(depot.lignes[0].periode).toBe(r.periode);
+    });
+
+    it('rend le quota au changement de mois', async () => {
+      for (let i = 1; i <= 5; i++) await consommer(i);
+      expect(await consommer(6)).toMatchObject({ allowed: false });
+
+      // On simule le mois suivant en réétiquetant les lignes déjà posées :
+      // elles appartiennent à une période close et ne comptent plus.
+      depot.lignes.forEach((l) => (l.periode = '2000-01'));
+
+      expect(await consommer(6)).toMatchObject({ allowed: true, nouveau: true, used: 1 });
+    });
+
+    it('recompte une ressource déjà vue le mois précédent', async () => {
+      await consommer(3);
+      depot.lignes.forEach((l) => (l.periode = '2000-01'));
+      // Le quota est mensuel : la même ressource redevient payante en unité.
+      expect(await consommer(3)).toMatchObject({ allowed: true, nouveau: true, used: 1 });
+    });
+
+    it('n’étiquette pas par mois quand le réglage est AVIE', async () => {
+      service = new QuotaService(
+        depot as any,
+        depotConfig([{ feature: 'RESOURCE_VIEW', periode_reset: PeriodeReset.AVIE }]) as any,
+      );
+      const r = await consommer(1);
+      expect(r.periode).toBe('AVIE');
+    });
+  });
+
+  describe('configuration administrable', () => {
+    it('lit le plafond en base plutôt qu’une constante', async () => {
+      service = new QuotaService(depot as any, depotConfig([{ feature: 'RESOURCE_VIEW', limite: 2 }]) as any);
+      await consommer(1);
+      await consommer(2);
+      expect(await consommer(3)).toMatchObject({ allowed: false, limit: 2 });
+    });
+
+    it('laisse tout passer quand le quota est désactivé', async () => {
+      service = new QuotaService(depot as any, depotConfig([{ feature: 'RESOURCE_VIEW', est_actif: false }]) as any);
+      for (let i = 1; i <= 20; i++) {
+        expect((await consommer(i)).allowed).toBe(true);
+      }
+      // Rien n'est enregistré : le quota ne s'applique pas.
+      expect(depot.lignes).toHaveLength(0);
+    });
+
+    it('se replie sur les valeurs par défaut sans configuration en base', async () => {
+      const vide = { findOne: jest.fn(async () => null), find: jest.fn(async () => []), save: jest.fn() };
+      service = new QuotaService(depot as any, vide as any);
+      expect((await consommer(1)).limit).toBe(5);
+    });
+
+    it('signale un quota désactivé dans l’état', async () => {
+      service = new QuotaService(depot as any, depotConfig([{ feature: 'RESOURCE_VIEW', est_actif: false }]) as any);
+      const etat = await service.etatPourUtilisateur(1);
+      expect(etat.RESOURCE_VIEW.est_actif).toBe(false);
+    });
+
+    it('annonce la date de remise à zéro', async () => {
+      const etat = await service.etatPourUtilisateur(1);
+      expect(etat.RESOURCE_VIEW.periode_reset).toBe(PeriodeReset.MENSUEL);
+      expect(new Date(etat.RESOURCE_VIEW.reinitialisation).getUTCDate()).toBe(1);
+      expect(new Date(etat.RESOURCE_VIEW.reinitialisation).getTime()).toBeGreaterThan(Date.now());
+    });
+  });
+
   it('ne requête pas la base pour un utilisateur anonyme', async () => {
     expect(await service.compter(undefined as any, FeatureQuota.RESOURCE_VIEW)).toBe(0);
     expect((await service.ressourcesConsommees(undefined as any, FeatureQuota.RESOURCE_VIEW, 'epreuve')).size).toBe(0);
@@ -128,7 +221,7 @@ describe('EntitlementService — quotas', () => {
     abonnements = { findOne: jest.fn().mockResolvedValue(null), find: jest.fn().mockResolvedValue([]) };
     utilisateurs = { findOne: jest.fn().mockResolvedValue({ id: 1, role: RoleType.ETUDIANT }) };
     config = { get: jest.fn().mockReturnValue('true') };
-    quotas = new QuotaService(depotEnMemoire() as any);
+    quotas = new QuotaService(depotEnMemoire() as any, depotConfig() as any);
     service = new EntitlementService(abonnements, utilisateurs, config, quotas);
   });
 
@@ -161,6 +254,17 @@ describe('EntitlementService — quotas', () => {
     abonnements.findOne.mockResolvedValue({ date_fin: new Date(Date.now() + 86400000), plan: { code: 'MENSUEL' } });
     const droits = await service.mesDroits(1, RoleType.ETUDIANT);
     expect(Object.values(droits).every((d: any) => d.reason === 'SUBSCRIBED')).toBe(true);
+  });
+
+  it('n’annonce aucun quota quand il est désactivé', async () => {
+    quotas = new QuotaService(
+      depotEnMemoire() as any,
+      depotConfig([{ feature: 'RESOURCE_VIEW', est_actif: false }]) as any,
+    );
+    service = new EntitlementService(abonnements, utilisateurs, config, quotas);
+    const droits = await service.mesDroits(1, RoleType.ETUDIANT);
+    expect(droits[Feature.EPREUVE_VIEW]).toMatchObject({ allowed: true, reason: 'FREE_QUOTA' });
+    expect(droits[Feature.EPREUVE_VIEW].quota).toBeUndefined();
   });
 
   it('un admin n’est jamais soumis au quota', async () => {

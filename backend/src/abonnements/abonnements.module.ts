@@ -7,6 +7,7 @@ import { EntitlementInternalController } from './internal/entitlement-internal.c
 import { AbonnementsService } from './abonnements.service';
 import { AbonnementEvenement } from './entities/abonnement-evenement.entity';
 import { Abonnement } from './entities/abonnement.entity';
+import { ConfigurationQuota } from './entities/configuration-quota.entity';
 import { QuotaConsommation } from './entities/quota-consommation.entity';
 import { PlanAbonnement } from './entities/plan-abonnement.entity';
 import { EntitlementService } from './entitlement.service';
@@ -22,7 +23,7 @@ import { QuotaService } from './quota.service';
  * nationaux en #245, stats IA en #249) doivent connaître.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([PlanAbonnement, Abonnement, AbonnementEvenement, QuotaConsommation, Utilisateur])],
+  imports: [TypeOrmModule.forFeature([PlanAbonnement, Abonnement, AbonnementEvenement, QuotaConsommation, ConfigurationQuota, Utilisateur])],
   controllers: [AbonnementsController, AbonnementsAdminController, EntitlementInternalController],
   providers: [AbonnementsService, PlansService, EntitlementService, QuotaService, AbonnementRequisGuard],
   exports: [EntitlementService, QuotaService, AbonnementRequisGuard, AbonnementsService],

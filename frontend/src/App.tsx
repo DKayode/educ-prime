@@ -52,6 +52,7 @@ import RetraitsWallet from "./pages/RetraitsWallet";
 import ConfigurationWallet from "./pages/ConfigurationWallet";
 import Abonnements from "./pages/Abonnements";
 import PlansAbonnement from "./pages/PlansAbonnement";
+import QuotasGratuits from "./pages/QuotasGratuits";
 import EnquetesCampagnes from "./pages/EnquetesCampagnes";
 import EnquetesBuilder from "./pages/EnquetesBuilder";
 import EnquetesResultats from "./pages/EnquetesResultats";
@@ -129,6 +130,7 @@ const App = () => (
                       <Route path="/admin/wallet-configuration" element={<ConfigurationWallet />} />
                       <Route path="/admin/abonnements" element={<Abonnements />} />
                       <Route path="/admin/abonnements/plans" element={<PlansAbonnement />} />
+                      <Route path="/admin/abonnements/quotas" element={<QuotasGratuits />} />
                       <Route path="/enquetes" element={<EnquetesCampagnes />} />
                       <Route path="/enquetes/nouveau" element={<EnquetesBuilder />} />
                       <Route path="/enquetes/:uuid/edition" element={<EnquetesBuilder />} />

@@ -11,7 +11,7 @@ export enum FeatureQuota {
 }
 
 @Entity('quota_consommations')
-@Index(['utilisateur_id', 'feature', 'resource_type', 'resource_id'], { unique: true })
+@Index(['utilisateur_id', 'feature', 'resource_type', 'resource_id', 'periode'], { unique: true })
 export class QuotaConsommation {
   @PrimaryGeneratedColumn()
   id: number;
@@ -30,6 +30,16 @@ export class QuotaConsommation {
 
   @Column({ type: 'int' })
   resource_id: number;
+
+  /**
+   * `YYYY-MM` pour un quota mensuel, `AVIE` pour un quota non renouvelable.
+   *
+   * La période est portée par la LIGNE plutôt que déduite d'une date au moment
+   * de la lecture : c'est ce qui garde l'index unique utilisable, et donc la
+   * protection contre la double consommation sous concurrence.
+   */
+  @Column({ type: 'varchar', length: 10 })
+  periode: string;
 
   @CreateDateColumn({ name: 'date_creation', type: 'timestamptz' })
   date_creation: Date;

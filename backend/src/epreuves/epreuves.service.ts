@@ -72,16 +72,17 @@ export class EpreuvesService {
     lignes: T[],
     utilisateurId?: number,
     role?: string,
+    pays = 'benin',
   ): Promise<Array<T & { verrouille: boolean; deja_consultee: boolean }>> {
     const decision = utilisateurId
-      ? await this.entitlement.check(utilisateurId, Feature.EPREUVE_VIEW, role)
+      ? await this.entitlement.check(utilisateurId, Feature.EPREUVE_VIEW, role, pays)
       : { allowed: false, reason: 'SUBSCRIPTION_REQUIRED' as const };
 
     // Le quota n'est interrogé que s'il peut encore jouer : un abonné ou un
     // admin n'a aucune ressource « déjà consultée » qui le concerne.
     const consommees =
       decision.reason === 'FREE_QUOTA' || decision.reason === 'QUOTA_EXCEEDED'
-        ? await this.quotas.ressourcesConsommees(utilisateurId, FeatureQuota.RESOURCE_VIEW, 'epreuve')
+        ? await this.quotas.ressourcesConsommees(utilisateurId, FeatureQuota.RESOURCE_VIEW, 'epreuve', pays)
         : new Set<number>();
 
     return lignes.map((ligne) => ({
@@ -213,7 +214,7 @@ export class EpreuvesService {
     const avecLecture = await this.avecEtatDeLecture(
       epreuves.map(epreuve => this.toEpreuveResponse(epreuve)),
     );
-    const data = await this.avecEtatDeDroit(avecLecture, utilisateurId, role);
+    const data = await this.avecEtatDeDroit(avecLecture, utilisateurId, role, pays);
 
     return {
       data,
@@ -224,7 +225,7 @@ export class EpreuvesService {
     };
   }
 
-  async findOne(id: string, utilisateurId?: number, role?: string) {
+  async findOne(id: string, utilisateurId?: number, role?: string, pays = 'benin') {
     this.logger.log(`Recherche de l'épreuve ID: ${id}`);
     const epreuve = await this.epreuvesRepository.findOne({
       where: { id: parseInt(id) },
@@ -244,7 +245,7 @@ export class EpreuvesService {
     const [avecLecture] = await this.avecEtatDeLecture([
       this.toEpreuveResponse(epreuve),
     ]);
-    const [avecDroit] = await this.avecEtatDeDroit([avecLecture], utilisateurId, role);
+    const [avecDroit] = await this.avecEtatDeDroit([avecLecture], utilisateurId, role, pays);
     return avecDroit;
   }
 
