@@ -148,15 +148,26 @@ export class MailService {
         `;
     }
 
-    async sendResetCode(email: string, code: string) {
+    /**
+     * `renvoi` distingue le second envoi du premier : sans cette mention, un
+     * utilisateur qui a demandé deux codes saisit celui du premier email et se
+     * voit refuser sans comprendre pourquoi.
+     */
+    async sendResetCode(email: string, code: string, renvoi = false) {
         if (!this.transporter) {
             throw new Error('SMTP configuration missing. Cannot send email.');
         }
 
         const from = this.configService.get<string>('SMTP_USER') || 'support@educ-prime.cloud';
+        const titre = renvoi ? 'Votre nouveau code de vérification' : 'Réinitialisation de mot de passe';
+        const introduction = renvoi
+            ? `<p>Voici votre <strong>nouveau</strong> code de vérification.</p>
+               <p style="font-size: 14px; color: #b45309;">Les codes envoyés précédemment ne sont plus valables.</p>`
+            : `<p>Vous avez demandé la réinitialisation de votre mot de passe.</p>`;
+
         const innerContent = `
-        <h2 style="color: #0f172a; margin-top: 0;">Réinitialisation de mot de passe</h2>
-        <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+        <h2 style="color: #0f172a; margin-top: 0;">${titre}</h2>
+        ${introduction}
         <div style="background-color: #f1f5f9; padding: 16px; text-align: center; border-radius: 6px; margin: 24px 0;">
             <p style="margin: 0; font-size: 14px; color: #64748b;">Votre code de vérification est :</p>
             <p style="margin: 8px 0 0 0; font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #009a44;">${code}</p>
@@ -170,8 +181,8 @@ export class MailService {
         const mailOptions = {
             from: `"${this.appName}" <${from}>`,
             to: email,
-            subject: 'Réinitialisation de votre mot de passe',
-            html: this.wrapHtmlTemplate(innerContent, 'Réinitialisation de mot de passe'),
+            subject: renvoi ? 'Votre nouveau code de réinitialisation' : 'Réinitialisation de votre mot de passe',
+            html: this.wrapHtmlTemplate(innerContent, titre),
             attachments: await this.logoAttachment()
         };
 

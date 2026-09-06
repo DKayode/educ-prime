@@ -52,12 +52,45 @@ export class AuthController {
   }
 
   @Post('forgot-password')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Demander un code de réinitialisation de mot de passe' })
+  @ApiResponse({ status: 200, description: 'Réponse identique que l\'email existe ou non' })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    await this.authService.forgotPassword(forgotPasswordDto.email);
-    return { message: 'Si l\'email existe, un code a été envoyé' };
+    await this.authService.sendResetCode(forgotPasswordDto.email);
+    return this.reponseEnvoiCode();
+  }
+
+  @Post('resend-reset-code')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Régénérer et renvoyer le code de réinitialisation',
+    description:
+      'Produit un NOUVEAU code et invalide le précédent. Un renvoi demandé avant la fin ' +
+      'du délai de cadence, ou au-delà du plafond d\'envois, est absorbé sans erreur : la ' +
+      'réponse ne doit rien révéler de l\'existence du compte.',
+  })
+  @ApiResponse({ status: 200, description: 'Réponse identique dans tous les cas' })
+  async resendResetCode(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    await this.authService.sendResetCode(forgotPasswordDto.email);
+    return this.reponseEnvoiCode();
+  }
+
+  /**
+   * Corps constant, sans lien avec l'issue réelle de la demande. Les durées
+   * permettent au client de piloter son minuteur de renvoi sans interroger
+   * l'état du compte.
+   */
+  private reponseEnvoiCode() {
+    return {
+      message: 'Si l\'email existe, un code a été envoyé',
+      cooldown_seconds: AuthService.RESET_CODE_COOLDOWN_SECONDS,
+      expires_in_seconds: AuthService.RESET_CODE_TTL_SECONDS,
+    };
   }
 
   @Post('reset-password')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Réinitialiser le mot de passe à partir du code reçu' })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     await this.authService.resetPassword(resetPasswordDto);
     return { message: 'Mot de passe réinitialisé avec succès' };

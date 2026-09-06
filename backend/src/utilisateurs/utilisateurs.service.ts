@@ -685,21 +685,56 @@ export class UtilisateursService {
     return { message: 'Utilisateur supprimé avec succès' };
   }
 
-  async setResetCode(email: string, code: string, expiration: Date) {
+  /**
+   * Écrit un nouveau code de réinitialisation et repart d'un cycle propre :
+   * le compteur de tentatives est remis à zéro, celui des envois est porté par
+   * l'appelant (il connaît le rang de l'envoi dans le cycle).
+   */
+  async setResetCode(email: string, code: string, expiration: Date, envois: number) {
     const user = await this.findByEmail(email);
     if (!user) {
       throw new NotFoundException('Utilisateur non trouvé');
     }
-    user.digit_code = code;
-    user.date_expiration_code = expiration;
-    await this.utilisateursRepository.save(user);
+    await this.utilisateursRepository.update(user.id, {
+      digit_code: code,
+      date_expiration_code: expiration,
+      code_dernier_envoi: new Date(),
+      code_envois: envois,
+      code_tentatives: 0,
+    });
+  }
+
+  /**
+   * Ferme le cycle de réinitialisation. `code_dernier_envoi` est délibérément
+   * conservé : la cadence de renvoi doit survivre à l'invalidation du code,
+   * sinon épuiser les tentatives rouvrirait un envoi immédiat.
+   */
+  async clearResetCode(id: number) {
+    await this.utilisateursRepository.update(id, {
+      digit_code: null,
+      date_expiration_code: null,
+      code_envois: 0,
+      code_tentatives: 0,
+    });
+  }
+
+  /** Incrémente en base (et non sur l'entité lue) pour rester juste en concurrence. */
+  async incrementResetAttempts(id: number): Promise<number> {
+    await this.utilisateursRepository.increment({ id }, 'code_tentatives', 1);
+    const { code_tentatives } = await this.utilisateursRepository.findOne({
+      where: { id },
+      select: ['code_tentatives'],
+    });
+    return code_tentatives;
   }
 
   async updatePassword(id: number, hashedPassword: string) {
     await this.utilisateursRepository.update(id, {
       mot_de_passe: hashedPassword,
       digit_code: null,
-      date_expiration_code: null
+      date_expiration_code: null,
+      code_envois: 0,
+      code_tentatives: 0
     });
   }
 

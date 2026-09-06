@@ -124,6 +124,15 @@ export class Utilisateur {
   @Column({ type: 'timestamp', nullable: true })
   date_expiration_code: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  code_dernier_envoi: Date;
+
+  @Column({ type: 'smallint', default: 0 })
+  code_envois: number;
+
+  @Column({ type: 'smallint', default: 0 })
+  code_tentatives: number;
+
   @Column({ type: 'enum', enum: RoleType })
   role: RoleType;
 

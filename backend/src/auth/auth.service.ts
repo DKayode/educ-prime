@@ -18,6 +18,15 @@ import { DataSourceResolver } from '../config/data-source-resolver.service';
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
+  /** Durée de vie d'un code de réinitialisation. */
+  static readonly RESET_CODE_TTL_SECONDS = 15 * 60;
+  /** Délai imposé entre deux envois de code sur un même compte. */
+  static readonly RESET_CODE_COOLDOWN_SECONDS = 60;
+  /** Envois autorisés sur un cycle avant de forcer un nouveau départ. */
+  static readonly RESET_CODE_MAX_ENVOIS = 5;
+  /** Vérifications erronées tolérées avant invalidation du code. */
+  static readonly RESET_CODE_MAX_TENTATIVES = 5;
+
   constructor(
     private readonly utilisateursService: UtilisateursService,
     private readonly jwtService: JwtService,
@@ -265,51 +274,121 @@ export class AuthService {
     return this.utilisateursService.findOne(userId.toString());
   }
 
-  async forgotPassword(email: string): Promise<void> {
+  /**
+   * Envoie — ou renvoie — un code de réinitialisation.
+   *
+   * `forgot-password` et `resend-reset-code` partagent ce chemin : un renvoi
+   * n'est pas un cas particulier, c'est le même envoi avec un rang plus élevé
+   * dans le cycle. Chaque envoi produit un NOUVEAU code et invalide le
+   * précédent, ce que l'email dit explicitement — sans quoi l'utilisateur
+   * impatient saisit le code du premier message et se voit refuser.
+   *
+   * Ne lève jamais : la réponse du contrôleur doit être identique que l'email
+   * existe ou non, faute de quoi l'endpoint devient un oracle permettant
+   * d'énumérer les comptes. Les refus (cadence, plafond, adresse inconnue,
+   * panne SMTP) sont journalisés, pas renvoyés.
+   */
+  async sendResetCode(email: string): Promise<void> {
     const user = await this.utilisateursService.findByEmail(email);
     if (!user) {
-      // Pour des raisons de sécurité, ne pas dire si l'email n'existe pas
-      // Mais pour le debug c'est utile. En prod, on loggerait juste.
-      this.logger.warn(`Demande de mot de passe oublié pour email inconnu: ${email}`);
+      this.logger.warn(`Demande de code de réinitialisation pour email inconnu: ${email}`);
       return;
     }
 
-    // Générer un code (6 chiffres)
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // La cadence porte sur le DERNIER ENVOI, jamais sur l'état du cycle : un code
+    // invalidé (tentatives épuisées ou plafond d'envois atteint) ouvre un
+    // nouveau cycle, et faire dépendre la cadence du cycle laisserait enchaîner
+    // « 5 essais → nouveau code » sans aucune attente — soit un brute-force à
+    // débit libre, doublé d'un envoi d'emails illimité.
+    if (user.code_dernier_envoi) {
+      const attenduMs = AuthService.RESET_CODE_COOLDOWN_SECONDS * 1000;
+      const ecoule = Date.now() - new Date(user.code_dernier_envoi).getTime();
+      if (ecoule < attenduMs) {
+        this.logger.warn(
+          `Envoi de code trop rapproché pour ${email} (${Math.round(ecoule / 1000)}s)`,
+        );
+        return;
+      }
+    }
 
-    // Définir l'expiration (15 minutes)
-    const expiration = new Date();
-    expiration.setTime(expiration.getTime() + 15 * 60 * 1000);
+    const envoisPrecedents = this.resetCycleEnCours(user) ? user.code_envois ?? 0 : 0;
 
-    // Sauvegarder dans Utilisateur
-    await this.utilisateursService.setResetCode(email, code, expiration);
+    if (envoisPrecedents >= AuthService.RESET_CODE_MAX_ENVOIS) {
+      // Le cycle est épuisé : on invalide plutôt que de laisser un code vivant
+      // que plus aucun envoi ne peut remplacer.
+      this.logger.warn(`Plafond d'envois de code atteint pour ${email}`);
+      await this.utilisateursService.clearResetCode(user.id);
+      return;
+    }
 
-    // Envoyer l'email
-    await this.mailService.sendResetCode(email, code);
+    const code = crypto.randomInt(100000, 1000000).toString();
+    const expiration = new Date(Date.now() + AuthService.RESET_CODE_TTL_SECONDS * 1000);
+
+    await this.utilisateursService.setResetCode(email, code, expiration, envoisPrecedents + 1);
+
+    try {
+      await this.mailService.sendResetCode(email, code, envoisPrecedents > 0);
+    } catch (error) {
+      // Une panne SMTP ne doit pas distinguer un email connu d'un inconnu.
+      this.logger.error(`Échec d'envoi du code de réinitialisation à ${email}: ${error.message}`);
+    }
+  }
+
+  /** Conservé pour la lisibilité des appelants ; `sendResetCode` fait le travail. */
+  async forgotPassword(email: string): Promise<void> {
+    return this.sendResetCode(email);
   }
 
   async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<void> {
     const { email, code, nouveau_mot_de_passe } = resetPasswordDto;
 
     const user = await this.utilisateursService.findByEmail(email);
-    if (!user) {
-      throw new UnauthorizedException('Code invalide ou expiré');
+
+    // Message unique sur tous les refus : distinguer « code faux » de « code
+    // expiré » ou « compte inconnu » renseigne autant l'attaquant que l'usager.
+    const refus = () => new UnauthorizedException('Code invalide ou expiré');
+
+    if (!user || !user.digit_code) {
+      throw refus();
     }
 
-    if (user.digit_code !== code) {
-      throw new UnauthorizedException('Code incorrect');
+    // Une expiration NULL vaut expiré. `new Date() > null` est false en JS :
+    // sans ce test explicite, une ligne à l'expiration absente accepterait son
+    // code indéfiniment.
+    if (!user.date_expiration_code || new Date() > new Date(user.date_expiration_code)) {
+      throw refus();
     }
 
-    if (new Date() > user.date_expiration_code) {
-      throw new UnauthorizedException('Code expiré');
+    if (!this.codesEgaux(user.digit_code, code)) {
+      const tentatives = await this.utilisateursService.incrementResetAttempts(user.id);
+      if (tentatives >= AuthService.RESET_CODE_MAX_TENTATIVES) {
+        this.logger.warn(`Plafond de tentatives atteint pour ${email}, code invalidé`);
+        await this.utilisateursService.clearResetCode(user.id);
+      }
+      throw refus();
     }
 
-    // Hasher le nouveau mot de passe
     const hashedPassword = await bcrypt.hash(nouveau_mot_de_passe, 10);
-
-    // Mettre à jour et nettoyer le code
     await this.utilisateursService.updatePassword(user.id, hashedPassword);
 
+    // Un mot de passe réinitialisé doit fermer les sessions ouvertes : sinon un
+    // accès volé survit précisément à la manœuvre censée le couper.
+    await this.revokeRefreshToken(user.id);
+
     this.logger.log(`Mot de passe réinitialisé pour ${email}`);
+  }
+
+  /** Un cycle expiré ne compte plus : ses envois ne pénalisent pas le suivant. */
+  private resetCycleEnCours(user: Utilisateur): boolean {
+    return Boolean(
+      user.date_expiration_code && new Date() <= new Date(user.date_expiration_code),
+    );
+  }
+
+  private codesEgaux(attendu: string, fourni: string): boolean {
+    // timingSafeEqual exige des longueurs égales ; on compare les empreintes
+    // pour les égaliser sans révéler la longueur du code par le temps de réponse.
+    const empreinte = (valeur: string) => crypto.createHash('sha256').update(valeur).digest();
+    return crypto.timingSafeEqual(empreinte(attendu), empreinte(fourni));
   }
 }
