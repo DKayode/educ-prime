@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
-export type ResourceType = 'epreuve' | 'concours';
+export type ResourceType = 'epreuve' | 'concours' | 'examen_national';
 
 /**
  * Append-only access log feeding KPI 16 (distinct learners who accessed an

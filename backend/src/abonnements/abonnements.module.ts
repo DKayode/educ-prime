@@ -3,13 +3,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
 import { AbonnementsAdminController } from './abonnements-admin.controller';
 import { AbonnementsController } from './abonnements.controller';
+import { EntitlementInternalController } from './internal/entitlement-internal.controller';
 import { AbonnementsService } from './abonnements.service';
 import { AbonnementEvenement } from './entities/abonnement-evenement.entity';
 import { Abonnement } from './entities/abonnement.entity';
+import { QuotaConsommation } from './entities/quota-consommation.entity';
 import { PlanAbonnement } from './entities/plan-abonnement.entity';
 import { EntitlementService } from './entitlement.service';
 import { AbonnementRequisGuard } from './guards/abonnement-requis.guard';
 import { PlansService } from './plans.service';
+import { QuotaService } from './quota.service';
 
 /**
  * Socle des abonnements.
@@ -19,9 +22,9 @@ import { PlansService } from './plans.service';
  * nationaux en #245, stats IA en #249) doivent connaître.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([PlanAbonnement, Abonnement, AbonnementEvenement, Utilisateur])],
-  controllers: [AbonnementsController, AbonnementsAdminController],
-  providers: [AbonnementsService, PlansService, EntitlementService, AbonnementRequisGuard],
-  exports: [EntitlementService, AbonnementRequisGuard, AbonnementsService],
+  imports: [TypeOrmModule.forFeature([PlanAbonnement, Abonnement, AbonnementEvenement, QuotaConsommation, Utilisateur])],
+  controllers: [AbonnementsController, AbonnementsAdminController, EntitlementInternalController],
+  providers: [AbonnementsService, PlansService, EntitlementService, QuotaService, AbonnementRequisGuard],
+  exports: [EntitlementService, QuotaService, AbonnementRequisGuard, AbonnementsService],
 })
 export class AbonnementsModule {}

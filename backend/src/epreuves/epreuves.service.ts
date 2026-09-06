@@ -12,6 +12,9 @@ import { PaginationResponse } from '../common/interfaces/pagination-response.int
 import { EpreuveResponseDto } from './dto/epreuve-response.dto';
 import { professeurPublic } from './professeur-public.util';
 import { KessiahService, KessiahExtractionState } from '../kessiah/kessiah.service';
+import { EntitlementService, Feature } from '../abonnements/entitlement.service';
+import { QuotaService } from '../abonnements/quota.service';
+import { FeatureQuota } from '../abonnements/entities/quota-consommation.entity';
 
 /** État de lecture joint à une épreuve, ou le constat qu'il n'y en a pas. */
 type EtatDeLecture = KessiahExtractionState | { statut: 'absent' };
@@ -24,6 +27,8 @@ export class EpreuvesService {
     private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
     private readonly kessiah: KessiahService,
+    private readonly entitlement: EntitlementService,
+    private readonly quotas: QuotaService,
   ) { }
 
   /**
@@ -53,6 +58,37 @@ export class EpreuvesService {
       lecture: etats === null
         ? null
         : etats[String(epreuve.id)] ?? { statut: 'absent' as const },
+    }));
+  }
+
+  /**
+   * Ajoute `verrouille` et `deja_consultee` à une page de résultats.
+   *
+   * Deux requêtes par appel HTTP au maximum, jamais une par ligne.
+   * `deja_consultee` est indispensable : sans lui, l'application ferait croire
+   * qu'ouvrir une ressource déjà vue coûte une nouvelle unité de quota.
+   */
+  private async avecEtatDeDroit<T extends { id: number }>(
+    lignes: T[],
+    utilisateurId?: number,
+    role?: string,
+  ): Promise<Array<T & { verrouille: boolean; deja_consultee: boolean }>> {
+    const decision = utilisateurId
+      ? await this.entitlement.check(utilisateurId, Feature.EPREUVE_VIEW, role)
+      : { allowed: false, reason: 'SUBSCRIPTION_REQUIRED' as const };
+
+    // Le quota n'est interrogé que s'il peut encore jouer : un abonné ou un
+    // admin n'a aucune ressource « déjà consultée » qui le concerne.
+    const consommees =
+      decision.reason === 'FREE_QUOTA' || decision.reason === 'QUOTA_EXCEEDED'
+        ? await this.quotas.ressourcesConsommees(utilisateurId, FeatureQuota.RESOURCE_VIEW, 'epreuve')
+        : new Set<number>();
+
+    return lignes.map((ligne) => ({
+      ...ligne,
+      // Une ressource déjà consommée reste ouverte même quota épuisé.
+      verrouille: !decision.allowed && !consommees.has(ligne.id),
+      deja_consultee: consommees.has(ligne.id),
     }));
   }
 
@@ -136,7 +172,7 @@ export class EpreuvesService {
     return saved;
   }
 
-  async findAll(pays: string, filterDto: FilterEpreuveDto): Promise<PaginationResponse<EpreuveResponseDto>> {
+  async findAll(pays: string, filterDto: FilterEpreuveDto, utilisateurId?: number, role?: string): Promise<PaginationResponse<any>> {
     const { page = 1, limit = 10, search, type, matiere } = filterDto;
     this.logger.log(`Récupération des épreuves (pays=${pays}) - Page: ${page}, Limite: ${limit}, Search: ${search}, Type: ${type}, Matière: ${matiere}`);
 
@@ -174,9 +210,10 @@ export class EpreuvesService {
 
     this.logger.log(`${epreuves.length} épreuve(s) trouvée(s) sur ${total} total`);
 
-    const data = await this.avecEtatDeLecture(
+    const avecLecture = await this.avecEtatDeLecture(
       epreuves.map(epreuve => this.toEpreuveResponse(epreuve)),
     );
+    const data = await this.avecEtatDeDroit(avecLecture, utilisateurId, role);
 
     return {
       data,
@@ -187,7 +224,7 @@ export class EpreuvesService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, utilisateurId?: number, role?: string) {
     this.logger.log(`Recherche de l'épreuve ID: ${id}`);
     const epreuve = await this.epreuvesRepository.findOne({
       where: { id: parseInt(id) },
@@ -207,7 +244,8 @@ export class EpreuvesService {
     const [avecLecture] = await this.avecEtatDeLecture([
       this.toEpreuveResponse(epreuve),
     ]);
-    return avecLecture;
+    const [avecDroit] = await this.avecEtatDeDroit([avecLecture], utilisateurId, role);
+    return avecDroit;
   }
 
   async findOneForDownload(id: string): Promise<{ url: string; titre: string }> {

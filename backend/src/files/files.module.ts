@@ -2,8 +2,11 @@ import { Module } from '@nestjs/common';
 import { FilesService } from './files.service';
 import { FilesController } from './files.controller';
 import { FirebaseConfig } from '../config/firebase.config';
+import { AbonnementsModule } from '../abonnements/abonnements.module';
+import { ResourceAccessModule } from '../resource-access/resource-access.module';
 
 @Module({
+    imports: [AbonnementsModule, ResourceAccessModule],
     controllers: [FilesController],
     providers: [
         FilesService,
