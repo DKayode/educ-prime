@@ -10,6 +10,7 @@ import { FichiersModule } from '../fichiers/fichiers.module';
 import { MailModule } from '../mail/mail.module';
 import { FilesModule } from '../files/files.module';
 import { ResourceAccessModule } from '../resource-access/resource-access.module';
+import { AbonnementsModule } from '../abonnements/abonnements.module';
 import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { WalletModule } from '../wallet/wallet.module';
     MailModule,
     FilesModule,
     ResourceAccessModule,
+    AbonnementsModule,
     WalletModule,
   ],
   // ConcoursSubmissionsController FIRST: its literal `/concours/submissions`

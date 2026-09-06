@@ -77,6 +77,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { WalletModule } from './wallet/wallet.module';
 import { NotificationEmailModule } from './notification-email/notification-email.module';
 import { BullModule } from '@nestjs/bullmq';
+import { AbonnementsModule } from './abonnements/abonnements.module';
 import { CountryConfigModule } from './config/country-config.module';
 import { CountryMiddleware } from './config/country.middleware';
 
@@ -225,6 +226,7 @@ const prettyLogsAvailable = (() => {
     SubmissionsStatsModule,
     DashboardModule,
     WalletModule,
+    AbonnementsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

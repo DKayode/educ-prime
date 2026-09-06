@@ -11,6 +11,7 @@ import { FilterConcoursDto } from './dto/filter-concours.dto';
 import { PaginationResponse } from '../common/interfaces/pagination-response.interface';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FindOptionsWhere, Like, Brackets } from 'typeorm';
+import { EntitlementService, Feature } from '../abonnements/entitlement.service';
 
 @Injectable()
 export class ConcoursService {
@@ -19,7 +20,19 @@ export class ConcoursService {
   constructor(
     private readonly resolver: DataSourceResolver,
     private readonly fichiersService: FichiersService,
+    private readonly entitlement: EntitlementService,
   ) { }
+
+  /**
+   * Une seule interrogation de droit par requête HTTP, jamais une par ligne :
+   * une liste de 50 concours ne doit pas déclencher 50 requêtes SQL.
+   */
+  private async peutTelecharger(utilisateurId?: number, role?: string): Promise<boolean> {
+    if (!utilisateurId) return false;
+    // `role` vient du JWT ; le transmettre évite une requête SQL sur utilisateurs.
+    const decision = await this.entitlement.check(utilisateurId, Feature.CONCOURS_DOWNLOAD, role);
+    return decision.allowed;
+  }
 
   private get concoursRepository(): Repository<Concours> {
     return this.resolver.getRepository(Concours);
@@ -69,7 +82,7 @@ export class ConcoursService {
     return saved;
   }
 
-  async findAll(pays: string, filterDto: FilterConcoursDto): Promise<PaginationResponse<Concours>> {
+  async findAll(pays: string, filterDto: FilterConcoursDto, utilisateurId?: number, role?: string): Promise<PaginationResponse<Concours>> {
     const { page = 1, limit = 10, search, annee, sort_by = 'titre', sort_order = 'ASC' } = filterDto;
     this.logger.log(`Récupération des concours (pays=${pays}) - filtres: ${JSON.stringify(filterDto)}`);
 
@@ -105,8 +118,10 @@ export class ConcoursService {
 
     this.logger.log(`${concours.length} concours trouvé(s) sur ${total} total`);
 
+    const verrouille = !(await this.peutTelecharger(utilisateurId, role));
+
     return {
-      data: concours,
+      data: concours.map((c) => Object.assign(c, { verrouille })),
       total,
       page,
       limit,
@@ -135,6 +150,8 @@ export class ConcoursService {
   async findGroupedByTitle(
     pays: string,
     paginationDto: PaginationDto,
+    utilisateurId?: number,
+    role?: string,
   ): Promise<PaginationResponse<any>> {
     const { page = 1, limit = 10, search } = paginationDto;
     this.logger.log(`Concours groupés (pays=${pays}, page=${page}, limit=${limit}, search=${search})`);
@@ -240,9 +257,15 @@ export class ConcoursService {
     });
 
     const data = Array.from(grouped.values());
+    const verrouille = !(await this.peutTelecharger(utilisateurId, role));
 
     return {
-      data,
+      data: data.map((groupe: any) => ({
+        ...groupe,
+        instances: Array.isArray(groupe.instances)
+          ? groupe.instances.map((i: any) => ({ ...i, verrouille }))
+          : groupe.instances,
+      })),
       total,
       page,
       limit,
@@ -250,7 +273,7 @@ export class ConcoursService {
     };
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, utilisateurId?: number, role?: string) {
     this.logger.log(`Recherche du concours ID: ${id}`);
     const concours = await this.concoursRepository.findOne({
       where: { id },
@@ -263,7 +286,7 @@ export class ConcoursService {
     }
 
     this.logger.log(`Concours trouvé: ${concours.titre} (ID: ${id})`);
-    return concours;
+    return Object.assign(concours, { verrouille: !(await this.peutTelecharger(utilisateurId, role)) });
   }
 
   async findOneForDownload(id: number): Promise<{ url: string; titre: string }> {

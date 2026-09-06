@@ -13,6 +13,9 @@ import { FichiersService } from '../fichiers/fichiers.service';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { ResourceAccessService } from '../resource-access/resource-access.service';
+import { AbonnementRequisGuard } from '../abonnements/guards/abonnement-requis.guard';
+import { RequiresFeature } from '../abonnements/decorators/requires-feature.decorator';
+import { Feature } from '../abonnements/entitlement.service';
 
 @ApiTags('concours')
 @Controller('concours')
@@ -39,8 +42,8 @@ export class ConcoursController {
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche textuelle (Titre ou Lieu)' })
   @ApiQuery({ name: 'annee', required: false, type: Number, description: 'Filtrer par année' })
   @ApiQuery({ name: 'sort_by', required: false, type: String, description: 'Trier par (annee, titre) [Default: titre]' })
-  findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterConcoursDto) {
-    return this.concoursService.findAll(pays, filterDto);
+  findAll(@CurrentCountry() pays: string, @Query() filterDto: FilterConcoursDto, @Request() req) {
+    return this.concoursService.findAll(pays, filterDto, req.user?.utilisateurId, req.user?.role);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -53,8 +56,9 @@ export class ConcoursController {
   findGroupedV1(
     @CurrentCountry() pays: string,
     @Query() paginationDto: PaginationDto,
+    @Request() req,
   ) {
-    return this.concoursService.findGroupedByTitle(pays, paginationDto);
+    return this.concoursService.findGroupedByTitle(pays, paginationDto, req.user?.utilisateurId, req.user?.role);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -63,8 +67,16 @@ export class ConcoursController {
     return this.concoursService.getAnnees(pays);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AbonnementRequisGuard)
+  @RequiresFeature(Feature.CONCOURS_DOWNLOAD)
   @Get(':id/telechargement')
+  @ApiOperation({
+    summary: 'Télécharger le fichier d\'un concours',
+    description:
+      'Réservé aux abonnés. Le catalogue reste consultable sans abonnement — on ne peut ' +
+      'pas demander d\'acheter ce qu\'on ne voit pas.',
+  })
+  @ApiResponse({ status: 403, description: 'SUBSCRIPTION_REQUIRED — aucun abonnement actif' })
   async downloadFile(
     @Param('id') id: string,
     @CurrentCountry() pays: string,
@@ -83,8 +95,8 @@ export class ConcoursController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.concoursService.findOne(+id);
+  findOne(@Param('id') id: string, @Request() req) {
+    return this.concoursService.findOne(+id, req.user?.utilisateurId, req.user?.role);
   }
 
   @UseGuards(JwtAuthGuard, RoleGuard)

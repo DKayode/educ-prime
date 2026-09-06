@@ -42,6 +42,8 @@ import {
   ClipboardList,
   Sparkles,
   ScanText,
+  CreditCard,
+  Tag,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -122,6 +124,14 @@ const navTree: NavItem[] = [
     icon: Sparkles,
     children: [
       { title: "Lectures d'épreuves", icon: ScanText, url: "/ketsia/transcriptions" },
+    ],
+  },
+  {
+    title: "Abonnements",
+    icon: CreditCard,
+    children: [
+      { title: "Abonnements", icon: CreditCard, url: "/admin/abonnements" },
+      { title: "Plans", icon: Tag, url: "/admin/abonnements/plans" },
     ],
   },
   {
