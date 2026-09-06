@@ -12,6 +12,8 @@ import { FilterAbonnementDto } from './dto/filter-abonnement.dto';
 import { ProlongerAbonnementDto } from './dto/prolonger-abonnement.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { PlansService } from './plans.service';
+import { QuotaService } from './quota.service';
+import { UpdateQuotaDto } from './dto/update-quota.dto';
 
 @ApiTags('abonnements-admin')
 @ApiBearerAuth()
@@ -22,7 +24,34 @@ export class AbonnementsAdminController {
   constructor(
     private readonly abonnementsService: AbonnementsService,
     private readonly plansService: PlansService,
+    private readonly quotas: QuotaService,
   ) {}
+
+  // ── Quotas gratuits ──────────────────────────────────────────────────────
+
+  @Get('quotas')
+  @ApiOperation({
+    summary: 'Plafonds des quotas gratuits',
+    description: 'Nombre de ressources consultables et de lancements Ketsia sans abonnement.',
+  })
+  quotas_(@CurrentCountry() pays: string) {
+    return this.quotas.reglages(pays);
+  }
+
+  @Put('quotas/:uuid')
+  @ApiOperation({
+    summary: 'Régler un plafond',
+    description:
+      'Prend effet immédiatement, sans déploiement. Baisser le plafond ne retire rien ' +
+      'aux consommations déjà enregistrées sur la période en cours.',
+  })
+  modifierQuota(@Param('uuid') uuid: string, @Body() dto: UpdateQuotaDto) {
+    return this.quotas.modifierReglage(uuid, {
+      ...(dto.limite !== undefined ? { limite: dto.limite } : {}),
+      ...(dto.periode_reset !== undefined ? { periode_reset: dto.periode_reset } : {}),
+      ...(dto.est_actif !== undefined ? { est_actif: dto.est_actif } : {}),
+    });
+  }
 
   // ── Plans ────────────────────────────────────────────────────────────────
 

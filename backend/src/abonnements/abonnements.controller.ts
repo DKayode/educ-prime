@@ -4,8 +4,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { AbonnementsService } from './abonnements.service';
+import { ConsommerKetsiaDto } from './dto/consommer-ketsia.dto';
 import { SouscrireDto } from './dto/souscrire.dto';
-import { EntitlementService } from './entitlement.service';
+import { FeatureQuota } from './entities/quota-consommation.entity';
+import { QuotaDepasseException } from './quota.guard';
+import { QuotaService } from './quota.service';
+import { EntitlementService, Feature } from './entitlement.service';
 import { PlansService } from './plans.service';
 
 @ApiTags('abonnements')
@@ -17,6 +21,7 @@ export class AbonnementsController {
     private readonly abonnementsService: AbonnementsService,
     private readonly plansService: PlansService,
     private readonly entitlement: EntitlementService,
+    private readonly quotas: QuotaService,
   ) {}
 
   @Get('plans')
@@ -50,11 +55,53 @@ export class AbonnementsController {
       '`verrou_actif` dit si le refus est réellement appliqué ou seulement simulé.',
   })
   @ApiResponse({ status: 200, description: 'Une décision par fonctionnalité + l’état du verrou' })
-  async mesDroits(@Request() req) {
+  async mesDroits(@CurrentCountry() pays: string, @Request() req) {
     return {
       verrou_actif: this.entitlement.verrouActif,
-      droits: await this.entitlement.mesDroits(req.user?.utilisateurId, req.user?.role),
+      droits: await this.entitlement.mesDroits(req.user?.utilisateurId, req.user?.role, pays),
     };
+  }
+
+  @Get('mes-quotas')
+  @ApiOperation({
+    summary: 'Consommation des quotas gratuits',
+    description: 'Ressources distinctes déjà consultées et lancements de Ketsia, avec leurs plafonds.',
+  })
+  mesQuotas(@CurrentCountry() pays: string, @Request() req) {
+    return this.quotas.etatPourUtilisateur(req.user?.utilisateurId, pays);
+  }
+
+  @Post('quota/ketsia')
+  @ApiOperation({
+    summary: 'Consommer le quota Ketsia sur une ressource',
+    description:
+      'À appeler AVANT d’ouvrir l’assistante. Revenir sur une ressource déjà décomptée ' +
+      'est toujours autorisé et ne consomme rien. Ce contrôle est un confort d’interface : ' +
+      'le contrôle qui fait foi est celui que Kessiah effectue de serveur à serveur.',
+  })
+  @ApiResponse({ status: 403, description: 'QUOTA_EXCEEDED — quota Ketsia épuisé' })
+  async consommerKetsia(
+    @CurrentCountry() pays: string,
+    @Request() req,
+    @Body() dto: ConsommerKetsiaDto,
+  ) {
+    const utilisateurId = req.user?.utilisateurId;
+    const decision = await this.entitlement.check(utilisateurId, Feature.KETSIA_AI, req.user?.role, pays);
+    // Aucun plafond applicable (abonné, admin, ou quota désactivé).
+    if (decision.allowed && !decision.quota) {
+      return { allowed: true, reason: decision.reason };
+    }
+
+    const resultat = await this.quotas.consommer(
+      utilisateurId, FeatureQuota.KETSIA_AI, dto.resource_type, dto.resource_id, pays,
+    );
+    if (resultat.allowed) {
+      return { allowed: true, reason: 'FREE_QUOTA', quota: { used: resultat.used, limit: resultat.limit } };
+    }
+    if (!this.entitlement.verrouActif) {
+      return { allowed: true, reason: 'FREE_QUOTA', quota: { used: resultat.used, limit: resultat.limit }, verrou_actif: false };
+    }
+    throw new QuotaDepasseException(Feature.KETSIA_AI, resultat);
   }
 
   @Post('souscrire')

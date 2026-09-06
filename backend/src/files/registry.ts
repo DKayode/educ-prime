@@ -39,6 +39,15 @@ export interface FileSlotConfig {
      */
     uploadTtlSeconds?: number;
     /**
+     * Ressource académique soumise au quota gratuit (#245).
+     *
+     * `download-url` est le chemin réel vers les octets d'un examen national :
+     * verrouiller la seule route `/epreuves/:id/telechargement` laisserait le
+     * quota se contourner en passant par ici. Les slots qui portent ce champ
+     * consomment donc le quota au même titre.
+     */
+    quotaResourceType?: 'epreuve' | 'examen_national';
+    /**
      * Override for the presigned-GET lifetime on this slot (seconds). Defaults
      * to PRESIGN_DOWNLOAD_TTL_SECONDS (10 min). Large private PDFs (exam and
      * concours papers) get a 1-hour window so the read link doesn't
@@ -94,7 +103,7 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
     epreuves: {
         // Private: exam papers are gated behind authorized, short-lived reads.
         // 1-hour upload + download window — exam PDFs are large and slow to push.
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', uploadTtlSeconds: 3600, downloadTtlSeconds: 3600 },
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', uploadTtlSeconds: 3600, downloadTtlSeconds: 3600, quotaResourceType: 'epreuve' },
     },
     epreuve_submissions: {
         // STEP 2 of the user-submission flow. Same private/large-PDF profile as
@@ -103,7 +112,9 @@ export const FILE_FIELD_REGISTRY: Record<string, Record<string, FileSlotConfig>>
     },
     examens_nationaux: {
         // Private national-exam PDFs (BAC/CAP/BEPC…). Same profile as concours.file.
-        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', uploadTtlSeconds: 3600, downloadTtlSeconds: 3600 },
+        // Pas de route /telechargement côté examens : `download-url` EST le
+        // chemin d'accès, d'où le quota posé ici (#245).
+        file: { pathColumn: 'file_path', extColumn: 'file_extension', authorized: PDF_ONLY, legacyColumn: 'url', uploadTtlSeconds: 3600, downloadTtlSeconds: 3600, quotaResourceType: 'examen_national' },
     },
     examens_nationaux_submissions: {
         // Pending user-submitted national-exam PDFs; promoted into examens_nationaux.file at approval.

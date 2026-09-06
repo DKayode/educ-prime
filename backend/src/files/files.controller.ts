@@ -1,16 +1,4 @@
-import {
-    Body,
-    Controller,
-    Get,
-    Param,
-    Post,
-    Query,
-    UploadedFile,
-    UseGuards,
-    UseInterceptors,
-    BadRequestException,
-    Res,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors, BadRequestException, Res, Request, Logger } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -27,6 +15,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FilesService } from './files.service';
 import { UploadUrlRequestDto } from './dto/upload-url.dto';
 import { FILE_FIELD_REGISTRY } from './registry';
+import { EntitlementService, Feature } from '../abonnements/entitlement.service';
+import { QuotaService } from '../abonnements/quota.service';
+import { QuotaDepasseException } from '../abonnements/quota.guard';
+import { FeatureQuota } from '../abonnements/entities/quota-consommation.entity';
+import { ResourceAccessService } from '../resource-access/resource-access.service';
 
 // Derived from the registry so Swagger stays in sync when slots change.
 // All entities that expose at least one file slot.
@@ -51,7 +44,14 @@ const SLOT_PARAM_DESC = `Slot key for the chosen entity. Valid (entity → slots
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class FilesController {
-    constructor(private readonly filesService: FilesService) { }
+    private readonly logger = new Logger(FilesController.name);
+
+    constructor(
+        private readonly filesService: FilesService,
+        private readonly entitlement: EntitlementService,
+        private readonly quotas: QuotaService,
+        private readonly resourceAccess: ResourceAccessService,
+    ) { }
 
     @Get('registry')
     @ApiOperation({
@@ -203,8 +203,59 @@ export class FilesController {
         @Param('entity') entity: string,
         @Param('uuid') uuid: string,
         @Param('slot') slot: string,
+        @Request() req?: any,
         @Query('extension') extension?: string,
     ) {
+        await this.consommerQuotaSiRequis(entity, uuid, slot, req);
         return this.filesService.createDownloadUrl(entity, uuid, slot, extension);
+    }
+
+    /**
+     * Quota gratuit sur les ressources académiques (#245).
+     *
+     * Ce contrôleur est générique — il n'a pas à connaître les abonnements. La
+     * décision vient donc du registre (`quotaResourceType`), qui est la seule
+     * source disant quels slots sont des ressources académiques. Sans ce
+     * contrôle, `download-url` contournerait le quota posé sur
+     * `/epreuves/:id/telechargement` : c'est même le SEUL chemin d'accès aux
+     * examens nationaux.
+     */
+    private async consommerQuotaSiRequis(
+        entity: string,
+        uuid: string,
+        slot: string,
+        req?: any,
+    ): Promise<void> {
+        const type = FILE_FIELD_REGISTRY[entity]?.[slot]?.quotaResourceType;
+        if (!type) return;
+
+        const utilisateurId = req?.user?.utilisateurId;
+        const pays = req?.country ?? 'benin';
+        const feature = type === 'epreuve' ? Feature.EPREUVE_VIEW : Feature.EXAMEN_NAT_VIEW;
+        const decision = await this.entitlement.check(utilisateurId, feature, req?.user?.role, pays);
+        // Voir EpreuvesController : pas de `quota` sur une décision autorisée
+        // signifie qu'aucun plafond ne s'applique.
+        if (decision.allowed && !decision.quota) return;
+
+        const resourceId = await this.filesService.findRowIdByUuid(entity, uuid);
+        const resultat = await this.quotas.consommer(
+            utilisateurId, FeatureQuota.RESOURCE_VIEW, type, resourceId, pays,
+        );
+
+        // Journalise l'accès aux examens nationaux, jusqu'ici absents de
+        // resource_access — ce qui faussait aussi le KPI 16.
+        if (resultat.allowed) {
+            await this.resourceAccess.log(type, resourceId, utilisateurId ?? null, pays);
+            return;
+        }
+
+        if (!this.entitlement.verrouActif) {
+            this.logger.warn(
+                `[verrou éteint] quota épuisé — feature=${feature} utilisateur=${utilisateurId} ` +
+                `${entity}/${resourceId} (${resultat.used}/${resultat.limit})`,
+            );
+            return;
+        }
+        throw new QuotaDepasseException(feature, resultat);
     }
 }

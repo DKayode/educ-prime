@@ -5,6 +5,7 @@ import { EpreuvesService } from './epreuves.service';
 import { Epreuve } from './entities/epreuve.entity';
 import { FichiersModule } from '../fichiers/fichiers.module';
 import { ResourceAccessModule } from '../resource-access/resource-access.module';
+import { AbonnementsModule } from '../abonnements/abonnements.module';
 import { KessiahModule } from '../kessiah/kessiah.module';
 
 @Module({
@@ -12,6 +13,7 @@ import { KessiahModule } from '../kessiah/kessiah.module';
     TypeOrmModule.forFeature([Epreuve]),
     FichiersModule,
     ResourceAccessModule,
+    AbonnementsModule,
     // Pour joindre à chaque épreuve son état de lecture (voir findAll).
     KessiahModule,
   ],

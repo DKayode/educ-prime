@@ -202,7 +202,12 @@ export class FilesService {
         }
     }
 
-    private async findRowIdByUuid(entity: string, uuid: string): Promise<number> {
+    /**
+     * Public depuis #245 : le contrôleur en a besoin pour indexer le quota sur
+     * l'identifiant entier de la ressource, alors que le chemin `files` ne
+     * manipule que des UUID.
+     */
+    async findRowIdByUuid(entity: string, uuid: string): Promise<number> {
         const rows = await this.dataSource.query(
             `SELECT id FROM "${entity}" WHERE uuid = $1 LIMIT 1`,
             [uuid],

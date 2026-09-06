@@ -4,6 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, MoreThan, Repository } from 'typeorm';
 import { RoleType, Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
 import { Abonnement, StatutAbonnement } from './entities/abonnement.entity';
+import { FeatureQuota } from './entities/quota-consommation.entity';
+import { QuotaService } from './quota.service';
 
 /** Droits que l'application sait arbitrer. #245, #247 et #249 en ajouteront. */
 export enum Feature {
@@ -43,7 +45,18 @@ export class EntitlementService {
     @InjectRepository(Abonnement) private readonly abonnements: Repository<Abonnement>,
     @InjectRepository(Utilisateur) private readonly utilisateurs: Repository<Utilisateur>,
     private readonly config: ConfigService,
+    private readonly quotas: QuotaService,
   ) {}
+
+  /**
+   * Fonctionnalités adossées à un quota gratuit (#245). Les concours n'en ont
+   * pas : ils sont payants d'emblée (#244).
+   */
+  private static readonly QUOTA_PAR_FEATURE: Partial<Record<Feature, FeatureQuota>> = {
+    [Feature.EPREUVE_VIEW]: FeatureQuota.RESOURCE_VIEW,
+    [Feature.EXAMEN_NAT_VIEW]: FeatureQuota.RESOURCE_VIEW,
+    [Feature.KETSIA_AI]: FeatureQuota.KETSIA_AI,
+  };
 
   /**
    * Interrupteur de mise en service. À `false` — le défaut — le guard laisse
@@ -91,7 +104,7 @@ export class EntitlementService {
    * Décision pour une feature. Les quotas gratuits (#245) se brancheront ici :
    * ce point d'entrée ne changera pas pour les appelants.
    */
-  async check(utilisateurId: number, feature: Feature, role?: string): Promise<DecisionDroit> {
+  async check(utilisateurId: number, feature: Feature, role?: string, pays = 'benin'): Promise<DecisionDroit> {
     // Le back-office ne doit jamais être bloqué par un abonnement.
     if (await this.estAdmin(utilisateurId, role)) {
       return { allowed: true, reason: 'ADMIN' };
@@ -106,21 +119,73 @@ export class EntitlementService {
       };
     }
 
+    // Sans abonnement, une fonctionnalité adossée à un quota reste accessible
+    // tant que le quota gratuit n'est pas épuisé. `check()` CONSTATE seulement :
+    // c'est l'appelant qui décide de consommer, au moment où il sert vraiment
+    // la ressource.
+    const featureQuota = EntitlementService.QUOTA_PAR_FEATURE[feature];
+    if (featureQuota) {
+      const reglage = await this.quotas.reglage(featureQuota, pays);
+      if (!reglage.estActif) return { allowed: true, reason: 'FREE_QUOTA' };
+      const used = await this.quotas.compter(utilisateurId, featureQuota, pays);
+      return used < reglage.limite
+        ? { allowed: true, reason: 'FREE_QUOTA', quota: { used, limit: reglage.limite } }
+        : { allowed: false, reason: 'QUOTA_EXCEEDED', quota: { used, limit: reglage.limite } };
+    }
+
     return { allowed: false, reason: 'SUBSCRIPTION_REQUIRED' };
   }
 
   /** Décision par feature, pour que le mobile grise son interface sans se prendre un 403. */
-  async mesDroits(utilisateurId: number, role?: string): Promise<Record<Feature, DecisionDroit>> {
+  /**
+   * Décision par fonctionnalité, pour que le client grise son interface sans
+   * se prendre un 403.
+   *
+   * Depuis #245 les décisions divergent (quota épuisé sur les ressources mais
+   * pas sur Ketsia, par exemple), donc on ne peut plus en calculer une seule.
+   * L'abonnement et le rôle sont en revanche résolus UNE fois et réutilisés :
+   * cinq appels nus à `check()` referaient cinq fois la même requête.
+   */
+  async mesDroits(utilisateurId: number, role?: string, pays = 'benin'): Promise<Record<Feature, DecisionDroit>> {
     const features = Object.values(Feature);
-    // Une seule décision calculée puis dupliquée : toutes les fonctionnalités
-    // partagent aujourd'hui la même règle. Cinq appels à `check()` feraient
-    // cinq fois la même requête. #245 réintroduira une décision par
-    // fonctionnalité quand les quotas différeront.
-    const decision = await this.check(utilisateurId, Feature.CONCOURS_DOWNLOAD, role);
-    return features.reduce(
-      (acc, f) => ({ ...acc, [f]: { ...decision } }),
-      {} as Record<Feature, DecisionDroit>,
-    );
+
+    if (await this.estAdmin(utilisateurId, role)) {
+      return features.reduce(
+        (acc, f) => ({ ...acc, [f]: { allowed: true, reason: 'ADMIN' as const } }),
+        {} as Record<Feature, DecisionDroit>,
+      );
+    }
+
+    const abonnement = await this.abonnementActif(utilisateurId);
+    if (abonnement) {
+      const decision: DecisionDroit = {
+        allowed: true,
+        reason: 'SUBSCRIBED',
+        abonnement: { planCode: abonnement.plan?.code, dateFin: abonnement.date_fin },
+      };
+      return features.reduce((acc, f) => ({ ...acc, [f]: { ...decision } }), {} as Record<Feature, DecisionDroit>);
+    }
+
+    const etat = await this.quotas.etatPourUtilisateur(utilisateurId, pays);
+    return features.reduce((acc, f) => {
+      const featureQuota = EntitlementService.QUOTA_PAR_FEATURE[f];
+      if (!featureQuota) {
+        return { ...acc, [f]: { allowed: false, reason: 'SUBSCRIPTION_REQUIRED' as const } };
+      }
+      const { used, limit, est_actif } = etat[featureQuota];
+      // Quota désactivé : la fonctionnalité est libre. Annoncer un `quota`
+      // ferait afficher au client un plafond qui ne s'applique pas — et
+      // contredirait `check()`, qui n'en renvoie aucun dans ce cas.
+      if (!est_actif) {
+        return { ...acc, [f]: { allowed: true, reason: 'FREE_QUOTA' as const } };
+      }
+      return {
+        ...acc,
+        [f]: used < limit
+          ? { allowed: true, reason: 'FREE_QUOTA' as const, quota: { used, limit } }
+          : { allowed: false, reason: 'QUOTA_EXCEEDED' as const, quota: { used, limit } },
+      };
+    }, {} as Record<Feature, DecisionDroit>);
   }
 
   /** Abonnements ACTIF dont la date de fin est passée — matière du cron. */

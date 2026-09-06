@@ -12,13 +12,24 @@ describe('EntitlementService', () => {
   let abonnements: any;
   let utilisateurs: any;
   let config: any;
+  let quotas: any;
   let service: EntitlementService;
 
   beforeEach(() => {
     abonnements = { findOne: jest.fn().mockResolvedValue(null), find: jest.fn().mockResolvedValue([]) };
     utilisateurs = { findOne: jest.fn().mockResolvedValue({ id: 1, role: RoleType.ETUDIANT }) };
     config = { get: jest.fn().mockReturnValue(undefined) };
-    service = new EntitlementService(abonnements, utilisateurs, config);
+    // Quotas neutres : ce bloc teste l'abonnement, pas la couche quota (#245),
+    // qui a son propre spec.
+    quotas = {
+      limite: jest.fn().mockReturnValue(5),
+      compter: jest.fn().mockResolvedValue(0),
+      etatPourUtilisateur: jest.fn().mockResolvedValue({
+        RESOURCE_VIEW: { used: 0, limit: 5 },
+        KETSIA_AI: { used: 0, limit: 1 },
+      }),
+    };
+    service = new EntitlementService(abonnements, utilisateurs, config, quotas);
   });
 
   it('refuse sans abonnement actif', async () => {
