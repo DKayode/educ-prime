@@ -47,6 +47,7 @@ import {
   Gauge,
   HandCoins,
   Trophy,
+  Ticket,
   type LucideIcon,
   Activity,
   Eye,
@@ -142,6 +143,7 @@ const navTree: NavItem[] = [
       { title: "Complétion du profil", icon: ClipboardCheck, url: "/admin/abonnements/completion-profil" },
       { title: "Commission parrainage", icon: HandCoins, url: "/admin/abonnements/commission" },
       { title: "Classement commissions", icon: Trophy, url: "/admin/abonnements/classement-commissions" },
+      { title: "Codes & réductions", icon: Ticket, url: "/admin/codes" },
     ],
   },
   {
