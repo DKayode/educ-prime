@@ -386,9 +386,17 @@ export class AuthService {
   }
 
   private codesEgaux(attendu: string, fourni: string): boolean {
-    // timingSafeEqual exige des longueurs égales ; on compare les empreintes
-    // pour les égaliser sans révéler la longueur du code par le temps de réponse.
-    const empreinte = (valeur: string) => crypto.createHash('sha256').update(valeur).digest();
-    return crypto.timingSafeEqual(empreinte(attendu), empreinte(fourni));
+    const a = Buffer.from(attendu, 'utf8');
+    const b = Buffer.from(fourni, 'utf8');
+
+    // `timingSafeEqual` exige des longueurs égales. Les égaliser par un digest
+    // ferait passer une valeur issue du DTO par un hachage rapide — que
+    // l'analyse statique lit, à raison, comme un mot de passe mal protégé.
+    // Inutile ici : la longueur du code est publique (6 chiffres, annoncés dans
+    // l'email), la divulguer ne révèle rien. Le temps constant n'a d'intérêt que
+    // sur la comparaison des valeurs, et il est préservé.
+    if (a.length !== b.length) return false;
+
+    return crypto.timingSafeEqual(a, b);
   }
 }

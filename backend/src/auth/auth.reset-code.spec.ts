@@ -186,6 +186,20 @@ describe('AuthService — code de réinitialisation', () => {
       expect(utilisateurs.updatePassword).not.toHaveBeenCalled();
     });
 
+    it.each(['12345', '1234567', 'abcdef'])(
+      'refuse un code de forme invalide (%s) sans lever d’exception technique',
+      async (mauvais) => {
+        await service.sendResetCode(EMAIL);
+
+        // `timingSafeEqual` jette sur des longueurs différentes : le garde-fou
+        // de longueur doit intercepter avant, sinon on renvoie un 500 au lieu
+        // d'un 401 — et on révèle la longueur attendue par le type d'erreur.
+        await expect(service.resetPassword(resetDto(mauvais))).rejects.toBeInstanceOf(
+          UnauthorizedException,
+        );
+      },
+    );
+
     it('traite une expiration NULL comme expirée', async () => {
       await service.sendResetCode(EMAIL);
       const code = user.digit_code;
