@@ -78,12 +78,12 @@ export class EpreuvesService {
       ? await this.entitlement.check(utilisateurId, Feature.EPREUVE_VIEW, role, pays)
       : { allowed: false, reason: 'SUBSCRIPTION_REQUIRED' as const };
 
-    // Le quota n'est interrogé que s'il peut encore jouer : un abonné ou un
-    // admin n'a aucune ressource « déjà consultée » qui le concerne.
-    const consommees =
-      decision.reason === 'FREE_QUOTA' || decision.reason === 'QUOTA_EXCEEDED'
-        ? await this.quotas.ressourcesConsommees(utilisateurId, FeatureQuota.RESOURCE_VIEW, 'epreuve', pays)
-        : new Set<number>();
+    // Le quota n'est interrogé que s'il s'applique vraiment. Un abonné, un
+    // admin ou un quota désactivé n'ont aucune ressource « déjà consultée » qui
+    // les concerne — et `decision.quota` est absent dans ces trois cas.
+    const consommees = decision.quota
+      ? await this.quotas.ressourcesConsommees(utilisateurId, FeatureQuota.RESOURCE_VIEW, 'epreuve', pays)
+      : new Set<number>();
 
     return lignes.map((ligne) => ({
       ...ligne,

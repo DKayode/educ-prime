@@ -233,7 +233,9 @@ export class FilesController {
         const pays = req?.country ?? 'benin';
         const feature = type === 'epreuve' ? Feature.EPREUVE_VIEW : Feature.EXAMEN_NAT_VIEW;
         const decision = await this.entitlement.check(utilisateurId, feature, req?.user?.role, pays);
-        if (decision.allowed && decision.reason !== 'FREE_QUOTA') return;
+        // Voir EpreuvesController : pas de `quota` sur une décision autorisée
+        // signifie qu'aucun plafond ne s'applique.
+        if (decision.allowed && !decision.quota) return;
 
         const resourceId = await this.filesService.findRowIdByUuid(entity, uuid);
         const resultat = await this.quotas.consommer(

@@ -38,7 +38,11 @@ const depotEnMemoire = () => {
   };
 };
 
-/** Configurations en mémoire — plafond 5 ressources, 1 Ketsia, mensuel. */
+/**
+ * Configurations en mémoire. `est_actif: true` ici parce que ces tests portent
+ * sur le comportement du quota ; en base il est semé DÉSACTIVÉ, ce que couvre
+ * le test « inactif par défaut » plus bas.
+ */
 const depotConfig = (surcharges: any[] = []) => {
   const base = [
     { uuid: 'c-1', pays: 'benin', feature: 'RESOURCE_VIEW', limite: 5, periode_reset: PeriodeReset.MENSUEL, est_actif: true },
@@ -178,12 +182,15 @@ describe('QuotaService', () => {
       expect(await consommer(3)).toMatchObject({ allowed: false, limit: 2 });
     });
 
-    it('laisse tout passer quand le quota est désactivé', async () => {
+    it('laisse tout passer quand le quota est désactivé, SANS rien enregistrer', async () => {
       service = new QuotaService(depot as any, depotConfig([{ feature: 'RESOURCE_VIEW', est_actif: false }]) as any);
       for (let i = 1; i <= 20; i++) {
         expect((await consommer(i)).allowed).toBe(true);
       }
-      // Rien n'est enregistré : le quota ne s'applique pas.
+      // Point décisif : ne rien enregistrer tant que le quota est inactif.
+      // Sinon, le jour où l'administration l'active, des utilisateurs se
+      // retrouveraient bloqués pour des lectures faites quand rien ne les
+      // prévenait.
       expect(depot.lignes).toHaveLength(0);
     });
 

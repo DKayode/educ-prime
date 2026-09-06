@@ -21,6 +21,28 @@ Complète le [guide des abonnements](./api-abonnements-mobile.md).
 > Les plafonds sont **réglables depuis le back-office** et peuvent changer sans
 > déploiement. Lisez-les dans `quota.limit`, ne les codez jamais en dur.
 
+### ⚠️ Les quotas sont DÉSACTIVÉS au lancement
+
+À la mise en production, aucun quota ne s'applique : épreuves, examens nationaux
+et Ketsia restent accessibles sans limite, et **aucune consommation n'est
+comptée**. C'est délibéré — compter dès le déploiement bloquerait des
+utilisateurs, le jour de l'activation, pour des lectures faites à une époque où
+rien ne les prévenait.
+
+Concrètement, l'API répond alors :
+
+```json
+{ "allowed": true, "reason": "FREE_QUOTA" }
+```
+
+**Sans objet `quota`.** C'est le signal à reconnaître : `FREE_QUOTA` sans `quota`
+signifie **illimité**, pas « zéro utilisé ». Un client qui lirait
+`quota.used` sans vérifier la présence de l'objet planterait.
+
+L'administration activera les quotas depuis « Abonnements → Quotas gratuits »
+quand le paiement en ligne sera en service. **Construisez l'interface dès
+maintenant** : le jour de la bascule, `quota` apparaît et rien d'autre ne change.
+
 Trois propriétés à retenir, chacune visible dans l'interface :
 
 - **Le quota porte sur des ressources distinctes, pas sur des accès.** Ouvrir
@@ -247,6 +269,8 @@ class QuotasApi {
   }
 }
 
+/// `null` = aucun plafond ne s'applique (abonné, admin, ou quota désactivé).
+/// Ne confondez pas avec `Quota(used: 0, limit: 0)`.
 class Quota {
   const Quota({required this.used, required this.limit, this.reinitialisation});
   final int used, limit;
@@ -266,7 +290,9 @@ Future<void> ouvrirEpreuve(Epreuve e) async {
   // `deja_consultee` prime : la ressource est acquise, aucun avertissement.
   if (e.verrouille && !e.dejaConsultee) return ouvrirEcranAbonnement();
 
-  if (!e.dejaConsultee && quotas['RESOURCE_VIEW']!.derniere) {
+  // `quota` absent = illimité : ni avertissement, ni décompte à afficher.
+  final quota = quotas['RESOURCE_VIEW'];
+  if (quota != null && !e.dejaConsultee && quota.derniere) {
     final continuer = await confirmer('C\'est votre dernière ressource gratuite. Continuer ?');
     if (!continuer) return;
   }
@@ -303,7 +329,8 @@ recalculez pas.
 **Les plafonds sont administrables** et peuvent changer sans déploiement : lisez
 toujours `limit`, ne codez jamais 5 ni 1 en dur.
 
-**Un `quota` absent avec `FREE_QUOTA` signifie « illimité »**, pas zéro.
+**Un `quota` absent avec `FREE_QUOTA` signifie « illimité »**, pas zéro. C'est
+l'état livré : les quotas sont désactivés au lancement et rien n'est compté.
 
 **Aucun changement d'appel pour les examens nationaux** — `download-url` reste la
 route, elle est simplement soumise au quota.

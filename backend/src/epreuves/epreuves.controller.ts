@@ -42,8 +42,10 @@ export class EpreuvesController {
     const utilisateurId = req.user?.utilisateurId;
     const decision = await this.entitlement.check(utilisateurId, Feature.EPREUVE_VIEW, req.user?.role, pays);
 
-    // Abonné ou admin : rien à décompter.
-    if (decision.allowed && decision.reason !== 'FREE_QUOTA') return;
+    // Rien à décompter : abonné, admin, ou quota désactivé par l'administration.
+    // L'absence de `quota` sur une décision autorisée est justement le signal
+    // qu'aucun plafond ne s'applique — inutile d'aller le chercher.
+    if (decision.allowed && !decision.quota) return;
 
     const resultat = await this.quotas.consommer(
       utilisateurId, FeatureQuota.RESOURCE_VIEW, 'epreuve', epreuveId, pays,

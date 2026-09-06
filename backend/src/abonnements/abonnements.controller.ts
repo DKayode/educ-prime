@@ -87,7 +87,8 @@ export class AbonnementsController {
   ) {
     const utilisateurId = req.user?.utilisateurId;
     const decision = await this.entitlement.check(utilisateurId, Feature.KETSIA_AI, req.user?.role, pays);
-    if (decision.allowed && decision.reason !== 'FREE_QUOTA') {
+    // Aucun plafond applicable (abonné, admin, ou quota désactivé).
+    if (decision.allowed && !decision.quota) {
       return { allowed: true, reason: decision.reason };
     }
 

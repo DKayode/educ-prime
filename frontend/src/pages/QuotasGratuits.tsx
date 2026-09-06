@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Gauge, Info, Loader2, Save, Sparkles } from "lucide-react";
+import { AlertTriangle, Gauge, Info, Loader2, Save, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   abonnementsService,
@@ -165,6 +165,8 @@ export default function QuotasGratuits() {
     queryFn: () => abonnementsService.getQuotas(),
   });
 
+  const tousInactifs = !!quotas?.length && quotas.every((q) => !q.est_actif);
+
   return (
     <div className="space-y-6">
       <div>
@@ -173,6 +175,24 @@ export default function QuotasGratuits() {
           Ce à quoi un utilisateur sans abonnement a droit avant d’être invité à souscrire
         </p>
       </div>
+
+      {tousInactifs && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="flex gap-3 pt-6">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+            <div className="text-sm">
+              <p className="font-medium text-foreground">Aucun quota n’est appliqué.</p>
+              <p className="text-muted-foreground">
+                Épreuves, examens nationaux et Ketsia sont accessibles sans limite. C’est l’état
+                livré par défaut : rien n’est refusé, et <strong>rien n’est compté</strong> — sans
+                quoi, le jour de l’activation, des utilisateurs se retrouveraient bloqués pour des
+                consultations faites à une époque où rien ne les prévenait. Activez les quotas
+                lorsque le paiement en ligne sera en service.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-blue-500/40 bg-blue-500/5">
         <CardContent className="flex gap-3 pt-6">
