@@ -51,17 +51,17 @@ export class AuthController {
     return { message: 'Déconnexion réussie' };
   }
 
+  // Pas de @HttpCode : ces routes répondent 201 depuis toujours. Les aligner sur
+  // 200 « pour la cohérence » casserait tout client qui teste le statut exact.
   @Post('forgot-password')
-  @HttpCode(200)
   @ApiOperation({ summary: 'Demander un code de réinitialisation de mot de passe' })
-  @ApiResponse({ status: 200, description: 'Réponse identique que l\'email existe ou non' })
+  @ApiResponse({ status: 201, description: 'Réponse identique que l\'email existe ou non' })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     await this.authService.sendResetCode(forgotPasswordDto.email);
     return this.reponseEnvoiCode();
   }
 
   @Post('resend-reset-code')
-  @HttpCode(200)
   @ApiOperation({
     summary: 'Régénérer et renvoyer le code de réinitialisation',
     description:
@@ -69,7 +69,7 @@ export class AuthController {
       'du délai de cadence, ou au-delà du plafond d\'envois, est absorbé sans erreur : la ' +
       'réponse ne doit rien révéler de l\'existence du compte.',
   })
-  @ApiResponse({ status: 200, description: 'Réponse identique dans tous les cas' })
+  @ApiResponse({ status: 201, description: 'Réponse identique dans tous les cas' })
   async resendResetCode(@Body() forgotPasswordDto: ForgotPasswordDto) {
     await this.authService.sendResetCode(forgotPasswordDto.email);
     return this.reponseEnvoiCode();
@@ -89,7 +89,6 @@ export class AuthController {
   }
 
   @Post('reset-password')
-  @HttpCode(200)
   @ApiOperation({ summary: 'Réinitialiser le mot de passe à partir du code reçu' })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     await this.authService.resetPassword(resetPasswordDto);

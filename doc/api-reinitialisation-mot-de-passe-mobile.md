@@ -21,7 +21,7 @@ Trois points à retenir :
 - **Chaque envoi produit un nouveau code et invalide le précédent.** Si
   l'utilisateur demande deux codes, seul le dernier email fonctionne. L'email de
   renvoi le dit explicitement, mais l'écran doit le refléter aussi.
-- **La réponse est toujours `200`, avec le même corps**, que l'email existe ou
+- **La réponse est toujours `201`, avec le même corps**, que l'email existe ou
   non, que la cadence soit respectée ou non. C'est délibéré : un statut variable
   permettrait de deviner quelles adresses ont un compte. **N'essayez pas d'en
   déduire quoi que ce soit.**
@@ -29,6 +29,11 @@ Trois points à retenir :
   renvoyé par le serveur. Ne le codez pas en dur : la valeur peut changer.
 
 **Authentification.** Ces trois endpoints sont **publics** — pas de `Authorization`.
+
+**Statut de succès : `201`, pas `200`.** C'est le statut que renvoient déjà
+`forgot-password` et `reset-password` en production ; `resend-reset-code` s'aligne
+dessus. Si votre client teste `statusCode == 200`, il échouera — testez la plage
+`2xx`, ou `201` explicitement.
 
 **Scope pays.** Contrairement au reste de l'API, **pas de `?country=` ni de champ
 `pays`**. L'authentification est volontairement inter-pays : un compte fonctionne
@@ -43,14 +48,14 @@ quel que soit le pays sélectionné.
 │  saisie de l'email                                          │
 │      └── POST /auth/forgot-password                         │
 └─────────────────────────────────────────────────────────────┘
-                          ↓ toujours 200
+                          ↓ toujours 201
 ┌─ Écran « Saisie du code » ─────────────────────────────────┐
 │  6 chiffres + nouveau mot de passe                          │
 │  bouton « Renvoyer » grisé pendant cooldown_seconds         │
 │      ├── POST /auth/resend-reset-code   (régénère)          │
 │      └── POST /auth/reset-password      (valide)            │
 └─────────────────────────────────────────────────────────────┘
-                          ↓ 200
+                          ↓ 201
                    retour à l'écran de connexion
 ```
 
@@ -65,7 +70,7 @@ Content-Type: application/json
 { "email": "utilisateur@example.com" }
 ```
 
-### Réponse — 200
+### Réponse — 201
 
 ```json
 {
@@ -96,7 +101,7 @@ Content-Type: application/json
 { "email": "utilisateur@example.com" }
 ```
 
-### Réponse — 200
+### Réponse — 201
 
 ```json
 {
@@ -153,7 +158,7 @@ Content-Type: application/json
 }
 ```
 
-### Réponse — 200
+### Réponse — 201
 
 ```json
 { "message": "Mot de passe réinitialisé avec succès" }
@@ -243,7 +248,9 @@ class MotDePasseOublieApi {
     );
 
     final corps = jsonDecode(reponse.body) as Map<String, dynamic>;
-    if (reponse.statusCode != 200) throw ApiException(messageErreur(corps));
+    // Succès = 201 sur ces routes. Tester la plage 2xx plutôt qu'une valeur
+    // exacte évite de recasser si le statut évolue.
+    if (reponse.statusCode ~/ 100 != 2) throw ApiException(messageErreur(corps));
 
     // Valeur serveur : ne pas la coder en dur, elle peut changer.
     return Duration(seconds: corps['cooldown_seconds'] as int? ?? 60);
@@ -264,7 +271,7 @@ class MotDePasseOublieApi {
       }),
     );
 
-    if (reponse.statusCode != 200) {
+    if (reponse.statusCode ~/ 100 != 2) {
       throw ApiException(messageErreur(jsonDecode(reponse.body) as Map<String, dynamic>));
     }
     // Succès : toutes les sessions sont révoquées. Purger les jetons stockés
