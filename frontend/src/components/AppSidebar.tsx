@@ -127,6 +127,14 @@ const navTree: NavItem[] = [
     ],
   },
   {
+    title: "Abonnements",
+    icon: CreditCard,
+    children: [
+      { title: "Abonnements", icon: CreditCard, url: "/admin/abonnements" },
+      { title: "Plans", icon: Tag, url: "/admin/abonnements/plans" },
+    ],
+  },
+  {
     title: "Approbations",
     icon: UserCheck,
     children: [
@@ -140,14 +148,6 @@ const navTree: NavItem[] = [
         children: [
           { title: "Retraits", icon: Banknote, url: "/admin/retraits" },
           { title: "Configuration", icon: SlidersHorizontal, url: "/admin/wallet-configuration" },
-        ],
-      },
-      {
-        title: "Abonnements",
-        icon: CreditCard,
-        children: [
-          { title: "Abonnements", icon: CreditCard, url: "/admin/abonnements" },
-          { title: "Plans", icon: Tag, url: "/admin/abonnements/plans" },
         ],
       },
     ],
