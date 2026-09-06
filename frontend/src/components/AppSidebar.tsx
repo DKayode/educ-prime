@@ -45,6 +45,8 @@ import {
   CreditCard,
   Tag,
   Gauge,
+  HandCoins,
+  Trophy,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -134,6 +136,8 @@ const navTree: NavItem[] = [
       { title: "Abonnements", icon: CreditCard, url: "/admin/abonnements" },
       { title: "Plans", icon: Tag, url: "/admin/abonnements/plans" },
       { title: "Quotas gratuits", icon: Gauge, url: "/admin/abonnements/quotas" },
+      { title: "Commission parrainage", icon: HandCoins, url: "/admin/abonnements/commission" },
+      { title: "Classement commissions", icon: Trophy, url: "/admin/abonnements/classement-commissions" },
     ],
   },
   {

@@ -10,6 +10,7 @@ import { FeatureQuota } from './entities/quota-consommation.entity';
 import { QuotaDepasseException } from './quota.guard';
 import { QuotaService } from './quota.service';
 import { EntitlementService, Feature } from './entitlement.service';
+import { ParrainageService } from './parrainage.service';
 import { PlansService } from './plans.service';
 
 @ApiTags('abonnements')
@@ -22,6 +23,7 @@ export class AbonnementsController {
     private readonly plansService: PlansService,
     private readonly entitlement: EntitlementService,
     private readonly quotas: QuotaService,
+    private readonly parrainage: ParrainageService,
   ) {}
 
   @Get('plans')
@@ -60,6 +62,17 @@ export class AbonnementsController {
       verrou_actif: this.entitlement.verrouActif,
       droits: await this.entitlement.mesDroits(req.user?.utilisateurId, req.user?.role, pays),
     };
+  }
+
+  @Get('mes-parrainages')
+  @ApiOperation({
+    summary: 'Filleuls et commissions perçues',
+    description:
+      'Liste des filleuls, nombre d’entre eux ayant souscrit, et total des commissions ' +
+      'créditées dans le wallet.',
+  })
+  mesParrainages(@Request() req) {
+    return this.parrainage.mesParrainages(req.user?.utilisateurId);
   }
 
   @Get('mes-quotas')

@@ -160,6 +160,7 @@ describe('AbonnementsService', () => {
   let evenements: any;
   let plansService: any;
   let entitlement: any;
+  let parrainage: any;
   let service: AbonnementsService;
   const plan = { id: 1, uuid: 'p-1', code: 'MENSUEL', prix: 2000, devise: 'XOF', duree_jours: 30, est_actif: true };
 
@@ -178,7 +179,12 @@ describe('AbonnementsService', () => {
       abonnementActif: jest.fn().mockResolvedValue(null),
       abonnementsAExpirer: jest.fn().mockResolvedValue([]),
     };
-    service = new AbonnementsService(abonnements, evenements, plansService, entitlement, {} as any);
+    // ParrainageService neutre : le versement de commission a son propre spec.
+    parrainage = {
+      resoudreParrain: jest.fn().mockResolvedValue(null),
+      verserCommission: jest.fn().mockResolvedValue({ verse: false, motif: 'AUCUN_PARRAIN' }),
+    };
+    service = new AbonnementsService(abonnements, evenements, plansService, entitlement, parrainage, {} as any);
     jest.spyOn(service, 'findByUuid').mockImplementation(async () => ({ uuid: 'a-1' }) as any);
   });
 

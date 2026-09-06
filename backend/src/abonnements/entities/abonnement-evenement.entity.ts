@@ -8,6 +8,7 @@ export enum TypeEvenementAbonnement {
   ANNULE = 'ANNULE',
   REMBOURSE = 'REMBOURSE',
   PROLONGE = 'PROLONGE',
+  COMMISSION_VERSEE = 'COMMISSION_VERSEE',
   /** Refus simulé pendant que le verrou est éteint — sert à mesurer l'impact. */
   ACCES_REFUSE_SIMULE = 'ACCES_REFUSE_SIMULE',
 }

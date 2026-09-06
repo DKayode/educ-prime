@@ -43,6 +43,8 @@ export interface Abonnement {
   uuid: string;
   pays: string;
   utilisateur_id: number;
+  parrain_id?: number | null;
+  commission_versee?: boolean;
   statut: StatutAbonnement;
   date_debut?: string | null;
   date_fin?: string | null;
@@ -79,6 +81,33 @@ export interface QuotaPayload {
   limite?: number;
   periode_reset?: PeriodeReset;
   est_actif?: boolean;
+}
+
+export interface ReglageCommission {
+  taux: number;
+  est_active: boolean;
+  devise: string;
+  /** Un taux à 0 ne verse rien, même « activé ». */
+  verse_effectivement: boolean;
+}
+
+export interface LigneClassement {
+  rang: number;
+  uuid: string;
+  nom?: string | null;
+  prenom?: string | null;
+  email?: string | null;
+  code?: string | null;
+  nombre_commissions: number;
+  abonnements: number;
+  total: number;
+  derniere: string;
+}
+
+export interface ClassementCommissions {
+  periode: { startDate: string | null; endDate: string | null };
+  totaux: { beneficiaires: number; nombre_commissions: number; total: number };
+  classement: LigneClassement[];
 }
 
 export interface ActivationPayload {
@@ -132,6 +161,23 @@ export const abonnementsService = {
     return api.put<ConfigurationQuota>(`/admin/abonnements/quotas/${uuid}`, data);
   },
 
+  // ── Commission de parrainage ─────────────────────────────────────────────
+  async getCommission(): Promise<ReglageCommission> {
+    return api.get<ReglageCommission>('/admin/abonnements/commission');
+  },
+
+  async updateCommission(data: { taux?: number; est_active?: boolean }): Promise<ReglageCommission> {
+    return api.put<ReglageCommission>('/admin/abonnements/commission', data);
+  },
+
+  async getClassementCommissions(params?: {
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<ClassementCommissions> {
+    return api.get<ClassementCommissions>(`/admin/abonnements/classement-commissions${query(params)}`);
+  },
+
   // ── Abonnements ──────────────────────────────────────────────────────────
   async getAbonnements(filters?: AbonnementFilters): Promise<PaginationResponse<Abonnement>> {
     return api.get<PaginationResponse<Abonnement>>(`/admin/abonnements${query(filters)}`);
@@ -144,6 +190,15 @@ export const abonnementsService = {
   /** Activation d'un abonnement encaissé hors application. */
   async activer(uuid: string, data: ActivationPayload): Promise<Abonnement> {
     return api.post<Abonnement>(`/admin/abonnements/${uuid}/activer`, data);
+  },
+
+  /** Abonnements actifs dont la commission de parrainage n'est pas passée. */
+  async getCommissionsEnAttente(): Promise<Abonnement[]> {
+    return api.get<Abonnement[]>('/admin/abonnements/commissions-en-attente');
+  },
+
+  async rattraperCommission(uuid: string): Promise<{ verse: boolean; motif?: string }> {
+    return api.post<{ verse: boolean; motif?: string }>(`/admin/abonnements/${uuid}/rattraper-commission`, {});
   },
 
   async prolonger(uuid: string, jours: number, motif?: string): Promise<Abonnement> {

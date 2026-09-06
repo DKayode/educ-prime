@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsNumber, IsObject, IsOptional, IsString, Length, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsNumber, IsObject, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { FeeType } from '../../shared/payment.enums';
 
 export class UpdateRewardConfigurationDto {
   @ApiPropertyOptional({ example: 500 })
@@ -15,6 +16,22 @@ export class UpdateRewardConfigurationDto {
   @IsString()
   @Length(3, 10)
   currency?: string;
+
+  @ApiPropertyOptional({
+    enum: FeeType,
+    description: 'FIXED : rewardAmount s’applique. PERCENTAGE : commissionPercentage du montant payé.',
+  })
+  @IsOptional()
+  @IsEnum(FeeType, { message: 'commissionType doit valoir FIXED ou PERCENTAGE' })
+  commissionType?: FeeType;
+
+  @ApiPropertyOptional({ example: 10, description: 'Taux de commission, entre 0 et 100.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100, { message: 'Le taux ne peut pas dépasser 100 %' })
+  commissionPercentage?: number;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()

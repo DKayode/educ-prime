@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { DecimalColumnTransformer } from '../../shared/decimal.transformer';
-import { RewardSourceTypeCode } from '../../shared/payment.enums';
+import { FeeType, RewardSourceTypeCode } from '../../shared/payment.enums';
 import { PaymentRewardSourceTypeEntity } from './payment-reward-source-type.entity';
 
 @Entity('payment_reward_configurations')
@@ -21,6 +21,17 @@ export class PaymentRewardConfigurationEntity {
   rewardAmount: number;
 
   @Column({ type: 'varchar', length: 10, default: 'XOF' }) currency: string;
+
+  /**
+   * FIXED : `rewardAmount` s'applique tel quel. PERCENTAGE : la récompense vaut
+   * `commissionPercentage` % du montant transmis par l'appelant — nécessaire
+   * pour une commission de parrainage, qui suit le prix du plan.
+   */
+  @Column({ name: 'commission_type', type: 'varchar', length: 20, default: FeeType.FIXED })
+  commissionType: FeeType;
+
+  @Column({ name: 'commission_percentage', type: 'numeric', precision: 5, scale: 2, default: 0, transformer: DecimalColumnTransformer })
+  commissionPercentage: number;
 
   @Column({ name: 'reward_enabled', default: true }) rewardEnabled: boolean;
 

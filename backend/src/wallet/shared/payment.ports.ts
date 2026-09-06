@@ -114,6 +114,9 @@ export interface PaymentRewardConfigurationModel {
   rewardSourceTypeLabel: string;
   rewardAmount: number;
   currency: string;
+  /** FIXED : `rewardAmount`. PERCENTAGE : `commissionPercentage` % du montant de base. */
+  commissionType: FeeType;
+  commissionPercentage: number;
   rewardEnabled: boolean;
   reviewDelayHours: number;
   requiresAdminValidation: boolean;

@@ -19,7 +19,7 @@ import {
 // la configuration globale (rewardPerExam / rewardPerConcours) : chaque source a
 // sa propre ligne, avec ses plafonds. Chaque carte s'enregistre séparément —
 // l'API expose un PATCH par sourceType.
-const SOURCE_ORDER: RewardSourceType[] = ["EPREUVE", "EXAMEN", "CONCOURS"];
+const SOURCE_ORDER: RewardSourceType[] = ["EPREUVE", "EXAMEN", "CONCOURS", "PARRAINAGE_ABONNEMENT"];
 
 const NUM_KEYS = [
   "rewardAmount",
@@ -30,6 +30,13 @@ const NUM_KEYS = [
   "maxRewardsPerUserPerMonth",
 ] as const;
 const BOOL_KEYS = ["rewardEnabled", "requiresAdminValidation"] as const;
+
+/**
+ * La commission de parrainage est la seule récompense en POURCENTAGE : elle suit
+ * le prix du plan. Les autres restent en montant fixe, et leur formulaire ne doit
+ * pas s'encombrer d'un champ sans effet.
+ */
+const EST_COMMISSION = (code: string) => code === "PARRAINAGE_ABONNEMENT";
 
 type Draft = Record<string, string | boolean>;
 
@@ -50,6 +57,7 @@ export function RewardConfigurationSection() {
     data.forEach((c) => {
       const d: Draft = {};
       NUM_KEYS.forEach((k) => (d[k] = String(c[k] ?? "")));
+      d.commissionPercentage = String(c.commissionPercentage ?? 0);
       BOOL_KEYS.forEach((k) => (d[k] = !!c[k]));
       next[c.rewardSourceTypeCode] = d;
     });
@@ -82,11 +90,22 @@ export function RewardConfigurationSection() {
     const payload: RewardConfigurationUpdate = {};
     NUM_KEYS.forEach((k) => ((payload as any)[k] = Number(d[k] === "" || d[k] == null ? 0 : d[k])));
     BOOL_KEYS.forEach((k) => ((payload as any)[k] = !!d[k]));
+    if (EST_COMMISSION(config.rewardSourceTypeCode)) {
+      payload.commissionType = "PERCENTAGE";
+      payload.commissionPercentage = Number(d.commissionPercentage ?? 0);
+      // Le montant fixe n'a aucun sens ici : le laisser à zéro évite qu'il
+      // reprenne la main si le type repasse un jour à FIXED.
+      payload.rewardAmount = 0;
+    }
     setSavingSource(config.rewardSourceTypeCode);
     mutation.mutate({ sourceType: config.rewardSourceTypeCode, payload });
   };
 
   const configs = (data ?? [])
+    // La commission de parrainage a sa propre page (Abonnements → Commission de
+    // parrainage) : deux formulaires pour une même valeur invitent à les croire
+    // indépendants.
+    .filter((c) => !EST_COMMISSION(c.rewardSourceTypeCode))
     .slice()
     .sort((a, b) => SOURCE_ORDER.indexOf(a.rewardSourceTypeCode) - SOURCE_ORDER.indexOf(b.rewardSourceTypeCode));
 
@@ -158,7 +177,14 @@ export function RewardConfigurationSection() {
 
             <CardContent className="space-y-5">
               <div className="grid gap-4 sm:grid-cols-2">
-                {numField(config, "rewardAmount", `Montant (${config.currency})`, "Versé par contenu validé.")}
+                {EST_COMMISSION(config.rewardSourceTypeCode)
+                  ? numField(
+                      config,
+                      "commissionPercentage",
+                      "Taux de commission (%)",
+                      "Part du prix payé, versée au parrain. 0 % revient à ne rien verser.",
+                    )
+                  : numField(config, "rewardAmount", `Montant (${config.currency})`, "Versé par contenu validé.")}
                 {numField(
                   config,
                   "reviewDelayHours",

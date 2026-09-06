@@ -55,6 +55,16 @@ export class Abonnement {
   @Column({ type: 'boolean', default: false })
   renouvellement_auto: boolean;
 
+  /**
+   * Parrain FIGÉ à la souscription (#246). Un changement ultérieur de la
+   * relation de parrainage ne doit pas rétro-attribuer une commission.
+   */
+  @Column({ type: 'int', nullable: true })
+  parrain_id: number | null;
+
+  @Column({ type: 'boolean', default: false })
+  commission_versee: boolean;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
