@@ -62,8 +62,9 @@ describe('EntitlementService', () => {
   });
 
   it('ne dépend pas du cron : un ACTIF échu est filtré par la requête', async () => {
-    await service.abonnementActif(1);
+    await service.abonnementActif(1, 'senegal');
     const where = abonnements.findOne.mock.calls[0][0].where;
+    expect(where.pays).toBe('senegal');
     expect(where.statut).toBe(StatutAbonnement.ACTIF);
     // MoreThan(now) — sans ce filtre, un abonnement échu resterait autorisé
     // jusqu'au passage horaire du cron.
@@ -84,12 +85,17 @@ describe('EntitlementService', () => {
 });
 
 describe('AbonnementRequisGuard', () => {
-  const contexte = (utilisateurId?: number) =>
+  const contexte = (utilisateurId?: number, pays?: string) =>
     ({
       getHandler: () => ({}),
       getClass: () => ({}),
       switchToHttp: () => ({
-        getRequest: () => ({ user: { utilisateurId }, method: 'GET', url: '/concours/1/telechargement' }),
+        getRequest: () => ({
+          user: { utilisateurId },
+          country: pays,
+          method: 'GET',
+          url: '/concours/1/telechargement',
+        }),
       }),
     }) as any;
 
@@ -115,6 +121,11 @@ describe('AbonnementRequisGuard', () => {
   it('laisse passer un ayant droit', async () => {
     entitlement.check.mockResolvedValue({ allowed: true, reason: 'SUBSCRIBED' });
     expect(await guard.canActivate(contexte(1))).toBe(true);
+  });
+
+  it('évalue le droit dans le pays de la requête', async () => {
+    await expect(guard.canActivate(contexte(1, 'senegal'))).rejects.toBeInstanceOf(ForbiddenException);
+    expect(entitlement.check).toHaveBeenCalledWith(1, Feature.CONCOURS_DOWNLOAD, undefined, 'senegal');
   });
 
   it('refuse avec un corps exploitable par le mobile', async () => {
@@ -203,6 +214,7 @@ describe('AbonnementsService', () => {
   it('refuse un second abonnement quand un actif existe', async () => {
     entitlement.hasActiveSubscription.mockResolvedValue(true);
     await expect(service.souscrire('benin', 3, { plan_uuid: 'p-1' })).rejects.toBeInstanceOf(ConflictException);
+    expect(entitlement.hasActiveSubscription).toHaveBeenCalledWith(3, 'benin');
   });
 
   it('réutilise la souscription en attente au lieu d’en empiler une seconde', async () => {

@@ -36,7 +36,7 @@ export class AbonnementsService {
       throw new ConflictException("Ce plan n'est pas disponible");
     }
 
-    if (await this.entitlement.hasActiveSubscription(utilisateurId)) {
+    if (await this.entitlement.hasActiveSubscription(utilisateurId, pays)) {
       throw new ConflictException('Vous avez déjà un abonnement actif');
     }
 
@@ -208,11 +208,11 @@ export class AbonnementsService {
   }
 
   /** Abonnement courant de l'utilisateur, actif de préférence, sinon en attente. */
-  async monAbonnement(utilisateurId: number): Promise<Abonnement | null> {
-    const actif = await this.entitlement.abonnementActif(utilisateurId);
+  async monAbonnement(utilisateurId: number, pays = 'benin'): Promise<Abonnement | null> {
+    const actif = await this.entitlement.abonnementActif(utilisateurId, pays);
     if (actif) return actif;
     return this.abonnements.findOne({
-      where: { utilisateur_id: utilisateurId, statut: StatutAbonnement.EN_ATTENTE },
+      where: { utilisateur_id: utilisateurId, pays, statut: StatutAbonnement.EN_ATTENTE },
       order: { date_creation: 'DESC' },
     });
   }
