@@ -8,7 +8,7 @@ import { CountryConfigService } from './config/country-config.service';
 async function bootstrap() {
   // bufferLogs holds startup logs until the pino logger is wired below, so
   // even Nest's own bootstrap lines come out as structured JSON.
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
   app.useLogger(app.get(Logger));
 
   // URI versioning: opt-in per route via @Version('1') → /v1/<route>.

@@ -267,6 +267,64 @@ export class AbonnementsService {
     return this.findByUuid(uuid);
   }
 
+  async activerApresPaiement(
+    uuid: string,
+    params: { montant: number; reference: string; paiementId: number; prestataire: string },
+  ): Promise<Abonnement> {
+    const abonnement = await this.findByUuid(uuid);
+
+    if (abonnement.statut === StatutAbonnement.ACTIF) {
+      return abonnement;
+    }
+    if ([StatutAbonnement.ANNULE, StatutAbonnement.REMBOURSE].includes(abonnement.statut)) {
+      throw new ConflictException(`Un abonnement ${abonnement.statut} ne peut pas être activé`);
+    }
+
+    const debut = new Date();
+    const fin = new Date(debut.getTime() + abonnement.plan.duree_jours * 24 * 60 * 60 * 1000);
+
+    abonnement.statut = StatutAbonnement.ACTIF;
+    abonnement.date_debut = debut;
+    abonnement.date_fin = fin;
+    abonnement.montant_paye = params.montant;
+    abonnement.paiement_id = params.paiementId;
+    abonnement.metadata = {
+      ...(abonnement.metadata ?? {}),
+      reference_paiement: params.reference,
+      prestataire_paiement: params.prestataire,
+    };
+
+    let sauvegarde: Abonnement;
+    try {
+      sauvegarde = await this.abonnements.save(abonnement);
+    } catch (err) {
+      if (String(err?.code) === '23505') {
+        throw new ConflictException('Cet utilisateur a déjà un abonnement actif');
+      }
+      throw err;
+    }
+
+    await this.journaliser(sauvegarde.id, TypeEvenementAbonnement.PAYE, {
+      montant: params.montant,
+      reference: params.reference,
+      prestataire: params.prestataire,
+    });
+    await this.journaliser(sauvegarde.id, TypeEvenementAbonnement.ACTIVE, {
+      date_debut: debut,
+      date_fin: fin,
+    });
+
+    const commission = await this.parrainage.verserCommission(await this.findByUuid(uuid));
+    if (commission.verse) {
+      await this.journaliser(sauvegarde.id, TypeEvenementAbonnement.COMMISSION_VERSEE, {
+        parrainId: sauvegarde.parrain_id,
+        montantAbonnement: params.montant,
+      });
+    }
+
+    return this.findByUuid(uuid);
+  }
+
   /**
    * Rattrape une commission non versée.
    *
