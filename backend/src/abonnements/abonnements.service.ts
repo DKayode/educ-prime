@@ -51,28 +51,7 @@ export class AbonnementsService {
       throw new ConflictException('Vous avez déjà un abonnement actif');
     }
 
-    // Une souscription en attente est réutilisée plutôt que dupliquée : sans
-    // cela, chaque passage sur l'écran de paiement laisserait une ligne morte.
-    const enAttente = await this.abonnements.findOne({
-      where: { utilisateur_id: utilisateurId, statut: StatutAbonnement.EN_ATTENTE },
-      order: { date_creation: 'DESC' },
-    });
-    if (enAttente) {
-      enAttente.plan_id = plan.id;
-      enAttente.devise = plan.devise;
-      // Un code saisi au second passage doit être pris en compte : on libère la
-      // souscription en attente pour repartir d'une résolution propre.
-      await this.codes.libererPourAbonnement(enAttente.id);
-      await this.abonnements.update(enAttente.id, { code_id: null, montant_remise: 0 });
-      const rafraichi = await this.abonnements.save(enAttente);
-      return this.findByUuid(rafraichi.uuid);
-    }
-
     const codeSaisi = dto.code ?? dto.code_parrainage;
-
-    // Un seul code, plusieurs effets possibles : remise, commission, abonnement
-    // offert. C'est le registre qui les porte — le module abonnements se
-    // contente de les appliquer.
     const resultat = codeSaisi
       ? await this.codes.valider(codeSaisi, utilisateurId, { planId: plan.id, prix: plan.prix, pays })
       : null;
@@ -87,11 +66,62 @@ export class AbonnementsService {
     const effets = codeValide?.effets ?? {};
     const remise = effets.remise?.montant_remise ?? 0;
     const offert = !!effets.abonnement_offert;
+    const parrainId = offert ? null : effets.commission_pour ?? null;
+
+    // Une souscription en attente est réutilisée plutôt que dupliquée : sans
+    // cela, chaque passage sur l'écran de paiement laisserait une ligne morte.
+    const enAttente = await this.abonnements.findOne({
+      where: { utilisateur_id: utilisateurId, statut: StatutAbonnement.EN_ATTENTE },
+      order: { date_creation: 'DESC' },
+    });
+    if (enAttente) {
+      enAttente.plan_id = plan.id;
+      enAttente.devise = plan.devise;
+      // Un code saisi au second passage doit être pris en compte : on libère la
+      // souscription en attente pour repartir d'une résolution propre.
+      const rafraichi = await this.dataSource.transaction(async (manager) => {
+        await this.codes.libererPourAbonnement(enAttente.id, manager);
+
+        let codeRetenu = codeValide?.code ?? null;
+        if (codeRetenu) {
+          const verrou = await this.codes.verrouillerEtValider(manager, codeRetenu.id, utilisateurId);
+          if (!verrou.ok) {
+            this.logger.warn(`Code ${codeRetenu.code} indisponible : ${verrou.motif}`);
+            codeRetenu = null;
+          }
+        }
+
+        const retenu = !!codeRetenu;
+        const offertRetenu = retenu && offert;
+        const debut = offertRetenu ? new Date() : null;
+        const duree = effets.abonnement_offert?.duree_jours ?? plan.duree_jours;
+        const fin = offertRetenu ? new Date(debut!.getTime() + duree * 24 * 60 * 60 * 1000) : null;
+
+        enAttente.statut = offertRetenu ? StatutAbonnement.ACTIF : StatutAbonnement.EN_ATTENTE;
+        enAttente.date_debut = debut;
+        enAttente.date_fin = fin;
+        enAttente.parrain_id = retenu ? parrainId : null;
+        enAttente.code_id = codeRetenu?.id ?? null;
+        enAttente.montant_remise = retenu ? remise : 0;
+        enAttente.offert = offertRetenu;
+
+        const sauvegarde = await manager.getRepository(Abonnement).save(enAttente);
+        if (codeRetenu) {
+          await this.codes.enregistrerUtilisation(manager, codeRetenu.id, utilisateurId, {
+            abonnementId: sauvegarde.id,
+            montantRemise: enAttente.montant_remise,
+            pays,
+            effets,
+          });
+        }
+        return sauvegarde;
+      });
+      return this.findByUuid(rafraichi.uuid);
+    }
 
     // Le bénéficiaire est figé maintenant, pas au paiement : entre les deux, le
     // code pourrait être désactivé ou changer de propriétaire. Un abonnement
     // offert n'encaisse rien, donc ne verse aucune commission.
-    const parrainId = offert ? null : effets.commission_pour ?? null;
 
     const abonnement = await this.dataSource.transaction(async (manager) => {
       // L'ORDRE COMPTE. Le verrou sur le code se prend AVANT d'insérer

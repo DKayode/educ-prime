@@ -297,12 +297,23 @@ export class CodesService {
    */
   async enregistrerCodeParrainage(utilisateurId: number, code: string, pays = 'benin'): Promise<void> {
     try {
-      await this.dataSource.query(
-        `INSERT INTO codes (pays, code, type, proprietaire_id, usage_max_total, usage_max_par_utilisateur, est_actif)
-         VALUES ($1, $2, 'PARRAINAGE', $3, NULL, 1, true)
-         ON CONFLICT DO NOTHING`,
-        [pays, CodeValidationService.normaliser(code), utilisateurId],
-      );
+      await this.dataSource.transaction(async (manager) => {
+        const [ligne] = await manager.query(
+          `INSERT INTO codes (pays, code, origine, proprietaire_id, usage_max_total, usage_max_par_utilisateur, est_actif)
+           VALUES ($1, $2, 'INSCRIPTION', $3, NULL, 1, true)
+           ON CONFLICT DO NOTHING
+           RETURNING id`,
+          [pays, CodeValidationService.normaliser(code), utilisateurId],
+        );
+        if (ligne?.id) {
+          await manager.query(
+            `INSERT INTO code_effets (code_id, effet, parametres)
+             VALUES ($1, 'COMMISSION', NULL)
+             ON CONFLICT DO NOTHING`,
+            [ligne.id],
+          );
+        }
+      });
     } catch (err) {
       this.logger.warn(`Enregistrement du code de parrainage ${code} échoué : ${err?.message ?? err}`);
     }
