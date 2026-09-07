@@ -27,6 +27,6 @@ import { QuotaService } from './quota.service';
   imports: [TypeOrmModule.forFeature([PlanAbonnement, Abonnement, AbonnementEvenement, QuotaConsommation, ConfigurationQuota, Utilisateur])],
   controllers: [AbonnementsController, AbonnementsAdminController, EntitlementInternalController],
   providers: [AbonnementsService, PlansService, EntitlementService, QuotaService, ParrainageService, AbonnementRequisGuard],
-  exports: [EntitlementService, QuotaService, ParrainageService, AbonnementRequisGuard, AbonnementsService],
+  exports: [EntitlementService, QuotaService, ParrainageService, PlansService, AbonnementRequisGuard, AbonnementsService],
 })
 export class AbonnementsModule {}

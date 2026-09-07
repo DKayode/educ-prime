@@ -65,6 +65,20 @@ export class Abonnement {
   @Column({ type: 'boolean', default: false })
   commission_versee: boolean;
 
+  /** Code utilisé à l'achat et remise obtenue (#247). */
+  @Column({ type: 'int', nullable: true })
+  code_id: number | null;
+
+  @Column({ type: 'numeric', precision: 14, scale: 2, default: 0, transformer: { to: (v: number) => v, from: (v: string) => (v === null ? 0 : Number(v)) } })
+  montant_remise: number;
+
+  /**
+   * Ouvert par un code ABONNEMENT_OFFERT : jamais encaissé. Ne compte pas dans
+   * le chiffre d'affaires et ne déclenche aucune commission.
+   */
+  @Column({ type: 'boolean', default: false })
+  offert: boolean;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 

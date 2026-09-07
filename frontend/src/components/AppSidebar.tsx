@@ -47,6 +47,7 @@ import {
   Gauge,
   HandCoins,
   Trophy,
+  Ticket,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -138,6 +139,7 @@ const navTree: NavItem[] = [
       { title: "Quotas gratuits", icon: Gauge, url: "/admin/abonnements/quotas" },
       { title: "Commission parrainage", icon: HandCoins, url: "/admin/abonnements/commission" },
       { title: "Classement commissions", icon: Trophy, url: "/admin/abonnements/classement-commissions" },
+      { title: "Codes & réductions", icon: Ticket, url: "/admin/codes" },
     ],
   },
   {
