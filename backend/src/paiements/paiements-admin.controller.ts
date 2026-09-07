@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
+import { ConfigurerPaiementDto } from './dto/configurer-paiement.dto';
 import { ConfirmerPaiementDto } from './dto/confirmer-paiement.dto';
 import { FilterPaiementsDto } from './dto/filter-paiements.dto';
 import { RembourserPaiementDto } from './dto/rembourser-paiement.dto';
@@ -22,6 +23,18 @@ export class PaiementsAdminController {
   @ApiOperation({ summary: 'Lister les paiements entrants' })
   liste(@CurrentCountry() pays: string, @Query() filtre: FilterPaiementsDto) {
     return this.paiements.adminList(pays, filtre);
+  }
+
+  @Get('configurations')
+  @ApiOperation({ summary: 'Lister les prestataires de paiement configurés' })
+  configurations(@CurrentCountry() pays: string) {
+    return this.paiements.adminConfigurations(pays);
+  }
+
+  @Post('configurations')
+  @ApiOperation({ summary: 'Créer ou mettre à jour la configuration d’un prestataire' })
+  configurer(@CurrentCountry() pays: string, @Body() dto: ConfigurerPaiementDto) {
+    return this.paiements.configurerPrestataire(pays, dto);
   }
 
   @Post(':uuid/confirmer')
