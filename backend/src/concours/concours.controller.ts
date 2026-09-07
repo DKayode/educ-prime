@@ -95,8 +95,8 @@ export class ConcoursController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string, @Request() req) {
-    return this.concoursService.findOne(+id, req.user?.utilisateurId, req.user?.role);
+  findOne(@Param('id') id: string, @CurrentCountry() pays: string, @Request() req) {
+    return this.concoursService.findOne(+id, req.user?.utilisateurId, req.user?.role, pays);
   }
 
   @UseGuards(JwtAuthGuard, RoleGuard)

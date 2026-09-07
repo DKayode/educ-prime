@@ -27,10 +27,10 @@ export class ConcoursService {
    * Une seule interrogation de droit par requête HTTP, jamais une par ligne :
    * une liste de 50 concours ne doit pas déclencher 50 requêtes SQL.
    */
-  private async peutTelecharger(utilisateurId?: number, role?: string): Promise<boolean> {
+  private async peutTelecharger(utilisateurId?: number, role?: string, pays = 'benin'): Promise<boolean> {
     if (!utilisateurId) return false;
     // `role` vient du JWT ; le transmettre évite une requête SQL sur utilisateurs.
-    const decision = await this.entitlement.check(utilisateurId, Feature.CONCOURS_DOWNLOAD, role);
+    const decision = await this.entitlement.check(utilisateurId, Feature.CONCOURS_DOWNLOAD, role, pays);
     return decision.allowed;
   }
 
@@ -118,7 +118,7 @@ export class ConcoursService {
 
     this.logger.log(`${concours.length} concours trouvé(s) sur ${total} total`);
 
-    const verrouille = !(await this.peutTelecharger(utilisateurId, role));
+    const verrouille = !(await this.peutTelecharger(utilisateurId, role, pays));
 
     return {
       data: concours.map((c) => Object.assign(c, { verrouille })),
@@ -257,7 +257,7 @@ export class ConcoursService {
     });
 
     const data = Array.from(grouped.values());
-    const verrouille = !(await this.peutTelecharger(utilisateurId, role));
+    const verrouille = !(await this.peutTelecharger(utilisateurId, role, pays));
 
     return {
       data: data.map((groupe: any) => ({
@@ -273,7 +273,7 @@ export class ConcoursService {
     };
   }
 
-  async findOne(id: number, utilisateurId?: number, role?: string) {
+  async findOne(id: number, utilisateurId?: number, role?: string, pays = 'benin') {
     this.logger.log(`Recherche du concours ID: ${id}`);
     const concours = await this.concoursRepository.findOne({
       where: { id },
@@ -286,7 +286,7 @@ export class ConcoursService {
     }
 
     this.logger.log(`Concours trouvé: ${concours.titre} (ID: ${id})`);
-    return Object.assign(concours, { verrouille: !(await this.peutTelecharger(utilisateurId, role)) });
+    return Object.assign(concours, { verrouille: !(await this.peutTelecharger(utilisateurId, role, pays)) });
   }
 
   async findOneForDownload(id: number): Promise<{ url: string; titre: string }> {

@@ -32,7 +32,12 @@ export class AbonnementRequisGuard implements CanActivate {
     const utilisateurId = request.user?.utilisateurId;
 
     // Le rôle vient du JWT : le passer évite une requête SQL par appel gardé.
-    const decision = await this.entitlement.check(utilisateurId, feature, request.user?.role);
+    const decision = await this.entitlement.check(
+      utilisateurId,
+      feature,
+      request.user?.role,
+      request.country ?? 'benin',
+    );
     if (decision.allowed) return true;
 
     if (!this.entitlement.verrouActif) {

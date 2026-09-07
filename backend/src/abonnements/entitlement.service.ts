@@ -68,11 +68,12 @@ export class EntitlementService {
   }
 
   /** Abonnement ACTIF dont la date de fin n'est pas passée. */
-  async abonnementActif(utilisateurId: number): Promise<Abonnement | null> {
+  async abonnementActif(utilisateurId: number, pays = 'benin'): Promise<Abonnement | null> {
     if (!utilisateurId) return null;
     return this.abonnements.findOne({
       where: {
         utilisateur_id: utilisateurId,
+        pays,
         statut: StatutAbonnement.ACTIF,
         // Un ACTIF dont la date est dépassée est lu comme expiré ici ; c'est le
         // cron qui écrit le statut. Ne pas dépendre du cron pour refuser.
@@ -81,8 +82,8 @@ export class EntitlementService {
     });
   }
 
-  async hasActiveSubscription(utilisateurId: number): Promise<boolean> {
-    return (await this.abonnementActif(utilisateurId)) !== null;
+  async hasActiveSubscription(utilisateurId: number, pays = 'benin'): Promise<boolean> {
+    return (await this.abonnementActif(utilisateurId, pays)) !== null;
   }
 
   /**
@@ -110,7 +111,7 @@ export class EntitlementService {
       return { allowed: true, reason: 'ADMIN' };
     }
 
-    const abonnement = await this.abonnementActif(utilisateurId);
+    const abonnement = await this.abonnementActif(utilisateurId, pays);
     if (abonnement) {
       return {
         allowed: true,
@@ -156,7 +157,7 @@ export class EntitlementService {
       );
     }
 
-    const abonnement = await this.abonnementActif(utilisateurId);
+    const abonnement = await this.abonnementActif(utilisateurId, pays);
     if (abonnement) {
       const decision: DecisionDroit = {
         allowed: true,

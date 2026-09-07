@@ -39,8 +39,8 @@ export class AbonnementsController {
 
   @Get('mon-abonnement')
   @ApiOperation({ summary: 'Abonnement courant (actif, sinon en attente), ou null' })
-  monAbonnement(@Request() req) {
-    return this.abonnementsService.monAbonnement(req.user?.utilisateurId);
+  monAbonnement(@CurrentCountry() pays: string, @Request() req) {
+    return this.abonnementsService.monAbonnement(req.user?.utilisateurId, pays);
   }
 
   @Get('mes-abonnements')
