@@ -1,0 +1,39 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AbonnementsModule } from '../abonnements/abonnements.module';
+import { Abonnement } from '../abonnements/entities/abonnement.entity';
+import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
+import { ConfigurationPaiement } from './entities/configuration-paiement.entity';
+import { PaiementWebhook } from './entities/paiement-webhook.entity';
+import { Paiement } from './entities/paiement.entity';
+import { PaiementsAdminController } from './paiements-admin.controller';
+import { PaiementsController } from './paiements.controller';
+import { PaiementsService } from './paiements.service';
+import { FedaPayProvider } from './providers/fedapay.provider';
+import { KkiaPayProvider } from './providers/kkiapay.provider';
+import { PaiementProviderRegistry } from './providers/paiement-provider.registry';
+import { PAIEMENT_PROVIDERS } from './shared/paiement.tokens';
+import { WebhooksController } from './webhooks.controller';
+
+@Module({
+  imports: [
+    ConfigModule,
+    TypeOrmModule.forFeature([Paiement, PaiementWebhook, ConfigurationPaiement, Abonnement, Utilisateur]),
+    AbonnementsModule,
+  ],
+  controllers: [PaiementsController, PaiementsAdminController, WebhooksController],
+  providers: [
+    PaiementsService,
+    KkiaPayProvider,
+    FedaPayProvider,
+    {
+      provide: PAIEMENT_PROVIDERS,
+      useFactory: (kkia: KkiaPayProvider, feda: FedaPayProvider) => [kkia, feda],
+      inject: [KkiaPayProvider, FedaPayProvider],
+    },
+    PaiementProviderRegistry,
+  ],
+  exports: [PaiementsService],
+})
+export class PaiementsModule {}
