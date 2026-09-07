@@ -138,6 +138,7 @@ const navTree: NavItem[] = [
       { title: "Quotas gratuits", icon: Gauge, url: "/admin/abonnements/quotas" },
       { title: "Commission parrainage", icon: HandCoins, url: "/admin/abonnements/commission" },
       { title: "Classement commissions", icon: Trophy, url: "/admin/abonnements/classement-commissions" },
+      { title: "Paiements entrants", icon: CreditCard, url: "/admin/abonnements/paiements" },
     ],
   },
   {

@@ -65,6 +65,9 @@ export class Abonnement {
   @Column({ type: 'boolean', default: false })
   commission_versee: boolean;
 
+  @Column({ type: 'int', nullable: true })
+  paiement_id: number | null;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
