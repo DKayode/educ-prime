@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { AbonnementsService } from '../abonnements/abonnements.service';
+import { TypeEvenementAbonnement } from '../abonnements/entities/abonnement-evenement.entity';
 import { Abonnement, StatutAbonnement } from '../abonnements/entities/abonnement.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
@@ -14,7 +15,22 @@ import { InitierPaiementDto } from './dto/initier-paiement.dto';
 import { PaiementProviderRegistry } from './providers/paiement-provider.registry';
 import { MethodePaiement, PrestatairePaiement, StatutPaiement } from './shared/paiement.enums';
 
-const STATUTS_FINAUX = new Set([StatutPaiement.REUSSI, StatutPaiement.ECHOUE, StatutPaiement.ANNULE, StatutPaiement.EXPIRE, StatutPaiement.REMBOURSE]);
+const STATUTS_FINAUX = new Set([
+  StatutPaiement.REUSSI,
+  StatutPaiement.ECHOUE,
+  StatutPaiement.ANNULE,
+  StatutPaiement.EXPIRE,
+  StatutPaiement.REMBOURSE,
+]);
+const RANG_STATUT: Record<StatutPaiement, number> = {
+  [StatutPaiement.INITIE]: 0,
+  [StatutPaiement.EN_ATTENTE]: 1,
+  [StatutPaiement.ECHOUE]: 2,
+  [StatutPaiement.ANNULE]: 2,
+  [StatutPaiement.EXPIRE]: 2,
+  [StatutPaiement.REUSSI]: 3,
+  [StatutPaiement.REMBOURSE]: 4,
+};
 
 @Injectable()
 export class PaiementsService {
@@ -117,6 +133,62 @@ export class PaiementsService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
+  async confirmerManuellement(pays: string, uuid: string, dto: { montant?: number; reference_prestataire?: string; commentaire?: string }) {
+    const paiement = await this.paiementAdmin(pays, uuid);
+    if (paiement.statut === StatutPaiement.REMBOURSE) throw new ConflictException('Un paiement remboursé ne peut pas être confirmé');
+    if (paiement.statut === StatutPaiement.REUSSI) return paiement;
+    const montant = dto.montant ?? paiement.montant;
+    if (Number(montant) !== Number(paiement.montant)) {
+      throw new BadRequestException('Le montant confirmé ne correspond pas au montant attendu');
+    }
+    paiement.statut = StatutPaiement.REUSSI;
+    paiement.reference_prestataire = dto.reference_prestataire ?? paiement.reference_prestataire;
+    paiement.date_confirmation = new Date();
+    paiement.payload_confirmation = {
+      manuel: true,
+      commentaire: dto.commentaire ?? null,
+      reference_prestataire: dto.reference_prestataire ?? null,
+    };
+    await this.paiements.save(paiement);
+    await this.activerAbonnementPaye(paiement);
+    return this.paiementAdmin(pays, uuid);
+  }
+
+  async resynchroniser(pays: string, uuid: string) {
+    const paiement = await this.paiementAdmin(pays, uuid);
+    if (!paiement.reference_prestataire) throw new BadRequestException('Aucune référence prestataire à resynchroniser');
+    if (paiement.statut === StatutPaiement.REMBOURSE) return paiement;
+    const provider = this.providers.get(paiement.prestataire);
+    const statut = await provider.verifierStatut(paiement.reference_prestataire);
+    await this.appliquerStatutVerifie(paiement, statut.statut, statut.montant, { resynchronisation: true });
+    return this.paiementAdmin(pays, uuid);
+  }
+
+  async rembourser(pays: string, uuid: string, dto: { motif?: string }) {
+    const paiement = await this.paiementAdmin(pays, uuid);
+    if (paiement.statut !== StatutPaiement.REUSSI) {
+      throw new ConflictException('Seul un paiement réussi peut être marqué remboursé');
+    }
+    paiement.statut = StatutPaiement.REMBOURSE;
+    paiement.payload_confirmation = {
+      ...(paiement.payload_confirmation ?? {}),
+      remboursement: { motif: dto.motif ?? null, date: new Date().toISOString() },
+    };
+    await this.paiements.save(paiement);
+    if (paiement.abonnement_id) {
+      const abonnement = await this.abonnements.findOne({ where: { id: paiement.abonnement_id } });
+      if (abonnement && abonnement.statut === StatutAbonnement.ACTIF) {
+        abonnement.statut = StatutAbonnement.REMBOURSE;
+        await this.abonnements.save(abonnement);
+        await this.abonnementsService.journaliser(abonnement.id, TypeEvenementAbonnement.REMBOURSE, {
+          paiement: paiement.reference,
+          motif: dto.motif ?? null,
+        });
+      }
+    }
+    return this.paiementAdmin(pays, uuid);
+  }
+
   async recevoirWebhook(prestataire: PrestatairePaiement, rawBody: Buffer, headers: Record<string, any>, payload: unknown) {
     const provider = this.providers.get(prestataire);
     const signatureValide = provider.verifierSignature(rawBody, headers);
@@ -161,35 +233,13 @@ export class PaiementsService {
         : { prestataire, reference: evt.reference },
     });
     if (!paiement) throw new NotFoundException('Paiement introuvable');
-    if (STATUTS_FINAUX.has(paiement.statut) && paiement.statut !== StatutPaiement.REUSSI) return;
-    if (paiement.statut === StatutPaiement.REUSSI) return;
+    if (STATUTS_FINAUX.has(paiement.statut)) return;
 
     const statutVerifie = paiement.reference_prestataire
       ? await provider.verifierStatut(paiement.reference_prestataire)
       : { statut: evt.statut, montant: evt.montant, devise: evt.devise };
-    if (Number(statutVerifie.montant) !== Number(paiement.montant)) {
-      throw new BadRequestException('Montant vérifié différent du montant attendu');
-    }
-
-    paiement.payload_confirmation = payload as any;
-    paiement.statut = statutVerifie.statut;
     paiement.methode = evt.methode ?? paiement.methode;
-    if (statutVerifie.statut === StatutPaiement.REUSSI) {
-      paiement.date_confirmation = new Date();
-    }
-    await this.paiements.save(paiement);
-
-    if (paiement.statut === StatutPaiement.REUSSI && paiement.abonnement_id) {
-      const abonnement = await this.abonnements.findOne({ where: { id: paiement.abonnement_id } });
-      if (abonnement) {
-        await this.abonnementsService.activerApresPaiement(abonnement.uuid, {
-          montant: paiement.montant,
-          reference: paiement.reference,
-          paiementId: paiement.id,
-          prestataire,
-        });
-      }
-    }
+    await this.appliquerStatutVerifie(paiement, statutVerifie.statut, statutVerifie.montant, payload as any);
 
     await this.webhooks.update(webhookId, { traite: true });
   }
@@ -213,19 +263,8 @@ export class PaiementsService {
         if (!paiement.reference_prestataire) continue;
         const provider = this.providers.get(paiement.prestataire);
         const statut = await provider.verifierStatut(paiement.reference_prestataire);
-        if (statut.statut === StatutPaiement.REUSSI) {
-          paiement.statut = StatutPaiement.REUSSI;
-          paiement.date_confirmation = new Date();
-          await this.paiements.save(paiement);
-          const abonnement = await this.abonnements.findOne({ where: { id: paiement.abonnement_id ?? 0 } });
-          if (abonnement) {
-            await this.abonnementsService.activerApresPaiement(abonnement.uuid, {
-              montant: paiement.montant,
-              reference: paiement.reference,
-              paiementId: paiement.id,
-              prestataire: paiement.prestataire,
-            });
-          }
+        if (statut.statut !== StatutPaiement.EN_ATTENTE) {
+          await this.appliquerStatutVerifie(paiement, statut.statut, statut.montant, { reconciliation: true });
           traites++;
         }
       } catch (err) {
@@ -245,5 +284,45 @@ export class PaiementsService {
   private verifierPlafonds(config: ConfigurationPaiement, montant: number) {
     if (config.montant_min != null && montant < config.montant_min) throw new BadRequestException('Montant inférieur au minimum autorisé');
     if (config.montant_max != null && montant > config.montant_max) throw new BadRequestException('Montant supérieur au maximum autorisé');
+  }
+
+  private async paiementAdmin(pays: string, uuid: string) {
+    const paiement = await this.paiements.findOne({ where: { pays, uuid } });
+    if (!paiement) throw new NotFoundException('Paiement introuvable');
+    return paiement;
+  }
+
+  private async appliquerStatutVerifie(
+    paiement: Paiement,
+    statut: StatutPaiement,
+    montant: number,
+    payload: Record<string, unknown>,
+  ) {
+    if (Number(montant) !== Number(paiement.montant)) {
+      throw new BadRequestException('Montant vérifié différent du montant attendu');
+    }
+    if (RANG_STATUT[statut] < RANG_STATUT[paiement.statut]) {
+      this.logger.warn(`Transition ignorée pour ${paiement.uuid}: ${paiement.statut} -> ${statut}`);
+      return;
+    }
+    if (STATUTS_FINAUX.has(paiement.statut)) return;
+
+    paiement.payload_confirmation = payload;
+    paiement.statut = statut;
+    if (statut === StatutPaiement.REUSSI) paiement.date_confirmation = new Date();
+    await this.paiements.save(paiement);
+    if (statut === StatutPaiement.REUSSI) await this.activerAbonnementPaye(paiement);
+  }
+
+  private async activerAbonnementPaye(paiement: Paiement) {
+    if (!paiement.abonnement_id) return;
+    const abonnement = await this.abonnements.findOne({ where: { id: paiement.abonnement_id } });
+    if (!abonnement) return;
+    await this.abonnementsService.activerApresPaiement(abonnement.uuid, {
+      montant: paiement.montant,
+      reference: paiement.reference,
+      paiementId: paiement.id,
+      prestataire: paiement.prestataire,
+    });
   }
 }
