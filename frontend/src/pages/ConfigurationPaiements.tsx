@@ -80,7 +80,7 @@ export default function ConfigurationPaiements() {
       queryClient.invalidateQueries({ queryKey: ["paiements-configurations"] });
       toast({ title: "Configuration enregistrée", description: "Le prestataire est prêt pour les prochains paiements." });
     },
-    onError: (error: any) => toast({ title: "Erreur", description: error?.message || "Enregistrement impossible", variant: "destructive" }),
+    onError: (error: unknown) => toast({ title: "Erreur", description: messageErreur(error), variant: "destructive" }),
   });
 
   const save = () => {
@@ -218,4 +218,8 @@ function fromConfig(config: ConfigurationPaiement): Draft {
     est_actif: config.est_actif,
     credentials: {},
   };
+}
+
+function messageErreur(error: unknown): string {
+  return error instanceof Error ? error.message : "Enregistrement impossible";
 }
