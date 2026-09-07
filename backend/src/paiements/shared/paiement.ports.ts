@@ -8,6 +8,7 @@ export interface InitierPaiementCommande {
   urlRetour: string;
   urlWebhook: string;
   metadata?: Record<string, unknown>;
+  credentials?: Record<string, string>;
 }
 
 export interface ResultatInitiationPaiement {
@@ -30,7 +31,7 @@ export interface EvenementPaiementParse {
 export interface PaiementProviderPort {
   readonly code: PrestatairePaiement;
   initier(cmd: InitierPaiementCommande): Promise<ResultatInitiationPaiement>;
-  verifierSignature(rawBody: Buffer, headers: Record<string, string | string[] | undefined>): boolean;
+  verifierSignature(rawBody: Buffer, headers: Record<string, string | string[] | undefined>, credentials?: Record<string, string>): boolean;
   parserWebhook(payload: unknown): EvenementPaiementParse;
-  verifierStatut(referencePrestataire: string): Promise<{ statut: StatutPaiement; montant: number; devise?: string }>;
+  verifierStatut(referencePrestataire: string, credentials?: Record<string, string>): Promise<{ statut: StatutPaiement; montant: number; devise?: string }>;
 }

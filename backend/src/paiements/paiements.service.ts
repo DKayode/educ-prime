@@ -12,8 +12,9 @@ import { PaiementWebhook } from './entities/paiement-webhook.entity';
 import { Paiement } from './entities/paiement.entity';
 import { FilterPaiementsDto } from './dto/filter-paiements.dto';
 import { InitierPaiementDto } from './dto/initier-paiement.dto';
+import { PaiementCredentialsService } from './paiement-credentials.service';
 import { PaiementProviderRegistry } from './providers/paiement-provider.registry';
-import { MethodePaiement, PrestatairePaiement, StatutPaiement } from './shared/paiement.enums';
+import { MethodePaiement, ModePaiement, PrestatairePaiement, StatutPaiement } from './shared/paiement.enums';
 
 const STATUTS_FINAUX = new Set([
   StatutPaiement.REUSSI,
@@ -44,6 +45,7 @@ export class PaiementsService {
     @InjectRepository(Utilisateur) private readonly utilisateurs: Repository<Utilisateur>,
     private readonly providers: PaiementProviderRegistry,
     private readonly abonnementsService: AbonnementsService,
+    private readonly credentials: PaiementCredentialsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -92,6 +94,7 @@ export class PaiementsService {
       urlRetour: retour,
       urlWebhook: `${baseUrl}/paiements/webhooks/${config.prestataire.toLowerCase()}`,
       metadata: { paiementUuid: paiement.uuid, abonnementUuid: abonnement.uuid },
+      credentials: this.credentials.decrypt(config.credentials_chiffres),
     });
 
     paiement.statut = StatutPaiement.EN_ATTENTE;
@@ -133,6 +136,47 @@ export class PaiementsService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
+  async adminConfigurations(pays: string) {
+    const configs = await this.configurations.find({ where: { pays }, order: { prestataire: 'ASC' } });
+    return configs.map((config) => this.configurationPublique(config));
+  }
+
+  async configurerPrestataire(
+    pays: string,
+    dto: {
+      prestataire: PrestatairePaiement;
+      mode?: ModePaiement;
+      devise?: string;
+      montant_min?: number;
+      montant_max?: number;
+      est_actif?: boolean;
+      credentials?: Record<string, string>;
+    },
+  ) {
+    const existante = await this.configurations.findOne({ where: { pays, prestataire: dto.prestataire } });
+    const config = existante ?? this.configurations.create({ pays, prestataire: dto.prestataire });
+    config.mode = dto.mode ?? config.mode ?? ModePaiement.SANDBOX;
+    config.devise = dto.devise ?? config.devise ?? 'XOF';
+    config.montant_min = dto.montant_min ?? config.montant_min ?? null;
+    config.montant_max = dto.montant_max ?? config.montant_max ?? null;
+    config.est_actif = dto.est_actif ?? config.est_actif ?? false;
+
+    if (dto.credentials && Object.keys(dto.credentials).length > 0) {
+      const existants = this.credentials.decrypt(config.credentials_chiffres);
+      const fusion = { ...existants, ...dto.credentials };
+      config.credentials_chiffres = this.credentials.encrypt(fusion);
+      config.credentials_masquees = this.credentials.mask(fusion);
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      if (config.est_actif) {
+        await manager.getRepository(ConfigurationPaiement).update({ pays, est_actif: true }, { est_actif: false });
+      }
+      const sauvegarde = await manager.getRepository(ConfigurationPaiement).save(config);
+      return this.configurationPublique(sauvegarde);
+    });
+  }
+
   async confirmerManuellement(pays: string, uuid: string, dto: { montant?: number; reference_prestataire?: string; commentaire?: string }) {
     const paiement = await this.paiementAdmin(pays, uuid);
     if (paiement.statut === StatutPaiement.REMBOURSE) throw new ConflictException('Un paiement remboursé ne peut pas être confirmé');
@@ -158,8 +202,9 @@ export class PaiementsService {
     const paiement = await this.paiementAdmin(pays, uuid);
     if (!paiement.reference_prestataire) throw new BadRequestException('Aucune référence prestataire à resynchroniser');
     if (paiement.statut === StatutPaiement.REMBOURSE) return paiement;
+    const config = await this.configurations.findOne({ where: { pays, prestataire: paiement.prestataire } });
     const provider = this.providers.get(paiement.prestataire);
-    const statut = await provider.verifierStatut(paiement.reference_prestataire);
+    const statut = await provider.verifierStatut(paiement.reference_prestataire, this.credentials.decrypt(config?.credentials_chiffres));
     await this.appliquerStatutVerifie(paiement, statut.statut, statut.montant, { resynchronisation: true });
     return this.paiementAdmin(pays, uuid);
   }
@@ -191,7 +236,10 @@ export class PaiementsService {
 
   async recevoirWebhook(prestataire: PrestatairePaiement, rawBody: Buffer, headers: Record<string, any>, payload: unknown) {
     const provider = this.providers.get(prestataire);
-    const signatureValide = provider.verifierSignature(rawBody, headers);
+    const configs = await this.configurations.find({ where: { prestataire, est_actif: true } });
+    const signatureValide = configs.length > 0
+      ? configs.some((config) => provider.verifierSignature(rawBody, headers, this.credentials.decrypt(config.credentials_chiffres)))
+      : provider.verifierSignature(rawBody, headers);
     let evenementId = `${prestataire}-${Date.now()}`;
     try {
       evenementId = provider.parserWebhook(payload).evenementId;
@@ -235,8 +283,9 @@ export class PaiementsService {
     if (!paiement) throw new NotFoundException('Paiement introuvable');
     if (STATUTS_FINAUX.has(paiement.statut)) return;
 
+    const config = await this.configurations.findOne({ where: { pays: paiement.pays, prestataire: paiement.prestataire } });
     const statutVerifie = paiement.reference_prestataire
-      ? await provider.verifierStatut(paiement.reference_prestataire)
+      ? await provider.verifierStatut(paiement.reference_prestataire, this.credentials.decrypt(config?.credentials_chiffres))
       : { statut: evt.statut, montant: evt.montant, devise: evt.devise };
     paiement.methode = evt.methode ?? paiement.methode;
     await this.appliquerStatutVerifie(paiement, statutVerifie.statut, statutVerifie.montant, payload as any);
@@ -261,8 +310,9 @@ export class PaiementsService {
           continue;
         }
         if (!paiement.reference_prestataire) continue;
+        const config = await this.configurations.findOne({ where: { pays: paiement.pays, prestataire: paiement.prestataire } });
         const provider = this.providers.get(paiement.prestataire);
-        const statut = await provider.verifierStatut(paiement.reference_prestataire);
+        const statut = await provider.verifierStatut(paiement.reference_prestataire, this.credentials.decrypt(config?.credentials_chiffres));
         if (statut.statut !== StatutPaiement.EN_ATTENTE) {
           await this.appliquerStatutVerifie(paiement, statut.statut, statut.montant, { reconciliation: true });
           traites++;
@@ -284,6 +334,12 @@ export class PaiementsService {
   private verifierPlafonds(config: ConfigurationPaiement, montant: number) {
     if (config.montant_min != null && montant < config.montant_min) throw new BadRequestException('Montant inférieur au minimum autorisé');
     if (config.montant_max != null && montant > config.montant_max) throw new BadRequestException('Montant supérieur au maximum autorisé');
+  }
+
+  private configurationPublique(config: ConfigurationPaiement) {
+    const { credentials_chiffres, ...publique } = config;
+    void credentials_chiffres;
+    return publique;
   }
 
   private async paiementAdmin(pays: string, uuid: string) {

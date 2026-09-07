@@ -31,6 +31,12 @@ export class ConfigurationPaiement {
   @Column({ type: 'boolean', default: true })
   est_actif: boolean;
 
+  @Column({ type: 'jsonb', nullable: true })
+  credentials_chiffres: Record<string, string> | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  credentials_masquees: Record<string, string> | null;
+
   @CreateDateColumn({ name: 'date_creation', type: 'timestamptz' })
   date_creation: Date;
 

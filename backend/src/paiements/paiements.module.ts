@@ -9,6 +9,7 @@ import { PaiementWebhook } from './entities/paiement-webhook.entity';
 import { Paiement } from './entities/paiement.entity';
 import { PaiementsAdminController } from './paiements-admin.controller';
 import { PaiementsController } from './paiements.controller';
+import { PaiementCredentialsService } from './paiement-credentials.service';
 import { PaiementsService } from './paiements.service';
 import { FedaPayProvider } from './providers/fedapay.provider';
 import { KkiaPayProvider } from './providers/kkiapay.provider';
@@ -25,6 +26,7 @@ import { WebhooksController } from './webhooks.controller';
   controllers: [PaiementsController, PaiementsAdminController, WebhooksController],
   providers: [
     PaiementsService,
+    PaiementCredentialsService,
     KkiaPayProvider,
     FedaPayProvider,
     {

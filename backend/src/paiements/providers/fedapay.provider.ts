@@ -13,6 +13,7 @@ export class FedaPayProvider extends BaseHttpPaiementProvider implements Paiemen
   }
 
   async initier(cmd: InitierPaiementCommande) {
+    const credentials = cmd.credentials ?? {};
     const baseUrl = this.config.get<string>('FEDAPAY_API_BASE_URL') ?? 'https://api.fedapay.com/v1';
     const payload = {
       description: `Abonnement Edukia ${cmd.reference}`,
@@ -24,7 +25,7 @@ export class FedaPayProvider extends BaseHttpPaiementProvider implements Paiemen
       metadata: { ...cmd.metadata, reference: cmd.reference },
     };
     const reponse = await this.postJson(`${baseUrl}/transactions`, payload, {
-      Authorization: `Bearer ${this.config.get<string>('FEDAPAY_SECRET_KEY') ?? ''}`,
+      Authorization: `Bearer ${credentials.secret_key ?? this.config.get<string>('FEDAPAY_SECRET_KEY') ?? ''}`,
     });
     const data = reponse?.transaction ?? reponse?.data ?? reponse;
     return {
@@ -35,18 +36,18 @@ export class FedaPayProvider extends BaseHttpPaiementProvider implements Paiemen
     };
   }
 
-  verifierSignature(rawBody: Buffer, headers: Record<string, string | string[] | undefined>): boolean {
-    return this.hmacValide(rawBody, this.lire(headers, 'x-fedapay-signature'), this.config.get<string>('FEDAPAY_WEBHOOK_SECRET'));
+  verifierSignature(rawBody: Buffer, headers: Record<string, string | string[] | undefined>, credentials?: Record<string, string>): boolean {
+    return this.hmacValide(rawBody, this.lire(headers, 'x-fedapay-signature'), credentials?.webhook_secret ?? this.config.get<string>('FEDAPAY_WEBHOOK_SECRET'));
   }
 
   parserWebhook(payload: unknown) {
     return this.evenementGenerique(payload);
   }
 
-  async verifierStatut(referencePrestataire: string) {
+  async verifierStatut(referencePrestataire: string, credentials?: Record<string, string>) {
     const baseUrl = this.config.get<string>('FEDAPAY_API_BASE_URL') ?? 'https://api.fedapay.com/v1';
     const reponse = await this.getJson(`${baseUrl}/transactions/${referencePrestataire}`, {
-      Authorization: `Bearer ${this.config.get<string>('FEDAPAY_SECRET_KEY') ?? ''}`,
+      Authorization: `Bearer ${credentials?.secret_key ?? this.config.get<string>('FEDAPAY_SECRET_KEY') ?? ''}`,
     });
     const data = reponse?.transaction ?? reponse?.data ?? reponse;
     return { statut: this.statutDepuis(data?.status), montant: Number(data?.amount ?? 0), devise: data?.currency?.iso ?? data?.currency ?? 'XOF' };
