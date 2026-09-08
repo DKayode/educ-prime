@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Users,
@@ -42,6 +43,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { kpiService, type KpiResponse, type ModuleAudience } from "@/lib/services/kpi.service";
 
@@ -300,9 +302,129 @@ function CarteModule({ module, maxVues }: { module: ModuleAudience; maxVues: num
   );
 }
 
-function SectionsModules({ data }: { data: KpiResponse }) {
+
+/* ── Sections ─────────────────────────────────────────────────────────────
+ * Une par domaine d'indicateurs. Elles sont extraites plutôt qu'imbriquées
+ * pour que chaque onglet n'ait qu'à nommer la sienne, et pour qu'ajouter un
+ * domaine reste une ligne dans ONGLETS.
+ */
+
+function SectionPopulation({ data }: { data: KpiResponse }) {
+  return (
+    <>
+    {/* Section — Utilisateurs */}
+    <section className="space-y-4">
+      <SectionHeader
+        icon={Users}
+        title="Utilisateurs"
+        description="Population totale inscrite sur la période"
+        accent="primary"
+      />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total inscrits" value={data.utilisateurs.total} icon={Users} accent="primary" />
+        <StatCard label="Âgés de 35 ans ou moins" value={data.utilisateurs.age_35_max} icon={Cake} accent="sky" base={data.utilisateurs.total} />
+        <StatCard label="Femmes" value={data.utilisateurs.femmes} icon={UserCircle} accent="rose" base={data.utilisateurs.total} />
+        <StatCard label="Femmes de 35 ans ou moins" value={data.utilisateurs.femmes_35_max} icon={UserCircle} accent="rose" base={data.utilisateurs.total} />
+        <StatCard label="En zone rurale" value={data.utilisateurs.zone_rurale} icon={MapPin} accent="emerald" base={data.utilisateurs.total} />
+        <StatCard label="En situation de handicap" value={data.utilisateurs.situation_handicap} icon={Accessibility} accent="amber" base={data.utilisateurs.total} />
+        <StatCard label="Connectés sur la période" value={data.utilisateurs.connectes} icon={LogIn} accent="emerald" base={data.utilisateurs.total} baseLabel="taux de connexion" />
+      </div>
+    </section>
+
+    {/* Section — Apprenants */}
+    <section className="space-y-4">
+      <SectionHeader
+        icon={GraduationCap}
+        title="Apprenants"
+        description="Inscription — utilisateurs au rôle étudiant"
+        accent="violet"
+      />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Apprenants inscrits" value={data.apprenants.total} icon={UserCheck} accent="violet" />
+        <StatCard label="Âgés de 35 ans ou moins" value={data.apprenants.age_35_max} icon={Cake} accent="sky" base={data.apprenants.total} />
+        <StatCard label="Femmes de 35 ans ou moins" value={data.apprenants.age_35_max_femmes} icon={UserCircle} accent="rose" base={data.apprenants.total} />
+        <StatCard label="Femmes" value={data.apprenants.femmes} icon={UserCircle} accent="rose" base={data.apprenants.total} />
+        <StatCard label="En zone rurale" value={data.apprenants.zone_rurale} icon={MapPin} accent="emerald" base={data.apprenants.total} />
+        <StatCard label="En situation de handicap" value={data.apprenants.situation_handicap} icon={Accessibility} accent="amber" base={data.apprenants.total} />
+      </div>
+    </section>
+    </>
+  );
+}
+
+function SectionEngagement({ data }: { data: KpiResponse }) {
+  return (
+    <>
+    {/* Section — Engagement */}
+    <section className="space-y-4">
+      <SectionHeader
+        icon={Activity}
+        title="Engagement"
+        description="Connexion & consultation de ressources par les apprenants"
+        accent="amber"
+      />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Apprenants connectés sur la période"
+          value={data.engagement.apprenants_connectes}
+          icon={LogIn}
+          accent="emerald"
+          base={data.apprenants.total}
+          baseLabel="des apprenants"
+        />
+      </div>
+
+      <Card className="shadow-sm">
+        <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+          <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600">
+            <TrendingUp className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle className="text-base">
+              Apprenants ayant consulté une ressource
+            </CardTitle>
+            <CardDescription>
+              Épreuve ou concours — apprenants distincts, fenêtres glissantes
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-3">
+          {[
+            { label: "Dernière semaine", value: data.engagement.apprenants_ressource.semaine },
+            { label: "Dernières 2 semaines", value: data.engagement.apprenants_ressource.deux_semaines },
+            { label: "Dernier mois", value: data.engagement.apprenants_ressource.mois },
+          ].map((w) => {
+            const pct =
+              data.apprenants.total > 0
+                ? Math.min(100, Math.round((w.value / data.apprenants.total) * 100))
+                : null;
+            return (
+              <div key={w.label} className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-sm font-medium text-muted-foreground">{w.label}</p>
+                <p className="mt-1.5 text-3xl font-bold tabular-nums text-card-foreground">
+                  {nf(w.value)}
+                </p>
+                {pct !== null && (
+                  <div className="mt-3 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>des apprenants</span>
+                      <span className="font-semibold text-foreground">{pct}%</span>
+                    </div>
+                    <Progress value={pct} className="h-1.5" />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+    </section>
+    </>
+  );
+}
+
+function SectionAudience({ data }: { data: KpiResponse }) {
   const maxVues = Math.max(1, ...data.audience.modules.map((m) => m.vues));
-  const publiesParType = new Map(data.contenu.map((c) => [c.type, c]));
 
   return (
     <>
@@ -341,6 +463,13 @@ function SectionsModules({ data }: { data: KpiResponse }) {
         </div>
       </section>
 
+    </>
+  );
+}
+
+function SectionContenu({ data }: { data: KpiResponse }) {
+  return (
+    <>
       {/* Section — Offre de contenu */}
       <section className="space-y-4">
         <SectionHeader
@@ -369,6 +498,13 @@ function SectionsModules({ data }: { data: KpiResponse }) {
         </div>
       </section>
 
+    </>
+  );
+}
+
+function SectionCommunaute({ data }: { data: KpiResponse }) {
+  return (
+    <>
       {/* Section — Communauté */}
       <section className="space-y-4">
         <SectionHeader
@@ -386,6 +522,13 @@ function SectionsModules({ data }: { data: KpiResponse }) {
         </div>
       </section>
 
+    </>
+  );
+}
+
+function SectionJobKia({ data }: { data: KpiResponse }) {
+  return (
+    <>
       {/* Section — JobKia */}
       <section className="space-y-4">
         <SectionHeader
@@ -417,6 +560,13 @@ function SectionsModules({ data }: { data: KpiResponse }) {
         </div>
       </section>
 
+    </>
+  );
+}
+
+function SectionCroissance({ data }: { data: KpiResponse }) {
+  return (
+    <>
       {/* Section — Croissance */}
       <section className="space-y-4">
         <SectionHeader
@@ -527,9 +677,45 @@ function SectionsModules({ data }: { data: KpiResponse }) {
   );
 }
 
+/**
+ * Les onglets de la page. L'ordre va du reporting bailleur — la démographie
+ * d'inscription, qui existait seule jusqu'ici — vers ce que les gens font une
+ * fois entrés, puis vers les chiffres de croissance.
+ *
+ * `cle` sert d'ancre dans l'URL : un rapport peut ainsi pointer un domaine
+ * précis plutôt que le haut d'une page de huit sections.
+ */
+const ONGLETS: {
+  cle: string;
+  titre: string;
+  icone: LucideIcon;
+  rendu: (data: KpiResponse) => JSX.Element;
+}[] = [
+  { cle: "population",  titre: "Population",  icone: Users,          rendu: (d) => <SectionPopulation data={d} /> },
+  { cle: "engagement",  titre: "Engagement",  icone: Activity,       rendu: (d) => <SectionEngagement data={d} /> },
+  { cle: "modules",     titre: "Modules",     icone: Eye,            rendu: (d) => (
+      <>
+        <SectionAudience data={d} />
+        <SectionContenu data={d} />
+      </>
+    ) },
+  { cle: "communaute",  titre: "Communauté",  icone: MessagesSquare, rendu: (d) => <SectionCommunaute data={d} /> },
+  { cle: "jobkia",      titre: "JobKia",      icone: Briefcase,      rendu: (d) => <SectionJobKia data={d} /> },
+  { cle: "croissance",  titre: "Croissance",  icone: TrendingUp,     rendu: (d) => <SectionCroissance data={d} /> },
+];
+
 export default function Indicateurs() {
   const [startDate, setStartDate] = useState(defaultStart);
   const [endDate, setEndDate] = useState(defaultEnd);
+
+  // L'onglet vit dans l'URL plutôt que dans un état local : un lien vers
+  // « ?section=croissance » ouvre directement le bon domaine, et un retour
+  // arrière du navigateur revient là où l'on était.
+  const [params, setParams] = useSearchParams();
+  const ongletDemande = params.get("section");
+  const onglet = ONGLETS.some((o) => o.cle === ongletDemande)
+    ? (ongletDemande as string)
+    : ONGLETS[0].cle;
 
   const country = localStorage.getItem("country") || "benin";
   const countryLabel = country.charAt(0).toUpperCase() + country.slice(1);
@@ -633,7 +819,7 @@ export default function Indicateurs() {
           <CardSkeletonGrid count={7} />
         </div>
       ) : data ? (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {/* Hero summary strip */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <HeroTile
@@ -666,109 +852,39 @@ export default function Indicateurs() {
             />
           </div>
 
-          {/* Section — Utilisateurs */}
-          <section className="space-y-4">
-            <SectionHeader
-              icon={Users}
-              title="Utilisateurs"
-              description="Population totale inscrite sur la période"
-              accent="primary"
-            />
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard label="Total inscrits" value={data.utilisateurs.total} icon={Users} accent="primary" />
-              <StatCard label="Âgés de 35 ans ou moins" value={data.utilisateurs.age_35_max} icon={Cake} accent="sky" base={data.utilisateurs.total} />
-              <StatCard label="Femmes" value={data.utilisateurs.femmes} icon={UserCircle} accent="rose" base={data.utilisateurs.total} />
-              <StatCard label="Femmes de 35 ans ou moins" value={data.utilisateurs.femmes_35_max} icon={UserCircle} accent="rose" base={data.utilisateurs.total} />
-              <StatCard label="En zone rurale" value={data.utilisateurs.zone_rurale} icon={MapPin} accent="emerald" base={data.utilisateurs.total} />
-              <StatCard label="En situation de handicap" value={data.utilisateurs.situation_handicap} icon={Accessibility} accent="amber" base={data.utilisateurs.total} />
-              <StatCard label="Connectés sur la période" value={data.utilisateurs.connectes} icon={LogIn} accent="emerald" base={data.utilisateurs.total} baseLabel="taux de connexion" />
-            </div>
-          </section>
+          {/* Le bandeau ci-dessus reste visible quel que soit l'onglet : ce sont
+              les quatre chiffres qu'on ne veut pas avoir à retrouver. */}
+          <Tabs
+            value={onglet}
+            onValueChange={(v) =>
+              setParams(
+                (p) => {
+                  p.set("section", v);
+                  return p;
+                },
+                { replace: true },
+              )
+            }
+            className="space-y-6"
+          >
+            <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
+              {ONGLETS.map((o) => {
+                const Icone = o.icone;
+                return (
+                  <TabsTrigger key={o.cle} value={o.cle} className="gap-2">
+                    <Icone className="h-4 w-4" />
+                    {o.titre}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
 
-          {/* Section — Apprenants */}
-          <section className="space-y-4">
-            <SectionHeader
-              icon={GraduationCap}
-              title="Apprenants"
-              description="Inscription — utilisateurs au rôle étudiant"
-              accent="violet"
-            />
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard label="Apprenants inscrits" value={data.apprenants.total} icon={UserCheck} accent="violet" />
-              <StatCard label="Âgés de 35 ans ou moins" value={data.apprenants.age_35_max} icon={Cake} accent="sky" base={data.apprenants.total} />
-              <StatCard label="Femmes de 35 ans ou moins" value={data.apprenants.age_35_max_femmes} icon={UserCircle} accent="rose" base={data.apprenants.total} />
-              <StatCard label="Femmes" value={data.apprenants.femmes} icon={UserCircle} accent="rose" base={data.apprenants.total} />
-              <StatCard label="En zone rurale" value={data.apprenants.zone_rurale} icon={MapPin} accent="emerald" base={data.apprenants.total} />
-              <StatCard label="En situation de handicap" value={data.apprenants.situation_handicap} icon={Accessibility} accent="amber" base={data.apprenants.total} />
-            </div>
-          </section>
-
-          {/* Section — Engagement */}
-          <section className="space-y-4">
-            <SectionHeader
-              icon={Activity}
-              title="Engagement"
-              description="Connexion & consultation de ressources par les apprenants"
-              accent="amber"
-            />
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard
-                label="Apprenants connectés sur la période"
-                value={data.engagement.apprenants_connectes}
-                icon={LogIn}
-                accent="emerald"
-                base={data.apprenants.total}
-                baseLabel="des apprenants"
-              />
-            </div>
-
-            <Card className="shadow-sm">
-              <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-                <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600">
-                  <TrendingUp className="h-5 w-5" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">
-                    Apprenants ayant consulté une ressource
-                  </CardTitle>
-                  <CardDescription>
-                    Épreuve ou concours — apprenants distincts, fenêtres glissantes
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-3">
-                {[
-                  { label: "Dernière semaine", value: data.engagement.apprenants_ressource.semaine },
-                  { label: "Dernières 2 semaines", value: data.engagement.apprenants_ressource.deux_semaines },
-                  { label: "Dernier mois", value: data.engagement.apprenants_ressource.mois },
-                ].map((w) => {
-                  const pct =
-                    data.apprenants.total > 0
-                      ? Math.min(100, Math.round((w.value / data.apprenants.total) * 100))
-                      : null;
-                  return (
-                    <div key={w.label} className="rounded-lg border bg-muted/30 p-4">
-                      <p className="text-sm font-medium text-muted-foreground">{w.label}</p>
-                      <p className="mt-1.5 text-3xl font-bold tabular-nums text-card-foreground">
-                        {nf(w.value)}
-                      </p>
-                      {pct !== null && (
-                        <div className="mt-3 space-y-1.5">
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>des apprenants</span>
-                            <span className="font-semibold text-foreground">{pct}%</span>
-                          </div>
-                          <Progress value={pct} className="h-1.5" />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          </section>
-
-          <SectionsModules data={data} />
+            {ONGLETS.map((o) => (
+              <TabsContent key={o.cle} value={o.cle} className="space-y-8">
+                {o.rendu(data)}
+              </TabsContent>
+            ))}
+          </Tabs>
         </div>
       ) : null}
     </div>
