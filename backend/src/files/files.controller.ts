@@ -17,7 +17,7 @@ import { UploadUrlRequestDto } from './dto/upload-url.dto';
 import { FILE_FIELD_REGISTRY } from './registry';
 import { EntitlementService, Feature } from '../abonnements/entitlement.service';
 import { QuotaService } from '../abonnements/quota.service';
-import { QuotaDepasseException } from '../abonnements/quota.guard';
+import { ProfilIncompletException, QuotaDepasseException } from '../abonnements/quota.guard';
 import { FeatureQuota } from '../abonnements/entities/quota-consommation.entity';
 import { ResourceAccessService } from '../resource-access/resource-access.service';
 
@@ -233,6 +233,18 @@ export class FilesController {
         const pays = req?.country ?? 'benin';
         const feature = type === 'epreuve' ? Feature.EPREUVE_VIEW : Feature.EXAMEN_NAT_VIEW;
         const decision = await this.entitlement.check(utilisateurId, feature, req?.user?.role, pays);
+        // Profil incomplet : refuser sans consommer, comme sur les épreuves.
+        if (decision.reason === 'PROFIL_INCOMPLET') {
+            if (!this.entitlement.verrouActif) {
+                this.logger.warn(
+                    `[verrou éteint] profil incomplet — utilisateur=${utilisateurId} ${entity}/${uuid} ` +
+                    `(${decision.quota?.used}/${decision.quota?.limit} %)`,
+                );
+                return;
+            }
+            throw new ProfilIncompletException(feature, decision);
+        }
+
         // Voir EpreuvesController : pas de `quota` sur une décision autorisée
         // signifie qu'aucun plafond ne s'applique.
         if (decision.allowed && !decision.quota) return;

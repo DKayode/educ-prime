@@ -222,14 +222,15 @@ describe('QuotaService', () => {
 });
 
 describe('EntitlementService — quotas', () => {
-  let abonnements: any, utilisateurs: any, config: any, quotas: QuotaService, service: EntitlementService;
+  let abonnements: any, utilisateurs: any, config: any, quotas: QuotaService, profils: any, service: EntitlementService;
 
   beforeEach(() => {
     abonnements = { findOne: jest.fn().mockResolvedValue(null), find: jest.fn().mockResolvedValue([]) };
     utilisateurs = { findOne: jest.fn().mockResolvedValue({ id: 1, role: RoleType.ETUDIANT }) };
     config = { get: jest.fn().mockReturnValue('true') };
     quotas = new QuotaService(depotEnMemoire() as any, depotConfig() as any);
-    service = new EntitlementService(abonnements, utilisateurs, config, quotas);
+    profils = { estConforme: jest.fn().mockResolvedValue({ conforme: true, pourcentage: 100, seuil: 95, actif: false }) };
+    service = new EntitlementService(abonnements, utilisateurs, config, quotas, profils);
   });
 
   it('autorise une épreuve sur le quota gratuit', async () => {
@@ -268,10 +269,57 @@ describe('EntitlementService — quotas', () => {
       depotEnMemoire() as any,
       depotConfig([{ feature: 'RESOURCE_VIEW', est_actif: false }]) as any,
     );
-    service = new EntitlementService(abonnements, utilisateurs, config, quotas);
+    profils = { estConforme: jest.fn().mockResolvedValue({ conforme: true, pourcentage: 100, seuil: 95, actif: false }) };
+    service = new EntitlementService(abonnements, utilisateurs, config, quotas, profils);
     const droits = await service.mesDroits(1, RoleType.ETUDIANT);
     expect(droits[Feature.EPREUVE_VIEW]).toMatchObject({ allowed: true, reason: 'FREE_QUOTA' });
     expect(droits[Feature.EPREUVE_VIEW].quota).toBeUndefined();
+  });
+
+  describe('profil incomplet (#259)', () => {
+    const profilRefuse = () =>
+      profils.estConforme.mockResolvedValue({ conforme: false, pourcentage: 35, seuil: 95, actif: true });
+
+    it('refuse une épreuve, avec le pourcentage atteint', async () => {
+      profilRefuse();
+      const d = await service.check(1, Feature.EPREUVE_VIEW, RoleType.ETUDIANT);
+      expect(d).toMatchObject({ allowed: false, reason: 'PROFIL_INCOMPLET', quota: { used: 35, limit: 95 } });
+    });
+
+    it('PRIME sur l’abonnement — un abonné au profil incomplet est refusé', async () => {
+      profilRefuse();
+      abonnements.findOne.mockResolvedValue({ date_fin: new Date(Date.now() + 86400000), plan: { code: 'MENSUEL' } });
+      const d = await service.check(1, Feature.EPREUVE_VIEW, RoleType.ETUDIANT);
+      expect(d.reason).toBe('PROFIL_INCOMPLET');
+    });
+
+    it('ne bloque PAS un administrateur', async () => {
+      profilRefuse();
+      const d = await service.check(9, Feature.CONCOURS_DOWNLOAD, RoleType.ADMIN);
+      expect(d).toMatchObject({ allowed: true, reason: 'ADMIN' });
+      // Inutile même de calculer la complétion pour un admin.
+      expect(profils.estConforme).not.toHaveBeenCalled();
+    });
+
+    it('ne concerne pas AI_STATS — la fonctionnalité n’existe pas encore', async () => {
+      profilRefuse();
+      const d = await service.check(1, Feature.AI_STATS, RoleType.ETUDIANT);
+      expect(d.reason).toBe('SUBSCRIPTION_REQUIRED');
+    });
+
+    it('marque toutes les fonctionnalités concernées dans mes-droits', async () => {
+      profilRefuse();
+      const droits = await service.mesDroits(1, RoleType.ETUDIANT);
+      for (const f of [Feature.EPREUVE_VIEW, Feature.EXAMEN_NAT_VIEW, Feature.KETSIA_AI, Feature.CONCOURS_DOWNLOAD]) {
+        expect(droits[f].reason).toBe('PROFIL_INCOMPLET');
+      }
+    });
+
+    it('laisse passer quand le seuil est inactif', async () => {
+      profils.estConforme.mockResolvedValue({ conforme: true, pourcentage: 35, seuil: 95, actif: false });
+      const d = await service.check(1, Feature.EPREUVE_VIEW, RoleType.ETUDIANT);
+      expect(d.reason).toBe('FREE_QUOTA');
+    });
   });
 
   it('un admin n’est jamais soumis au quota', async () => {

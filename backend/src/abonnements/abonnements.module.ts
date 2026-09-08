@@ -1,6 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Utilisateur } from '../utilisateurs/entities/utilisateur.entity';
+import { UtilisateursModule } from '../utilisateurs/utilisateurs.module';
 import { AbonnementsAdminController } from './abonnements-admin.controller';
 import { AbonnementsController } from './abonnements.controller';
 import { EntitlementInternalController } from './internal/entitlement-internal.controller';
@@ -24,7 +25,7 @@ import { QuotaService } from './quota.service';
  * nationaux en #245, stats IA en #249) doivent connaître.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([PlanAbonnement, Abonnement, AbonnementEvenement, QuotaConsommation, ConfigurationQuota, Utilisateur])],
+  imports: [forwardRef(() => UtilisateursModule), TypeOrmModule.forFeature([PlanAbonnement, Abonnement, AbonnementEvenement, QuotaConsommation, ConfigurationQuota, Utilisateur])],
   controllers: [AbonnementsController, AbonnementsAdminController, EntitlementInternalController],
   providers: [AbonnementsService, PlansService, EntitlementService, QuotaService, ParrainageService, AbonnementRequisGuard],
   exports: [EntitlementService, QuotaService, ParrainageService, AbonnementRequisGuard, AbonnementsService],

@@ -6,6 +6,7 @@ import { RoleType, Utilisateur } from '../utilisateurs/entities/utilisateur.enti
 import { Abonnement, StatutAbonnement } from './entities/abonnement.entity';
 import { FeatureQuota } from './entities/quota-consommation.entity';
 import { QuotaService } from './quota.service';
+import { ProfilCompletionService } from '../utilisateurs/profil-completion.service';
 
 /** Droits que l'application sait arbitrer. #245, #247 et #249 en ajouteront. */
 export enum Feature {
@@ -21,7 +22,9 @@ export type MotifDecision =
   | 'ADMIN'
   | 'FREE_QUOTA'
   | 'QUOTA_EXCEEDED'
-  | 'SUBSCRIPTION_REQUIRED';
+  | 'SUBSCRIPTION_REQUIRED'
+  /** Profil sous le seuil de complétion exigé (#259). */
+  | 'PROFIL_INCOMPLET';
 
 export interface DecisionDroit {
   allowed: boolean;
@@ -46,7 +49,20 @@ export class EntitlementService {
     @InjectRepository(Utilisateur) private readonly utilisateurs: Repository<Utilisateur>,
     private readonly config: ConfigService,
     private readonly quotas: QuotaService,
+    private readonly profils: ProfilCompletionService,
   ) {}
+
+  /**
+   * Fonctionnalités soumises au seuil de complétion du profil (#259).
+   *
+   * `AI_STATS` en est absent : la fonctionnalité n'existe pas encore (#249).
+   */
+  private static readonly PROFIL_REQUIS: Feature[] = [
+    Feature.CONCOURS_DOWNLOAD,
+    Feature.EPREUVE_VIEW,
+    Feature.EXAMEN_NAT_VIEW,
+    Feature.KETSIA_AI,
+  ];
 
   /**
    * Fonctionnalités adossées à un quota gratuit (#245). Les concours n'en ont
@@ -110,6 +126,19 @@ export class EntitlementService {
       return { allowed: true, reason: 'ADMIN' };
     }
 
+    // Le profil se vérifie AVANT l'abonnement : un abonné au profil incomplet
+    // est refusé, ce que demande #259 en rattachant la règle au même dispositif.
+    if (EntitlementService.PROFIL_REQUIS.includes(feature)) {
+      const profil = await this.profils.estConforme(utilisateurId, pays);
+      if (!profil.conforme) {
+        return {
+          allowed: false,
+          reason: 'PROFIL_INCOMPLET',
+          quota: { used: profil.pourcentage, limit: profil.seuil },
+        };
+      }
+    }
+
     const abonnement = await this.abonnementActif(utilisateurId);
     if (abonnement) {
       return {
@@ -152,6 +181,23 @@ export class EntitlementService {
     if (await this.estAdmin(utilisateurId, role)) {
       return features.reduce(
         (acc, f) => ({ ...acc, [f]: { allowed: true, reason: 'ADMIN' as const } }),
+        {} as Record<Feature, DecisionDroit>,
+      );
+    }
+
+    // Même ordre que dans `check()` : le profil prime sur l'abonnement.
+    const profil = await this.profils.estConforme(utilisateurId, pays);
+    if (!profil.conforme) {
+      const refus: DecisionDroit = {
+        allowed: false,
+        reason: 'PROFIL_INCOMPLET',
+        quota: { used: profil.pourcentage, limit: profil.seuil },
+      };
+      return features.reduce(
+        (acc, f) => ({
+          ...acc,
+          [f]: EntitlementService.PROFIL_REQUIS.includes(f) ? { ...refus } : { allowed: false, reason: 'SUBSCRIPTION_REQUIRED' as const },
+        }),
         {} as Record<Feature, DecisionDroit>,
       );
     }

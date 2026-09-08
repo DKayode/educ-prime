@@ -13,6 +13,7 @@ describe('EntitlementService', () => {
   let utilisateurs: any;
   let config: any;
   let quotas: any;
+  let profils: any;
   let service: EntitlementService;
 
   beforeEach(() => {
@@ -29,7 +30,10 @@ describe('EntitlementService', () => {
         KETSIA_AI: { used: 0, limit: 1 },
       }),
     };
-    service = new EntitlementService(abonnements, utilisateurs, config, quotas);
+    profils = {
+      estConforme: jest.fn().mockResolvedValue({ conforme: true, pourcentage: 100, seuil: 95, actif: false }),
+    };
+    service = new EntitlementService(abonnements, utilisateurs, config, quotas, profils);
   });
 
   it('refuse sans abonnement actif', async () => {

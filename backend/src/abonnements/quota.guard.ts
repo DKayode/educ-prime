@@ -1,6 +1,24 @@
 import { ForbiddenException } from '@nestjs/common';
-import { Feature } from './entitlement.service';
+import { DecisionDroit, Feature } from './entitlement.service';
 import { ResultatConsommation } from './quota.service';
+
+/**
+ * Refus pour profil incomplet (#259).
+ *
+ * Distinct du quota : le mobile doit router vers l'écran de profil, pas vers
+ * celui de souscription — s'abonner ne débloquerait rien.
+ */
+export class ProfilIncompletException extends ForbiddenException {
+  constructor(feature: Feature, decision: DecisionDroit) {
+    super({
+      statusCode: 403,
+      error: 'PROFIL_INCOMPLET',
+      message: 'Complétez votre profil pour accéder à cette ressource.',
+      feature,
+      ...(decision.quota ? { quota: decision.quota } : {}),
+    });
+  }
+}
 
 /**
  * Refus par épuisement du quota gratuit, au même format que celui du guard

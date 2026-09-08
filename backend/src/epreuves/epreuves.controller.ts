@@ -13,7 +13,7 @@ import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { ResourceAccessService } from '../resource-access/resource-access.service';
 import { EntitlementService, Feature } from '../abonnements/entitlement.service';
 import { QuotaService } from '../abonnements/quota.service';
-import { QuotaDepasseException } from '../abonnements/quota.guard';
+import { ProfilIncompletException, QuotaDepasseException } from '../abonnements/quota.guard';
 import { FeatureQuota } from '../abonnements/entities/quota-consommation.entity';
 
 @ApiTags('epreuves')
@@ -41,6 +41,19 @@ export class EpreuvesController {
   private async autoriserOuConsommer(req: any, epreuveId: number, pays: string): Promise<void> {
     const utilisateurId = req.user?.utilisateurId;
     const decision = await this.entitlement.check(utilisateurId, Feature.EPREUVE_VIEW, req.user?.role, pays);
+
+    // Profil incomplet : refuser SANS consommer. Décompter une unité à
+    // quelqu'un qui n'a rien pu lire lui ferait perdre son quota pour rien.
+    if (decision.reason === 'PROFIL_INCOMPLET') {
+      if (!this.entitlement.verrouActif) {
+        this.logger.warn(
+          `[verrou éteint] profil incomplet — utilisateur=${utilisateurId} epreuve=${epreuveId} ` +
+            `(${decision.quota?.used}/${decision.quota?.limit} %)`,
+        );
+        return;
+      }
+      throw new ProfilIncompletException(Feature.EPREUVE_VIEW, decision);
+    }
 
     // Rien à décompter : abonné, admin, ou quota désactivé par l'administration.
     // L'absence de `quota` sur une décision autorisée est justement le signal
