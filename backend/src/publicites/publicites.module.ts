@@ -4,9 +4,10 @@ import { PublicitesController } from './publicites.controller';
 import { PublicitesService } from './publicites.service';
 import { Publicite } from './entities/publicite.entity';
 import { FichiersModule } from '../fichiers/fichiers.module';
+import { ResourceAccessModule } from '../resource-access/resource-access.module';
 
 @Module({
-  imports: [
+  imports: [ResourceAccessModule, 
     TypeOrmModule.forFeature([Publicite]),
     FichiersModule,
   ],

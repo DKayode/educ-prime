@@ -11,6 +11,7 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { FilterOpportuniteDto } from './dto/filter-opportunite.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { SetTypeProfilsDto } from '../common/dto/set-type-profils.dto';
+import { JournaliserConsultation } from '../resource-access/journaliser-consultation.decorator';
 
 @ApiTags('opportunites')
 @Controller('opportunites')
@@ -94,6 +95,7 @@ export class OpportunitesController {
 
 
   @UseGuards(JwtAuthGuard)
+  @JournaliserConsultation('opportunite')
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.opportunitesService.findOne(+id);

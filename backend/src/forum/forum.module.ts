@@ -8,9 +8,10 @@ import { LikesPolymorphicModule } from '../likes-polymorphic/likes-polymorphic.m
 
 import { FichiersModule } from '../fichiers/fichiers.module';
 import { TypeProfilsModule } from '../type-profils/type-profils.module';
+import { ResourceAccessModule } from '../resource-access/resource-access.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Forum]), LikesPolymorphicModule, FichiersModule, TypeProfilsModule],
+    imports: [ResourceAccessModule, TypeOrmModule.forFeature([Forum]), LikesPolymorphicModule, FichiersModule, TypeProfilsModule],
     controllers: [ForumController],
     providers: [ForumService],
 })

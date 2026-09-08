@@ -5,9 +5,10 @@ import { EvenementsController } from './evenements.controller';
 import { Evenement } from './entities/evenement.entity';
 import { FichiersModule } from '../fichiers/fichiers.module';
 import { TypeProfilsModule } from '../type-profils/type-profils.module';
+import { ResourceAccessModule } from '../resource-access/resource-access.module';
 
 @Module({
-  imports: [
+  imports: [ResourceAccessModule, 
     TypeOrmModule.forFeature([Evenement]),
     FichiersModule,
     TypeProfilsModule,

@@ -9,6 +9,7 @@ import { ParcourQueryDto } from './dto/parcour-query.dto';
 import { Parcour } from './entities/parcour.entity';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { FichiersService } from 'src/fichiers/fichiers.service';
+import { JournaliserConsultation } from '../resource-access/journaliser-consultation.decorator';
 
 @ApiTags('parcours')
 @Controller('parcours')
@@ -43,6 +44,7 @@ export class ParcoursController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @JournaliserConsultation('parcours')
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un parcours par son ID' })
   @ApiParam({ name: 'id', description: 'ID du parcours' })

@@ -12,6 +12,7 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
 import { FilterEvenementDto } from './dto/filter-evenement.dto';
+import { JournaliserConsultation } from '../resource-access/journaliser-consultation.decorator';
 
 @ApiTags('evenements')
 @Controller('evenements')
@@ -98,6 +99,7 @@ export class EvenementsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @JournaliserConsultation('evenement')
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.evenementsService.findOne(+id);

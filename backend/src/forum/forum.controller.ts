@@ -12,6 +12,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { SetTypeProfilsDto } from '../common/dto/set-type-profils.dto';
+import { JournaliserConsultation } from '../resource-access/journaliser-consultation.decorator';
 
 @ApiTags('Forums')
 @Controller('forums')
@@ -58,6 +59,7 @@ export class ForumController {
         return this.forumService.setTypeProfilIds(id, dto.typeProfilIds);
     }
 
+    @JournaliserConsultation('forum')
     @Get(':id')
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()

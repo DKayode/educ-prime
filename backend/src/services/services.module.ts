@@ -10,9 +10,10 @@ import { Avis } from '../avis/entities/avis.entity';
 import { MailModule } from '../mail/mail.module';
 import { FichiersModule } from '../fichiers/fichiers.module';
 import { TypeProfilsModule } from '../type-profils/type-profils.module';
+import { ResourceAccessModule } from '../resource-access/resource-access.module';
 
 @Module({
-  imports: [
+  imports: [ResourceAccessModule, 
     TypeOrmModule.forFeature([Service, Type, Utilisateur, Prestataire, Avis]),
     MailModule,
     FichiersModule,

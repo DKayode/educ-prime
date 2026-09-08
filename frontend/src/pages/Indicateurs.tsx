@@ -14,6 +14,19 @@ import {
   GraduationCap,
   Zap,
   TrendingUp,
+  Eye,
+  Lightbulb,
+  Briefcase,
+  Wrench,
+  CalendarDays,
+  Route,
+  MessagesSquare,
+  Megaphone,
+  MessageSquare,
+  Heart,
+  Wallet,
+  Repeat,
+  Info,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -30,7 +43,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { kpiService } from "@/lib/services/kpi.service";
+import { kpiService, type KpiResponse, type ModuleAudience } from "@/lib/services/kpi.service";
 
 // ---------- date helpers ----------
 const fmt = (d: Date) => d.toISOString().slice(0, 10);
@@ -196,6 +209,321 @@ function CardSkeletonGrid({ count }: { count: number }) {
         </Card>
       ))}
     </div>
+  );
+}
+
+const ICONE_MODULE: Record<string, LucideIcon> = {
+  opportunite: Lightbulb,
+  offre: Briefcase,
+  service: Wrench,
+  evenement: CalendarDays,
+  parcours: Route,
+  forum: MessagesSquare,
+  publicite: Megaphone,
+};
+
+const dateFr = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : null;
+
+/**
+ * Dit d'où vient un chiffre creux. Sans cette mention, une période antérieure
+ * au journal affiche des zéros qui se lisent comme un effondrement de l'usage
+ * alors que rien n'a jamais été enregistré.
+ */
+function DepuisQuand({ depuis, quoi }: { depuis: string | null; quoi: string }) {
+  return (
+    <p className="flex items-start gap-2 text-xs text-muted-foreground">
+      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      {depuis ? (
+        <span>
+          {quoi} depuis le <strong className="text-foreground">{dateFr(depuis)}</strong>. Une période
+          antérieure affiche 0 par absence d'historique, pas par absence d'usage.
+        </span>
+      ) : (
+        <span>
+          {quoi} n'a encore rien enregistré. Les chiffres se rempliront à mesure que les fiches
+          seront consultées.
+        </span>
+      )}
+    </p>
+  );
+}
+
+function CarteModule({ module, maxVues }: { module: ModuleAudience; maxVues: number }) {
+  const Icone = ICONE_MODULE[module.type] ?? BarChart3;
+  const pct = maxVues > 0 ? Math.round((module.vues / maxVues) * 100) : 0;
+
+  return (
+    <Card className="shadow-sm">
+      <CardContent className="space-y-3 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-lg bg-sky-500/10 p-2 text-sky-600">
+              <Icone className="h-4 w-4" />
+            </div>
+            <p className="text-sm font-medium text-foreground">{module.libelle}</p>
+          </div>
+        </div>
+
+        <div className="flex items-baseline gap-4">
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-card-foreground">{nf(module.vues)}</p>
+            <p className="text-xs text-muted-foreground">consultations</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-card-foreground">
+              {nf(module.utilisateurs)}
+            </p>
+            <p className="text-xs text-muted-foreground">utilisateurs</p>
+          </div>
+        </div>
+
+        <Progress value={pct} className="h-1.5" />
+
+        {module.top.length > 0 && (
+          <div className="space-y-1.5 border-t pt-3">
+            <p className="text-xs font-medium text-muted-foreground">Les plus consultées</p>
+            {module.top.map((t) => (
+              <div key={t.id} className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="truncate text-foreground" title={t.titre}>
+                  {t.titre}
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">
+                  {nf(t.vues)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SectionsModules({ data }: { data: KpiResponse }) {
+  const maxVues = Math.max(1, ...data.audience.modules.map((m) => m.vues));
+  const publiesParType = new Map(data.contenu.map((c) => [c.type, c]));
+
+  return (
+    <>
+      {/* Section — Audience par module */}
+      <section className="space-y-4">
+        <SectionHeader
+          icon={Eye}
+          title="Audience par module"
+          description="Ce que les utilisateurs sont allés consulter, hors ressources académiques"
+          accent="sky"
+        />
+        <DepuisQuand
+          depuis={data.journaux.audience_modules_depuis}
+          quoi="Le suivi des consultations de fiches"
+        />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <HeroTile
+            label="Consultations"
+            value={data.audience.total_vues}
+            icon={Eye}
+            accent="sky"
+            sub="toutes fiches confondues"
+          />
+          <HeroTile
+            label="Utilisateurs concernés"
+            value={data.audience.utilisateurs_distincts}
+            icon={Users}
+            accent="primary"
+            sub="distincts, sans double compte"
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {data.audience.modules.map((m) => (
+            <CarteModule key={m.type} module={m} maxVues={maxVues} />
+          ))}
+        </div>
+      </section>
+
+      {/* Section — Offre de contenu */}
+      <section className="space-y-4">
+        <SectionHeader
+          icon={BarChart3}
+          title="Offre de contenu"
+          description="Ce qui a été publié sur la période — le dénominateur de l'audience"
+          accent="violet"
+        />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {data.contenu.map((c) => {
+            const audience = data.audience.modules.find((m) => m.type === c.type);
+            return (
+              <StatCard
+                key={c.type}
+                label={c.libelle}
+                value={c.publies}
+                icon={ICONE_MODULE[c.type] ?? BarChart3}
+                accent="violet"
+                base={c.total}
+                baseLabel={`sur ${nf(c.total)} au total${
+                  audience ? ` · ${nf(audience.vues)} vues` : ""
+                }`}
+              />
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Section — Communauté */}
+      <section className="space-y-4">
+        <SectionHeader
+          icon={MessagesSquare}
+          title="Communauté"
+          description="Forums, commentaires et likes sur la période"
+          accent="emerald"
+        />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Forums ouverts" value={data.communaute.forums_ouverts} icon={MessagesSquare} accent="emerald" />
+          <StatCard label="Commentaires postés" value={data.communaute.commentaires} icon={MessageSquare} accent="emerald" />
+          <StatCard label="Commentateurs distincts" value={data.communaute.commentateurs} icon={Users} accent="primary" />
+          <StatCard label="Likes" value={data.communaute.likes} icon={Heart} accent="rose" />
+          <StatCard label="Utilisateurs ayant liké" value={data.communaute.likeurs} icon={Users} accent="rose" />
+        </div>
+      </section>
+
+      {/* Section — JobKia */}
+      <section className="space-y-4">
+        <SectionHeader
+          icon={Briefcase}
+          title="JobKia"
+          description="Le côté offre de la place de marché — inscrits et publications sur la période"
+          accent="amber"
+        />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Prestataires inscrits"
+            value={data.jobkia.prestataires_inscrits}
+            icon={UserCheck}
+            accent="amber"
+            base={data.jobkia.prestataires_total}
+            baseLabel={`sur ${nf(data.jobkia.prestataires_total)} au total`}
+          />
+          <StatCard
+            label="Recruteurs inscrits"
+            value={data.jobkia.recruteurs_inscrits}
+            icon={UserCircle}
+            accent="amber"
+            base={data.jobkia.recruteurs_total}
+            baseLabel={`sur ${nf(data.jobkia.recruteurs_total)} au total`}
+          />
+          <StatCard label="Services publiés" value={data.jobkia.services_publies} icon={Wrench} accent="sky" />
+          <StatCard label="Offres publiées" value={data.jobkia.offres_publiees} icon={Briefcase} accent="sky" />
+          <StatCard label="Avis déposés" value={data.jobkia.avis_deposes} icon={MessageSquare} accent="violet" />
+        </div>
+      </section>
+
+      {/* Section — Croissance */}
+      <section className="space-y-4">
+        <SectionHeader
+          icon={TrendingUp}
+          title="Croissance"
+          description="Activation, fidélité et monétisation — les chiffres qu'un investisseur regarde"
+          accent="primary"
+        />
+        <DepuisQuand
+          depuis={data.journaux.connexions_depuis}
+          quoi="Le journal des connexions, qui porte l'activation et la rétention,"
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Activation"
+            value={data.croissance.activation.actives}
+            icon={Zap}
+            accent="emerald"
+            base={data.croissance.activation.cohorte}
+            baseLabel={`des ${nf(data.croissance.activation.cohorte)} inscrits se sont connectés`}
+          />
+          <StatCard label="Utilisateurs actifs (7 j)" value={data.croissance.assiduite.wau} icon={Activity} accent="amber" />
+          <StatCard label="Utilisateurs actifs (30 j)" value={data.croissance.assiduite.mau} icon={Activity} accent="amber" />
+          <StatCard
+            label="Portefeuilles ouverts"
+            value={data.croissance.monetisation.portefeuilles}
+            icon={Wallet}
+            accent="violet"
+          />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="shadow-sm">
+            <CardContent className="space-y-3 p-5">
+              <p className="text-sm font-medium text-muted-foreground">Rétention après inscription</p>
+              <div className="flex gap-6">
+                {[
+                  { label: "à 7 jours", value: data.croissance.retention.j7 },
+                  { label: "à 30 jours", value: data.croissance.retention.j30 },
+                ].map((r) => (
+                  <div key={r.label}>
+                    <p className="text-2xl font-bold tabular-nums text-card-foreground">{r.value}%</p>
+                    <p className="text-xs text-muted-foreground">{r.label}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardContent className="space-y-3 p-5">
+              <p className="text-sm font-medium text-muted-foreground">Assiduité</p>
+              <p className="text-2xl font-bold tabular-nums text-card-foreground">
+                {data.croissance.assiduite.collage}%
+              </p>
+              <p className="text-xs text-muted-foreground">
+                des actifs du mois reviennent dans la semaine
+              </p>
+              <Progress value={data.croissance.assiduite.collage} className="h-1.5" />
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardContent className="space-y-3 p-5">
+              <p className="text-sm font-medium text-muted-foreground">Complétion moyenne du profil</p>
+              <p className="text-2xl font-bold tabular-nums text-card-foreground">
+                {data.croissance.profil.completion_moyenne}%
+              </p>
+              <p className="text-xs text-muted-foreground">
+                sur {nf(data.croissance.profil.comptes)} comptes actifs
+              </p>
+              <Progress value={data.croissance.profil.completion_moyenne} className="h-1.5" />
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardContent className="space-y-3 p-5">
+              <p className="text-sm font-medium text-muted-foreground">Abonnements</p>
+              <p className="text-2xl font-bold tabular-nums text-card-foreground">
+                {nf(data.croissance.monetisation.abonnements_actifs)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                actifs · {nf(data.croissance.monetisation.abonnements_souscrits)} souscrits sur la
+                période
+              </p>
+              {data.croissance.monetisation.abonnements_actifs === 0 && (
+                <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  La souscription est livrée désactivée : ce zéro est un état, pas un échec
+                  commercial.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Transactions de portefeuille"
+            value={data.croissance.monetisation.transactions}
+            icon={Repeat}
+            accent="emerald"
+          />
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -439,6 +767,8 @@ export default function Indicateurs() {
               </CardContent>
             </Card>
           </section>
+
+          <SectionsModules data={data} />
         </div>
       ) : null}
     </div>
