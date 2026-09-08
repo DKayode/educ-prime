@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -716,6 +716,21 @@ export default function Indicateurs() {
   const onglet = ONGLETS.some((o) => o.cle === ongletDemande)
     ? (ongletDemande as string)
     : ONGLETS[0].cle;
+
+  // On inscrit l'onglet par défaut dans l'URL dès l'arrivée. Sans ça, un accès
+  // à /indicateurs n'active aucune entrée du menu latéral, alors que le
+  // contenu affiché est bien celui de la première section.
+  useEffect(() => {
+    if (ongletDemande !== onglet) {
+      setParams(
+        (p) => {
+          p.set("section", onglet);
+          return p;
+        },
+        { replace: true },
+      );
+    }
+  }, [ongletDemande, onglet, setParams]);
 
   const country = localStorage.getItem("country") || "benin";
   const countryLabel = country.charAt(0).toUpperCase() + country.slice(1);

@@ -48,6 +48,9 @@ import {
   HandCoins,
   Trophy,
   type LucideIcon,
+  Activity,
+  Eye,
+  TrendingUp,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { NavLink } from "@/components/NavLink";
@@ -209,7 +212,21 @@ const navTree: NavItem[] = [
     icon: Users,
     children: [
       { title: "Utilisateurs", icon: User, url: "/users" },
-      { title: "Indicateurs", icon: BarChart3, url: "/indicateurs" },
+      {
+        // Les six domaines d'indicateurs. Chaque entrée ouvre directement son
+        // onglet ; sans elles, sept sections sur huit restaient invisibles
+        // depuis le menu.
+        title: "Indicateurs",
+        icon: BarChart3,
+        children: [
+          { title: "Population", icon: Users, url: "/indicateurs?section=population" },
+          { title: "Engagement", icon: Activity, url: "/indicateurs?section=engagement" },
+          { title: "Modules", icon: Eye, url: "/indicateurs?section=modules" },
+          { title: "Communauté", icon: MessagesSquare, url: "/indicateurs?section=communaute" },
+          { title: "JobKia", icon: Briefcase, url: "/indicateurs?section=jobkia" },
+          { title: "Croissance", icon: TrendingUp, url: "/indicateurs?section=croissance" },
+        ],
+      },
       { title: "Parrainage", icon: UserPlus, url: "/parrainages" },
       { title: "Appareils partagés", icon: Smartphone, url: "/appareils-partages" },
       {
@@ -246,10 +263,22 @@ const navTree: NavItem[] = [
 const collectUrls = (item: NavItem): string[] =>
   item.children ? item.children.flatMap(collectUrls) : item.url ? [item.url] : [];
 
-const containsPath = (item: NavItem, path: string) =>
-  collectUrls(item).includes(path);
+/**
+ * Un lien est actif quand son chemin correspond. Les entrées qui portent une
+ * ancre de section — `/indicateurs?section=modules` — se comparent en revanche
+ * sur l'URL entière : sans quoi les six sous-sections des Indicateurs
+ * paraîtraient actives toutes en même temps.
+ */
+const estActif = (url: string | undefined, urlCourante: string) => {
+  if (!url) return false;
+  const [chemin] = urlCourante.split("?");
+  return url.includes("?") ? url === urlCourante : url === chemin;
+};
 
-function SubLeaf({ item, currentPath }: { item: NavItem; currentPath: string }) {
+const containsPath = (item: NavItem, urlCourante: string) =>
+  collectUrls(item).some((url) => estActif(url, urlCourante));
+
+function SubLeaf({ item, currentUrl }: { item: NavItem; currentUrl: string }) {
   if (!item.url) {
     return (
       <SidebarMenuSubItem>
@@ -268,7 +297,7 @@ function SubLeaf({ item, currentPath }: { item: NavItem; currentPath: string }) 
 
   return (
     <SidebarMenuSubItem>
-      <SidebarMenuSubButton asChild isActive={currentPath === item.url}>
+      <SidebarMenuSubButton asChild isActive={estActif(item.url, currentUrl)}>
         <NavLink to={item.url} end>
           <item.icon className="h-3.5 w-3.5" />
           <span>{item.title}</span>
@@ -284,8 +313,8 @@ function SubLeaf({ item, currentPath }: { item: NavItem; currentPath: string }) 
 }
 
 // Second-level collapsible group (e.g. Concours), rendered inside a SidebarMenuSub.
-function SubGroup({ item, currentPath }: { item: NavItem; currentPath: string }) {
-  const hasActive = useMemo(() => containsPath(item, currentPath), [item, currentPath]);
+function SubGroup({ item, currentUrl }: { item: NavItem; currentUrl: string }) {
+  const hasActive = useMemo(() => containsPath(item, currentUrl), [item, currentUrl]);
   const [open, setOpen] = useState(hasActive);
   useEffect(() => {
     if (hasActive) setOpen(true);
@@ -313,7 +342,7 @@ function SubGroup({ item, currentPath }: { item: NavItem; currentPath: string })
         <CollapsibleContent>
           <SidebarMenuSub>
             {item.children?.map((child) => (
-              <SubLeaf key={child.title} item={child} currentPath={currentPath} />
+              <SubLeaf key={child.title} item={child} currentUrl={currentUrl} />
             ))}
           </SidebarMenuSub>
         </CollapsibleContent>
@@ -323,8 +352,8 @@ function SubGroup({ item, currentPath }: { item: NavItem; currentPath: string })
 }
 
 // Top-level collapsible group.
-function TopGroup({ item, currentPath }: { item: NavItem; currentPath: string }) {
-  const hasActive = useMemo(() => containsPath(item, currentPath), [item, currentPath]);
+function TopGroup({ item, currentUrl }: { item: NavItem; currentUrl: string }) {
+  const hasActive = useMemo(() => containsPath(item, currentUrl), [item, currentUrl]);
   const [open, setOpen] = useState(hasActive);
   useEffect(() => {
     if (hasActive) setOpen(true);
@@ -351,9 +380,9 @@ function TopGroup({ item, currentPath }: { item: NavItem; currentPath: string })
           <SidebarMenuSub>
             {item.children?.map((child) =>
               child.children ? (
-                <SubGroup key={child.title} item={child} currentPath={currentPath} />
+                <SubGroup key={child.title} item={child} currentUrl={currentUrl} />
               ) : (
-                <SubLeaf key={child.title} item={child} currentPath={currentPath} />
+                <SubLeaf key={child.title} item={child} currentUrl={currentUrl} />
               ),
             )}
           </SidebarMenuSub>
@@ -366,7 +395,9 @@ function TopGroup({ item, currentPath }: { item: NavItem; currentPath: string })
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
-  const currentPath = location.pathname;
+  // Chemin ET paramètres : les sous-sections des Indicateurs ne se
+  // distinguent que par leur `?section=`.
+  const currentUrl = location.pathname + location.search;
   const { data: app } = useApp();
 
   const brandName = app?.name ?? "Admin Panel";
@@ -404,12 +435,12 @@ export function AppSidebar() {
             <SidebarMenu>
               {navTree.map((item) =>
                 item.children ? (
-                  <TopGroup key={item.title} item={item} currentPath={currentPath} />
+                  <TopGroup key={item.title} item={item} currentUrl={currentUrl} />
                 ) : (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       asChild
-                      isActive={currentPath === item.url}
+                      isActive={estActif(item.url, currentUrl)}
                       tooltip={item.title}
                     >
                       <NavLink
