@@ -8,9 +8,10 @@ import { FichiersModule } from 'src/fichiers/fichiers.module';
 import { Favori } from 'src/favoris/entities/favoris.entity';
 import { Like } from 'src/likes/entities/like.entity';
 import { Commentaire } from 'src/commentaires/entities/commentaire.entity';
+import { ResourceAccessModule } from '../resource-access/resource-access.module';
 
 @Module({
-  imports: [
+  imports: [ResourceAccessModule, 
     TypeOrmModule.forFeature([Parcour, Commentaire, Like, Favori]),
     FichiersModule,
   ],

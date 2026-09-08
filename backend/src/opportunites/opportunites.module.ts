@@ -5,9 +5,10 @@ import { OpportunitesController } from './opportunites.controller';
 import { Opportunite } from './entities/opportunite.entity';
 import { FichiersModule } from '../fichiers/fichiers.module';
 import { TypeProfilsModule } from '../type-profils/type-profils.module';
+import { ResourceAccessModule } from '../resource-access/resource-access.module';
 
 @Module({
-  imports: [
+  imports: [ResourceAccessModule, 
     TypeOrmModule.forFeature([Opportunite]),
     FichiersModule,
     TypeProfilsModule,

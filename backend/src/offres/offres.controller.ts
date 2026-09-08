@@ -10,6 +10,7 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { TypeContratEnum } from '../common/enums/type-contrat.enum';
 import { SetTypeProfilsDto } from '../common/dto/set-type-profils.dto';
+import { JournaliserConsultation } from '../resource-access/journaliser-consultation.decorator';
 
 @ApiTags('offres')
 @Controller('offres')
@@ -107,6 +108,7 @@ export class OffresController {
         return this.offresService.setTypeProfilIds(id, dto.typeProfilIds);
     }
 
+    @JournaliserConsultation('offre')
     @Get(':id')
     @ApiOperation({ summary: 'Récupérer une offre par son ID' })
     findOne(@Param('id', ParseIntPipe) id: number) {

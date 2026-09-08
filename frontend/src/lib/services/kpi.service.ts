@@ -30,6 +30,58 @@ export interface KpiResponse {
       mois: number;
     };
   };
+  // ── #260 — suivi des autres modules ──────────────────────────────────────
+  audience: {
+    modules: ModuleAudience[];
+    total_vues: number;
+    /** Jamais la somme des `utilisateurs` par module : qui visite deux modules
+     *  n'est compté qu'une fois. */
+    utilisateurs_distincts: number;
+  };
+  contenu: { type: string; libelle: string; publies: number; total: number }[];
+  communaute: {
+    forums_ouverts: number;
+    commentaires: number;
+    commentateurs: number;
+    likes: number;
+    likeurs: number;
+  };
+  jobkia: {
+    prestataires_inscrits: number;
+    prestataires_total: number;
+    recruteurs_inscrits: number;
+    recruteurs_total: number;
+    services_publies: number;
+    offres_publiees: number;
+    avis_deposes: number;
+  };
+  croissance: {
+    activation: { cohorte: number; actives: number; taux: number };
+    retention: { j7: number; j30: number };
+    assiduite: { wau: number; mau: number; collage: number };
+    profil: { completion_moyenne: number; comptes: number };
+    monetisation: {
+      abonnements_actifs: number;
+      abonnements_souscrits: number;
+      portefeuilles: number;
+      transactions: number;
+    };
+  };
+  /** Depuis quand chaque journal existe. Une période antérieure lit 0 par
+   *  absence d'historique, pas par absence d'usage. */
+  journaux: {
+    ressources_depuis: string | null;
+    connexions_depuis: string | null;
+    audience_modules_depuis: string | null;
+  };
+}
+
+export interface ModuleAudience {
+  type: string;
+  libelle: string;
+  vues: number;
+  utilisateurs: number;
+  top: { id: number; titre: string; vues: number; utilisateurs: number }[];
 }
 
 export const kpiService = {

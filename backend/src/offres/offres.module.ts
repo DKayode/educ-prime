@@ -8,9 +8,10 @@ import { Competence } from '../competences/entities/competence.entity';
 import { FichiersModule } from '../fichiers/fichiers.module';
 import { TypeProfilsModule } from '../type-profils/type-profils.module';
 import { MailModule } from '../mail/mail.module';
+import { ResourceAccessModule } from '../resource-access/resource-access.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Offre, Type, Competence]), FichiersModule, MailModule, TypeProfilsModule],
+  imports: [ResourceAccessModule, TypeOrmModule.forFeature([Offre, Type, Competence]), FichiersModule, MailModule, TypeProfilsModule],
   providers: [OffresService],
   controllers: [OffresController]
 })

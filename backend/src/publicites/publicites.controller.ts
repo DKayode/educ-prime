@@ -11,6 +11,7 @@ import { RoleType } from '../utilisateurs/entities/utilisateur.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FilterPubliciteDto } from './dto/filter-publicite.dto';
 import { FichiersService } from '../fichiers/fichiers.service';
+import { JournaliserConsultation } from '../resource-access/journaliser-consultation.decorator';
 
 @ApiTags('publicites')
 @Controller('publicites')
@@ -87,6 +88,7 @@ export class PublicitesController {
     }
 
     @UseGuards(JwtAuthGuard)
+    @JournaliserConsultation('publicite')
     @Get(':id')
     @ApiOperation({ summary: 'Récupérer une publicité', description: 'Renvoie les détails de la publicité (y compris lien_inscription le cas échéant).' })
     @ApiResponse({ status: 200, description: 'Détails de la publicité.' })

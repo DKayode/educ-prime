@@ -11,6 +11,7 @@ import { ServiceStatusEnum } from '../common/enums/service-status.enum';
 import { TypeContratEnum } from '../common/enums/type-contrat.enum';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
 import { SetTypeProfilsDto } from '../common/dto/set-type-profils.dto';
+import { JournaliserConsultation } from '../resource-access/journaliser-consultation.decorator';
 
 @ApiTags('services')
 @Controller('services')
@@ -125,6 +126,7 @@ export class ServicesController {
         return this.servicesService.updateStatus(id, updateStatusDto.status);
     }
 
+    @JournaliserConsultation('service')
     @Get(':id')
     @ApiOperation({ summary: 'Récupérer un service par id' })
     findOne(@Param('id', ParseIntPipe) id: number) {
