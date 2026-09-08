@@ -14,11 +14,15 @@ import { RoleType } from './entities/utilisateur.entity';
 import { OwnerOrAdminGuard } from '../auth/guards/owner-or-admin.guard';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { CurrentCountry } from '../common/decorators/current-country.decorator';
+import { ProfilCompletionService } from './profil-completion.service';
 
 @ApiTags('utilisateurs')
 @Controller('utilisateurs')
 export class UtilisateursController {
-  constructor(private readonly utilisateursService: UtilisateursService) { }
+  constructor(
+    private readonly utilisateursService: UtilisateursService,
+    private readonly profilCompletion: ProfilCompletionService,
+  ) { }
 
   @Post('inscription')
   async inscription(@CurrentCountry() pays: string, @Body() inscriptionDto: InscriptionDto) {
@@ -48,6 +52,18 @@ export class UtilisateursController {
   @ApiOperation({ summary: 'Comptes partageant un même token FCM (appareils partagés)' })
   async sharedDevices(@CurrentCountry() pays: string, @Query() filterDto: FilterUtilisateurDto) {
     return this.utilisateursService.findSharedDevices(pays, filterDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('profil/completion')
+  @ApiOperation({
+    summary: 'Pourcentage de complétion du profil, et ce qu’il reste à remplir',
+    description:
+      'La liste `manquants` est l’essentiel : un pourcentage nu ne dit pas à l’utilisateur ' +
+      'quoi faire. `conforme` vaut true tant que le seuil n’est pas activé.',
+  })
+  async completionProfil(@CurrentCountry() pays: string, @Request() req) {
+    return this.profilCompletion.pourUtilisateur(req.user?.utilisateurId, pays);
   }
 
   @UseGuards(JwtAuthGuard)

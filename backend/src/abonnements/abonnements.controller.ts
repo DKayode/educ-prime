@@ -7,7 +7,7 @@ import { AbonnementsService } from './abonnements.service';
 import { ConsommerKetsiaDto } from './dto/consommer-ketsia.dto';
 import { SouscrireDto } from './dto/souscrire.dto';
 import { FeatureQuota } from './entities/quota-consommation.entity';
-import { QuotaDepasseException } from './quota.guard';
+import { ProfilIncompletException, QuotaDepasseException } from './quota.guard';
 import { QuotaService } from './quota.service';
 import { EntitlementService, Feature } from './entitlement.service';
 import { ParrainageService } from './parrainage.service';
@@ -100,6 +100,14 @@ export class AbonnementsController {
   ) {
     const utilisateurId = req.user?.utilisateurId;
     const decision = await this.entitlement.check(utilisateurId, Feature.KETSIA_AI, req.user?.role, pays);
+    // Profil incomplet : refuser sans consommer le lancement gratuit.
+    if (decision.reason === 'PROFIL_INCOMPLET') {
+      if (!this.entitlement.verrouActif) {
+        return { allowed: true, reason: 'PROFIL_INCOMPLET', quota: decision.quota, verrou_actif: false };
+      }
+      throw new ProfilIncompletException(Feature.KETSIA_AI, decision);
+    }
+
     // Aucun plafond applicable (abonné, admin, ou quota désactivé).
     if (decision.allowed && !decision.quota) {
       return { allowed: true, reason: decision.reason };

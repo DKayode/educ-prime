@@ -1,0 +1,202 @@
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { ConfigurationProfil } from './entities/configuration-profil.entity';
+import { Utilisateur } from './entities/utilisateur.entity';
+
+/**
+ * Champs qui comptent dans la complétion, et leur libellé pour l'utilisateur.
+ *
+ * `situation_handicap` est ABSENT à dessein : sa colonne porte `DEFAULT false`,
+ * elle n'est donc jamais vide. La compter donnerait à tout le monde des points
+ * gratuits — un pourcentage qui monte sans que l'utilisateur ait rien fait ne
+ * mesure pas la complétion.
+ */
+export const CHAMPS_PROFIL: { champ: string; libelle: string }[] = [
+  { champ: 'nom', libelle: 'Nom' },
+  { champ: 'prenom', libelle: 'Prénom' },
+  { champ: 'email', libelle: 'Adresse email' },
+  { champ: 'sexe', libelle: 'Sexe' },
+  { champ: 'pseudo', libelle: 'Pseudo' },
+  { champ: 'telephone', libelle: 'Numéro de téléphone' },
+  { champ: 'photo', libelle: 'Photo de profil' },
+  { champ: 'age_group', libelle: 'Tranche d’âge' },
+  { champ: 'zone_residence', libelle: 'Zone de résidence' },
+  { champ: 'departement_id', libelle: 'Département' },
+  { champ: 'ville_id', libelle: 'Ville' },
+  { champ: 'etablissement_id', libelle: 'Établissement' },
+  { champ: 'filiere_id', libelle: 'Filière' },
+  { champ: 'niveau_etude_id', libelle: 'Niveau d’étude' },
+  { champ: 'type_profil_id', libelle: 'Type de profil' },
+  { champ: 'email_verifie', libelle: 'Email vérifié' },
+];
+
+export interface Completion {
+  pourcentage: number;
+  champs_total: number;
+  champs_remplis: number;
+  seuil_requis: number;
+  seuil_actif: boolean;
+  /** `true` quand le seuil est inactif : le client n'a pas à connaître la règle. */
+  conforme: boolean;
+  manquants: { champ: string; libelle: string }[];
+}
+
+@Injectable()
+export class ProfilCompletionService {
+  private readonly logger = new Logger(ProfilCompletionService.name);
+
+  constructor(
+    @InjectRepository(Utilisateur) private readonly utilisateurs: Repository<Utilisateur>,
+    @InjectRepository(ConfigurationProfil) private readonly configurations: Repository<ConfigurationProfil>,
+    @InjectDataSource() private readonly dataSource: DataSource,
+  ) {}
+
+  async reglage(pays = 'benin') {
+    const config = await this.configurations.findOne({ where: { pays } });
+    return {
+      seuil: config?.seuil_completion ?? 95,
+      estActif: config?.est_actif ?? false,
+      champsExclus: config?.champs_exclus ?? [],
+      uuid: config?.uuid,
+    };
+  }
+
+  async reglages(pays = 'benin') {
+    const r = await this.reglage(pays);
+    return {
+      uuid: r.uuid,
+      pays,
+      seuil_completion: r.seuil,
+      est_actif: r.estActif,
+      champs_exclus: r.champsExclus,
+      champs_disponibles: CHAMPS_PROFIL,
+    };
+  }
+
+  async modifierReglage(
+    pays: string,
+    champs: { seuil_completion?: number; est_actif?: boolean; champs_exclus?: string[] },
+  ) {
+    const config = await this.configurations.findOne({ where: { pays } });
+    if (!config) throw new NotFoundException('Configuration de profil introuvable pour ce pays');
+    Object.assign(config, {
+      ...(champs.seuil_completion !== undefined ? { seuil_completion: champs.seuil_completion } : {}),
+      ...(champs.est_actif !== undefined ? { est_actif: champs.est_actif } : {}),
+      ...(champs.champs_exclus !== undefined ? { champs_exclus: champs.champs_exclus?.length ? champs.champs_exclus : null } : {}),
+    });
+    await this.configurations.save(config);
+    this.logger.log(`Seuil de complétion ${pays} : ${config.seuil_completion}% actif=${config.est_actif}`);
+    return this.reglages(pays);
+  }
+
+  /** Champs retenus après exclusions. */
+  private champsRetenus(exclus: string[]) {
+    return CHAMPS_PROFIL.filter((c) => !exclus.includes(c.champ));
+  }
+
+  /**
+   * Un champ est rempli s'il porte une valeur exploitable.
+   *
+   * Les chaînes vides comptent pour vides : `profil_photo_path` vaut `''` par
+   * défaut, pas `NULL`, et le traiter comme rempli créditerait une photo que
+   * personne n'a envoyée.
+   */
+  private estRempli(user: any, champ: string): boolean {
+    switch (champ) {
+      case 'photo':
+        return !!(user.profil_photo_path?.trim() || user.photo?.trim());
+      case 'email_verifie':
+        return user.verifier === true;
+      default: {
+        const v = user[champ];
+        return v !== null && v !== undefined && String(v).trim() !== '';
+      }
+    }
+  }
+
+  async pourUtilisateur(utilisateurId: number, pays = 'benin'): Promise<Completion> {
+    const user = await this.utilisateurs.findOne({
+      where: { id: utilisateurId },
+      select: [
+        'id', 'nom', 'prenom', 'email', 'sexe', 'pseudo', 'telephone', 'photo',
+        'profil_photo_path', 'age_group', 'zone_residence', 'departement_id', 'ville_id',
+        'etablissement_id', 'filiere_id', 'niveau_etude_id', 'type_profil_id', 'verifier',
+      ] as any,
+    });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+
+    const { seuil, estActif, champsExclus } = await this.reglage(pays);
+    const champs = this.champsRetenus(champsExclus);
+    const manquants = champs.filter((c) => !this.estRempli(user, c.champ));
+    const remplis = champs.length - manquants.length;
+    const pourcentage = champs.length ? Math.round((remplis * 100) / champs.length) : 100;
+
+    return {
+      pourcentage,
+      champs_total: champs.length,
+      champs_remplis: remplis,
+      seuil_requis: seuil,
+      seuil_actif: estActif,
+      // Seuil inactif = tout le monde est conforme : le client n'a pas à
+      // connaître la règle d'activation pour afficher le bon écran.
+      conforme: !estActif || pourcentage >= seuil,
+      manquants,
+    };
+  }
+
+  /** Version légère pour le contrôle de droits — pas de liste de champs à construire. */
+  async estConforme(utilisateurId: number, pays = 'benin'): Promise<{ conforme: boolean; pourcentage: number; seuil: number; actif: boolean }> {
+    const { seuil, estActif } = await this.reglage(pays);
+    if (!estActif) return { conforme: true, pourcentage: 100, seuil, actif: false };
+    const c = await this.pourUtilisateur(utilisateurId, pays);
+    return { conforme: c.conforme, pourcentage: c.pourcentage, seuil, actif: true };
+  }
+
+  /**
+   * Combien de comptes passeraient à chaque seuil.
+   *
+   * Affiché au moment du réglage : sans ce chiffre, rien n'empêche de fixer
+   * 95 % et de couper le service à des dizaines de milliers de personnes.
+   */
+  async distribution(pays = 'benin') {
+    const { champsExclus } = await this.reglage(pays);
+    const champs = this.champsRetenus(champsExclus);
+
+    const expression = champs
+      .map((c) => {
+        if (c.champ === 'photo') return `(CASE WHEN COALESCE(NULLIF(TRIM(profil_photo_path), ''), NULLIF(TRIM(photo), '')) IS NOT NULL THEN 1 ELSE 0 END)`;
+        if (c.champ === 'email_verifie') return `(CASE WHEN verifier THEN 1 ELSE 0 END)`;
+        if (['departement_id', 'ville_id', 'etablissement_id', 'filiere_id', 'niveau_etude_id', 'type_profil_id', 'sexe', 'age_group'].includes(c.champ))
+          return `(CASE WHEN ${c.champ} IS NOT NULL THEN 1 ELSE 0 END)`;
+        return `(CASE WHEN NULLIF(TRIM(${c.champ}), '') IS NOT NULL THEN 1 ELSE 0 END)`;
+      })
+      .join(' + ');
+
+    const lignes = await this.dataSource.query(
+      `WITH score AS (
+         SELECT ROUND(100.0 * (${expression}) / ${champs.length}) AS pct
+           FROM utilisateurs WHERE pays = $1 AND est_desactive = false
+       )
+       SELECT pct::int AS pourcentage, COUNT(*)::int AS comptes
+         FROM score GROUP BY pct ORDER BY pct`,
+      [pays],
+    );
+
+    const total = lignes.reduce((n: number, l: any) => n + Number(l.comptes), 0);
+    const auMoins = (seuil: number) =>
+      lignes.filter((l: any) => Number(l.pourcentage) >= seuil).reduce((n: number, l: any) => n + Number(l.comptes), 0);
+
+    return {
+      total,
+      champs_comptes: champs.length,
+      repartition: lignes.map((l: any) => ({ pourcentage: Number(l.pourcentage), comptes: Number(l.comptes) })),
+      // Les paliers usuels, pour choisir un seuil en connaissance de cause.
+      passeraient: [50, 60, 70, 80, 90, 95, 100].map((seuil) => ({
+        seuil,
+        comptes: auMoins(seuil),
+        part: total ? Math.round((auMoins(seuil) * 1000) / total) / 10 : 0,
+      })),
+    };
+  }
+}

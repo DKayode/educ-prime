@@ -54,11 +54,20 @@ export class AbonnementRequisGuard implements CanActivate {
   private corpsRefus(feature: Feature, decision: DecisionDroit) {
     return {
       statusCode: 403,
-      error: decision.reason === 'QUOTA_EXCEEDED' ? 'QUOTA_EXCEEDED' : 'SUBSCRIPTION_REQUIRED',
+      // `error` est le contrat machine : le mobile route dessus. Un profil
+      // incomplet mène à l'écran de profil, pas à celui de souscription.
+      error:
+        decision.reason === 'PROFIL_INCOMPLET'
+          ? 'PROFIL_INCOMPLET'
+          : decision.reason === 'QUOTA_EXCEEDED'
+            ? 'QUOTA_EXCEEDED'
+            : 'SUBSCRIPTION_REQUIRED',
       message:
-        decision.reason === 'QUOTA_EXCEEDED'
-          ? 'Vous avez atteint la limite gratuite. Un abonnement est requis pour continuer.'
-          : 'Un abonnement actif est requis pour accéder à cette ressource.',
+        decision.reason === 'PROFIL_INCOMPLET'
+          ? 'Complétez votre profil pour accéder à cette ressource.'
+          : decision.reason === 'QUOTA_EXCEEDED'
+            ? 'Vous avez atteint la limite gratuite. Un abonnement est requis pour continuer.'
+            : 'Un abonnement actif est requis pour accéder à cette ressource.',
       feature,
       ...(decision.quota ? { quota: decision.quota } : {}),
     };

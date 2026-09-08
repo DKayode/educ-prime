@@ -136,6 +136,7 @@ const navTree: NavItem[] = [
       { title: "Abonnements", icon: CreditCard, url: "/admin/abonnements" },
       { title: "Plans", icon: Tag, url: "/admin/abonnements/plans" },
       { title: "Quotas gratuits", icon: Gauge, url: "/admin/abonnements/quotas" },
+      { title: "Complétion du profil", icon: ClipboardCheck, url: "/admin/abonnements/completion-profil" },
       { title: "Commission parrainage", icon: HandCoins, url: "/admin/abonnements/commission" },
       { title: "Classement commissions", icon: Trophy, url: "/admin/abonnements/classement-commissions" },
     ],
