@@ -140,7 +140,6 @@ const App = () => (
                       <Route path="/admin/abonnements/commission" element={<CommissionParrainage />} />
                       <Route path="/admin/abonnements/classement-commissions" element={<ClassementCommissions />} />
                       <Route path="/admin/codes" element={<Codes />} />
-                      <Route path="/admin/codes" element={<Codes />} />
                       <Route path="/admin/abonnements/paiements" element={<ConfigurationPaiements />} />
                       <Route path="/enquetes" element={<EnquetesCampagnes />} />
                       <Route path="/enquetes/nouveau" element={<EnquetesBuilder />} />

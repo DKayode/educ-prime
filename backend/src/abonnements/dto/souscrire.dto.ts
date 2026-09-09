@@ -37,8 +37,8 @@ export class SouscrireDto {
     example: 'RENTREE2026',
     description:
       'Code de parrainage OU de réduction. Le registre détermine son effet : remise sur ' +
-      'le prix, commission au propriétaire, ou les deux. Un code invalide est ignoré sans ' +
-      'erreur.',
+      'le prix, commission au propriétaire, ou les deux. Un code invalide est refusé avant ' +
+      'la création de l’abonnement.',
   })
   @IsOptional()
   @IsString()

@@ -144,7 +144,6 @@ const navTree: NavItem[] = [
       { title: "Commission parrainage", icon: HandCoins, url: "/admin/abonnements/commission" },
       { title: "Classement commissions", icon: Trophy, url: "/admin/abonnements/classement-commissions" },
       { title: "Codes & réductions", icon: Ticket, url: "/admin/codes" },
-      { title: "Codes & réductions", icon: Ticket, url: "/admin/codes" },
       { title: "Paiements entrants", icon: CreditCard, url: "/admin/abonnements/paiements" },
     ],
   },

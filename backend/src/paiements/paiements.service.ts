@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -327,7 +327,12 @@ export class PaiementsService {
   private async configurationActive(pays: string, prestataire?: PrestatairePaiement): Promise<ConfigurationPaiement> {
     const where = prestataire ? { pays, prestataire, est_actif: true } : { pays, est_actif: true };
     const config = await this.configurations.findOne({ where });
-    if (!config) throw new NotFoundException('Configuration de paiement introuvable');
+    if (!config) {
+      throw new ServiceUnavailableException({
+        code: 'PAIEMENT_INDISPONIBLE',
+        message: 'Le paiement en ligne est temporairement indisponible',
+      });
+    }
     return config;
   }
 
