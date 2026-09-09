@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { AbonnementRequisGuard } from './guards/abonnement-requis.guard';
 import { StatutAbonnement } from './entities/abonnement.entity';
 import { TypeEvenementAbonnement } from './entities/abonnement-evenement.entity';
@@ -165,6 +165,7 @@ describe('AbonnementsService', () => {
   let plansService: any;
   let entitlement: any;
   let parrainage: any;
+  let codes: any;
   let service: AbonnementsService;
   const plan = { id: 1, uuid: 'p-1', code: 'MENSUEL', prix: 2000, devise: 'XOF', duree_jours: 30, est_actif: true };
 
@@ -174,6 +175,7 @@ describe('AbonnementsService', () => {
       find: jest.fn().mockResolvedValue([]),
       create: jest.fn((x) => x),
       save: jest.fn(async (x) => ({ id: 7, uuid: 'a-1', ...x })),
+      update: jest.fn().mockResolvedValue({}),
       findAndCount: jest.fn().mockResolvedValue([[], 0]),
     };
     evenements = { create: jest.fn((x) => x), save: jest.fn(async (x) => x), find: jest.fn().mockResolvedValue([]) };
@@ -188,7 +190,25 @@ describe('AbonnementsService', () => {
       resoudreParrain: jest.fn().mockResolvedValue(null),
       verserCommission: jest.fn().mockResolvedValue({ verse: false, motif: 'AUCUN_PARRAIN' }),
     };
-    service = new AbonnementsService(abonnements, evenements, plansService, entitlement, parrainage, {} as any);
+    // Registre de codes neutre : le module codes a son propre spec.
+    codes = {
+      valider: jest.fn().mockResolvedValue({ valide: false, motif: 'INTROUVABLE' }),
+      verrouillerEtValider: jest.fn().mockResolvedValue({ ok: true }),
+      enregistrerUtilisation: jest.fn().mockResolvedValue(undefined),
+      libererPourAbonnement: jest.fn().mockResolvedValue(0),
+    };
+    // Le DataSource n'est utilisé que pour `transaction` : on exécute le
+    // callback en lui passant un manager qui délègue aux mêmes doublures.
+    const dataSource = {
+      transaction: jest.fn(async (cb: any) =>
+        cb({ getRepository: () => abonnements, query: jest.fn().mockResolvedValue([]) }),
+      ),
+    };
+    service = new AbonnementsService(
+      abonnements, evenements, plansService, entitlement, parrainage,
+      dataSource as any,
+      { get: () => codes } as any,
+    );
     jest.spyOn(service, 'findByUuid').mockImplementation(async () => ({ uuid: 'a-1' }) as any);
   });
 
@@ -214,6 +234,28 @@ describe('AbonnementsService', () => {
     await service.souscrire('benin', 3, { plan_uuid: 'p-1' });
     expect(abonnements.save).toHaveBeenCalledTimes(1);
     expect(abonnements.save).toHaveBeenCalledWith(expect.objectContaining({ id: 5 }));
+  });
+
+  it('refuse explicitement un code saisi mais invalide', async () => {
+    await expect(service.souscrire('benin', 3, { plan_uuid: 'p-1', code: 'EXPIRE' }))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(abonnements.save).not.toHaveBeenCalled();
+  });
+
+  it('active directement une remise de 100 % sans paiement', async () => {
+    codes.valider.mockResolvedValue({
+      valide: true,
+      code: { id: 12, code: 'GRATUIT100' },
+      effets: { remise: { montant_remise: 2000, prix_final: 0 } },
+    });
+
+    await service.souscrire('benin', 3, { plan_uuid: 'p-1', code: 'GRATUIT100' });
+
+    expect(abonnements.save).toHaveBeenCalledWith(expect.objectContaining({
+      statut: StatutAbonnement.ACTIF,
+      montant_remise: 2000,
+      offert: true,
+    }));
   });
 
   describe('activation manuelle', () => {

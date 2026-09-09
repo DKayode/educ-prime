@@ -10,6 +10,8 @@ import { SouscrireDto } from './dto/souscrire.dto';
 import { AbonnementEvenement, TypeEvenementAbonnement } from './entities/abonnement-evenement.entity';
 import { Abonnement, StatutAbonnement } from './entities/abonnement.entity';
 import { EntitlementService } from './entitlement.service';
+import { ModuleRef } from '@nestjs/core';
+import { CodeValidationService } from '../codes/code-validation.service';
 import { ParrainageService } from './parrainage.service';
 import { PlansService } from './plans.service';
 
@@ -24,7 +26,16 @@ export class AbonnementsService {
     private readonly entitlement: EntitlementService,
     private readonly parrainage: ParrainageService,
     private readonly dataSource: DataSource,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  /**
+   * Résolution tardive : CodesModule importe AbonnementsModule pour PlansService,
+   * l'inverse ne peut donc pas être une arête du graphe de modules.
+   */
+  private get codes(): CodeValidationService {
+    return this.moduleRef.get(CodeValidationService, { strict: false });
+  }
 
   /**
    * Ouvre un abonnement EN_ATTENTE. Il ne devient ACTIF qu'au paiement (#248)
@@ -40,6 +51,26 @@ export class AbonnementsService {
       throw new ConflictException('Vous avez déjà un abonnement actif');
     }
 
+    const codeSaisi = dto.code ?? dto.code_parrainage;
+    const resultat = codeSaisi
+      ? await this.codes.valider(codeSaisi, utilisateurId, { planId: plan.id, prix: plan.prix, pays })
+      : null;
+    const codeValide = resultat?.valide ? resultat : null;
+
+    if (codeSaisi && !codeValide) {
+      throw new BadRequestException({
+        code: 'CODE_PROMO_INVALIDE',
+        motif: resultat?.motif ?? 'INTROUVABLE',
+        message: "Le code saisi n'est pas valide pour cet abonnement",
+      });
+    }
+
+    const effets = codeValide?.effets ?? {};
+    const remise = effets.remise?.montant_remise ?? 0;
+    const offert = !!effets.abonnement_offert;
+    const gratuit = offert || remise >= Number(plan.prix);
+    const parrainId = offert ? null : effets.commission_pour ?? null;
+
     // Une souscription en attente est réutilisée plutôt que dupliquée : sans
     // cela, chaque passage sur l'écran de paiement laisserait une ligne morte.
     const enAttente = await this.abonnements.findOne({
@@ -49,35 +80,128 @@ export class AbonnementsService {
     if (enAttente) {
       enAttente.plan_id = plan.id;
       enAttente.devise = plan.devise;
-      // Un code saisi au second passage doit être pris en compte.
-      enAttente.parrain_id =
-        enAttente.parrain_id ?? (await this.parrainage.resoudreParrain(utilisateurId, dto.code_parrainage));
-      const rafraichi = await this.abonnements.save(enAttente);
+      // Un code saisi au second passage doit être pris en compte : on libère la
+      // souscription en attente pour repartir d'une résolution propre.
+      const rafraichi = await this.dataSource.transaction(async (manager) => {
+        await this.codes.libererPourAbonnement(enAttente.id, manager);
+
+        let codeRetenu = codeValide?.code ?? null;
+        if (codeRetenu) {
+          const verrou = await this.codes.verrouillerEtValider(manager, codeRetenu.id, utilisateurId);
+          if (!verrou.ok) {
+            throw new ConflictException({
+              code: 'CODE_PROMO_INDISPONIBLE',
+              motif: verrou.motif,
+              message: "Ce code n'est plus disponible. Vérifiez le total avant de réessayer.",
+            });
+          }
+        }
+
+        const retenu = !!codeRetenu;
+        const offertRetenu = retenu && gratuit;
+        const debut = offertRetenu ? new Date() : null;
+        const duree = effets.abonnement_offert?.duree_jours ?? plan.duree_jours;
+        const fin = offertRetenu ? new Date(debut!.getTime() + duree * 24 * 60 * 60 * 1000) : null;
+
+        enAttente.statut = offertRetenu ? StatutAbonnement.ACTIF : StatutAbonnement.EN_ATTENTE;
+        enAttente.date_debut = debut;
+        enAttente.date_fin = fin;
+        enAttente.parrain_id = retenu ? parrainId : null;
+        enAttente.code_id = codeRetenu?.id ?? null;
+        enAttente.montant_remise = retenu ? remise : 0;
+        enAttente.offert = offertRetenu;
+
+        const sauvegarde = await manager.getRepository(Abonnement).save(enAttente);
+        if (codeRetenu) {
+          await this.codes.enregistrerUtilisation(manager, codeRetenu.id, utilisateurId, {
+            abonnementId: sauvegarde.id,
+            montantRemise: enAttente.montant_remise,
+            pays,
+            effets,
+          });
+        }
+        return sauvegarde;
+      });
       return this.findByUuid(rafraichi.uuid);
     }
 
-    // Le parrain est figé maintenant, pas au paiement : entre les deux, la
-    // relation de parrainage pourrait changer et attribuer la commission à
-    // quelqu'un qui n'a rien amené.
-    const parrainId = await this.parrainage.resoudreParrain(utilisateurId, dto.code_parrainage);
+    // Le bénéficiaire est figé maintenant, pas au paiement : entre les deux, le
+    // code pourrait être désactivé ou changer de propriétaire. Un abonnement
+    // offert n'encaisse rien, donc ne verse aucune commission.
 
-    const abonnement = await this.abonnements.save(
-      this.abonnements.create({
-        pays,
-        utilisateur_id: utilisateurId,
-        plan_id: plan.id,
-        statut: StatutAbonnement.EN_ATTENTE,
-        montant_paye: 0,
-        devise: plan.devise,
-        parrain_id: parrainId,
-      }),
-    );
+    const abonnement = await this.dataSource.transaction(async (manager) => {
+      // L'ORDRE COMPTE. Le verrou sur le code se prend AVANT d'insérer
+      // l'abonnement : l'insertion prend un FOR KEY SHARE sur la ligne de
+      // `codes` via la clé étrangère, et l'élever ensuite en FOR UPDATE
+      // provoque un interblocage dès deux acheteurs simultanés — observé sur le
+      // devstack avec 10 requêtes parallèles.
+      let codeRetenu = codeValide?.code ?? null;
+      if (codeRetenu) {
+        const verrou = await this.codes.verrouillerEtValider(manager, codeRetenu.id, utilisateurId);
+        if (!verrou.ok) {
+          throw new ConflictException({
+            code: 'CODE_PROMO_INDISPONIBLE',
+            motif: verrou.motif,
+            message: "Ce code n'est plus disponible. Vérifiez le total avant de réessayer.",
+          });
+        }
+      }
+      const retenu = !!codeRetenu;
+      const remiseRetenue = retenu ? remise : 0;
+      const offertRetenu = retenu && gratuit;
+
+      // Un abonnement offert est ACTIF d'emblée : il n'y a rien à encaisser, et
+      // le laisser EN_ATTENTE obligerait un admin à confirmer un paiement qui
+      // n'aura jamais lieu.
+      const debut = offertRetenu ? new Date() : null;
+      const duree = effets.abonnement_offert?.duree_jours ?? plan.duree_jours;
+      const fin = offertRetenu ? new Date(debut!.getTime() + duree * 24 * 60 * 60 * 1000) : null;
+
+      const cree = await manager.getRepository(Abonnement).save(
+        manager.getRepository(Abonnement).create({
+          pays,
+          utilisateur_id: utilisateurId,
+          plan_id: plan.id,
+          statut: offertRetenu ? StatutAbonnement.ACTIF : StatutAbonnement.EN_ATTENTE,
+          date_debut: debut,
+          date_fin: fin,
+          montant_paye: 0,
+          montant_remise: remiseRetenue,
+          offert: offertRetenu,
+          devise: plan.devise,
+          parrain_id: retenu ? parrainId : null,
+          code_id: codeRetenu?.id ?? null,
+        }),
+      );
+
+      if (codeRetenu) {
+        await this.codes.enregistrerUtilisation(manager, codeRetenu.id, utilisateurId, {
+          abonnementId: cree.id,
+          montantRemise: remiseRetenue,
+          pays,
+          effets,
+        });
+      }
+      return cree;
+    });
 
     await this.journaliser(abonnement.id, TypeEvenementAbonnement.CREE, {
       planCode: plan.code,
       prix: plan.prix,
-      parrainId,
+      parrainId: abonnement.parrain_id,
+      code: abonnement.code_id ? codeValide?.code?.code : null,
+      montantRemise: abonnement.montant_remise,
+      offert: abonnement.offert,
     });
+
+    if (abonnement.offert) {
+      await this.journaliser(abonnement.id, TypeEvenementAbonnement.ACTIVE, {
+        offert: true,
+        code: codeValide?.code?.code,
+        date_fin: abonnement.date_fin,
+      });
+    }
+
     this.logger.log(`Abonnement ${abonnement.uuid} créé (EN_ATTENTE) pour utilisateur ${utilisateurId}`);
     return this.findByUuid(abonnement.uuid);
   }
@@ -150,6 +274,64 @@ export class AbonnementsService {
     return this.findByUuid(uuid);
   }
 
+  async activerApresPaiement(
+    uuid: string,
+    params: { montant: number; reference: string; paiementId: number; prestataire: string },
+  ): Promise<Abonnement> {
+    const abonnement = await this.findByUuid(uuid);
+
+    if (abonnement.statut === StatutAbonnement.ACTIF) {
+      return abonnement;
+    }
+    if ([StatutAbonnement.ANNULE, StatutAbonnement.REMBOURSE].includes(abonnement.statut)) {
+      throw new ConflictException(`Un abonnement ${abonnement.statut} ne peut pas être activé`);
+    }
+
+    const debut = new Date();
+    const fin = new Date(debut.getTime() + abonnement.plan.duree_jours * 24 * 60 * 60 * 1000);
+
+    abonnement.statut = StatutAbonnement.ACTIF;
+    abonnement.date_debut = debut;
+    abonnement.date_fin = fin;
+    abonnement.montant_paye = params.montant;
+    abonnement.paiement_id = params.paiementId;
+    abonnement.metadata = {
+      ...(abonnement.metadata ?? {}),
+      reference_paiement: params.reference,
+      prestataire_paiement: params.prestataire,
+    };
+
+    let sauvegarde: Abonnement;
+    try {
+      sauvegarde = await this.abonnements.save(abonnement);
+    } catch (err) {
+      if (String(err?.code) === '23505') {
+        throw new ConflictException('Cet utilisateur a déjà un abonnement actif');
+      }
+      throw err;
+    }
+
+    await this.journaliser(sauvegarde.id, TypeEvenementAbonnement.PAYE, {
+      montant: params.montant,
+      reference: params.reference,
+      prestataire: params.prestataire,
+    });
+    await this.journaliser(sauvegarde.id, TypeEvenementAbonnement.ACTIVE, {
+      date_debut: debut,
+      date_fin: fin,
+    });
+
+    const commission = await this.parrainage.verserCommission(await this.findByUuid(uuid));
+    if (commission.verse) {
+      await this.journaliser(sauvegarde.id, TypeEvenementAbonnement.COMMISSION_VERSEE, {
+        parrainId: sauvegarde.parrain_id,
+        montantAbonnement: params.montant,
+      });
+    }
+
+    return this.findByUuid(uuid);
+  }
+
   /**
    * Rattrape une commission non versée.
    *
@@ -187,6 +369,9 @@ export class AbonnementsService {
     }
     abonnement.statut = StatutAbonnement.ANNULE;
     const sauvegarde = await this.abonnements.save(abonnement);
+    // Rendre la place : sans cela, les codes d'une campagne limitée partiraient
+    // en paniers abandonnés.
+    await this.codes.libererPourAbonnement(sauvegarde.id);
     await this.journaliser(sauvegarde.id, TypeEvenementAbonnement.ANNULE, { motif: motif ?? null });
     return this.findByUuid(uuid);
   }

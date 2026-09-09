@@ -17,12 +17,31 @@ export class SouscrireDto {
   @ApiPropertyOptional({
     example: 'GZT8NW',
     description:
-      'Le propriétaire du code perçoit la commission de cet abonnement. SANS code, aucune ' +
-      'commission n’est versée — le parrain d’inscription ne suffit pas. Un code inconnu ' +
-      'est ignoré sans erreur.',
+      'Alias historique de `code`. Conservé pour le mobile déjà déployé ; préférez `code`, ' +
+      'qui accepte aussi bien un code de parrainage qu’un code de réduction.',
+    deprecated: true,
   })
   @IsOptional()
   @IsString()
-  @Length(4, 20, { message: 'Le code de parrainage est invalide' })
+  @Length(3, 50, { message: 'Le code de parrainage est invalide' })
   code_parrainage?: string;
+
+  /**
+   * Code unique de l'achat (#247).
+   *
+   * Un SEUL champ pour les trois usages : parrainage, ambassadeur, réduction.
+   * L'utilisateur ne sait pas — et n'a pas à savoir — de quelle nature est le
+   * code qu'on lui a donné ; c'est le registre qui tranche.
+   */
+  @ApiPropertyOptional({
+    example: 'RENTREE2026',
+    description:
+      'Code de parrainage OU de réduction. Le registre détermine son effet : remise sur ' +
+      'le prix, commission au propriétaire, ou les deux. Un code invalide est refusé avant ' +
+      'la création de l’abonnement.',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 50, { message: 'Le code est invalide' })
+  code?: string;
 }
