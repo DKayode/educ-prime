@@ -58,14 +58,17 @@ export class AbonnementsService {
     const codeValide = resultat?.valide ? resultat : null;
 
     if (codeSaisi && !codeValide) {
-      // Refus silencieux : bloquer un paiement pour une faute de frappe sur un
-      // champ facultatif serait absurde. `code_id: null` en dit assez au client.
-      this.logger.log(`Code « ${codeSaisi} » ignoré pour l'utilisateur ${utilisateurId} : ${resultat?.motif}`);
+      throw new BadRequestException({
+        code: 'CODE_PROMO_INVALIDE',
+        motif: resultat?.motif ?? 'INTROUVABLE',
+        message: "Le code saisi n'est pas valide pour cet abonnement",
+      });
     }
 
     const effets = codeValide?.effets ?? {};
     const remise = effets.remise?.montant_remise ?? 0;
     const offert = !!effets.abonnement_offert;
+    const gratuit = offert || remise >= Number(plan.prix);
     const parrainId = offert ? null : effets.commission_pour ?? null;
 
     // Une souscription en attente est réutilisée plutôt que dupliquée : sans
@@ -86,13 +89,16 @@ export class AbonnementsService {
         if (codeRetenu) {
           const verrou = await this.codes.verrouillerEtValider(manager, codeRetenu.id, utilisateurId);
           if (!verrou.ok) {
-            this.logger.warn(`Code ${codeRetenu.code} indisponible : ${verrou.motif}`);
-            codeRetenu = null;
+            throw new ConflictException({
+              code: 'CODE_PROMO_INDISPONIBLE',
+              motif: verrou.motif,
+              message: "Ce code n'est plus disponible. Vérifiez le total avant de réessayer.",
+            });
           }
         }
 
         const retenu = !!codeRetenu;
-        const offertRetenu = retenu && offert;
+        const offertRetenu = retenu && gratuit;
         const debut = offertRetenu ? new Date() : null;
         const duree = effets.abonnement_offert?.duree_jours ?? plan.duree_jours;
         const fin = offertRetenu ? new Date(debut!.getTime() + duree * 24 * 60 * 60 * 1000) : null;
@@ -133,15 +139,16 @@ export class AbonnementsService {
       if (codeRetenu) {
         const verrou = await this.codes.verrouillerEtValider(manager, codeRetenu.id, utilisateurId);
         if (!verrou.ok) {
-          // La place a été prise entre l'aperçu et l'achat : on souscrit sans le
-          // code plutôt que d'échouer un paiement.
-          this.logger.warn(`Code ${codeRetenu.code} indisponible : ${verrou.motif}`);
-          codeRetenu = null;
+          throw new ConflictException({
+            code: 'CODE_PROMO_INDISPONIBLE',
+            motif: verrou.motif,
+            message: "Ce code n'est plus disponible. Vérifiez le total avant de réessayer.",
+          });
         }
       }
       const retenu = !!codeRetenu;
       const remiseRetenue = retenu ? remise : 0;
-      const offertRetenu = retenu && offert;
+      const offertRetenu = retenu && gratuit;
 
       // Un abonnement offert est ACTIF d'emblée : il n'y a rien à encaisser, et
       // le laisser EN_ATTENTE obligerait un admin à confirmer un paiement qui

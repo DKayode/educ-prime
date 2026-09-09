@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { AbonnementRequisGuard } from './guards/abonnement-requis.guard';
 import { StatutAbonnement } from './entities/abonnement.entity';
 import { TypeEvenementAbonnement } from './entities/abonnement-evenement.entity';
@@ -234,6 +234,28 @@ describe('AbonnementsService', () => {
     await service.souscrire('benin', 3, { plan_uuid: 'p-1' });
     expect(abonnements.save).toHaveBeenCalledTimes(1);
     expect(abonnements.save).toHaveBeenCalledWith(expect.objectContaining({ id: 5 }));
+  });
+
+  it('refuse explicitement un code saisi mais invalide', async () => {
+    await expect(service.souscrire('benin', 3, { plan_uuid: 'p-1', code: 'EXPIRE' }))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(abonnements.save).not.toHaveBeenCalled();
+  });
+
+  it('active directement une remise de 100 % sans paiement', async () => {
+    codes.valider.mockResolvedValue({
+      valide: true,
+      code: { id: 12, code: 'GRATUIT100' },
+      effets: { remise: { montant_remise: 2000, prix_final: 0 } },
+    });
+
+    await service.souscrire('benin', 3, { plan_uuid: 'p-1', code: 'GRATUIT100' });
+
+    expect(abonnements.save).toHaveBeenCalledWith(expect.objectContaining({
+      statut: StatutAbonnement.ACTIF,
+      montant_remise: 2000,
+      offert: true,
+    }));
   });
 
   describe('activation manuelle', () => {
